@@ -7,15 +7,21 @@ post-publication clean-room evidence. A section marked `NOT_VERIFIED` has not be
 ## Release identity
 
 - Repository: <https://github.com/thethunderbolt/fullstack-forge-skill>
-- Intended version/tag: `0.1.1` / `v0.1.1`
+- Version/tag: `0.1.1` / `v0.1.1`
 - Baseline `main` inspected before editing: `8c4fe21e78213c8c29ac6de10463d69460ccf890`
-- Release commit: `NOT_VERIFIED` until the verified commit is pushed
-- Linux and Windows CI: `NOT_VERIFIED` until remote workflows complete
-- Release URL: `NOT_VERIFIED` until the immutable tag and GitHub release exist
+- Release commit: `e7b84035615b66537fad9a9d0e57821b30aef62a`
+- Annotated tag object: `76dce46b140840a448b1bd0980b6243627029c19`
+- Linux and Windows CI: `PASS` in
+  [CI run #20](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29655685129)
+- Release workflow: `PASS` in
+  [Release run #3](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29655784324)
+- Release URL: <https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.1>
+- Published: `2026-07-18T18:25:07Z`
 
-GitHub authentication was unavailable at the start of implementation (`gh auth status` reported no
-authenticated host). Publication evidence must be filled from direct GitHub results, not from local
-intent.
+`gh auth status` reported no authenticated GitHub CLI host. Git Credential Manager nevertheless
+provided repository push access: the implementation commits and the new annotated tag were pushed
+directly to the authoritative origin. Publication evidence below comes from the public GitHub API,
+workflow results, downloaded release assets, and the public tag rather than local intent.
 
 ## Baseline
 
@@ -49,11 +55,9 @@ npm audit
 ```
 
 `npm ci --ignore-scripts` installed 91 packages and audited 92 package records with zero
-vulnerabilities. The final Node suite passed all 94 tests with no failures, skips, cancellations, or
-TODOs. The aggregate `npm run check` repeated formatting, ESLint, TypeScript, the complete suite,
-and all repository validators successfully.
-
-The executable tests directly demonstrated:
+vulnerabilities. The final aggregate run passed all 96 tests with no failures, skips, cancellations,
+or TODOs. It repeated formatting, ESLint, TypeScript, the complete suite, and all repository
+validators successfully. The executable tests directly demonstrated:
 
 - compiled-CLI safe-fix dry run, severity filtering, three real writes, complete changed-file
   reporting, and idempotence;
@@ -78,7 +82,7 @@ Status: `PASS` locally. Generation produced 42 command skills and synchronized 5
 all six generated roots. Validation passed for 43 canonical skills, schemas, and interface metadata;
 the platform check confirmed all six ownership manifests. Link validation covered 397 Markdown files
 and 124 references, license validation covered 91 dependencies, branding validated all three assets,
-and the secret scan covered 624 files with zero findings.
+and the final secret scan covered 625 files with zero findings.
 
 Packaging produced exactly nine v0.1.1 archives plus `manifest.json` and `SHA256SUMS.txt`.
 `validate:dist` confirmed version `0.1.1`, nine archives, and 987 entries. A second build compared
@@ -86,46 +90,126 @@ all 11 release-file SHA-256 values byte-for-byte and passed. The packager now re
 manifest's hash-unchanged stale artifacts; nine ignored, reproducible local v0.1.0 ZIPs were removed
 from `dist` before the exact-set check. The public v0.1.0 tag and release were not modified.
 
-The isolated offline package smoke passed with package `fullstack-forge-skill-0.1.1.tgz`, CLI
-version `0.1.1`, ownership records removed after uninstall, Antigravity project `.agents/skills`,
+The isolated packed-package smoke passed with package `fullstack-forge-skill-0.1.1.tgz`, CLI version
+`0.1.1`, ownership records removed after uninstall, Antigravity project `.agents/skills`,
 Antigravity user `.gemini/config/skills`, Gemini project `.gemini/skills`, and zero
-symlinks/reparse-point links.
+symlinks/reparse-point links. The local tarball is installed with scripts disabled; npm is allowed
+to resolve its pinned TypeScript runtime dependency so a clean runner does not depend on a warm
+cache.
 
 Local candidate archive hashes:
 
 ```text
-c41ba951ccc766fd94f97a75a38a0c156f1ebdf40e44f550e7e399474eaa08ea  fullstack-forge-all-v0.1.1.zip
-e176132659d097d38fb3fb0188575052c90c423c638fea8f5c08b09c0bf8c8a3  fullstack-forge-antigravity-v0.1.1.zip
-d545ac82031d04122ac6c3fe1b23fd1d87896cd2d7dbd8b18374a4bbf7318522  fullstack-forge-claude-v0.1.1.zip
-e176132659d097d38fb3fb0188575052c90c423c638fea8f5c08b09c0bf8c8a3  fullstack-forge-codex-v0.1.1.zip
-1b3006ddcc429a8dd012b6351ca2e83f1e60e827d0f9f8dafcf5234d39bce27d  fullstack-forge-cursor-v0.1.1.zip
-0d01ea88ceb45024c155dd567b8e8392824541ca1925b1fe1ba847d71fe75a25  fullstack-forge-gemini-v0.1.1.zip
-e176132659d097d38fb3fb0188575052c90c423c638fea8f5c08b09c0bf8c8a3  fullstack-forge-generic-v0.1.1.zip
-80c108a9ea62af4dec18f326dd4ab767f0d7e260a85efd42e81d351b39716f09  fullstack-forge-github-v0.1.1.zip
-722c37cfba1fa11540af66c9804e169ca6b2a84c9675f602e4886a768f1cb353  fullstack-forge-windsurf-v0.1.1.zip
+c7a4ef61c0f3151f32d5fd19637d192f0d4f8e61002aac231a8c0a100885359b  fullstack-forge-all-v0.1.1.zip
+ae0279f7b936fb675bd7eb1259e748c9d4189e36a5e34d51fd0d019cebfff462  fullstack-forge-antigravity-v0.1.1.zip
+1c2ced6c0aac6292e5b5472be0e537a1434e44f9cdfbc9532823c14cc3cf9cc0  fullstack-forge-claude-v0.1.1.zip
+ae0279f7b936fb675bd7eb1259e748c9d4189e36a5e34d51fd0d019cebfff462  fullstack-forge-codex-v0.1.1.zip
+01cbbff39c29b33cac8fa4d4854531fb1acef7914c65f6c04ea2b0f142aa2402  fullstack-forge-cursor-v0.1.1.zip
+b670fd55f6b7a13f9af3a5fb8536a397bac2fb8033c8f710d1b386096d82aa6a  fullstack-forge-gemini-v0.1.1.zip
+ae0279f7b936fb675bd7eb1259e748c9d4189e36a5e34d51fd0d019cebfff462  fullstack-forge-generic-v0.1.1.zip
+0aaf40082ec586dfe04625f616e5239e1991b65af0af677f17e91cd79cd4822c  fullstack-forge-github-v0.1.1.zip
+44bdf5a59e275ab07f9c6df316c9f8713312a7a9ecdc86d6699902a6305a5d0e  fullstack-forge-windsurf-v0.1.1.zip
 ```
 
 ## GitHub publication and CI
 
-Status: `NOT_VERIFIED`. Fill this section only after authenticating, proving repository push access,
-pushing the verified commit, observing both Linux and Windows CI, creating `v0.1.1`, and verifying
-the release workflow. Preserve the public `v0.1.0` tag unchanged.
+Status: `PASS` for the release commit and tag. The first two post-push CI attempts remain visible as
+failures and were not reclassified:
+
+- [CI run #16](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29655340566)
+  failed on both platforms because the smoke install incorrectly required a warm offline npm cache.
+- [CI run #19](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29655568510)
+  passed on Windows but failed on Ubuntu because its no-link assertion traversed npm's own
+  `node_modules/.bin` symlinks outside the Forge-managed install root.
+- [CI run #20](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29655685129)
+  passed both `Verify (ubuntu-latest)` job `88109481979` and `Verify (windows-latest)` job
+  `88109481972` for release commit `e7b84035615b66537fad9a9d0e57821b30aef62a`.
+
+The immutable annotated `v0.1.1` tag resolves to that commit.
+[Release run #3](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29655784324)
+independently passed locked installation, the complete check, dependency audit, packaging,
+packed-artifact smoke, and publication. The existing public `v0.1.0` tag and release were not moved
+or replaced.
 
 ## Release assets
 
-Status: `NOT_VERIFIED`. The published release must contain the expected platform archives,
-`SHA256SUMS.txt`, and `manifest.json`. Each downloaded asset must be hashed independently and then
-validated for safe paths, regular files, fixed metadata, CRCs, required contents, license and notice
-files, exact archive set, and absence of symlinks or reparse points.
+Status: `PASS`. The public release exposed exactly nine platform ZIPs, `SHA256SUMS.txt`, and
+`manifest.json`. All 11 assets downloaded successfully. Independent SHA-256 calculation matched all
+nine checksum records and the GitHub asset digests; the archive hashes are the values recorded
+above. The downloaded manifest reported version `0.1.1` and the same byte counts and hashes.
+
+Running `npm run validate:dist` against only the downloaded files returned exit `0` and validated
+nine archives with 987 entries. Fresh extraction found 43 skills and one master skill in every
+platform archive, 258 skills and six master copies in the all-platform archive, and zero symlinks or
+Windows reparse points in every extracted root.
 
 ## Published clean-room installation
 
-Status: `NOT_VERIFIED`. After publication, use fresh temporary roots and the public tag or
-downloaded assets to verify generic Agent Skills, Codex, Antigravity project and user scope, Gemini
-CLI project and user scope, Claude Code, Cursor, Windsurf, and GitHub Copilot. Run `forge doctor`,
-skill validation, safe and risky fix cases, changed-scope audit,
-security/uploads/database/queries/full audits, ship gates, checksum validation, and archive
-installation without relying on the working copy.
+Status: `PASS` for the supported local boundaries. The public tag was cloned at depth one into a new
+temporary root and resolved to release commit `e7b84035615b66537fad9a9d0e57821b30aef62a`. The clean
+clone remained clean after generation and validation. These setup commands returned exit `0` with
+Node.js `v24.14.1`, npm `11.11.0`, and CLI `0.1.1`:
+
+```text
+git clone --branch v0.1.1 --depth 1 https://github.com/thethunderbolt/fullstack-forge-skill.git <fresh>/source
+npm ci --ignore-scripts --no-audit --no-fund
+npm run build
+node build/cli/src/index.js --version
+npm run validate
+```
+
+Separate empty project roots were used for `forge init <selector> --json` followed by
+`forge doctor --json`. Generic Agent Skills, Codex, Antigravity project, Gemini project, Claude
+Code, Cursor, Windsurf, and GitHub Copilot each returned exit `0`, created an ownership manifest,
+installed the expected master skill, and contained zero reparse points. With an isolated
+`HOME`/`USERPROFILE`, Antigravity user and Gemini user installs and global doctor checks also
+returned exit `0`.
+
+The observed destinations were:
+
+```text
+Generic/Codex project       .agents/skills/
+Antigravity project         .agents/skills/
+Antigravity user            .gemini/config/skills/
+Gemini CLI project          .gemini/skills/
+Gemini CLI user             .gemini/skills/
+Claude Code project         .claude/skills/
+Cursor project              .cursor/skills/
+Windsurf project            .windsurf/skills/
+GitHub Copilot project      .github/skills/
+```
+
+Published-CLI behavior was exercised against fresh fixture copies with these exact outcomes:
+
+- Initial safe-fixture full audit: exit `1`, emitting `FF-ENV-TEMPLATE-001`, `FF-DEPLOY-HEADER-001`,
+  and `FF-FRONTEND-BLANK-001`.
+- `forge all fix --safe --dry-run --json`: exit `0`; three typed operations were reported and all
+  pre-run hashes remained unchanged.
+- `forge all fix --safe --json`: exit `0`; it applied `FF-FIX-ENV-PLACEHOLDER-001`,
+  `FF-FIX-VERCEL-NOSNIFF-001`, and `FF-FIX-BLANK-REL-001` to `.env.example`, `vercel.json`, and
+  `Link.tsx`. Repeating it returned exit `0` with no changed files. A subsequent full audit returned
+  exit `0` with no failed findings.
+- `forge all verify --json`: exit `0`; the header and blank-link findings were directly proved as
+  `PASS`, while credential rotation correctly remained `NOT_VERIFIED`.
+- Risky-fixture audit: exit `1`, emitting object-authorization and upload-policy findings.
+  `forge all fix --safe --json` returned exit `2` / `BLOCKED`, listed all four blocked findings, and
+  changed no files.
+- `forge all audit --scope changed --base HEAD --json`: exit `0`; it recorded merge base
+  `d0493a5a41ebec13323e5b418cf8ce1cd86638ce`, the untracked `Link.tsx`, its inclusion reason, the
+  affected application, and the always-applicable/capability modules.
+- `forge security audit --json`: expected vulnerable-fixture exit `1`; exact file/line evidence was
+  emitted for shell, credential, NoSQL, SQL, and validation findings.
+- `forge uploads audit --json`: expected vulnerable-fixture exit `1`; exact evidence was emitted for
+  public-before-scan, scanner fail-open, unrestricted upload, extension-only, and MIME-trust
+  findings.
+- `forge database audit --json`: exit `0` with `NOT_VERIFIED`; static query evidence did not pretend
+  to prove database behavior. `forge queries audit --json`: expected vulnerable-fixture exit `1`
+  with `FF-QUERY-N1-001` and `FF-QUERY-UNBOUNDED-001`.
+- `forge ship --json`: exit `2` / `BLOCKED` on the risky fixture because open high findings,
+  authorization/upload/security evidence, and a recognized project-native gate were not verified.
+
+Nonzero audit exits above represent deliberately vulnerable fixtures and were asserted by finding
+ID; they are not recorded as successful release candidates.
 
 ## Remaining manual limitations
 
