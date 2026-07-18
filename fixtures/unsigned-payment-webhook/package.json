@@ -2,7 +2,7 @@
   "name": "fixture-unsigned-payment-webhook",
   "private": true,
   "dependencies": {
-    "express": "0.0.0-fixture",
+    "express": "4.22.0",
     "stripe": "0.0.0-fixture"
   }
 }
