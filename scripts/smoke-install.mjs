@@ -11,7 +11,7 @@ if (dryRun) {
         dry_run: true,
         checks: [
           "npm pack",
-          "offline local install",
+          "local package install with pinned runtime dependencies",
           "CLI version",
           "init/update/uninstall ownership smoke",
           "Antigravity project and global destinations",
@@ -57,7 +57,7 @@ try {
   );
   const install = await run(
     process.execPath,
-    [npmCli, "install", "--ignore-scripts", "--offline", "--no-audit", "--no-fund", archive],
+    [npmCli, "install", "--ignore-scripts", "--no-audit", "--no-fund", archive],
     consumerRoot,
     10 * 60_000
   );
