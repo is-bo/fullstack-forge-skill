@@ -189,8 +189,9 @@ ordered module catalog and synchronizes six platform roots with per-file SHA-256
 manifests. Synchronization refuses modified or unowned managed paths. CI fails if a generated copy
 drifts.
 
-See [architecture](docs/ARCHITECTURE.md), [development](docs/DEVELOPMENT.md), and
-[release process](docs/RELEASING.md).
+See [architecture](docs/ARCHITECTURE.md), [development](docs/DEVELOPMENT.md),
+[release process](docs/RELEASING.md), and the
+[v0.1.0 verification record](docs/RELEASE_VERIFICATION_v0.1.0.md).
 
 ## Safety and limitations
 
