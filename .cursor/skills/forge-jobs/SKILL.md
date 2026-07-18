@@ -58,12 +58,37 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect idempotency keys, leases, timeouts, retries, jitter, dead-letter handling, ordering, concurrency, and payload versioning
 - Verify transaction boundaries, outbox/inbox behavior, observability, replay, and shutdown
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Job idempotency
+- Duplicate execution
+- Retry limits
+- Exponential backoff
+- Dead-letter handling
+- Timeouts
+- Scheduling
+- Concurrency
+- Ordering
+- Partial failures
+- Transaction boundaries
+- Poison messages
+- Cancellation
+- Progress reporting
+- Safe deployment while jobs run
+- Job observability
+- Queue saturation
+- Backpressure
+- Email, invoice, image, reconciliation, report, notification, and import jobs
+
 ## Safe executable checks
 
 - Run `forge jobs audit --json` or `fullstack-forge jobs audit --json` when
   the CLI is installed.
-- Use `inspect-jobs` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `inspect-routes` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

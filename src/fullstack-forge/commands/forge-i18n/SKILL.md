@@ -59,12 +59,40 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect locale negotiation, fallback, pluralization, date, number, currency, time-zone, and collation behavior
 - Check text expansion, RTL direction, mirrored layout, Unicode input, and localized metadata
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Hard-coded user-facing strings
+- Translation completeness
+- RTL layouts
+- Mixed LTR and RTL content
+- Date formatting
+- Time formatting
+- Time zones
+- Currency formatting
+- Number formatting
+- Locale-aware sorting
+- Pluralization
+- Unicode
+- Text expansion
+- Phone-number formats
+- Address formats
+- Name formats
+- Localized emails
+- Localized PDFs
+- Localized errors
+- Locale persistence
+- Language fallbacks
+- Arabic, French, and English compatibility
+
 ## Safe executable checks
 
 - Run `forge i18n audit --json` or `fullstack-forge i18n audit --json` when
   the CLI is installed.
-- Use `inspect-i18n` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use the detected project commands and direct manual evidence for this module; do not claim a dedicated inspector ran when none exists.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

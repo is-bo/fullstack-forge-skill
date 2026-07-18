@@ -60,12 +60,37 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Detect cycles, boundary leakage, shared mutable state, and single points of failure
 - Compare complexity and operational cost with demonstrated requirements
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Module boundaries
+- Dependency direction
+- Circular dependencies
+- Framework coupling
+- Domain logic placement
+- Service boundaries
+- Transaction boundaries
+- Error boundaries
+- Duplicate abstractions
+- Excessive abstraction
+- God modules
+- Single points of failure
+- Hidden shared state
+- Scalability risks
+- Premature microservices
+- Inappropriate synchronous coupling
+- Configuration architecture
+- Maintainability
+- Underengineering and overengineering
+
 ## Safe executable checks
 
 - Run `forge architecture audit --json` or `fullstack-forge architecture audit --json` when
   the CLI is installed.
-- Use `inspect-architecture` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `discover-project` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

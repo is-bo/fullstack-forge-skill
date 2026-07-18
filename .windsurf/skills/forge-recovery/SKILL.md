@@ -58,12 +58,36 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect frequency, retention, encryption, immutability, isolation, monitoring, restore order, schema compatibility, and credentials
 - Compare RPO/RTO targets with tested restore timings and dependencies
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Database backups
+- Object-storage backups
+- Backup encryption
+- Retention
+- Restoration testing
+- Recovery point objective
+- Recovery time objective
+- Point-in-time recovery
+- Geographic failure
+- Accidental deletion
+- Ransomware considerations
+- Secret recovery
+- Infrastructure recreation
+- Runbooks
+- Ownership
+- Scheduled recovery drills
+- NOT_VERIFIED rather than PASS when restoration lacks direct evidence
+
 ## Safe executable checks
 
 - Run `forge recovery audit --json` or `fullstack-forge recovery audit --json` when
   the CLI is installed.
-- Use `inspect-recovery` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `inspect-database-schema` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `inspect-deployment-config` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

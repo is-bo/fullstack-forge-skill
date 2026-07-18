@@ -58,12 +58,45 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect input limits, mass assignment, object authorization, rate limits, pagination, filtering, and response data exposure
 - Verify idempotency and concurrency behavior for retryable or money-moving operations
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Contract consistency
+- Input validation
+- Output validation
+- Status codes
+- Error formats
+- Pagination
+- Filtering
+- Sorting
+- Versioning
+- Idempotency
+- Rate limits
+- Timeouts
+- Retry behavior
+- Backward compatibility
+- Over-fetching
+- Under-fetching
+- Sensitive field exposure
+- API documentation
+- OpenAPI coverage
+- Webhook contracts
+- GraphQL depth
+- GraphQL complexity
+- REST naming
+- Client/server type drift
+- Request-size limits
+- Response-size limits
+- OpenAPI generation or validation where appropriate
+
 ## Safe executable checks
 
 - Run `forge api audit --json` or `fullstack-forge api audit --json` when
   the CLI is installed.
-- Use `inspect-api` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `inspect-routes` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

@@ -58,12 +58,38 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Find serial bottlenecks, hot keys, fan-out, unbounded work, connection exhaustion, and noisy neighbors
 - Inspect horizontal state, partition keys, rate shaping, load shedding, autoscaling signals, and graceful degradation
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Expected users
+- Request concurrency
+- Database connection limits
+- Horizontal scaling
+- Stateful application servers
+- Session storage
+- Shared file systems
+- Queue throughput
+- Rate limits
+- Hot rows
+- Hot tenants
+- Large-customer behavior
+- Bulk operations
+- Backpressure
+- Capacity assumptions
+- Storage growth
+- Log growth
+- Cost at scale
+- No microservices, Kubernetes, queues, or Redis without evidence
+
 ## Safe executable checks
 
 - Run `forge scale audit --json` or `fullstack-forge scale audit --json` when
   the CLI is installed.
-- Use `inspect-scale` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `detect-project-commands` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `run-project-command` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

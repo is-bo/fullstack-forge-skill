@@ -5,6 +5,13 @@ versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- Expanded all 42 command skills with an explicit 957-item inspection-criteria catalog and validated
+  references to the bundled executable tools.
+- Kept Dependabot focused on shipped dependencies by excluding deliberately noninstallable static
+  fixture manifests and holding compiler/type majors to the supported Node.js 24 toolchain.
+
 ## [0.1.0] - 2026-07-18
 
 ### Added

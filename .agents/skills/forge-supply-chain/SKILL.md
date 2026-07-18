@@ -58,12 +58,38 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect CI action pinning, token permissions, untrusted build inputs, artifact signing, provenance, checksums, reproducibility, and protected release flow
 - Validate declared licenses, notices, source attribution, generated-file provenance, and secret scanning
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Vulnerable dependencies
+- Abandoned packages
+- Unexpected install scripts
+- Lockfile consistency
+- Dependency pinning
+- Package provenance
+- Build reproducibility
+- CI action pinning
+- Generated artifacts
+- Secrets in build logs
+- SBOM generation
+- License compatibility
+- Typosquatting
+- Container base images
+- Update strategy
+- Compromised transitive dependencies
+- Release provenance
+- SLSA concepts where appropriate
+
 ## Safe executable checks
 
 - Run `forge supply-chain audit --json` or `fullstack-forge supply-chain audit --json` when
   the CLI is installed.
-- Use `inspect-supply-chain` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `inspect-dependencies` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `inspect-ci` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `scan-secret-patterns` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

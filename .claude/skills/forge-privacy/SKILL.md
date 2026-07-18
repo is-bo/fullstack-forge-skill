@@ -59,12 +59,42 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect logs, analytics, backups, exports, support access, subject requests, and privacy defaults
 - Verify sensitive fields are minimized, protected, and excluded from accidental telemetry
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Personal-data inventory
+- Purpose for each field
+- Data minimization
+- Consent
+- Retention
+- Account deletion
+- Tenant deletion
+- Data export
+- Data correction
+- Sensitive-data classification
+- Encryption
+- Analytics tracking
+- Log redaction
+- Backups
+- Development data
+- Test data
+- Third-party processors
+- Data residency
+- Privacy notices
+- Children's data
+- User rights
+- Data-sharing behavior
+- Whether data should be collected or retained at all
+
 ## Safe executable checks
 
 - Run `forge privacy audit --json` or `fullstack-forge privacy audit --json` when
   the CLI is installed.
-- Use `inspect-privacy` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `inspect-env-template` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `scan-secret-patterns` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

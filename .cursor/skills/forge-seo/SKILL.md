@@ -59,12 +59,37 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect server-rendered content, internal links, pagination, redirects, duplicate URLs, and structured-data validity
 - Separate performance evidence from unmeasured assumptions
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Conditional applicability for public web pages
+- Page titles
+- Meta descriptions
+- Canonical URLs
+- Robots directives
+- Sitemap
+- Structured data
+- Open Graph metadata
+- Social metadata
+- Crawlable links
+- Duplicate pages
+- Redirects
+- Broken links
+- Heading hierarchy
+- Public rendering
+- Image metadata
+- Local-business metadata
+- Public page performance
+- NOT_APPLICABLE evidence for private dashboards and non-public products
+
 ## Safe executable checks
 
 - Run `forge seo audit --json` or `fullstack-forge seo audit --json` when
   the CLI is installed.
-- Use `inspect-seo` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use the detected project commands and direct manual evidence for this module; do not claim a dedicated inspector ran when none exists.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

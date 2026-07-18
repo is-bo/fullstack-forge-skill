@@ -59,12 +59,64 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect injection, XSS, CSRF, SSRF, deserialization, path handling, redirects, headers, CORS, secrets, logging, and denial-of-service limits
 - Run available dependency, static, and secret checks while distinguishing confirmed evidence from pattern matches
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- SQL injection
+- NoSQL injection
+- OS command injection
+- Template injection
+- Expression-language injection
+- Header injection
+- CRLF injection
+- Log injection
+- CSV and formula injection
+- HTML injection
+- JavaScript injection
+- Cross-site scripting
+- CSRF
+- SSRF
+- Path traversal
+- Unsafe redirects
+- Unsafe deserialization
+- Request smuggling risks
+- CORS
+- Security headers
+- Secret exposure
+- Weak cryptography
+- Hard-coded credentials
+- Sensitive logging
+- Error leakage
+- Rate limiting
+- Denial-of-service exposure
+- Business-logic abuse
+- Authentication weaknesses
+- Authorization weaknesses
+- Admin endpoints
+- Debug endpoints
+- Internal endpoints
+- Dependency risks
+- Prompt injection
+- Unsafe shell execution
+- Race conditions
+- Mass assignment
+- Prototype pollution
+- ReDoS
+- Session attacks
+- OWASP ASVS, OWASP API Security, and NIST SSDF evidence
+
 ## Safe executable checks
 
 - Run `forge security audit --json` or `fullstack-forge security audit --json` when
   the CLI is installed.
-- Use `inspect-security` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `scan-secret-patterns` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `inspect-routes` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `inspect-auth-boundaries` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `inspect-authorization` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `inspect-dependencies` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

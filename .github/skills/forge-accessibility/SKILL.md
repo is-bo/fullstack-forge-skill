@@ -59,12 +59,46 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Complete all critical workflows using keyboard only
 - Inspect focus order, focus trapping, restoration, errors, dynamic updates, and reduced motion
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- WCAG 2.2 AA scope
+- Keyboard navigation
+- Focus order
+- Focus visibility
+- Focus trapping
+- Semantic HTML
+- Accessible names
+- Form labels
+- Error announcements
+- Status announcements
+- Contrast
+- Touch targets
+- Heading structure
+- Landmarks
+- Alt text
+- Link purpose
+- Table semantics
+- Reduced motion
+- Zoom
+- Text resizing
+- Responsive reflow
+- Dialog behavior
+- Skip links
+- Screen-reader navigation
+- Captions where applicable
+- Auto-playing media
+- Time limits
+- Automated evidence plus manual keyboard and assistive-technology checks
+
 ## Safe executable checks
 
 - Run `forge accessibility audit --json` or `fullstack-forge accessibility audit --json` when
   the CLI is installed.
-- Use `inspect-accessibility` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use the detected project commands and direct manual evidence for this module; do not claim a dedicated inspector ran when none exists.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

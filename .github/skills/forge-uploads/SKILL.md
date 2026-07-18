@@ -59,12 +59,98 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect archive bombs, path traversal, parser isolation, malware scanning, image re-encoding, metadata stripping, and quarantine
 - Verify private storage, random object names, signed URL scope/expiry, download headers, tenant boundaries, cleanup, and orphan handling
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Server-side extension allowlists
+- Browser accept attributes as hints rather than proof
+- MIME validation
+- Magic-byte validation
+- File-signature validation
+- Extension and MIME mismatches
+- File-count limits
+- Per-file size limits
+- Total request limits
+- Decompressed-size limits
+- Image dimensions
+- Image pixel counts
+- PDF page counts
+- Archive entry limits
+- Parser bombs
+- ZIP bombs
+- Decompression bombs
+- Malformed documents
+- Polyglot files
+- Quarantine storage
+- Malware scanning before release
+- Scanner timeout behavior
+- Scanner failure behavior that fails closed
+- Scanner metadata
+- File hashes
+- Rescanning policy
+- Malware alerts
+- Permanent quarantine
+- Deletion policy
+- Administrative handling
+- No untrusted files in executable directories or public application folders
+- Server-generated object keys
+- Original filenames never used as paths
+- Private-by-default object storage
+- Short-lived signed URLs
+- Tenant and environment separation
+- Authorization before signed-URL generation
+- Unguessable object identifiers
+- Public-indexing prevention
+- Active-content rendering prevention
+- Image decode and re-encode
+- EXIF stripping
+- Image dimension and pixel limits
+- Safe thumbnails
+- SVG sanitization or rejection
+- Remote SVG reference prevention
+- Embedded script prevention
+- PDF JavaScript
+- PDF embedded files
+- PDF launch actions
+- Document external references
+- Interactive forms
+- Macros and Office active content
+- Sandboxed parsers and parser resource limits
+- Safe preview generation
+- Document normalization
+- Hostile extracted text
+- No execution of embedded content
+- Filename normalization
+- Unicode trick detection
+- Control characters
+- Path traversal
+- Safe Content-Disposition
+- Fixed Content-Type and X-Content-Type-Options nosniff
+- No reflected filenames in HTML
+- Unsafe formats not rendered inline
+- Per-user, per-IP, and per-tenant limits
+- Storage quotas
+- Concurrent-upload limits
+- Repeated processing attacks
+- Many-small-files attacks
+- Resource timeouts
+- Parser isolation
+- Monitoring and cleanup
+- Temporary-file and abandoned-upload cleanup
+- Orphan detection and replacement cleanup
+- Account and tenant deletion
+- Retention and backup behavior
+- Log and signed-URL redaction
+- Encryption
+
 ## Safe executable checks
 
 - Run `forge uploads audit --json` or `fullstack-forge uploads audit --json` when
   the CLI is installed.
-- Use `inspect-uploads` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `inspect-upload-pipeline` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

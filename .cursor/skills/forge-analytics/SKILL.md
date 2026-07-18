@@ -58,12 +58,34 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect duplicate delivery, ordering, retries, offline queues, bot/internal traffic, versioning, and schema validation
 - Check personal and sensitive fields, tenant boundaries, deletion propagation, access, and experimentation exposure
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Event naming
+- Event duplication
+- Missing success events
+- Funnel coverage
+- Identity handling
+- Anonymous and authenticated identity merging
+- Tenant properties
+- Sensitive data
+- Consent
+- Retention metrics
+- Error events
+- Abandonment events
+- Server-side versus client-side events
+- Analytics reliability
+- Schema versioning
+- Event validation
+
 ## Safe executable checks
 
 - Run `forge analytics audit --json` or `fullstack-forge analytics audit --json` when
   the CLI is installed.
-- Use `inspect-analytics` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `inspect-routes` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

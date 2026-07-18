@@ -58,12 +58,39 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Trace enforcement at server boundaries, jobs, exports, uploads, websockets, and indirect identifiers
 - Test horizontal, vertical, tenant, stale-role, bulk, and confused-deputy cases
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Role definitions
+- Permission definitions
+- Default-deny behavior
+- Server-side enforcement
+- Resource ownership
+- Object-level authorization
+- Field-level authorization
+- Tenant isolation
+- Admin boundaries
+- Staff impersonation
+- Privilege escalation
+- Direct object references
+- Exports
+- File downloads
+- Background jobs
+- Scheduled jobs
+- WebSocket subscriptions
+- API keys
+- Service accounts
+- Access-control matrix
+- Negative tests for unauthorized reads and writes
+
 ## Safe executable checks
 
 - Run `forge authorization audit --json` or `fullstack-forge authorization audit --json` when
   the CLI is installed.
-- Use `inspect-authorization` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `inspect-authorization` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

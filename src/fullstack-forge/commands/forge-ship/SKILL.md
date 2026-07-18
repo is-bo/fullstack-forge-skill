@@ -59,12 +59,33 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Check canonical/generated synchronization, deterministic packaging, checksums, attribution, and clean installation
 - Fail for open critical or required high findings, failed gates, incomplete packages, or required high-risk NOT_VERIFIED checks
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Format, lint, typecheck, unit, integration, end-to-end, and production build gates
+- Skill validation and platform asset synchronization
+- Security, dependency, migration, authorization, and upload-security checks
+- Package, archive, license, attribution, and installation smoke validation
+- Open critical findings block release
+- Required open high-severity findings block release
+- Failed required tests or build block release
+- Invalid skills or out-of-sync generated copies block release
+- Required high-risk NOT_VERIFIED checks block release
+- Incomplete packaging or failed installation smoke tests block release
+- Invalid license or attribution evidence blocks release
+- Remote CI, release, and production state require separate direct verification
+
 ## Safe executable checks
 
 - Run `forge ship audit --json` or `fullstack-forge ship audit --json` when
   the CLI is installed.
-- Use `inspect-ship` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `validate-skill` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `check-platform-assets` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `package-platforms` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `smoke-install` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

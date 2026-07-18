@@ -58,12 +58,34 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect private-by-default policy, object naming, tenant prefixes, signed URL constraints, encryption, checksums, versioning, and lifecycle
 - Check orphan cleanup, partial writes, metadata leakage, CDN caching, legal holds, and restore expectations
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Files stored as database blobs
+- Object-storage configuration
+- Public versus private files
+- Signed URLs
+- Authorization
+- Metadata
+- CDN configuration
+- File lifecycle
+- Orphaned objects
+- Deletion
+- Backups
+- Encryption
+- Temporary files
+- Retention
+- Storage quotas
+- Environment isolation
+
 ## Safe executable checks
 
 - Run `forge storage audit --json` or `fullstack-forge storage audit --json` when
   the CLI is installed.
-- Use `inspect-storage` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `inspect-upload-pipeline` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

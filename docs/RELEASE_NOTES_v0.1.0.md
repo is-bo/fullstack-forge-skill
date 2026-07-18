@@ -6,6 +6,9 @@ UX, accessibility, frontend/backend, APIs, authentication, authorization, securi
 privacy, multi-tenancy, PostgreSQL-style data design, queries, caching, testing, operations,
 deployment, and specialized AI/payment/realtime/offline concerns.
 
+All 42 command skills collectively enumerate 957 explicit inspection criteria, and validation
+requires every criterion to appear in the canonical and generated platform copies.
+
 ## Supported platforms
 
 - OpenAI Codex, Google Antigravity, and generic Agent Skills via `.agents/skills/`

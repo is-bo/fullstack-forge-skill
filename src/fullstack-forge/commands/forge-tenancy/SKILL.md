@@ -58,12 +58,40 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Test missing, forged, stale, and cross-tenant identifiers in reads, writes, bulk actions, exports, jobs, and websockets
 - Inspect composite uniqueness, row policies, cache namespaces, object prefixes, logs, and support tooling
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Tenant identifiers
+- Tenant propagation
+- Query scoping
+- Cache-key isolation
+- File-path isolation
+- Object-storage isolation
+- Background jobs
+- Scheduled jobs
+- Logs
+- Metrics
+- Unique constraints
+- Exports
+- Admin access
+- Billing ownership
+- Tenant deletion
+- Shared resources
+- Tenant-specific secrets
+- Tenant-specific rate limits
+- Cross-tenant testing
+- Active negative tests for cross-tenant access
+
 ## Safe executable checks
 
 - Run `forge tenancy audit --json` or `fullstack-forge tenancy audit --json` when
   the CLI is installed.
-- Use `inspect-tenancy` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `inspect-authorization` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `inspect-database-schema` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `inspect-cache-usage` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

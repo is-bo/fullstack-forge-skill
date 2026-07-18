@@ -60,12 +60,30 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Execute independent read-only checks concurrently only where safe and preserve raw results
 - Merge duplicates without losing locations or standards and rank by severity, confidence, impact, and effort
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Run project discovery before specialist modules
+- Determine applicability from current evidence
+- Avoid irrelevant modules
+- Run independent read-only modules concurrently only when safe
+- Merge duplicate findings while preserving every location
+- Preserve raw evidence and failed checks
+- Rank findings by severity, confidence, impact, and effort
+- Generate Markdown and JSON reports
+- Produce a prioritized remediation plan
+- Clearly mark blocked and not-verified checks
+
 ## Safe executable checks
 
 - Run `forge all audit --json` or `fullstack-forge all audit --json` when
   the CLI is installed.
-- Use `inspect-all` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `discover-project` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `generate-report` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `validate-finding-schema` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

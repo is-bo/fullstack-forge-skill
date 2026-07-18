@@ -58,12 +58,36 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Check architecture, data, security, deployment, recovery, compatibility, ownership, and release notes against current code
 - Validate links, examples, diagrams, generated references, accessibility, and secret-free sample values
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- README accuracy
+- Installation
+- Local setup
+- Environment variables
+- Architecture
+- API documentation
+- Database diagrams
+- Migration instructions
+- Deployment instructions
+- Troubleshooting
+- Backup restoration
+- Incident procedures
+- Permission model
+- Business-critical calculations
+- Onboarding
+- Outdated comments
+- Broken links
+- Decisions existing only in chat or undocumented knowledge
+
 ## Safe executable checks
 
 - Run `forge docs audit --json` or `fullstack-forge docs audit --json` when
   the CLI is installed.
-- Use `inspect-docs` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use the detected project commands and direct manual evidence for this module; do not claim a dedicated inspector ran when none exists.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

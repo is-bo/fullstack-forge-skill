@@ -60,12 +60,38 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Identify contradictory rules and hidden defaults at trust boundaries
 - Exercise success, empty, error, retry, cancellation, and partial-failure paths
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Missing requirements
+- Contradictory requirements
+- Acceptance criteria
+- User roles
+- Business rules
+- State transitions
+- Edge cases
+- Financial calculations
+- Currency handling and rounding
+- Dates and time zones
+- Failure recovery
+- Destructive operations
+- Audit requirements
+- Legal or regulated workflows
+- Requirement-to-test traceability
+- Undefined ownership
+- Undefined permission behavior
+- Irreversible actions
+- Correct business behavior rather than technical function alone
+
 ## Safe executable checks
 
 - Run `forge requirements audit --json` or `fullstack-forge requirements audit --json` when
   the CLI is installed.
-- Use `inspect-requirements` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `detect-project-commands` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `run-project-command` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

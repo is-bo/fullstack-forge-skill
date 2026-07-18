@@ -59,12 +59,36 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect duplicate delivery, ordering, conflict detection/resolution, tombstones, schema migration, partial sync, clock skew, and retry bounds
 - Verify logout, revocation, role/tenant changes, device loss, shared-device privacy, stale authorization, and cache invalidation
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Service workers
+- Cache versioning
+- Offline writes
+- Conflict resolution
+- Synchronization
+- Stale data
+- IndexedDB
+- Local databases
+- Local storage
+- Encryption
+- Logout cleanup
+- Subscription and license behavior
+- Clock manipulation
+- Partial synchronization
+- Recovery
+- Duplicate operations
+- Data ownership
+- Offline authorization assumptions
+
 ## Safe executable checks
 
 - Run `forge offline audit --json` or `fullstack-forge offline audit --json` when
   the CLI is installed.
-- Use `inspect-offline` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `detect-stack` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

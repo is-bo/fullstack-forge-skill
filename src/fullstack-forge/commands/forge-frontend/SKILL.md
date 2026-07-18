@@ -60,12 +60,41 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect rendering boundaries, hydration, error boundaries, code splitting, source maps, and browser compatibility
 - Check untrusted HTML, client secrets, CSRF assumptions, and sensitive storage
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Component boundaries
+- Client/server boundaries
+- State management
+- Data-fetching waterfalls
+- Duplicate requests
+- Unnecessary renders
+- Bundle size
+- Code splitting
+- Lazy loading
+- Hydration issues
+- Race conditions
+- Optimistic updates
+- Error boundaries
+- Stale state
+- Browser compatibility
+- Memory leaks
+- Listener cleanup
+- Form state
+- URL state
+- Offline behavior
+- Image loading
+- Font loading
+- Dependency weight
+
 ## Safe executable checks
 
 - Run `forge frontend audit --json` or `fullstack-forge frontend audit --json` when
   the CLI is installed.
-- Use `inspect-frontend` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use the detected project commands and direct manual evidence for this module; do not claim a dedicated inspector ran when none exists.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

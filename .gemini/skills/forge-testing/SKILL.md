@@ -59,12 +59,44 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect determinism, isolation, data factories, assertions, cleanup, time control, concurrency, and flaky retries
 - Verify tests can fail for the defect they claim to detect and do not overmock the boundary under test
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Unit tests
+- Integration tests
+- API tests
+- Database tests
+- Authorization tests
+- Tenant-isolation tests
+- Upload tests
+- Malware-pipeline tests
+- End-to-end tests
+- Accessibility tests
+- Visual-regression tests
+- Migration tests
+- Failure-path tests
+- Retry tests
+- Idempotency tests
+- Concurrency tests
+- Offline tests
+- Payment tests
+- AI evaluation tests
+- Test isolation
+- Flaky tests
+- Mock quality
+- Critical workflow coverage
+- Production-like test configuration
+- Risk-based adequacy rather than line coverage alone
+
 ## Safe executable checks
 
 - Run `forge testing audit --json` or `fullstack-forge testing audit --json` when
   the CLI is installed.
-- Use `inspect-testing` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `detect-project-commands` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `run-project-command` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

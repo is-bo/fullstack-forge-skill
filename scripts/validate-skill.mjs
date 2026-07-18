@@ -10,6 +10,7 @@ const requiredHeadings = [
   "## When it does not apply",
   "## Inputs from project discovery",
   "## Inspection procedure",
+  "## Required inspection criteria",
   "## Safe executable checks",
   "## Manual inspection requirements",
   "## Evidence requirements",
@@ -24,16 +25,46 @@ const requiredHeadings = [
   "## Completion contract"
 ];
 const catalog = JSON.parse(await readFile(join(projectRoot, "config", "modules.json"), "utf8"));
+const criteriaBySlug = JSON.parse(
+  await readFile(join(projectRoot, "config", "module-criteria.json"), "utf8")
+);
 const slugs = catalog.map((entry) => entry.slug);
 if (JSON.stringify(slugs) !== JSON.stringify(expectedSlugs))
   errors.push("Module catalog does not match the authoritative ordered set");
+if (
+  typeof criteriaBySlug !== "object" ||
+  criteriaBySlug === null ||
+  Array.isArray(criteriaBySlug) ||
+  JSON.stringify(Object.keys(criteriaBySlug)) !== JSON.stringify(expectedSlugs)
+)
+  errors.push("Inspection criteria do not match the authoritative ordered module set");
 const masterPath = join(projectRoot, "src", "fullstack-forge", "SKILL.md");
 await validateSkill(masterPath, "fullstack-forge", false);
 for (const slug of expectedSlugs) {
+  const criteria =
+    typeof criteriaBySlug === "object" && criteriaBySlug !== null && !Array.isArray(criteriaBySlug)
+      ? criteriaBySlug[slug]
+      : undefined;
+  if (
+    !Array.isArray(criteria) ||
+    criteria.length === 0 ||
+    criteria.some(
+      (value) =>
+        typeof value !== "string" ||
+        value.trim().length === 0 ||
+        value !== value.trim() ||
+        /[\r\n]/u.test(value)
+    ) ||
+    new Set(criteria).size !== criteria.length
+  ) {
+    errors.push(`Invalid or duplicate inspection criteria for ${slug}`);
+    continue;
+  }
   await validateSkill(
     join(projectRoot, "src", "fullstack-forge", "commands", `forge-${slug}`, "SKILL.md"),
     `forge-${slug}`,
-    true
+    true,
+    criteria
   );
 }
 for (const path of [
@@ -113,7 +144,7 @@ if (errors.length > 0) {
   );
 }
 
-async function validateSkill(path, expectedName, command) {
+async function validateSkill(path, expectedName, command, criteria = []) {
   let content;
   try {
     content = await readFile(path, "utf8");
@@ -132,12 +163,17 @@ async function validateSkill(path, expectedName, command) {
     if (frontmatter.description.length === 0 || frontmatter.description.length > 1024)
       errors.push(`${path}: description must be 1-1024 characters`);
   }
-  if (/\bTODO\b|\[TODO/iu.test(content)) errors.push(`${path}: unresolved TODO placeholder`);
+  if (/\[TODO\]|(?:^|\n)\s*(?:[-*]\s*)?TODO(?:\s*:|\s*$)/iu.test(content))
+    errors.push(`${path}: unresolved TODO placeholder`);
   if (!content.includes("Never hide failed checks or claim that an operation ran when it did not."))
     errors.push(`${path}: missing completion contract`);
   if (command)
     for (const heading of requiredHeadings)
       if (!content.includes(heading)) errors.push(`${path}: missing ${heading}`);
+  if (command)
+    for (const criterion of criteria)
+      if (!content.includes(`- ${criterion}`))
+        errors.push(`${path}: missing inspection criterion ${criterion}`);
 }
 
 function parseSkillFrontmatter(content) {

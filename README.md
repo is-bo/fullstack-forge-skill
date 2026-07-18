@@ -116,7 +116,8 @@ Discovery creates ignored local artifacts at `.forge/project-profile.json` and
 Every command skill is self-contained and supports `audit`, `fix`, `verify`, and `report`. Each one
 defines when it applies, inputs, an executable and manual procedure, evidence rules, stable IDs,
 severity, safe/risky fixes, verification, standards, stack guidance, limitations, and the same
-completion contract.
+completion contract. Together they enumerate 957 explicit inspection criteria, so specialized risks
+remain visible instead of disappearing behind a generic “best practices” instruction.
 
 ## Finding contract
 

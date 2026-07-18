@@ -58,12 +58,38 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect timeout budgets, bounded retries, jitter, circuit behavior, health checks, overload, bulkheads, and dependency fallbacks
 - Check graceful shutdown, deploy overlap, consistency, partial failure, idempotency, and clock assumptions
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Timeouts
+- Retries
+- Retry storms
+- Circuit breaking
+- Graceful degradation
+- Health checks
+- Readiness checks
+- Dependency failures
+- Partial outages
+- Failover
+- Idempotency
+- Load shedding
+- Safe shutdown
+- Data consistency
+- SLOs
+- Recovery procedures
+- Regional failures
+- Feature degradation
+- User-visible failure behavior
+
 ## Safe executable checks
 
 - Run `forge reliability audit --json` or `fullstack-forge reliability audit --json` when
   the CLI is installed.
-- Use `inspect-reliability` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `detect-project-commands` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `run-project-command` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

@@ -60,12 +60,41 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect boundary validation, error propagation, resource cleanup, concurrency, and unsafe casts
 - Compare changes with the newest established local precedent and remove only proven dead code
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Type safety
+- Linting
+- Formatting
+- Dead code
+- Duplicate code
+- Excessive complexity
+- Unsafe casts
+- Unhandled promises
+- Resource leaks
+- Event-listener leaks
+- Deprecated APIs
+- Error handling
+- Hidden side effects
+- Unsafe global state
+- Testability
+- Naming
+- Comments
+- TODO and FIXME items
+- Generated-code boundaries
+- Dependency direction
+- Maintainability
+- Existing formatter, linter, type checker, and static-analysis commands
+
 ## Safe executable checks
 
 - Run `forge code audit --json` or `fullstack-forge code audit --json` when
   the CLI is installed.
-- Use `inspect-code` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `detect-project-commands` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- Use `run-project-command` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

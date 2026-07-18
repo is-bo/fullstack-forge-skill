@@ -60,12 +60,48 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Verify loading, empty, error, success, disabled, focus, hover, and long-content states
 - Check semantic tokens, typography hierarchy, spacing rhythm, image dimensions, overflow, and reduced motion
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Visual hierarchy
+- Typography
+- Spacing, alignment, and layout rhythm
+- Design tokens and color system
+- Component consistency
+- Forms, tables, and modals
+- Navigation
+- Mobile responsiveness
+- Tablet responsiveness
+- Desktop layout
+- Dark mode
+- Loading states and skeletons
+- Empty states
+- Error states
+- Success states
+- Disabled states
+- Focus states
+- Hover states
+- Destructive states
+- Visual regressions
+- Browser-console errors
+- Generic AI-generated appearance
+- Unfinished screens
+- Inconsistent icons
+- Image treatment
+- Charts and data visualization
+- Representative running routes
+- Desktop, tablet, and mobile screenshots
+- Repeated-component comparison
+- Recorded visual evidence and cleanup of started processes
+
 ## Safe executable checks
 
 - Run `forge ui audit --json` or `fullstack-forge ui audit --json` when
   the CLI is installed.
-- Use `inspect-ui` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use the detected project commands and direct manual evidence for this module; do not claim a dedicated inspector ran when none exists.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

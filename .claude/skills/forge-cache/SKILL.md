@@ -58,12 +58,42 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect key completeness, tenant and user scope, TTL, invalidation, stampede control, negative caching, serialization, and versioning
 - Check sensitive-data exposure, authorization changes, eviction, memory limits, outage fallback, and observability
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Evidence that caching is justified
+- Cache layers
+- Browser caching
+- CDN caching
+- Server caching
+- Framework caching
+- Redis usage
+- Cache keys
+- Tenant isolation
+- User isolation
+- TTL
+- Invalidation
+- Stampede protection
+- Stale-data tolerance
+- Negative caching
+- Cache size
+- Serialization
+- Failure fallback
+- Sensitive data
+- Cache poisoning
+- Cross-user leakage
+- Cross-tenant leakage
+- Cache observability
+- An explicit conclusion that Redis is unnecessary when evidence supports it
+
 ## Safe executable checks
 
 - Run `forge cache audit --json` or `fullstack-forge cache audit --json` when
   the CLI is installed.
-- Use `inspect-cache` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `inspect-cache-usage` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

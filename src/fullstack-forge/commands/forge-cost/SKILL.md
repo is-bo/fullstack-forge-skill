@@ -58,12 +58,36 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect idle resources, retention, egress, log cardinality, build minutes, queries, storage lifecycle, and retry amplification
 - Define budgets, anomaly alerts, unit metrics, and cost-performance-reliability tradeoffs
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Hosting cost
+- Database-plan usage
+- Storage growth
+- Egress
+- AI API usage
+- Logging cost
+- Monitoring cost
+- Always-on services
+- Oversized resources
+- Inefficient jobs
+- Cache cost versus value
+- Expensive queries
+- Third-party subscriptions
+- Per-tenant cost
+- Projected cost at scale
+- Waste caused by retries
+- Large-file storage
+- Retention cost
+
 ## Safe executable checks
 
 - Run `forge cost audit --json` or `fullstack-forge cost audit --json` when
   the CLI is installed.
-- Use `inspect-cost` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `inspect-deployment-config` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

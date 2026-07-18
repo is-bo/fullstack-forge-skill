@@ -58,12 +58,43 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Inspect password hashing, session rotation, expiry, cookie flags, CSRF, token audience/issuer/algorithm, enumeration, and brute-force defenses
 - Verify state-changing endpoints derive identity from trusted server context
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Registration
+- Login
+- Password hashing
+- Password policies
+- Password reset
+- Email verification
+- MFA
+- Sessions
+- Expiration
+- Revocation
+- Secure cookies
+- Refresh-token rotation
+- OAuth configuration
+- OIDC configuration
+- Account enumeration
+- Brute-force protections
+- Rate limits
+- Remember-me behavior
+- Logout
+- Device and session management
+- Sensitive-action reauthentication
+- Session fixation
+- Token leakage
+- Recovery flows
+- Maintained password, session, and identity libraries rather than custom cryptography
+
 ## Safe executable checks
 
 - Run `forge auth audit --json` or `fullstack-forge auth audit --json` when
   the CLI is installed.
-- Use `inspect-auth` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `inspect-auth-boundaries` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

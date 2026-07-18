@@ -58,12 +58,36 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Review state protection, locking, module versions, destructive changes, drift, tags, quotas, backups, and multi-environment isolation
 - Run format, validate, lint, policy, and non-mutating plan tools where available
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Infrastructure as code
+- Environment parity
+- Network exposure
+- TLS
+- DNS
+- Firewalls
+- Database exposure
+- Storage permissions
+- Secret management
+- Resource limits
+- Autoscaling
+- Persistent volumes
+- Regional placement
+- Logging retention
+- Production and debug differences
+- Unused resources
+- Public admin services
+- Container configuration
+
 ## Safe executable checks
 
 - Run `forge infrastructure audit --json` or `fullstack-forge infrastructure audit --json` when
   the CLI is installed.
-- Use `inspect-infrastructure` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `inspect-deployment-config` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

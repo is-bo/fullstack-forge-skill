@@ -4,11 +4,15 @@ import { assertNoSymlinkPath } from "./lib/fs-safety.mjs";
 import { commandRoot, expectedSlugs, projectRoot, readCatalog } from "./project.mjs";
 
 const catalog = await readCatalog();
+const criteriaBySlug = JSON.parse(
+  await readFile(join(projectRoot, "config", "module-criteria.json"), "utf8")
+);
 const actualSlugs = catalog.map((module) => module.slug);
 if (JSON.stringify(actualSlugs) !== JSON.stringify(expectedSlugs)) {
   throw new Error("config/modules.json must contain the authoritative module set in order");
 }
 validateCatalog(catalog);
+validateCriteria(criteriaBySlug);
 
 await assertNoSymlinkPath(projectRoot, commandRoot);
 await mkdir(commandRoot, { recursive: true });
@@ -26,7 +30,7 @@ for (const module of catalog) {
   await mkdir(directory, { recursive: true });
   const path = join(directory, "SKILL.md");
   await assertNoSymlinkPath(commandRoot, path);
-  const next = renderModule(module);
+  const next = renderModule(module, criteriaBySlug[module.slug]);
   let current = "";
   try {
     current = await readFile(path, "utf8");
@@ -34,6 +38,36 @@ for (const module of catalog) {
     if (error?.code !== "ENOENT") throw error;
   }
   if (current !== next) await writeFile(path, next, "utf8");
+}
+
+function validateCriteria(criteria) {
+  if (
+    typeof criteria !== "object" ||
+    criteria === null ||
+    Array.isArray(criteria) ||
+    JSON.stringify(Object.keys(criteria)) !== JSON.stringify(expectedSlugs)
+  ) {
+    throw new Error(
+      "config/module-criteria.json must contain the authoritative module set in order"
+    );
+  }
+  for (const slug of expectedSlugs) {
+    const values = criteria[slug];
+    if (
+      !Array.isArray(values) ||
+      values.length === 0 ||
+      values.some(
+        (value) =>
+          typeof value !== "string" ||
+          value.trim().length === 0 ||
+          value !== value.trim() ||
+          /[\r\n]/u.test(value)
+      ) ||
+      new Set(values).size !== values.length
+    ) {
+      throw new Error(`Invalid or duplicate inspection criteria for ${slug}`);
+    }
+  }
 }
 
 console.log(`Generated ${catalog.length} command skills.`);
@@ -78,13 +112,77 @@ function list(values) {
   return values.map((value) => `- ${value}`).join("\n");
 }
 
-function renderModule(module) {
+function getToolHints(slug) {
+  const hintsBySlug = {
+    discover: [
+      "detect-stack",
+      "discover-project",
+      "inspect-env-template",
+      "inspect-platform-skills"
+    ],
+    requirements: ["detect-project-commands", "run-project-command"],
+    architecture: ["discover-project"],
+    code: ["detect-project-commands", "run-project-command"],
+    api: ["inspect-routes"],
+    jobs: ["inspect-routes"],
+    integrations: ["inspect-routes"],
+    auth: ["inspect-auth-boundaries"],
+    authorization: ["inspect-authorization"],
+    security: [
+      "scan-secret-patterns",
+      "inspect-routes",
+      "inspect-auth-boundaries",
+      "inspect-authorization",
+      "inspect-dependencies"
+    ],
+    privacy: ["inspect-env-template", "scan-secret-patterns"],
+    tenancy: ["inspect-authorization", "inspect-database-schema", "inspect-cache-usage"],
+    uploads: ["inspect-upload-pipeline"],
+    database: ["inspect-database-schema"],
+    queries: ["inspect-query-patterns"],
+    cache: ["inspect-cache-usage"],
+    storage: ["inspect-upload-pipeline"],
+    testing: ["detect-project-commands", "run-project-command"],
+    performance: ["detect-project-commands", "run-project-command"],
+    scale: ["detect-project-commands", "run-project-command"],
+    observability: ["inspect-deployment-config"],
+    reliability: ["detect-project-commands", "run-project-command"],
+    recovery: ["inspect-database-schema", "inspect-deployment-config"],
+    deployment: ["inspect-ci", "inspect-deployment-config"],
+    infrastructure: ["inspect-deployment-config"],
+    "supply-chain": ["inspect-dependencies", "inspect-ci", "scan-secret-patterns"],
+    cost: ["inspect-deployment-config"],
+    analytics: ["inspect-routes"],
+    notifications: ["inspect-routes"],
+    ai: ["scan-secret-patterns", "inspect-routes"],
+    payments: ["inspect-routes"],
+    realtime: ["inspect-routes", "inspect-authorization"],
+    offline: ["detect-stack"],
+    all: ["discover-project", "generate-report", "validate-finding-schema"],
+    ship: ["validate-skill", "check-platform-assets", "package-platforms", "smoke-install"]
+  };
+  return hintsBySlug[slug] ?? [];
+}
+
+function renderToolHints(slug) {
+  const hints = getToolHints(slug);
+  if (hints.length === 0) {
+    return "- Use the detected project commands and direct manual evidence for this module; do not claim a dedicated inspector ran when none exists.";
+  }
+  return hints
+    .map(
+      (name) =>
+        `- Use \`${name}\` for its bounded evidence when present; treat unavailable runtime evidence as \`NOT_VERIFIED\`.`
+    )
+    .join("\n");
+}
+
+function renderModule(module, criteria) {
   const name = `forge-${module.slug}`;
   const findingPrefix = module.slug
     .split("-")
     .map((part) => part.slice(0, 4).toUpperCase())
     .join("-");
-  const toolHint = module.slug === "discover" ? "discover-project" : `inspect-${module.slug}`;
   return `---
 name: ${name}
 description: ${module.purpose} Use for ${module.applies[0].toLowerCase()}.
@@ -141,12 +239,19 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 
 ${list(module.checks)}
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+\`NOT_APPLICABLE\`, \`NOT_VERIFIED\`, or \`BLOCKED\` status. The list is a routing checklist, not
+evidence by itself.
+
+${list(criteria)}
+
 ## Safe executable checks
 
 - Run \`forge ${module.slug} audit --json\` or \`fullstack-forge ${module.slug} audit --json\` when
   the CLI is installed.
-- Use \`${toolHint}\` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+${renderToolHints(module.slug)}
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

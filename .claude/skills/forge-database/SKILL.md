@@ -58,12 +58,41 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 - Review migration ordering, transactional safety, locks, backfills, expand-contract compatibility, and rollback or forward-fix strategy
 - Trace tenant isolation, encryption, retention, audit fields, soft deletion, and backup expectations
 
+## Required inspection criteria
+
+For every applicable criterion below, attach direct evidence or record a reasoned
+`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
+evidence by itself.
+
+- Primary keys
+- Foreign keys
+- Unique constraints
+- Check constraints
+- Nullability
+- Normalization
+- Intentional denormalization
+- Cascade behavior
+- Data types
+- Money representation
+- Date representation
+- Time zones
+- Enum evolution
+- Audit fields
+- Soft deletion
+- Tenant scoping
+- Migration history
+- Referential integrity
+- Database permissions
+- Data retention
+- Large-table evolution
+- Migration safety
+- Rollback implications
+
 ## Safe executable checks
 
 - Run `forge database audit --json` or `fullstack-forge database audit --json` when
   the CLI is installed.
-- Use `inspect-database` when present in the complete bundle; otherwise record it as unavailable, not
-  successful.
+- Use `inspect-database-schema` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
   audit shortcut.

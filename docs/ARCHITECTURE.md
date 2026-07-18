@@ -2,13 +2,16 @@
 
 ## Source of truth
 
-`config/modules.json` is the ordered semantic catalog for 42 command modules. `src/fullstack-forge/`
-is the canonical Agent Skill. The generator renders `src/fullstack-forge/commands/forge-*/SKILL.md`,
-then copies the master and command skills into each verified platform root.
+`config/modules.json` is the ordered semantic catalog for 42 command modules, and
+`config/module-criteria.json` is the matching explicit inspection-criteria catalog.
+`src/fullstack-forge/` is the canonical Agent Skill. The generator renders
+`src/fullstack-forge/commands/forge-*/SKILL.md`, then copies the master and command skills into each
+verified platform root.
 
 ```mermaid
 flowchart TD
   C["config/modules.json"] --> G["generate-modules.mjs"]
+  R["config/module-criteria.json"] --> G
   G --> K["Canonical command SKILL.md files"]
   M["Canonical master + references + schemas"] --> S["sync-platform-assets.mjs"]
   K --> S

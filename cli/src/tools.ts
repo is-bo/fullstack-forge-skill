@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { PACKAGE_ROOT, TOOL_NAMES, type ToolName } from "./constants.js";
+import { MODULE_SLUGS, PACKAGE_ROOT, TOOL_NAMES, type ToolName } from "./constants.js";
 import { detectProjectCommands, discoverProject, writeProjectArtifacts } from "./discovery.js";
 import { assertFindings, validateFinding } from "./finding.js";
 import { inspectWithTool } from "./inspectors.js";
@@ -129,12 +129,23 @@ export async function validateBundledSkills(): Promise<{
   const catalog = JSON.parse(
     await readFile(join(PACKAGE_ROOT, "config", "modules.json"), "utf8")
   ) as Array<{ slug?: unknown }>;
+  const rawCriteria = JSON.parse(
+    await readFile(join(PACKAGE_ROOT, "config", "module-criteria.json"), "utf8")
+  ) as unknown;
+  const criteriaBySlug =
+    typeof rawCriteria === "object" && rawCriteria !== null && !Array.isArray(rawCriteria)
+      ? (rawCriteria as Record<string, unknown>)
+      : {};
   const expected = [...TOOL_NAMES];
   if (new Set(expected).size !== expected.length)
     errors.push("tool catalog contains duplicate names");
   const slugs = catalog.map((entry) => entry.slug);
   if (slugs.some((slug) => typeof slug !== "string"))
     errors.push("module catalog contains an invalid slug");
+  if (JSON.stringify(slugs) !== JSON.stringify(MODULE_SLUGS))
+    errors.push("module catalog does not match the authoritative module set");
+  if (JSON.stringify(Object.keys(criteriaBySlug)) !== JSON.stringify(MODULE_SLUGS))
+    errors.push("inspection criteria do not match the authoritative module set");
   const paths = [join(PACKAGE_ROOT, "src", "fullstack-forge", "SKILL.md")];
   for (const slug of slugs) {
     if (typeof slug === "string")
@@ -142,7 +153,7 @@ export async function validateBundledSkills(): Promise<{
         join(PACKAGE_ROOT, "src", "fullstack-forge", "commands", `forge-${slug}`, "SKILL.md")
       );
   }
-  for (const path of paths) {
+  for (const [index, path] of paths.entries()) {
     let content: string;
     try {
       content = await readFile(path, "utf8");
@@ -155,11 +166,36 @@ export async function validateBundledSkills(): Promise<{
     if (!/^---\r?\nname:\s*[a-z0-9-]+\r?\ndescription:\s*\S[\s\S]*?\r?\n---\r?\n/u.test(content)) {
       errors.push(`${path}: invalid name/description frontmatter`);
     }
-    if (/\bTODO\b|\[TODO/iu.test(content)) errors.push(`${path}: unresolved TODO placeholder`);
+    if (/\[TODO\]|(?:^|\n)\s*(?:[-*]\s*)?TODO(?:\s*:|\s*$)/iu.test(content))
+      errors.push(`${path}: unresolved TODO placeholder`);
     if (
       !content.includes("Never hide failed checks or claim that an operation ran when it did not.")
     ) {
       errors.push(`${path}: missing completion contract`);
+    }
+    if (index > 0) {
+      const slug = slugs[index - 1];
+      const criteria = typeof slug === "string" ? criteriaBySlug[slug] : undefined;
+      if (
+        !Array.isArray(criteria) ||
+        criteria.length === 0 ||
+        criteria.some(
+          (value) =>
+            typeof value !== "string" ||
+            value.trim().length === 0 ||
+            value !== value.trim() ||
+            /[\r\n]/u.test(value)
+        ) ||
+        new Set(criteria).size !== criteria.length
+      ) {
+        errors.push(`${path}: invalid or duplicate inspection criteria`);
+      } else {
+        if (!content.includes("## Required inspection criteria"))
+          errors.push(`${path}: missing required inspection criteria heading`);
+        for (const criterion of criteria)
+          if (!content.includes(`- ${criterion}`))
+            errors.push(`${path}: missing inspection criterion ${criterion}`);
+      }
     }
   }
   return { valid: errors.length === 0, skills: paths.length, errors };
