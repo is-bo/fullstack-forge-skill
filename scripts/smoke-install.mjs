@@ -92,6 +92,7 @@ try {
   const skill = join(consumerRoot, ".agents", "skills", "fullstack-forge", "SKILL.md");
   if (!(await readFile(skill, "utf8")).includes("# Fullstack Forge"))
     throw new Error("installed master skill is invalid");
+  await assertNoLinks(dirname(skill));
 
   const update = await run(
     process.execPath,
@@ -131,8 +132,9 @@ try {
     );
     if (platformInstall.code !== 0)
       throw new Error(`${selector} project install failed: ${platformInstall.stderr}`);
-    await stat(join(consumerRoot, ...expected));
-    await assertNoLinks(consumerRoot);
+    const installedSkill = join(consumerRoot, ...expected);
+    await stat(installedSkill);
+    await assertNoLinks(dirname(installedSkill));
     const platformUninstall = await run(
       process.execPath,
       [cli, "uninstall", selector, "--root", consumerRoot, "--json"],

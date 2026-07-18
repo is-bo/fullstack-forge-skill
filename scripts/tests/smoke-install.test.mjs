@@ -14,3 +14,10 @@ test("packed artifact smoke install permits dependency resolution on a clean run
   assert.match(installInvocation, /"--ignore-scripts"/u);
   assert.doesNotMatch(installInvocation, /"--offline"/u);
 });
+
+test("link checks stay within Forge-managed skill roots", async () => {
+  const source = await readFile(join(scriptsRoot, "smoke-install.mjs"), "utf8");
+
+  assert.match(source, /assertNoLinks\(dirname\(installedSkill\)\)/u);
+  assert.doesNotMatch(source, /assertNoLinks\(consumerRoot\)/u);
+});
