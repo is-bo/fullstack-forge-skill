@@ -1,0 +1,43 @@
+name: Bug report
+description: Report reproducible incorrect behavior without secrets or private project data.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value:
+        Do not include credentials, production data, private reports, or exploit details. Use the
+        private security process for vulnerabilities.
+  - type: input
+    id: version
+    attributes:
+      label: Fullstack Forge version
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options: [CLI, Agent Skill, Installer, Generated platform copy, Package, Documentation]
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Include exact safe commands, observed output, and expected output.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, Node version, agent/platform, and relevant stack.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted evidence
+      description: Remove credentials, personal data, and private repository content.

@@ -1,0 +1,58 @@
+name: Audit-module proposal
+description: Propose a new or materially changed production audit module.
+title: "module: "
+labels: [audit-module]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        The 0.1.x catalog is compatibility-stable. Explain why a new module is distinct from the 42
+        existing modules and provide current primary sources without private project data.
+  - type: input
+    id: slug
+    attributes:
+      label: Proposed slug and finding prefix
+      placeholder: forge-example / FF-EXAMPLE
+    validations:
+      required: true
+  - type: textarea
+    id: applicability
+    attributes:
+      label: Applicability and non-applicability
+      description: List concrete discovery evidence that selects or excludes this module.
+    validations:
+      required: true
+  - type: textarea
+    id: failure_modes
+    attributes:
+      label: Failure modes and evidence
+      description:
+        Describe reproducible defects, severity, direct evidence, and realistic limitations.
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safe fixes and approval boundary
+      description:
+        Separate local reversible fixes from policy, identity, data, money, or destructive changes.
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: Current primary standards and sources
+      description: Link first-party documentation or versioned standards and include versions/dates.
+    validations:
+      required: true
+  - type: checkboxes
+    id: fixture
+    attributes:
+      label: Verification commitment
+      options:
+        - label:
+            I can provide a deliberately flawed fixture or an evaluation prompt with expected
+            findings.
+          required: true
+        - label: I will not include credentials, production data, copied prose, or unlicensed code.
+          required: true

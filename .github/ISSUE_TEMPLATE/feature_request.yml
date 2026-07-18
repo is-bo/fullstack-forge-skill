@@ -1,0 +1,33 @@
+name: Feature request
+description: Propose a concrete audit, platform, or tooling improvement.
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and risk
+      description: What production failure, workflow, or interoperability gap should this address?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and primary sources
+      description: Link current vendor documentation or a versioned standard where applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior and verification
+      description: State applicability, expected output, safety boundary, and a falsifiable test.
+    validations:
+      required: true
+  - type: checkboxes
+    id: research
+    attributes:
+      label: Research handling
+      options:
+        - label: I will not copy unlicensed code or substantial third-party prose.
+          required: true

@@ -1,0 +1,183 @@
+import { mkdtemp, mkdir, readFile, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { basename, dirname, join, resolve } from "node:path";
+import { projectRoot } from "./project.mjs";
+
+const dryRun = process.argv.includes("--dry-run");
+if (dryRun) {
+  console.log(
+    JSON.stringify(
+      {
+        dry_run: true,
+        checks: [
+          "npm pack",
+          "offline local install",
+          "CLI version",
+          "init/update/uninstall ownership smoke"
+        ]
+      },
+      null,
+      2
+    )
+  );
+  process.exit(0);
+}
+
+const prefix = join(tmpdir(), "fullstack-forge-smoke-");
+const temporary = await mkdtemp(prefix);
+validateTemporary(temporary);
+try {
+  const packageRoot = join(temporary, "package");
+  const consumerRoot = join(temporary, "consumer");
+  await mkdir(packageRoot);
+  await mkdir(consumerRoot);
+  const npmCli = await resolveNpmCli();
+  const pack = await run(
+    process.execPath,
+    [npmCli, "pack", "--json", "--pack-destination", packageRoot],
+    projectRoot,
+    10 * 60_000
+  );
+  if (pack.code !== 0) throw new Error(`npm pack failed:\n${pack.stderr}\n${pack.stdout}`);
+  const parsed = JSON.parse(pack.stdout);
+  const filename = parsed?.[0]?.filename;
+  if (typeof filename !== "string") throw new Error("npm pack did not report an archive filename");
+  const archive = join(packageRoot, filename);
+  await stat(archive);
+
+  await (
+    await import("node:fs/promises")
+  ).writeFile(
+    join(consumerRoot, "package.json"),
+    '{"name":"forge-smoke-consumer","private":true}\n',
+    "utf8"
+  );
+  const install = await run(
+    process.execPath,
+    [npmCli, "install", "--ignore-scripts", "--offline", "--no-audit", "--no-fund", archive],
+    consumerRoot,
+    10 * 60_000
+  );
+  if (install.code !== 0)
+    throw new Error(`local package installation failed:\n${install.stderr}\n${install.stdout}`);
+  const cli = join(
+    consumerRoot,
+    "node_modules",
+    "fullstack-forge-skill",
+    "build",
+    "cli",
+    "src",
+    "index.js"
+  );
+  const version = await run(process.execPath, [cli, "--version"], consumerRoot);
+  if (version.code !== 0 || version.stdout.trim() !== "0.1.0")
+    throw new Error(`CLI version smoke failed: ${version.stdout} ${version.stderr}`);
+
+  const dryInit = await run(
+    process.execPath,
+    [cli, "init", "generic", "--root", consumerRoot, "--dry-run", "--json"],
+    consumerRoot
+  );
+  if (dryInit.code !== 0 || !dryInit.stdout.includes('"dry_run": true'))
+    throw new Error(`dry-run init failed: ${dryInit.stderr}`);
+  const init = await run(
+    process.execPath,
+    [cli, "init", "generic", "--root", consumerRoot, "--json"],
+    consumerRoot
+  );
+  if (init.code !== 0) throw new Error(`init failed: ${init.stderr}`);
+  const skill = join(consumerRoot, ".agents", "skills", "fullstack-forge", "SKILL.md");
+  if (!(await readFile(skill, "utf8")).includes("# Fullstack Forge"))
+    throw new Error("installed master skill is invalid");
+
+  const update = await run(
+    process.execPath,
+    [cli, "update", "generic", "--root", consumerRoot, "--json"],
+    consumerRoot
+  );
+  if (update.code !== 0 || !update.stdout.includes("preserve-identical"))
+    throw new Error(`idempotent update failed: ${update.stderr}`);
+  const uninstallDry = await run(
+    process.execPath,
+    [cli, "uninstall", "generic", "--root", consumerRoot, "--dry-run", "--json"],
+    consumerRoot
+  );
+  if (uninstallDry.code !== 0 || !uninstallDry.stdout.includes('"action": "remove"'))
+    throw new Error(`dry uninstall failed: ${uninstallDry.stderr}`);
+  const uninstall = await run(
+    process.execPath,
+    [cli, "uninstall", "generic", "--root", consumerRoot, "--json"],
+    consumerRoot
+  );
+  if (uninstall.code !== 0) throw new Error(`uninstall failed: ${uninstall.stderr}`);
+  try {
+    await stat(skill);
+    throw new Error("uninstall left an owned skill file behind");
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+  console.log(
+    JSON.stringify(
+      {
+        ok: true,
+        package: filename,
+        version: version.stdout.trim(),
+        install_records_removed: true
+      },
+      null,
+      2
+    )
+  );
+} finally {
+  validateTemporary(temporary);
+  await rm(temporary, { recursive: true });
+}
+
+function validateTemporary(path) {
+  const resolved = resolve(path);
+  const resolvedTemp = resolve(tmpdir());
+  if (
+    !resolved.startsWith(`${resolvedTemp}${process.platform === "win32" ? "\\" : "/"}`) ||
+    !basename(resolved).startsWith("fullstack-forge-smoke-")
+  ) {
+    throw new Error(`Refusing to remove unexpected temporary path: ${resolved}`);
+  }
+}
+
+async function resolveNpmCli() {
+  const configured = process.env.npm_execpath;
+  const candidates = [
+    configured,
+    join(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js"),
+    join(dirname(process.execPath), "..", "lib", "node_modules", "npm", "bin", "npm-cli.js")
+  ].filter(Boolean);
+  for (const value of candidates) {
+    const candidate = resolve(value);
+    if (basename(candidate).toLowerCase() !== "npm-cli.js") continue;
+    try {
+      await stat(candidate);
+      return candidate;
+    } catch {
+      // Try the next installation layout.
+    }
+  }
+  throw new Error("Could not locate an allowlisted npm-cli.js entry point");
+}
+
+async function run(executable, args, cwd, timeout = 120_000) {
+  const { execFile } = await import("node:child_process");
+  return new Promise((resolvePromise) => {
+    execFile(
+      executable,
+      args,
+      { cwd, windowsHide: true, timeout, maxBuffer: 20 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        resolvePromise({
+          code: typeof error?.code === "number" ? error.code : error ? 1 : 0,
+          stdout: String(stdout),
+          stderr: String(stderr)
+        });
+      }
+    );
+  });
+}
