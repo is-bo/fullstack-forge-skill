@@ -1,0 +1,7 @@
+{
+  "name": "fixture-insecure-api",
+  "private": true,
+  "dependencies": {
+    "express": "0.0.0-fixture"
+  }
+}

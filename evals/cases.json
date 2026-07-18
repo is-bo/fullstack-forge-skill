@@ -1,0 +1,210 @@
+[
+  {
+    "id": "sql-injection",
+    "fixture": "insecure-api",
+    "mode": "automated-signal-plus-manual-trace",
+    "section": "security",
+    "prompt": "Trace request parameters into SQL execution and distinguish interpolation from parameter binding.",
+    "expected_finding": "FAIL: request-controlled id is interpolated into a SELECT statement; require parameterization and a negative injection test."
+  },
+  {
+    "id": "nosql-injection",
+    "fixture": "insecure-api",
+    "mode": "manual-evaluation",
+    "section": "security",
+    "prompt": "Inspect whether parsed request objects can become Mongo-style query operators or filters without an allowlisted shape.",
+    "expected_finding": "FAIL when request-controlled operators or filter objects reach a NoSQL query; require scalar/schema validation and negative operator tests."
+  },
+  {
+    "id": "command-injection",
+    "fixture": "insecure-api",
+    "mode": "manual-evaluation",
+    "section": "security",
+    "prompt": "Trace request data to subprocess or shell boundaries and verify executable/argument separation and allowlists.",
+    "expected_finding": "FAIL when request text reaches a shell or executable selector; require argument arrays, allowlists, and a hostile-input test."
+  },
+  {
+    "id": "broken-object-level-authorization",
+    "fixture": "insecure-api",
+    "mode": "manual-evaluation",
+    "section": "authorization",
+    "prompt": "Trace the object identifier route to the final data query and locate a subject/object authorization predicate.",
+    "expected_finding": "FAIL: object lookup has no demonstrated per-object authorization at the final query boundary."
+  },
+  {
+    "id": "cross-tenant-leakage",
+    "fixture": "cross-tenant-leak",
+    "mode": "automated-signal-plus-manual-trace",
+    "section": "tenancy",
+    "prompt": "Trace tenant context from authenticated identity through every repository query and response.",
+    "expected_finding": "FAIL: a tenant-owned record can be selected without an enforced tenant predicate and negative cross-tenant test."
+  },
+  {
+    "id": "unrestricted-uploads",
+    "fixture": "bad-upload-pipeline",
+    "mode": "automated-signal-plus-manual-trace",
+    "section": "uploads",
+    "prompt": "Audit upload count, byte, filename, type, parser, and authorization limits before durable storage.",
+    "expected_finding": "FAIL: upload.any accepts unrestricted files without bounded count, size, or allowlisted content policy."
+  },
+  {
+    "id": "extension-only-validation",
+    "fixture": "bad-upload-pipeline",
+    "mode": "manual-evaluation",
+    "section": "uploads",
+    "prompt": "Determine whether acceptance relies on a filename extension rather than decoded content and magic bytes.",
+    "expected_finding": "FAIL when extension-only validation can accept active or malformed content."
+  },
+  {
+    "id": "mime-spoofing",
+    "fixture": "bad-upload-pipeline",
+    "mode": "manual-evaluation",
+    "section": "uploads",
+    "prompt": "Compare client MIME, magic bytes, parser result, and permitted decoded type.",
+    "expected_finding": "FAIL when a client-controlled MIME header is trusted as proof of file type."
+  },
+  {
+    "id": "public-quarantine-bypass",
+    "fixture": "bad-upload-pipeline",
+    "mode": "automated-signal-plus-manual-trace",
+    "section": "uploads",
+    "prompt": "Trace the object location before scanning and confirm quarantine is private and not directly routable.",
+    "expected_finding": "FAIL: untrusted bytes are written beneath a public path before approval."
+  },
+  {
+    "id": "missing-malware-scanning",
+    "fixture": "bad-upload-pipeline",
+    "mode": "manual-evaluation",
+    "section": "uploads",
+    "prompt": "Locate malware scanning between private quarantine and release, including decision evidence.",
+    "expected_finding": "FAIL: no malware scanner or equivalent content-risk gate is demonstrated before release."
+  },
+  {
+    "id": "scanner-fail-open",
+    "fixture": "bad-upload-pipeline",
+    "mode": "manual-evaluation",
+    "section": "uploads",
+    "prompt": "Follow scanner timeout/error paths and determine whether the object stays quarantined.",
+    "expected_finding": "FAIL when scanner outage, timeout, or parse error releases the object instead of failing closed."
+  },
+  {
+    "id": "zip-bomb-risk",
+    "fixture": "bad-upload-pipeline",
+    "mode": "manual-evaluation",
+    "section": "uploads",
+    "prompt": "Inspect archive expansion limits for entries, nesting, compression ratio, total bytes, and time.",
+    "expected_finding": "FAIL when archives can expand without strict count, depth, ratio, byte, and timeout ceilings."
+  },
+  {
+    "id": "n-plus-one-queries",
+    "fixture": "slow-postgres-app",
+    "mode": "automated-signal-plus-manual-trace",
+    "section": "queries",
+    "prompt": "Trace queries inside loops and prove query count for representative list sizes.",
+    "expected_finding": "FAIL: one child query is issued per parent row; require batching/joining and a query-count test."
+  },
+  {
+    "id": "missing-pagination",
+    "fixture": "slow-postgres-app",
+    "mode": "automated-signal-plus-manual-trace",
+    "section": "queries",
+    "prompt": "Inspect list queries and APIs for stable order, bounded page size, and cursor/offset semantics.",
+    "expected_finding": "FAIL when an unbounded collection query or response lacks enforced pagination."
+  },
+  {
+    "id": "missing-indexes",
+    "fixture": "slow-postgres-app",
+    "mode": "manual-evaluation",
+    "section": "database",
+    "prompt": "Map high-frequency predicates/orderings to schema indexes and request a real query plan before claiming resolution.",
+    "expected_finding": "FAIL when a demonstrated critical query has no matching index; query-plan improvement remains NOT_VERIFIED until measured."
+  },
+  {
+    "id": "cross-user-cache-keys",
+    "fixture": "cache-data-leak",
+    "mode": "automated-signal-plus-manual-trace",
+    "section": "cache",
+    "prompt": "Trace identity dimensions into cache keys and test two users with the same resource identifier.",
+    "expected_finding": "FAIL when user-specific data is cached under a key that omits user identity."
+  },
+  {
+    "id": "cross-tenant-cache-keys",
+    "fixture": "cache-data-leak",
+    "mode": "automated-signal-plus-manual-trace",
+    "section": "cache",
+    "prompt": "Trace tenant dimensions into cache keys and invalidation paths, including same-id records in two tenants.",
+    "expected_finding": "FAIL when tenant-owned data is cached or invalidated under a key that omits tenant identity."
+  },
+  {
+    "id": "invoice-prompt-injection",
+    "fixture": "unsafe-ai-invoice",
+    "mode": "manual-evaluation",
+    "section": "ai",
+    "prompt": "Treat invoice and retrieved text as hostile data and trace whether it can instruct the model/tool policy.",
+    "expected_finding": "FAIL when untrusted invoice text can alter system/tool instructions without isolation and policy enforcement."
+  },
+  {
+    "id": "ai-irreversible-stock-change",
+    "fixture": "unsafe-ai-invoice",
+    "mode": "manual-evaluation",
+    "section": "ai",
+    "prompt": "Trace AI tool calls to irreversible inventory or financial effects and locate deterministic authorization and confirmation.",
+    "expected_finding": "FAIL when model output alone can commit irreversible stock or payment changes without scoped authorization and human/deterministic confirmation."
+  },
+  {
+    "id": "missing-keyboard-navigation",
+    "fixture": "inaccessible-dashboard",
+    "mode": "manual-browser-evaluation",
+    "section": "accessibility",
+    "prompt": "Operate the complete dashboard workflow using keyboard only and record focus order and unreachable controls.",
+    "expected_finding": "FAIL when an essential control or workflow cannot be reached and operated by keyboard."
+  },
+  {
+    "id": "missing-form-labels",
+    "fixture": "inaccessible-dashboard",
+    "mode": "automated-signal-plus-manual-browser-evaluation",
+    "section": "accessibility",
+    "prompt": "Inspect each form control's programmatic accessible name and verify it with the accessibility tree.",
+    "expected_finding": "FAIL when a required form control has no associated label or accessible name."
+  },
+  {
+    "id": "missing-focus-handling",
+    "fixture": "inaccessible-dashboard",
+    "mode": "manual-browser-evaluation",
+    "section": "accessibility",
+    "prompt": "Open/close dialogs and trigger validation/navigation while observing focus placement, trapping, and restoration.",
+    "expected_finding": "FAIL when focus is lost, hidden, not trapped where required, or not restored after a modal workflow."
+  },
+  {
+    "id": "unverified-backup-claims",
+    "fixture": "unverified-backup",
+    "mode": "manual-evaluation",
+    "section": "recovery",
+    "prompt": "Separate backup configuration claims from direct restore evidence, timestamps, integrity checks, RPO, and RTO measurements.",
+    "expected_finding": "NOT_VERIFIED or FAIL: documentation claims backups without a successful recent restore test and measured recovery evidence."
+  },
+  {
+    "id": "unsigned-payment-webhooks",
+    "fixture": "unsigned-payment-webhook",
+    "mode": "manual-evaluation",
+    "section": "payments",
+    "prompt": "Trace raw webhook bytes through signature verification before parsing or side effects.",
+    "expected_finding": "FAIL when payment events are accepted without provider signature verification over the raw payload."
+  },
+  {
+    "id": "duplicate-payment-handling",
+    "fixture": "unsigned-payment-webhook",
+    "mode": "manual-evaluation",
+    "section": "payments",
+    "prompt": "Replay the same provider event and inspect uniqueness, transaction, and side-effect behavior.",
+    "expected_finding": "FAIL when a duplicate provider event can repeat payment, fulfillment, notification, or ledger effects."
+  },
+  {
+    "id": "missing-webhook-idempotency",
+    "fixture": "unsigned-payment-webhook",
+    "mode": "manual-evaluation",
+    "section": "integrations",
+    "prompt": "Locate durable event-id idempotency storage and verify concurrent/retried delivery behavior.",
+    "expected_finding": "FAIL when webhook processing has no durable unique event key and atomic idempotency boundary."
+  }
+]

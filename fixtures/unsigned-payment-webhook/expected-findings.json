@@ -1,0 +1,5 @@
+{
+  "capabilities": ["api", "payments", "integrations"],
+  "tools": { "inspect-routes": 1 },
+  "sections": ["payments", "integrations", "security"]
+}

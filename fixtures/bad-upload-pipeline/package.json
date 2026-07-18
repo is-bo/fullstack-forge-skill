@@ -1,0 +1,8 @@
+{
+  "name": "fixture-bad-upload-pipeline",
+  "private": true,
+  "dependencies": {
+    "express": "0.0.0-fixture",
+    "multer": "0.0.0-fixture"
+  }
+}

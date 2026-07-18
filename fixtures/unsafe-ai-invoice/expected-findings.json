@@ -1,0 +1,5 @@
+{
+  "capabilities": ["ai", "payments"],
+  "tools": {},
+  "sections": ["ai", "payments", "authorization", "security"]
+}

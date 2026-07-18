@@ -1,0 +1,5 @@
+{
+  "capabilities": ["database"],
+  "tools": { "inspect-query-patterns": 2, "inspect-database-schema": 0 },
+  "sections": ["database", "queries", "performance"]
+}

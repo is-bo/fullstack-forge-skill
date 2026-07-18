@@ -1,0 +1,7 @@
+{
+  "name": "fixture-cross-tenant-leak",
+  "private": true,
+  "dependencies": {
+    "express": "0.0.0-fixture"
+  }
+}

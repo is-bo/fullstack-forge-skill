@@ -1,0 +1,8 @@
+{
+  "name": "fixture-unsafe-ai-invoice",
+  "private": true,
+  "dependencies": {
+    "openai": "0.0.0-fixture",
+    "stripe": "0.0.0-fixture"
+  }
+}

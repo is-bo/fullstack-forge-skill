@@ -1,0 +1,5 @@
+{
+  "capabilities": ["cache", "tenancy"],
+  "tools": { "inspect-cache-usage": 1 },
+  "sections": ["cache", "privacy", "tenancy"]
+}

@@ -1,0 +1,5 @@
+{
+  "capabilities": ["api", "tenancy"],
+  "tools": { "inspect-routes": 1, "inspect-authorization": 1 },
+  "sections": ["tenancy", "authorization"]
+}

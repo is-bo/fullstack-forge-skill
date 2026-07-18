@@ -1,0 +1,8 @@
+{
+  "name": "fixture-broken-auth",
+  "private": true,
+  "dependencies": {
+    "express": "0.0.0-fixture",
+    "passport": "0.0.0-fixture"
+  }
+}

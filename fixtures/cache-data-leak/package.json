@@ -1,0 +1,7 @@
+{
+  "name": "fixture-cache-data-leak",
+  "private": true,
+  "dependencies": {
+    "redis": "0.0.0-fixture"
+  }
+}
