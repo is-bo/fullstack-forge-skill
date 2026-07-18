@@ -2,7 +2,7 @@
   "name": "fixture-risky-fixes",
   "private": true,
   "dependencies": {
-    "express": "0.0.0-fixture",
+    "express": "4.22.0",
     "multer": "0.0.0-fixture"
   }
 }
