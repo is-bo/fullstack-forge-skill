@@ -1,0 +1,187 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { PACKAGE_ROOT, TOOL_NAMES } from "./constants.js";
+import { detectProjectCommands, discoverProject, writeProjectArtifacts } from "./discovery.js";
+import { assertFindings, validateFinding } from "./finding.js";
+import { inspectWithTool } from "./inspectors.js";
+import { createReport, writeReport } from "./report.js";
+import { canonicalDirectory, resolveInside, runFile } from "./utils.js";
+export async function runTool(nameInput, args, options) {
+    if (!isToolName(nameInput))
+        throw new Error(`Unknown tool '${nameInput}'. Run 'forge list' for valid tools.`);
+    const root = await canonicalDirectory(options.cwd);
+    if (nameInput === "detect-stack") {
+        const profile = await discoverProject(root);
+        return {
+            value: {
+                root: profile.root,
+                generated_at: profile.generated_at,
+                detections: profile.detections
+            },
+            exitCode: 0
+        };
+    }
+    if (nameInput === "discover-project") {
+        const profile = await discoverProject(root);
+        const artifacts = await writeProjectArtifacts(profile, options.dryRun);
+        return { value: { profile, artifacts, dry_run: options.dryRun }, exitCode: 0 };
+    }
+    if (nameInput === "detect-project-commands") {
+        return { value: await detectProjectCommands(root), exitCode: 0 };
+    }
+    if (nameInput === "run-project-command") {
+        const commandName = args[0];
+        if (commandName === undefined)
+            throw new Error("run-project-command requires a detected script name");
+        const commands = await detectProjectCommands(root);
+        const command = commands.find((candidate) => candidate.name === commandName);
+        if (command === undefined)
+            throw new Error(`'${commandName}' is not a detected project command`);
+        if (!options.allowRun) {
+            return {
+                value: {
+                    status: "BLOCKED",
+                    reason: "Execution requires explicit --allow-run after reviewing the local script definition.",
+                    command
+                },
+                exitCode: 2
+            };
+        }
+        const execution = await runFile(command.executable, command.args, root);
+        return { value: { command, ...execution }, exitCode: execution.exitCode };
+    }
+    if (isInspectionTool(nameInput)) {
+        const inspection = await inspectWithTool(nameInput, root);
+        return {
+            value: inspection,
+            exitCode: inspection.findings.some((finding) => finding.status === "FAIL") ? 1 : 0
+        };
+    }
+    if (nameInput === "generate-report") {
+        const profile = await loadOrDiscoverProfile(root);
+        const findingPath = args[0] === undefined ? join(root, ".forge", "findings.json") : resolveInside(root, args[0]);
+        const parsed = JSON.parse(await readFile(findingPath, "utf8"));
+        const findings = extractFindings(parsed);
+        assertFindings(findings);
+        const report = createReport(root, profile, findings, "generated from findings input");
+        const paths = options.dryRun
+            ? []
+            : await writeReport(report, options.output === undefined ? undefined : resolveInside(root, options.output));
+        return {
+            value: { report, paths, dry_run: options.dryRun },
+            exitCode: findings.some((finding) => finding.status === "FAIL") ? 1 : 0
+        };
+    }
+    if (nameInput === "validate-finding-schema") {
+        const input = args[0];
+        if (input === undefined)
+            throw new Error("validate-finding-schema requires a JSON path under the project root");
+        const parsed = JSON.parse(await readFile(resolveInside(root, input), "utf8"));
+        const values = extractFindings(parsed);
+        const errors = values.flatMap((value, index) => validateFinding(value).map((error) => `[${index}] ${error}`));
+        return {
+            value: { valid: errors.length === 0, count: values.length, errors },
+            exitCode: errors.length === 0 ? 0 : 1
+        };
+    }
+    if (nameInput === "validate-skill") {
+        const validation = await validateBundledSkills();
+        return { value: validation, exitCode: validation.errors.length === 0 ? 0 : 1 };
+    }
+    const scripts = {
+        "sync-platform-assets": "sync-platform-assets.mjs",
+        "check-platform-assets": "check-platform-assets.mjs",
+        "package-platforms": "package-platforms.mjs",
+        "smoke-install": "smoke-install.mjs"
+    };
+    const script = scripts[nameInput];
+    if (script !== undefined) {
+        const scriptArgs = options.dryRun
+            ? [join(PACKAGE_ROOT, "scripts", script), "--dry-run"]
+            : [join(PACKAGE_ROOT, "scripts", script)];
+        const execution = await runFile(process.execPath, scriptArgs, PACKAGE_ROOT, 10 * 60_000);
+        return { value: { tool: nameInput, ...execution }, exitCode: execution.exitCode };
+    }
+    throw new Error(`Internal dispatch invariant failed for tool '${nameInput}'`);
+}
+export async function validateBundledSkills() {
+    const errors = [];
+    const catalog = JSON.parse(await readFile(join(PACKAGE_ROOT, "config", "modules.json"), "utf8"));
+    const expected = [...TOOL_NAMES];
+    if (new Set(expected).size !== expected.length)
+        errors.push("tool catalog contains duplicate names");
+    const slugs = catalog.map((entry) => entry.slug);
+    if (slugs.some((slug) => typeof slug !== "string"))
+        errors.push("module catalog contains an invalid slug");
+    const paths = [join(PACKAGE_ROOT, "src", "fullstack-forge", "SKILL.md")];
+    for (const slug of slugs) {
+        if (typeof slug === "string")
+            paths.push(join(PACKAGE_ROOT, "src", "fullstack-forge", "commands", `forge-${slug}`, "SKILL.md"));
+    }
+    for (const path of paths) {
+        let content;
+        try {
+            content = await readFile(path, "utf8");
+        }
+        catch (error) {
+            errors.push(`${path}: ${error.message}`);
+            continue;
+        }
+        const lines = content.split(/\r?\n/u);
+        if (lines.length > 500)
+            errors.push(`${path}: exceeds 500 lines`);
+        if (!/^---\r?\nname:\s*[a-z0-9-]+\r?\ndescription:\s*\S[\s\S]*?\r?\n---\r?\n/u.test(content)) {
+            errors.push(`${path}: invalid name/description frontmatter`);
+        }
+        if (/\bTODO\b|\[TODO/iu.test(content))
+            errors.push(`${path}: unresolved TODO placeholder`);
+        if (!content.includes("Never hide failed checks or claim that an operation ran when it did not.")) {
+            errors.push(`${path}: missing completion contract`);
+        }
+    }
+    return { valid: errors.length === 0, skills: paths.length, errors };
+}
+async function loadOrDiscoverProfile(root) {
+    try {
+        const parsed = JSON.parse(await readFile(join(root, ".forge", "project-profile.json"), "utf8"));
+        if (!isProjectProfile(parsed))
+            throw new Error("Invalid .forge/project-profile.json");
+        return parsed;
+    }
+    catch (error) {
+        if (error.code !== "ENOENT")
+            throw error;
+        return discoverProject(root);
+    }
+}
+function isProjectProfile(value) {
+    if (typeof value !== "object" || value === null || Array.isArray(value))
+        return false;
+    const candidate = value;
+    return (candidate.schema_version === 1 &&
+        typeof candidate.root === "string" &&
+        typeof candidate.generated_at === "string" &&
+        Array.isArray(candidate.detections) &&
+        typeof candidate.capabilities === "object" &&
+        candidate.capabilities !== null &&
+        !Array.isArray(candidate.capabilities));
+}
+function extractFindings(value) {
+    if (Array.isArray(value))
+        return value;
+    if (typeof value === "object" && value !== null && "findings" in value) {
+        const findings = value.findings;
+        if (Array.isArray(findings))
+            return findings;
+    }
+    return [value];
+}
+function isToolName(value) {
+    return TOOL_NAMES.includes(value);
+}
+function isInspectionTool(value) {
+    return value.startsWith("inspect-") && value !== "inspect-platform-skills"
+        ? true
+        : value === "inspect-platform-skills" || value === "scan-secret-patterns";
+}
+//# sourceMappingURL=tools.js.map

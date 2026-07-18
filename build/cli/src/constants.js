@@ -1,0 +1,154 @@
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+export const VERSION = "0.1.0";
+export const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+export const MODULE_SLUGS = [
+    "discover",
+    "requirements",
+    "architecture",
+    "code",
+    "ui",
+    "ux",
+    "accessibility",
+    "i18n",
+    "seo",
+    "frontend",
+    "api",
+    "jobs",
+    "integrations",
+    "auth",
+    "authorization",
+    "security",
+    "privacy",
+    "tenancy",
+    "uploads",
+    "database",
+    "queries",
+    "cache",
+    "storage",
+    "testing",
+    "performance",
+    "scale",
+    "observability",
+    "reliability",
+    "recovery",
+    "deployment",
+    "infrastructure",
+    "supply-chain",
+    "cost",
+    "docs",
+    "analytics",
+    "notifications",
+    "ai",
+    "payments",
+    "realtime",
+    "offline",
+    "all",
+    "ship"
+];
+export const PLATFORM_CONFIG = {
+    agents: {
+        label: "Codex, Antigravity, and generic Agent Skills",
+        projectPath: [".agents", "skills"],
+        globalPath: [".agents", "skills"]
+    },
+    claude: {
+        label: "Claude Code",
+        projectPath: [".claude", "skills"],
+        globalPath: [".claude", "skills"]
+    },
+    cursor: {
+        label: "Cursor",
+        projectPath: [".cursor", "skills"],
+        globalPath: [".cursor", "skills"]
+    },
+    gemini: {
+        label: "Gemini CLI",
+        projectPath: [".gemini", "skills"],
+        globalPath: [".gemini", "skills"]
+    },
+    github: {
+        label: "GitHub Copilot",
+        projectPath: [".github", "skills"],
+        globalPath: [".copilot", "skills"]
+    },
+    windsurf: {
+        label: "Windsurf/Devin Cascade",
+        projectPath: [".windsurf", "skills"],
+        globalPath: [".codeium", "windsurf", "skills"]
+    }
+};
+export const PLATFORMS = Object.keys(PLATFORM_CONFIG);
+export const TOOL_NAMES = [
+    "detect-stack",
+    "discover-project",
+    "detect-project-commands",
+    "run-project-command",
+    "inspect-env-template",
+    "scan-secret-patterns",
+    "inspect-routes",
+    "inspect-auth-boundaries",
+    "inspect-authorization",
+    "inspect-upload-pipeline",
+    "inspect-database-schema",
+    "inspect-query-patterns",
+    "inspect-cache-usage",
+    "inspect-dependencies",
+    "inspect-ci",
+    "inspect-deployment-config",
+    "inspect-platform-skills",
+    "generate-report",
+    "validate-finding-schema",
+    "validate-skill",
+    "sync-platform-assets",
+    "check-platform-assets",
+    "package-platforms",
+    "smoke-install"
+];
+export const ALWAYS_APPLICABLE = new Set([
+    "discover",
+    "requirements",
+    "architecture",
+    "code",
+    "security",
+    "testing",
+    "supply-chain",
+    "docs",
+    "all",
+    "ship"
+]);
+export const SECTION_CAPABILITY = {
+    ui: "frontend",
+    ux: "frontend",
+    accessibility: "frontend",
+    i18n: "internationalization",
+    seo: "public-web",
+    frontend: "frontend",
+    api: "api",
+    jobs: "jobs",
+    integrations: "integrations",
+    auth: "authentication",
+    authorization: "authorization",
+    privacy: "personal-data",
+    tenancy: "tenancy",
+    uploads: "uploads",
+    database: "database",
+    queries: "database",
+    cache: "cache",
+    storage: "storage",
+    performance: "runtime",
+    scale: "runtime",
+    observability: "observability",
+    reliability: "runtime",
+    recovery: "database",
+    deployment: "deployment",
+    infrastructure: "infrastructure",
+    cost: "paid-services",
+    analytics: "analytics",
+    notifications: "notifications",
+    ai: "ai",
+    payments: "payments",
+    realtime: "realtime",
+    offline: "offline"
+};
+//# sourceMappingURL=constants.js.map
