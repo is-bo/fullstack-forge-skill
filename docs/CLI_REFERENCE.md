@@ -11,9 +11,10 @@ forge <section> <mode> [options]
 Modes:
 
 - `audit`: discover and inspect without changing product behavior.
-- `fix`: stop at a safe/risky plan; the CLI never guesses source changes.
-- `verify`: rerun the module scanner against existing findings and preserve missing behavior
-  evidence as `NOT_VERIFIED`.
+- `fix`: apply only a registered safe transformation bound to a confirmed finding, current file
+  hash, exact preconditions, contained regular-file paths, and a finding-specific verification.
+- `verify`: execute each finding's analyzer, structural assertion, approved command, fixture, or
+  manual verification plan while preserving the original evidence.
 - `report`: render `.forge/report.json`.
 
 Examples:
@@ -23,7 +24,9 @@ forge ui audit
 forge security audit --json
 forge uploads verify
 forge all audit --scope changed
+forge all audit --scope changed --base origin/main
 forge all audit --scope full --risk high
+forge all fix --safe --dry-run
 ```
 
 ## Release gate
@@ -33,10 +36,12 @@ forge ship
 forge ship --allow-run
 ```
 
-The first form displays detected release script definitions and returns `BLOCKED`. After review,
-`--allow-run` executes the detected gate arguments without a shell. The command records output and
-stops after the first failure. Remote CI, GitHub release, registry, deployment, and production state
-still require separate direct evidence.
+Both forms evaluate the explicit internal, audit-evidence, capability, and project-native gate
+registry. Without `--allow-run`, an applicable project-defined command is `BLOCKED`; after review,
+the flag executes its bounded argument vector without a shell. A missing recognized command cannot
+produce a pass by omission. The command records exit code, output, and duration and stops after the
+first failure. Remote CI, GitHub release, registry, deployment, and production state still require
+separate direct evidence.
 
 ## Platform lifecycle
 
@@ -49,8 +54,9 @@ forge doctor
 ```
 
 Selectors: `claude`, `codex`, `antigravity`, `gemini`, `cursor`, `windsurf`, `github`, `generic`,
-`agents`, and `all`. Codex, Antigravity, generic, and agents share `.agents/skills/`; `all` installs
-that target once. Add `--global` for the documented user-level path.
+`agents`, and `all`. Codex, generic, and agents select `.agents/skills/`. Antigravity uses that
+project path but has its own global destination, `~/.gemini/config/skills/`; it is not a global
+generic-agent alias. Add `--global` for each product's documented user-level path.
 
 Install conflicts fail before writes. Pre-existing identical files are recorded as unowned and are
 left in place on uninstall. Modified owned files are preserved and reported.
@@ -64,6 +70,7 @@ left in place on uninstall. Modified owned files are preserved and reported.
 - `--offline`: assert offline intent; package smoke installation is local/offline.
 - `--allow-run`: explicit authorization for reviewed local project scripts.
 - `--safe`: restrict fix planning to safe classifications; never expands mutation authority.
+- `--base <ref>`: validated Git base reference for a changed-scope audit.
 - `--scope`, `--risk`, `--severity`, `--output`: command-specific filters or output location.
 
 Unknown flags, platforms, modules, tools, modes, escaping paths, and symlinked destinations fail
@@ -99,5 +106,7 @@ sync-platform-assets         check-platform-assets
 package-platforms            smoke-install
 ```
 
-Secret matches are redacted. Static signals are not compliance verdicts. A nonzero scanner exit
-preserves an observed failure; it is not a tool crash by definition.
+Secret matches are redacted. Compiler-backed and structured analyzers prove only their supported
+shapes; keyword inventory remains a discovery signal, not a compliance verdict. Unsupported stacks
+remain `NOT_VERIFIED`. A nonzero scanner exit preserves an observed failure; it is not a tool crash
+by definition.

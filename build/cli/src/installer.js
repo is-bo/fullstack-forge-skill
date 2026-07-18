@@ -1,18 +1,20 @@
 import { homedir } from "node:os";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
-import { PACKAGE_ROOT, PLATFORM_CONFIG, PLATFORMS, VERSION } from "./constants.js";
+import { PACKAGE_ROOT, PLATFORM_ALIASES, PLATFORM_CONFIG, PLATFORMS, VERSION } from "./constants.js";
 import { assertNoSymlinkPath, assertSafeRelative, canonicalDirectory, isInside, readTextIfPresent, resolveInside, sha256, toPosix, utcNow, walkFiles } from "./utils.js";
 const MANIFEST_RELATIVE = ".fullstack-forge/install-manifest.json";
 export function normalizePlatforms(selector) {
+    return normalizePlatformsForScope(selector, false);
+}
+function normalizePlatformsForScope(selector, global) {
     const normalized = selector.toLowerCase();
     if (normalized === "all")
-        return [...PLATFORMS];
-    const aliases = {
+        return global ? [...PLATFORMS] : PLATFORMS.filter((platform) => platform !== "antigravity");
+    const selectors = {
         agents: "agents",
-        antigravity: "agents",
-        generic: "agents",
-        codex: "agents",
+        ...PLATFORM_ALIASES,
+        antigravity: global ? "antigravity" : "agents",
         claude: "claude",
         cursor: "cursor",
         gemini: "gemini",
@@ -20,7 +22,7 @@ export function normalizePlatforms(selector) {
         copilot: "github",
         windsurf: "windsurf"
     };
-    const platform = aliases[normalized];
+    const platform = selectors[normalized];
     if (platform === undefined) {
         throw new Error(`Unknown platform '${selector}'. Expected claude, codex, antigravity, gemini, cursor, windsurf, github, generic, agents, or all.`);
     }
@@ -28,20 +30,24 @@ export function normalizePlatforms(selector) {
 }
 export async function install(rootInput, selector, options) {
     const root = options.global
-        ? await canonicalDirectory(homedir())
+        ? await canonicalDirectory(options.home ?? homedir())
         : await canonicalDirectory(rootInput);
-    const platforms = normalizePlatforms(selector);
+    const platforms = normalizePlatformsForScope(selector, options.global);
     const previous = await readManifest(root);
     const planned = [];
     for (const platform of platforms) {
         const config = PLATFORM_CONFIG[platform];
-        const sourceRoot = join(PACKAGE_ROOT, ...config.projectPath);
+        const sourceRoot = join(PACKAGE_ROOT, ...config.sourcePath);
         const targetParts = options.global ? config.globalPath : config.projectPath;
         const targetRoot = resolve(root, ...targetParts);
         if (!isInside(root, targetRoot))
             throw new Error(`Platform destination escapes install root: ${targetRoot}`);
         await assertNoSymlinkPath(root, targetRoot);
-        const sourceFiles = (await walkFiles(sourceRoot)).filter((path) => !path.endsWith(".fullstack-forge-generated.json"));
+        const sourceFiles = (await walkFiles(sourceRoot, {
+            maxFiles: 5_000,
+            maxTotalBytes: 256 * 1024 * 1024,
+            maxDepth: 64
+        })).filter((path) => !path.endsWith(".fullstack-forge-generated.json"));
         if (sourceFiles.length === 0)
             throw new Error(`Bundled platform assets are missing for ${platform}`);
         for (const source of sourceFiles) {
@@ -114,9 +120,9 @@ export async function install(rootInput, selector, options) {
 }
 export async function uninstall(rootInput, selector, options) {
     const root = options.global
-        ? await canonicalDirectory(homedir())
+        ? await canonicalDirectory(options.home ?? homedir())
         : await canonicalDirectory(rootInput);
-    const selected = new Set(normalizePlatforms(selector));
+    const selected = new Set(normalizePlatformsForScope(selector, options.global));
     const manifest = await readManifest(root, true);
     const actions = [];
     const remaining = { ...manifest.files };

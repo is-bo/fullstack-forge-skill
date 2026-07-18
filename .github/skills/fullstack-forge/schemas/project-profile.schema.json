@@ -4,16 +4,80 @@
   "title": "Fullstack Forge project profile",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "root", "generated_at", "detections", "capabilities"],
+  "required": [
+    "schema_version",
+    "root",
+    "generated_at",
+    "detections",
+    "capabilities",
+    "repository",
+    "workspaces",
+    "applications",
+    "languages",
+    "frameworks",
+    "package_managers",
+    "databases",
+    "orms",
+    "authentication",
+    "sessions",
+    "authorization",
+    "roles",
+    "tenant_boundaries",
+    "routes",
+    "storage",
+    "upload_pipelines",
+    "caches",
+    "queues",
+    "scheduled_jobs",
+    "tests",
+    "ci",
+    "observability",
+    "integrations",
+    "ai_providers",
+    "payment_providers",
+    "hosting",
+    "deployment",
+    "environment_templates",
+    "critical_workflows"
+  ],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "root": { "type": "string", "minLength": 1 },
     "generated_at": { "type": "string", "format": "date-time" },
     "detections": { "type": "array", "items": { "$ref": "#/$defs/detection" } },
     "capabilities": {
       "type": "object",
       "additionalProperties": { "$ref": "#/$defs/detection" }
-    }
+    },
+    "repository": { "$ref": "#/$defs/record" },
+    "workspaces": { "$ref": "#/$defs/records" },
+    "applications": { "$ref": "#/$defs/records" },
+    "languages": { "$ref": "#/$defs/records" },
+    "frameworks": { "$ref": "#/$defs/records" },
+    "package_managers": { "$ref": "#/$defs/records" },
+    "databases": { "$ref": "#/$defs/records" },
+    "orms": { "$ref": "#/$defs/records" },
+    "authentication": { "$ref": "#/$defs/records" },
+    "sessions": { "$ref": "#/$defs/records" },
+    "authorization": { "$ref": "#/$defs/records" },
+    "roles": { "$ref": "#/$defs/records" },
+    "tenant_boundaries": { "$ref": "#/$defs/records" },
+    "routes": { "type": "array", "items": { "$ref": "#/$defs/route" } },
+    "storage": { "$ref": "#/$defs/records" },
+    "upload_pipelines": { "$ref": "#/$defs/records" },
+    "caches": { "$ref": "#/$defs/records" },
+    "queues": { "$ref": "#/$defs/records" },
+    "scheduled_jobs": { "$ref": "#/$defs/records" },
+    "tests": { "$ref": "#/$defs/records" },
+    "ci": { "$ref": "#/$defs/records" },
+    "observability": { "$ref": "#/$defs/records" },
+    "integrations": { "$ref": "#/$defs/records" },
+    "ai_providers": { "$ref": "#/$defs/records" },
+    "payment_providers": { "$ref": "#/$defs/records" },
+    "hosting": { "$ref": "#/$defs/records" },
+    "deployment": { "$ref": "#/$defs/records" },
+    "environment_templates": { "$ref": "#/$defs/records" },
+    "critical_workflows": { "$ref": "#/$defs/records" }
   },
   "$defs": {
     "detection": {
@@ -27,6 +91,44 @@
           "type": "array",
           "minItems": 1,
           "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "confidence", "evidence"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1 },
+        "root": { "type": "string", "minLength": 1 },
+        "location": { "type": "string", "minLength": 1 },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW"] },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "records": { "type": "array", "items": { "$ref": "#/$defs/record" } },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "confidence", "evidence", "visibility"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1 },
+        "root": { "type": "string", "minLength": 1 },
+        "location": { "type": "string", "minLength": 1 },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW"] },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "visibility": {
+          "enum": ["public", "authenticated", "admin", "internal", "unknown"]
         }
       }
     }

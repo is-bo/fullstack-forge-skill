@@ -24,7 +24,9 @@ jobs:
       - name: Install locked development dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify tagged source
-        run: npm run check
+        run: |
+          npm run check
+          npm audit --ignore-scripts
       - name: Package and smoke-install
         run: |
           npm run package:platforms
@@ -36,5 +38,5 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt dist/manifest.json --clobber
           else
-            gh release create "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt dist/manifest.json --verify-tag --notes-file docs/RELEASE_NOTES_v0.1.0.md --title "Fullstack Forge $GITHUB_REF_NAME"
+            gh release create "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt dist/manifest.json --verify-tag --notes-file docs/RELEASE_NOTES_v0.1.1.md --title "Fullstack Forge $GITHUB_REF_NAME"
           fi

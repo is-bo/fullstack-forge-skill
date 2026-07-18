@@ -22,7 +22,7 @@ evidence a pass.
 It works as an open-format Agent Skill collection and as a dependency-light TypeScript CLI.
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.0 && npx forge init all
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.1 && npx forge init all
 ```
 
 Codex, Claude Code, Antigravity, Gemini CLI, Cursor, Windsurf, GitHub Copilot, and generic Agent
@@ -67,7 +67,7 @@ npx forge init all
 Until the package is published to npm, install from the repository or a release tarball:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.0
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.1
 ```
 
 The installer writes `.fullstack-forge/install-manifest.json`. It will not overwrite unowned or
@@ -92,7 +92,7 @@ forge ux audit
 forge security audit --json
 forge uploads audit
 forge queries audit
-forge all audit --scope changed
+forge all audit --scope changed --base origin/main
 forge all audit --scope full
 forge all fix --safe
 forge ship --allow-run
@@ -125,7 +125,8 @@ Every finding includes:
 
 ```text
 id · section · title · severity · confidence · status · location · evidence
-impact · recommendation · safe_fix · verification · standards
+impact · recommendation · safe_fix · verification · standards · analyzer_id
+trace · evidence_snapshot · verification_plan
 ```
 
 Statuses are `PASS`, `FAIL`, `WARNING`, `NOT_APPLICABLE`, `NOT_VERIFIED`, and `BLOCKED`. Severities
@@ -142,15 +143,18 @@ NOT_VERIFIED    required behavior or environment evidence is missing
 BLOCKED         approval, access, or a required tool is unavailable
 ```
 
-Agent skills may apply small local, deterministic, reversible, policy-neutral fixes after
-authorization. Identity, tenant, data, migration, secret, financial, legal, architecture,
-production, and destructive changes remain approval-bound. The CLI itself never guesses source
-edits.
+The CLI has a typed safe-fix registry. It can replace actual-looking values in environment templates
+with explicit placeholders, add `noopener noreferrer` to proven JSX `target="_blank"` links, and add
+`X-Content-Type-Options: nosniff` to an existing global Vercel header rule. Every write is bound to
+a confirmed finding, exact post-audit hash, structural parser, repository-contained path, and
+finding-specific verification. Identity, tenant, upload policy, data, migration, secret rotation,
+financial, legal, architecture, production, and destructive changes remain approval-bound.
 
 ## CLI
 
 ```text
 forge <section> <audit|fix|verify|report> [options]
+forge all audit --scope changed [--base <ref>]
 forge init <platform|all> [--global] [--dry-run]
 forge update [platform] [--dry-run]
 forge uninstall [platform] [--dry-run]
@@ -158,25 +162,27 @@ forge doctor | validate | package | list
 forge tool <name>
 ```
 
-The CLI includes discovery, environment, secret-pattern, route, identity, authorization, upload,
-database, query, cache, dependency, CI, deployment, and platform-skill inspectors. It also validates
-findings and skills, synchronizes generated copies, packages platforms, and smoke-installs releases.
-Project commands execute only after their local definitions are shown and `--allow-run` is supplied.
+The CLI includes bounded TypeScript-compiler and structured-config analyzers for supported
+JavaScript/TypeScript security, authorization, tenancy, upload, query, cache, accessibility, AI,
+payment, and integration shapes. Keyword scanners remain secondary discovery signals and never
+establish a pass. Unsupported languages or frameworks are reported as `NOT_VERIFIED` with the
+missing adapter named. Project commands execute only after their local definitions are shown and
+`--allow-run` is supplied.
 
 See [commands](docs/COMMANDS.md).
 
 ## Platform support
 
-| Agent                  | Project path        | Typical invocation      |
-| ---------------------- | ------------------- | ----------------------- |
-| Codex                  | `.agents/skills/`   | `$fullstack-forge`      |
-| Claude Code            | `.claude/skills/`   | `/fullstack-forge`      |
-| Antigravity CLI        | `.agents/skills/`   | name the skill          |
-| Gemini CLI             | `.gemini/skills/`   | `/skills`, then name it |
-| Cursor                 | `.cursor/skills/`   | `/fullstack-forge`      |
-| Windsurf/Devin Cascade | `.windsurf/skills/` | `@fullstack-forge`      |
-| GitHub Copilot         | `.github/skills/`   | name or auto-select     |
-| Generic Agent Skills   | `.agents/skills/`   | agent-specific          |
+| Agent                  | Project path        | User/global path              | Typical invocation      |
+| ---------------------- | ------------------- | ----------------------------- | ----------------------- |
+| Codex                  | `.agents/skills/`   | `~/.agents/skills/`           | `$fullstack-forge`      |
+| Claude Code            | `.claude/skills/`   | `~/.claude/skills/`           | `/fullstack-forge`      |
+| Antigravity            | `.agents/skills/`   | `~/.gemini/config/skills/`    | name the skill          |
+| Gemini CLI             | `.gemini/skills/`   | `~/.gemini/skills/`           | `/skills`, then name it |
+| Cursor                 | `.cursor/skills/`   | `~/.cursor/skills/`           | `/fullstack-forge`      |
+| Windsurf/Devin Cascade | `.windsurf/skills/` | `~/.codeium/windsurf/skills/` | `@fullstack-forge`      |
+| GitHub Copilot         | `.github/skills/`   | `~/.copilot/skills/`          | name or auto-select     |
+| Generic Agent Skills   | `.agents/skills/`   | `~/.agents/skills/`           | agent-specific          |
 
 These paths were verified against current primary platform documentation on 2026-07-18. Some
 platforms also scan `.agents/skills/`. See [platform support](docs/PLATFORM_SUPPORT.md) for global
@@ -191,15 +197,17 @@ drifts.
 
 See [architecture](docs/ARCHITECTURE.md), [development](docs/DEVELOPMENT.md),
 [release process](docs/RELEASING.md), and the
-[v0.1.0 verification record](docs/RELEASE_VERIFICATION_v0.1.0.md).
+[v0.1.0 historical verification record](docs/RELEASE_VERIFICATION_v0.1.0.md). The
+[v0.1.1 verification record](docs/RELEASE_VERIFICATION_v0.1.1.md) separates local, CI, publication,
+asset-download, and clean-room evidence.
 
 ## Safety and limitations
 
 Fullstack Forge is an engineering audit aid, not a compliance certificate, penetration test, legal
 opinion, accessibility conformance claim, financial audit, or substitute for production access.
-Static scanners report evidence-backed signals and false positives remain possible. Runtime,
-provider, database, browser, assistive-technology, and operator checks stay `NOT_VERIFIED` until
-actually performed.
+Static analyzers are bounded, can produce false positives, and do not imply complete coverage of an
+unsupported stack. Runtime, provider, database, browser, assistive-technology, and operator checks
+stay `NOT_VERIFIED` until actually performed.
 
 Read the [security model](docs/SECURITY_MODEL.md) and report vulnerabilities through
 [SECURITY.md](SECURITY.md).

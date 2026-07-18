@@ -47,7 +47,7 @@ test("manifest traversal is rejected", async () => {
         await mkdir(join(root, ".fullstack-forge"));
         await writeFile(join(root, ".fullstack-forge", "install-manifest.json"), JSON.stringify({
             schemaVersion: 1,
-            packageVersion: "0.1.0",
+            packageVersion: "0.1.1",
             root,
             installedAt: new Date().toISOString(),
             files: { "../escape": { hash: "a".repeat(64), platform: "agents", owned: true } }
@@ -70,6 +70,43 @@ test("installer refuses a symlinked destination component", async (t) => {
             throw error;
         }
         await assert.rejects(install(root, "generic", { global: false, dryRun: false }), /symlinked install destination/u);
+    });
+});
+test("Antigravity and Gemini project/global destinations remain product-specific", async () => {
+    await withTemporaryProject("platform-destinations", async (root) => {
+        const projectActions = await install(root, "antigravity", {
+            global: false,
+            dryRun: false
+        });
+        assert.ok(projectActions.some((action) => action.path.startsWith(".agents/skills/")));
+        await stat(join(root, ".agents", "skills", "fullstack-forge", "SKILL.md"));
+        await uninstall(root, "antigravity", { global: false, dryRun: false });
+        const antigravityGlobal = await install(root, "antigravity", {
+            global: true,
+            dryRun: false,
+            home: root
+        });
+        assert.ok(antigravityGlobal.some((action) => action.path.startsWith(".gemini/config/skills/")));
+        await stat(join(root, ".gemini", "config", "skills", "fullstack-forge", "SKILL.md"));
+        await uninstall(root, "antigravity", {
+            global: true,
+            dryRun: false,
+            home: root
+        });
+        const geminiGlobal = await install(root, "gemini", {
+            global: true,
+            dryRun: false,
+            home: root
+        });
+        assert.ok(geminiGlobal.some((action) => action.path.startsWith(".gemini/skills/")));
+        assert.ok(geminiGlobal.every((action) => !action.path.startsWith(".gemini/config/skills/")));
+        await uninstall(root, "gemini", { global: true, dryRun: false, home: root });
+        const genericGlobal = await install(root, "generic", {
+            global: true,
+            dryRun: false,
+            home: root
+        });
+        assert.ok(genericGlobal.some((action) => action.path.startsWith(".agents/skills/")));
     });
 });
 //# sourceMappingURL=installer.test.js.map

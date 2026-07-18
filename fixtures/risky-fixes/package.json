@@ -1,0 +1,8 @@
+{
+  "name": "fixture-risky-fixes",
+  "private": true,
+  "dependencies": {
+    "express": "0.0.0-fixture",
+    "multer": "0.0.0-fixture"
+  }
+}

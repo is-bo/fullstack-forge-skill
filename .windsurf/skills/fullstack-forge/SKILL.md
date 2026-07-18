@@ -69,7 +69,9 @@ tests, CI, observability, deployment, integrations, AI, and payment providers.
 
 Write these ignored local artifacts when authorized:
 
-- `.forge/project-profile.json`: technology and capability detections with confidence and evidence.
+- `.forge/project-profile.json`: schema-version 2 repository, workspace, application, route,
+  identity, tenant, data, delivery, integration, AI, payment, and critical-workflow records with
+  confidence and evidence. A legacy profile is regenerated rather than silently discarded.
 - `.forge/architecture-map.md`: a Mermaid map plus trust boundaries and critical workflows.
 
 Validate each detection against
@@ -113,9 +115,13 @@ and observed state for interface evidence. Keep assertions about production or p
 
 ## Step 5: Fix safely
 
-In `fix` mode, present the safe and approval-required groups before editing. Safe fixes are small,
-local, behavior-preserving, reversible, and covered by a clear verification. `--safe` is not
-permission for architecture, product, identity, financial, data, or infrastructure decisions.
+In `fix` mode, load the previous finding and use only a typed registry entry whose exact
+preconditions, evidence snapshot, expected hash, affected paths, planned edits, verification, and
+rollback procedure still match. Safe fixes are deterministic, local, minimal, reversible,
+parser-backed or structurally validated, and confined to regular files below the repository root.
+Reject symlinks, path traversal, changed post-audit content, broad replacement, and unsupported
+shapes. `--safe` is not permission for architecture, product, identity, financial, data, or
+infrastructure decisions.
 
 After every fix:
 
@@ -151,20 +157,34 @@ Supported orchestration forms:
 forge all audit
 forge all audit --scope full
 forge all audit --scope changed
+forge all audit --scope changed --base origin/main
 forge all audit --risk high
 forge all fix --safe
+forge all fix --safe --dry-run
 forge all verify
 forge all report
 ```
+
+Changed scope uses the Git merge base plus committed, staged, unstaged, renamed, deleted, and
+relevant untracked files. It expands through imports, workspace dependencies, routes, schemas,
+migrations, shared authorization and tenant policy, tests, deployment configuration, and generated
+artifacts, and records why every file and module entered scope.
 
 Concurrency never applies to mutations, migrations, shared test environments, production systems, or
 checks whose outputs can interfere.
 
 ## Release readiness
 
-`forge ship` is fail-closed. It runs applicable format, lint, type, unit, integration, end-to-end,
-build, validation, synchronization, security, dependency, migration, authorization, upload,
-packaging, attribution, and clean-install checks.
+`forge ship` is fail-closed. Its explicit Forge gate registry combines internal checks,
+project-native commands, previous audit evidence, and applicable high-risk capabilities. It covers
+format, lint, type, unit, integration, end-to-end, build, finding and skill validation, generated
+copy synchronization, security, dependencies, licenses, archives, evaluations, migration,
+authorization, tenancy, upload, packaging, attribution, and clean installation.
+
+The gate validates the prior report root and finding schema, confirms current source-evidence
+hashes, and carries the original audit findings into the ship report. It does not run project
+commands when the prior report is missing, malformed, cross-root, or already contains a
+release-blocking finding.
 
 It fails for an open critical finding, a required open high finding, a failed required gate, an
 out-of-sync generated copy, incomplete packaging, failed smoke install, invalid attribution, or a
@@ -184,12 +204,17 @@ The CLI exposes these tools through `forge tool <name>` and uses them internally
 | Evidence            | `generate-report`, `validate-finding-schema`, `validate-skill`                                                          |
 | Distribution        | `sync-platform-assets`, `check-platform-assets`, `package-platforms`, `smoke-install`                                   |
 
-All scanners report evidence-backed signals, not compliance verdicts. `run-project-command` accepts
-only commands detected from local manifests or CI and never invokes a shell string.
+First-party analyzers use the TypeScript compiler API and structured JSON/configuration parsing for
+supported JavaScript and TypeScript shapes. Inventory scanners remain discovery signals and do not
+establish `PASS`; unsupported languages or framework shapes remain `NOT_VERIFIED` with a reason.
+`run-project-command` accepts only commands detected from local manifests or CI and never invokes a
+shell string.
 
 ## Platform invocation
 
-- Open Agent Skills / Codex / Antigravity: `$fullstack-forge` or `$forge-security`.
+- Open Agent Skills / Codex: `$fullstack-forge` or `$forge-security`.
+- Google Antigravity: install project skills under `.agents/skills` or user skills under
+  `~/.gemini/config/skills`, then request the installed skill in the manager surface.
 - Claude Code: `/fullstack-forge` or `/forge-security`.
 - Gemini CLI: activate from `/skills`, then request the module.
 - Cursor: `/fullstack-forge` or `/forge-security` from the slash menu.

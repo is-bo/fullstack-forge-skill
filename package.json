@@ -1,6 +1,6 @@
 {
   "name": "fullstack-forge-skill",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Evidence-driven production audits for full-stack applications and AI coding agents.",
   "type": "module",
   "license": "Apache-2.0",
@@ -50,8 +50,12 @@
     "NOTICE",
     "THIRD_PARTY_NOTICES.md"
   ],
+  "dependencies": {
+    "typescript": "6.0.3"
+  },
   "scripts": {
     "build": "npm run generate && tsc -p tsconfig.json",
+    "audit:dependencies": "npm audit --ignore-scripts",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run validate && npm run check:platforms && npm run check:links && npm run check:licenses && npm run check:branding && npm run scan:secrets",
     "check:branding": "node scripts/check-branding.mjs",
     "check:licenses": "node scripts/check-licenses.mjs",
@@ -74,7 +78,6 @@
     "@types/node": "^24.13.3",
     "eslint": "^10.7.0",
     "prettier": "^3.9.5",
-    "typescript": "^6.0.3",
     "typescript-eslint": "^8.64.0"
   }
 }

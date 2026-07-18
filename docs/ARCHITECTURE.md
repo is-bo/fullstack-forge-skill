@@ -43,16 +43,22 @@ flowchart TD
 ```
 
 - `constants.ts` contains closed module, tool, and platform allowlists.
-- `discovery.ts` produces confidence-scored technology and capability evidence.
-- `inspectors.ts` performs bounded text/configuration inspections and redacts secret values.
+- `discovery.ts` produces the structured profile-v2 application and capability model.
+- `analyzers.ts` provides bounded compiler-API and structured-configuration analyzers.
+- `inspectors.ts` routes typed analyzers and retains text inventory as secondary discovery signals.
+- `scope.ts` resolves Git merge-base and working-tree change impact with inclusion reasons.
+- `fixes.ts` applies hash-bound, structurally validated entries from a typed safe-fix registry.
+- `verification.ts` executes finding-specific analyzer, command, structural, or manual plans.
+- `gates.ts` evaluates the explicit internal, project-native, audit, and capability gate registry.
 - `finding.ts` enforces the shared finding contract.
 - `report.ts` deduplicates, ranks, and renders JSON/Markdown evidence.
 - `installer.ts` performs path-contained, symlink-refusing, manifest-owned copies and removals.
 - `tools.ts` exposes the executable tool catalog.
 - `cli.ts` parses commands, selects modules, gates subprocesses, and orchestrates reports.
 
-The runtime uses Node.js built-ins only. Development dependencies provide TypeScript, formatting,
-and linting; release consumers do not need them after build.
+The runtime uses Node.js built-ins plus the bundled TypeScript compiler API for supported AST
+analysis. Development dependencies provide formatting and linting; release consumers receive the
+compiled CLI and its pinned runtime dependency.
 
 ## Trust boundaries
 
@@ -63,7 +69,8 @@ before a detected project script. See `docs/SECURITY_MODEL.md`.
 
 ## Evidence boundary
 
-Automated inventory can find implementation signals and concrete defects. It cannot establish
-runtime correctness, policy intent, production configuration, provider settings, or compliance.
-Every applied module without sufficient direct evidence remains `NOT_VERIFIED` rather than receiving
-an optimistic pass.
+Bounded analyzers can prove supported source-to-sink and structured-configuration defects. Keyword
+inventory remains a discovery signal. Neither can establish runtime correctness, policy intent,
+production configuration, provider settings, or compliance. Unsupported languages and framework
+shapes, and every applied module without sufficient direct evidence, remain `NOT_VERIFIED` rather
+than receiving an optimistic pass.

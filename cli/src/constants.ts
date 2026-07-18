@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.1.1";
 export const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 export const MODULE_SLUGS = [
@@ -53,39 +53,55 @@ export type ModuleSlug = (typeof MODULE_SLUGS)[number];
 
 export const PLATFORM_CONFIG = {
   agents: {
-    label: "Codex, Antigravity, and generic Agent Skills",
+    label: "Codex and generic Agent Skills",
     projectPath: [".agents", "skills"],
-    globalPath: [".agents", "skills"]
+    globalPath: [".agents", "skills"],
+    sourcePath: [".agents", "skills"]
+  },
+  antigravity: {
+    label: "Google Antigravity",
+    projectPath: [".agents", "skills"],
+    globalPath: [".gemini", "config", "skills"],
+    sourcePath: [".agents", "skills"]
   },
   claude: {
     label: "Claude Code",
     projectPath: [".claude", "skills"],
-    globalPath: [".claude", "skills"]
+    globalPath: [".claude", "skills"],
+    sourcePath: [".claude", "skills"]
   },
   cursor: {
     label: "Cursor",
     projectPath: [".cursor", "skills"],
-    globalPath: [".cursor", "skills"]
+    globalPath: [".cursor", "skills"],
+    sourcePath: [".cursor", "skills"]
   },
   gemini: {
     label: "Gemini CLI",
     projectPath: [".gemini", "skills"],
-    globalPath: [".gemini", "skills"]
+    globalPath: [".gemini", "skills"],
+    sourcePath: [".gemini", "skills"]
   },
   github: {
     label: "GitHub Copilot",
     projectPath: [".github", "skills"],
-    globalPath: [".copilot", "skills"]
+    globalPath: [".copilot", "skills"],
+    sourcePath: [".github", "skills"]
   },
   windsurf: {
     label: "Windsurf/Devin Cascade",
     projectPath: [".windsurf", "skills"],
-    globalPath: [".codeium", "windsurf", "skills"]
+    globalPath: [".codeium", "windsurf", "skills"],
+    sourcePath: [".windsurf", "skills"]
   }
 } as const;
 
 export type Platform = keyof typeof PLATFORM_CONFIG;
 export const PLATFORMS = Object.keys(PLATFORM_CONFIG) as Platform[];
+export const PLATFORM_ALIASES = {
+  generic: "agents",
+  codex: "agents"
+} as const satisfies Record<string, Platform>;
 
 export const TOOL_NAMES = [
   "detect-stack",

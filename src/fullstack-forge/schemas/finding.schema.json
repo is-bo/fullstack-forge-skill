@@ -48,6 +48,79 @@
       "minItems": 1,
       "items": { "type": "string", "minLength": 1 }
     },
-    "standards": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+    "standards": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "analyzer_id": { "type": "string", "minLength": 1 },
+    "trace": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source", "sink", "description"],
+        "properties": {
+          "source": { "type": "string", "minLength": 1 },
+          "sink": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "evidence_snapshot": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "line": { "type": "integer", "minimum": 1 },
+          "excerpt_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        }
+      }
+    },
+    "verification_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actions"],
+      "properties": {
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type", "analyzer_id", "finding_id", "absence_proves_resolution"],
+                "properties": {
+                  "type": { "const": "analyzer" },
+                  "analyzer_id": { "type": "string", "minLength": 1 },
+                  "finding_id": { "type": "string", "minLength": 1 },
+                  "absence_proves_resolution": { "type": "boolean" }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type", "command", "required"],
+                "properties": {
+                  "type": { "const": "project-command" },
+                  "command": { "type": "string", "minLength": 1 },
+                  "required": { "type": "boolean" }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type", "procedure"],
+                "properties": {
+                  "type": { "const": "manual" },
+                  "procedure": { "type": "string", "minLength": 1 }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
   }
 }

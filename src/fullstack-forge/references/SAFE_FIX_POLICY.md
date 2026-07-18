@@ -7,7 +7,11 @@ input limits, log redaction, pagination bounds, dead-code removal proven by refe
 assertions, and evidence-backed documentation corrections may be safe.
 
 The change must be local, reversible, compatible with established behavior, and covered by an
-explicit verification. Inspect the diff and run gates after the final edit.
+explicit verification. Automatic execution additionally requires a typed registry entry, a confirmed
+prior finding, current evidence, an exact expected hash, parser-backed or structural validation,
+repository-contained regular-file paths, a dry-run plan, and rollback information. Refuse a changed
+target, symlink, path traversal, unregistered shape, or broad replacement. Inspect the diff and run
+gates after the final edit.
 
 ## Approval required
 

@@ -1,0 +1,5 @@
+{
+  "capabilities": ["api", "uploads"],
+  "tools": { "inspect-routes": 2, "inspect-upload-pipeline": 1 },
+  "sections": ["authorization", "uploads"]
+}

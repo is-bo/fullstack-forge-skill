@@ -90,23 +90,43 @@ export async function assertNoSymlinkPath(root: string, candidate: string): Prom
 
 export async function walkFiles(
   root: string,
-  options: { exclude?: Set<string>; maxBytes?: number } = {}
+  options: {
+    exclude?: Set<string>;
+    maxBytes?: number;
+    maxFiles?: number;
+    maxTotalBytes?: number;
+    maxDepth?: number;
+  } = {}
 ): Promise<string[]> {
   const output: string[] = [];
   const exclude = options.exclude ?? new Set<string>();
-  async function visit(directory: string): Promise<void> {
+  let totalBytes = 0;
+  async function visit(directory: string, depth: number): Promise<void> {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       if (exclude.has(entry.name)) continue;
       const path = join(directory, entry.name);
       if (entry.isSymbolicLink()) continue;
-      if (entry.isDirectory()) await visit(path);
-      else if (entry.isFile()) {
-        if (options.maxBytes !== undefined && (await stat(path)).size > options.maxBytes) continue;
+      if (entry.isDirectory()) {
+        if (options.maxDepth !== undefined && depth >= options.maxDepth)
+          throw new Error(`Repository scan exceeded the maximum depth of ${options.maxDepth}.`);
+        await visit(path, depth + 1);
+      } else if (entry.isFile()) {
+        const size = (await stat(path)).size;
+        if (options.maxBytes !== undefined && size > options.maxBytes) continue;
+        totalBytes += size;
+        if (options.maxTotalBytes !== undefined && totalBytes > options.maxTotalBytes)
+          throw new Error(
+            `Repository scan exceeded the ${options.maxTotalBytes}-byte inspection budget.`
+          );
         output.push(path);
+        if (options.maxFiles !== undefined && output.length > options.maxFiles)
+          throw new Error(
+            `Repository scan exceeded the ${options.maxFiles}-file inspection budget.`
+          );
       }
     }
   }
-  await visit(root);
+  await visit(root, 0);
   return output;
 }
 

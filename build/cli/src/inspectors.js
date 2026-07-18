@@ -1,5 +1,6 @@
 import { readdir } from "node:fs/promises";
 import { basename, extname, join, relative } from "node:path";
+import { runAnalyzers } from "./analyzers.js";
 import { MODULE_SLUGS, SECTION_CAPABILITY } from "./constants.js";
 import { lineNumber, readTextIfPresent, toPosix, utcNow, walkFiles } from "./utils.js";
 const EXCLUDED = new Set([
@@ -172,23 +173,23 @@ const SECTION_KEYWORDS = {
     realtime: /websocket|socket\.io|eventsource|presence|subscribe/giu,
     offline: /service.?worker|indexeddb|offline|sync|conflict/giu
 };
-export async function inspectWithTool(tool, root) {
+export async function inspectWithTool(tool, root, scope) {
     if (tool === "inspect-env-template")
-        return inspectEnvTemplates(root);
+        return inspectEnvTemplates(root, scope);
     if (tool === "scan-secret-patterns")
-        return scanSecretPatterns(root);
+        return scanSecretPatterns(root, scope);
     if (tool === "inspect-dependencies")
         return inspectDependencies(root);
     if (tool === "inspect-ci")
-        return inspectNamedFiles(root, tool, isCiFile, "CI configuration");
+        return inspectNamedFiles(root, tool, isCiFile, "CI configuration", scope);
     if (tool === "inspect-platform-skills")
-        return inspectPlatformSkills(root);
+        return inspectPlatformSkills(root, scope);
     const patterns = TOOL_PATTERNS[tool];
     if (patterns !== undefined)
-        return scanPatterns(root, tool, patterns);
+        return scanPatterns(root, tool, patterns, scope);
     return emptyResult(tool, root);
 }
-export async function inspectSection(section, root, profile) {
+export async function inspectSection(section, root, profile, scope) {
     const capability = SECTION_CAPABILITY[section];
     if (capability !== undefined && profile.capabilities[capability] === undefined) {
         return {
@@ -196,19 +197,46 @@ export async function inspectSection(section, root, profile) {
             findings: [notApplicableFinding(section, capability)]
         };
     }
+    const analyzerSections = new Set([
+        "accessibility",
+        "ai",
+        "authorization",
+        "cache",
+        "deployment",
+        "frontend",
+        "integrations",
+        "payments",
+        "queries",
+        "security",
+        "tenancy",
+        "uploads"
+    ]);
+    const analyzerRuns = analyzerSections.has(section)
+        ? await runAnalyzers(section, root, scope)
+        : [];
+    const analyzerFindings = analyzerRuns.flatMap((run) => run.findings);
+    const analyzerObservations = analyzerRuns
+        .filter((run) => run.supported_files > 0)
+        .map((run) => ({
+        category: "bounded-analyzer",
+        path: ".forge/project-profile.json",
+        detail: `${run.analyzer_id} parsed ${run.supported_files} supported file(s)`,
+        confidence: "HIGH"
+    }));
     const specialized = sectionTool(section);
-    if (specialized !== undefined)
-        return inspectWithTool(specialized, root);
+    if (specialized !== undefined) {
+        const inventory = await inspectWithTool(specialized, root, scope);
+        return result(`inspect-${section}`, root, [...analyzerObservations, ...inventory.observations], [...analyzerFindings, ...inventory.findings]);
+    }
     const regex = SECTION_KEYWORDS[section];
     if (regex === undefined)
-        return emptyResult(`inspect-${section}`, root);
-    return scanPatterns(root, `inspect-${section}`, [
-        { category: section, regex, detail: `${section} implementation signal` }
-    ]);
+        return result(`inspect-${section}`, root, analyzerObservations, analyzerFindings);
+    const inventory = await scanPatterns(root, `inspect-${section}`, [{ category: section, regex, detail: `${section} implementation signal` }], scope);
+    return result(`inspect-${section}`, root, [...analyzerObservations, ...inventory.observations], [...analyzerFindings, ...inventory.findings]);
 }
-async function scanPatterns(root, tool, patterns) {
+async function scanPatterns(root, tool, patterns, scope) {
     const observations = [];
-    for (const file of await sourceFiles(root)) {
+    for (const file of await sourceFiles(root, scope)) {
         const content = await readTextIfPresent(file);
         if (content === undefined)
             continue;
@@ -229,10 +257,10 @@ async function scanPatterns(root, tool, patterns) {
     }
     return result(tool, root, observations, []);
 }
-async function inspectEnvTemplates(root) {
+async function inspectEnvTemplates(root, scope) {
     const observations = [];
     const findings = [];
-    const files = (await sourceFiles(root)).filter((file) => /(?:^|[\\/])\.env(?:\.(?:example|sample|template|defaults))?$|\.env\.example$/iu.test(file));
+    const files = (await sourceFiles(root, scope)).filter((file) => /(?:^|[\\/])\.env(?:\.(?:example|sample|template|defaults))?$|\.env\.example$/iu.test(file));
     for (const file of files) {
         const content = await readTextIfPresent(file);
         if (content === undefined)
@@ -256,7 +284,7 @@ async function inspectEnvTemplates(root) {
     }
     return result("inspect-env-template", root, observations, findings);
 }
-async function scanSecretPatterns(root) {
+async function scanSecretPatterns(root, scope) {
     const observations = [];
     const findings = [];
     const patterns = [
@@ -279,7 +307,7 @@ async function scanSecretPatterns(root) {
             confidence: "LOW"
         }
     ];
-    for (const file of await sourceFiles(root)) {
+    for (const file of await sourceFiles(root, scope)) {
         const content = await readTextIfPresent(file);
         if (content === undefined)
             continue;
@@ -361,14 +389,14 @@ async function inspectDependencies(root) {
     }
     return result("inspect-dependencies", root, observations, []);
 }
-async function inspectNamedFiles(root, tool, predicate, detail) {
-    const observations = (await sourceFiles(root))
+async function inspectNamedFiles(root, tool, predicate, detail, scope) {
+    const observations = (await sourceFiles(root, scope))
         .map((file) => toPosix(relative(root, file)))
         .filter(predicate)
         .map((path) => ({ category: tool, path, detail, confidence: "HIGH" }));
     return result(tool, root, observations, []);
 }
-async function inspectPlatformSkills(root) {
+async function inspectPlatformSkills(root, scope) {
     const observations = [];
     const findings = [];
     const roots = [
@@ -398,6 +426,8 @@ async function inspectPlatformSkills(root) {
             if (content === undefined)
                 continue;
             const path = toPosix(relative(root, skillPath));
+            if (scope !== undefined && !scope.has(path))
+                continue;
             observations.push({
                 category: "agent-skill",
                 path,
@@ -413,12 +443,20 @@ async function inspectPlatformSkills(root) {
     }
     return result("inspect-platform-skills", root, observations, findings);
 }
-async function sourceFiles(root) {
-    return (await walkFiles(root, { exclude: EXCLUDED, maxBytes: 768 * 1024 })).filter((file) => {
+async function sourceFiles(root, scope) {
+    return (await walkFiles(root, {
+        exclude: EXCLUDED,
+        maxBytes: 768 * 1024,
+        maxFiles: 10_000,
+        maxTotalBytes: 128 * 1024 * 1024,
+        maxDepth: 64
+    })).filter((file) => {
         const extension = extname(file).toLowerCase();
         const name = basename(file);
-        return (TEXT_EXTENSIONS.has(extension) ||
-            /^(?:Dockerfile|Makefile|Procfile|Jenkinsfile|\.env(?:\..+)?)$/u.test(name));
+        const path = toPosix(relative(root, file));
+        return ((scope === undefined || scope.has(path)) &&
+            (TEXT_EXTENSIONS.has(extension) ||
+                /^(?:Dockerfile|Makefile|Procfile|Jenkinsfile|\.env(?:\..+)?)$/u.test(name)));
     });
 }
 function sectionTool(section) {

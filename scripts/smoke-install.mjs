@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, rm, stat } from "node:fs/promises";
+import { lstat, mkdtemp, mkdir, readFile, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { projectRoot } from "./project.mjs";
@@ -13,7 +13,10 @@ if (dryRun) {
           "npm pack",
           "offline local install",
           "CLI version",
-          "init/update/uninstall ownership smoke"
+          "init/update/uninstall ownership smoke",
+          "Antigravity project and global destinations",
+          "Gemini project destination",
+          "no symlinks or reparse-point links"
         ]
       },
       null,
@@ -70,7 +73,7 @@ try {
     "index.js"
   );
   const version = await run(process.execPath, [cli, "--version"], consumerRoot);
-  if (version.code !== 0 || version.stdout.trim() !== "0.1.0")
+  if (version.code !== 0 || version.stdout.trim() !== "0.1.1")
     throw new Error(`CLI version smoke failed: ${version.stdout} ${version.stderr}`);
 
   const dryInit = await run(
@@ -116,13 +119,76 @@ try {
   } catch (error) {
     if (error?.code !== "ENOENT") throw error;
   }
+
+  for (const [selector, expected] of [
+    ["antigravity", [".agents", "skills", "fullstack-forge", "SKILL.md"]],
+    ["gemini", [".gemini", "skills", "fullstack-forge", "SKILL.md"]]
+  ]) {
+    const platformInstall = await run(
+      process.execPath,
+      [cli, "init", selector, "--root", consumerRoot, "--json"],
+      consumerRoot
+    );
+    if (platformInstall.code !== 0)
+      throw new Error(`${selector} project install failed: ${platformInstall.stderr}`);
+    await stat(join(consumerRoot, ...expected));
+    await assertNoLinks(consumerRoot);
+    const platformUninstall = await run(
+      process.execPath,
+      [cli, "uninstall", selector, "--root", consumerRoot, "--json"],
+      consumerRoot
+    );
+    if (platformUninstall.code !== 0)
+      throw new Error(`${selector} project uninstall failed: ${platformUninstall.stderr}`);
+  }
+
+  const isolatedHome = join(temporary, "home");
+  await mkdir(isolatedHome);
+  const globalEnvironment = {
+    ...process.env,
+    HOME: isolatedHome,
+    USERPROFILE: isolatedHome
+  };
+  const antigravityGlobal = await run(
+    process.execPath,
+    [cli, "init", "antigravity", "--global", "--root", consumerRoot, "--json"],
+    consumerRoot,
+    120_000,
+    globalEnvironment
+  );
+  if (antigravityGlobal.code !== 0)
+    throw new Error(`Antigravity global install failed: ${antigravityGlobal.stderr}`);
+  await stat(join(isolatedHome, ".gemini", "config", "skills", "fullstack-forge", "SKILL.md"));
+  await assertNoLinks(isolatedHome);
+  const globalDoctor = await run(
+    process.execPath,
+    [cli, "doctor", "--global", "--root", consumerRoot, "--json"],
+    consumerRoot,
+    120_000,
+    globalEnvironment
+  );
+  if (globalDoctor.code !== 0 || !globalDoctor.stdout.includes('"ownership manifest"'))
+    throw new Error(`Antigravity global doctor failed: ${globalDoctor.stderr}`);
+  const antigravityGlobalUninstall = await run(
+    process.execPath,
+    [cli, "uninstall", "antigravity", "--global", "--root", consumerRoot, "--json"],
+    consumerRoot,
+    120_000,
+    globalEnvironment
+  );
+  if (antigravityGlobalUninstall.code !== 0)
+    throw new Error(`Antigravity global uninstall failed: ${antigravityGlobalUninstall.stderr}`);
   console.log(
     JSON.stringify(
       {
         ok: true,
         package: filename,
         version: version.stdout.trim(),
-        install_records_removed: true
+        install_records_removed: true,
+        antigravity_project: ".agents/skills",
+        antigravity_global: ".gemini/config/skills",
+        gemini_project: ".gemini/skills",
+        symlinks: 0
       },
       null,
       2
@@ -164,13 +230,13 @@ async function resolveNpmCli() {
   throw new Error("Could not locate an allowlisted npm-cli.js entry point");
 }
 
-async function run(executable, args, cwd, timeout = 120_000) {
+async function run(executable, args, cwd, timeout = 120_000, environment = process.env) {
   const { execFile } = await import("node:child_process");
   return new Promise((resolvePromise) => {
     execFile(
       executable,
       args,
-      { cwd, windowsHide: true, timeout, maxBuffer: 20 * 1024 * 1024 },
+      { cwd, windowsHide: true, timeout, maxBuffer: 20 * 1024 * 1024, env: environment },
       (error, stdout, stderr) => {
         resolvePromise({
           code: typeof error?.code === "number" ? error.code : error ? 1 : 0,
@@ -180,4 +246,13 @@ async function run(executable, args, cwd, timeout = 120_000) {
       }
     );
   });
+}
+
+async function assertNoLinks(root) {
+  for (const entry of await readdir(root, { withFileTypes: true })) {
+    const path = join(root, entry.name);
+    const info = await lstat(path);
+    if (info.isSymbolicLink()) throw new Error(`Smoke installation created a link: ${path}`);
+    if (entry.isDirectory()) await assertNoLinks(path);
+  }
 }

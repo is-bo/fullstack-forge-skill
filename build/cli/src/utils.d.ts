@@ -8,6 +8,9 @@ export declare function assertNoSymlinkPath(root: string, candidate: string): Pr
 export declare function walkFiles(root: string, options?: {
     exclude?: Set<string>;
     maxBytes?: number;
+    maxFiles?: number;
+    maxTotalBytes?: number;
+    maxDepth?: number;
 }): Promise<string[]>;
 export declare function readTextIfPresent(path: string): Promise<string | undefined>;
 export declare function runFile(executable: string, args: string[], cwd: string, timeout?: number): Promise<{

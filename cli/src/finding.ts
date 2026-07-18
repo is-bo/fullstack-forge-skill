@@ -52,6 +52,57 @@ export function validateFinding(value: unknown): string[] {
       }
     }
   }
+  if (
+    "analyzer_id" in value &&
+    (typeof value.analyzer_id !== "string" || value.analyzer_id.length === 0)
+  )
+    errors.push("analyzer_id must be a non-empty string");
+  if ("trace" in value) {
+    if (!Array.isArray(value.trace)) errors.push("trace must be an array");
+    else {
+      for (const [index, trace] of value.trace.entries()) {
+        if (
+          !isRecord(trace) ||
+          typeof trace.source !== "string" ||
+          typeof trace.sink !== "string" ||
+          typeof trace.description !== "string" ||
+          trace.source.length === 0 ||
+          trace.sink.length === 0 ||
+          trace.description.length === 0
+        ) {
+          errors.push(`trace[${index}] must contain source, sink, and description`);
+        }
+      }
+    }
+  }
+  if ("evidence_snapshot" in value) {
+    if (!Array.isArray(value.evidence_snapshot)) errors.push("evidence_snapshot must be an array");
+    else {
+      for (const [index, snapshot] of value.evidence_snapshot.entries()) {
+        if (
+          !isRecord(snapshot) ||
+          typeof snapshot.path !== "string" ||
+          !isSafeEvidencePath(snapshot.path) ||
+          typeof snapshot.sha256 !== "string" ||
+          !/^[a-f0-9]{64}$/u.test(snapshot.sha256)
+        ) {
+          errors.push(`evidence_snapshot[${index}] must contain a safe path and SHA-256 hash`);
+        }
+      }
+    }
+  }
+  if ("verification_plan" in value) {
+    if (!isRecord(value.verification_plan) || !Array.isArray(value.verification_plan.actions)) {
+      errors.push("verification_plan must contain an actions array");
+    } else if (value.verification_plan.actions.length === 0) {
+      errors.push("verification_plan.actions must not be empty");
+    } else {
+      for (const [index, action] of value.verification_plan.actions.entries()) {
+        if (!isVerificationAction(action))
+          errors.push(`verification_plan.actions[${index}] is invalid`);
+      }
+    }
+  }
   return errors;
 }
 
@@ -64,4 +115,29 @@ export function assertFindings(values: unknown[]): asserts values is Finding[] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isSafeEvidencePath(value: string): boolean {
+  return (
+    value.length > 0 &&
+    !value.includes("\0") &&
+    !/^(?:[A-Za-z]:|[\\/]{1,2})/u.test(value) &&
+    !value
+      .split(/[\\/]+/u)
+      .some((part) => part === "" || part === "." || part === ".." || part.includes(":"))
+  );
+}
+
+function isVerificationAction(value: unknown): boolean {
+  if (!isRecord(value) || typeof value.type !== "string") return false;
+  if (value.type === "analyzer")
+    return (
+      typeof value.analyzer_id === "string" &&
+      typeof value.finding_id === "string" &&
+      typeof value.absence_proves_resolution === "boolean"
+    );
+  if (value.type === "project-command")
+    return typeof value.command === "string" && typeof value.required === "boolean";
+  if (value.type === "manual") return typeof value.procedure === "string";
+  return false;
 }

@@ -1,7 +1,21 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, join, relative } from "node:path";
-import type { CommandDefinition, Confidence, Detection, ProjectProfile } from "./types.js";
-import { canonicalDirectory, readTextIfPresent, toPosix, utcNow, walkFiles } from "./utils.js";
+import { basename, dirname, extname, join, relative } from "node:path";
+import type {
+  CommandDefinition,
+  Confidence,
+  Detection,
+  ProfileRecord,
+  ProjectProfile,
+  RouteRecord
+} from "./types.js";
+import {
+  assertNoSymlinkPath,
+  canonicalDirectory,
+  readTextIfPresent,
+  toPosix,
+  utcNow,
+  walkFiles
+} from "./utils.js";
 
 const EXCLUDED = new Set([
   ".git",
@@ -220,6 +234,14 @@ const RULES: Rule[] = [
     capability: "internationalization"
   },
   {
+    category: "seo",
+    name: "Public web indexing surface",
+    confidence: "HIGH",
+    fileNames: /^(?:robots\.txt|sitemap\.(?:xml|js|ts)|manifest\.webmanifest)$/iu,
+    content: /\b(?:generateMetadata|metadataBase|robots\s*:|sitemap\s*:|schema\.org)\b/u,
+    capability: "public-web"
+  },
+  {
     category: "privacy",
     name: "Personal data",
     confidence: "LOW",
@@ -252,7 +274,13 @@ const RULES: Rule[] = [
 
 export async function discoverProject(rootInput: string): Promise<ProjectProfile> {
   const root = await canonicalDirectory(rootInput);
-  const files = await walkFiles(root, { exclude: EXCLUDED, maxBytes: 768 * 1024 });
+  const files = await walkFiles(root, {
+    exclude: EXCLUDED,
+    maxBytes: 768 * 1024,
+    maxFiles: 15_000,
+    maxTotalBytes: 128 * 1024 * 1024,
+    maxDepth: 64
+  });
   const evidenceByRule = new Map<Rule, string[]>();
   for (const file of files) {
     const rel = toPosix(relative(root, file));
@@ -292,13 +320,6 @@ export async function discoverProject(rootInput: string): Promise<ProjectProfile
       evidence: ["Executable source files detected"]
     };
   }
-  if (capabilities.frontend !== undefined) {
-    capabilities["public-web"] = {
-      name: "Potential public web routes",
-      confidence: "LOW",
-      evidence: capabilities.frontend.evidence
-    };
-  }
   if (
     capabilities.ai !== undefined ||
     capabilities.payments !== undefined ||
@@ -312,12 +333,14 @@ export async function discoverProject(rootInput: string): Promise<ProjectProfile
     };
   }
 
+  const structured = await buildStructuredProfile(root, files, capabilities);
   return {
-    schema_version: 1,
+    schema_version: 2,
     root,
     generated_at: utcNow(),
     detections: deduplicateDetections(detections),
-    capabilities
+    capabilities,
+    ...structured
   };
 }
 
@@ -325,15 +348,66 @@ export async function writeProjectArtifacts(
   profile: ProjectProfile,
   dryRun = false
 ): Promise<string[]> {
-  const forgeRoot = join(profile.root, ".forge");
+  const root = await canonicalDirectory(profile.root);
+  const forgeRoot = join(root, ".forge");
   const profilePath = join(forgeRoot, "project-profile.json");
   const mapPath = join(forgeRoot, "architecture-map.md");
   if (!dryRun) {
+    await assertNoSymlinkPath(root, forgeRoot);
     await mkdir(forgeRoot, { recursive: true });
+    await assertNoSymlinkPath(root, profilePath);
+    await assertNoSymlinkPath(root, mapPath);
+    await preserveLegacyProfile(
+      profile,
+      profilePath,
+      join(forgeRoot, "project-profile.schema-v1.json")
+    );
     await writeFile(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
     await writeFile(mapPath, renderArchitectureMap(profile), "utf8");
   }
   return [profilePath, mapPath];
+}
+
+async function preserveLegacyProfile(
+  profile: ProjectProfile,
+  profilePath: string,
+  backupPath: string
+): Promise<void> {
+  let existing: string;
+  try {
+    existing = await readFile(profilePath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
+  }
+  if (existing.includes("\0")) throw new Error("Refusing to replace a binary project profile.");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(existing) as unknown;
+  } catch {
+    throw new Error("Refusing to replace an invalid existing project profile.");
+  }
+  if (!isRecord(parsed))
+    throw new Error("Refusing to replace a malformed existing project profile.");
+  if (parsed.schema_version === 2) return;
+  if (parsed.schema_version !== 1)
+    throw new Error(
+      `Refusing to replace unsupported project-profile schema ${String(parsed.schema_version)}.`
+    );
+  await assertNoSymlinkPath(profile.root, backupPath);
+  try {
+    await writeFile(backupPath, existing, { encoding: "utf8", flag: "wx" });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    if ((await readFile(backupPath, "utf8")) !== existing)
+      throw new Error(
+        "A different schema-v1 profile backup already exists; refusing to overwrite it.",
+        { cause: error }
+      );
+  }
+  const evidence =
+    "Regenerated schema-v1 profile; preserved original at .forge/project-profile.schema-v1.json";
+  if (!profile.repository.evidence.includes(evidence)) profile.repository.evidence.push(evidence);
 }
 
 export async function detectProjectCommands(rootInput: string): Promise<CommandDefinition[]> {
@@ -439,41 +513,469 @@ function deduplicateDetections(detections: Detection[]): Detection[] {
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+async function buildStructuredProfile(
+  root: string,
+  files: string[],
+  capabilities: Record<string, Detection>
+): Promise<
+  Omit<ProjectProfile, "schema_version" | "root" | "generated_at" | "detections" | "capabilities">
+> {
+  const relativeFiles = files.map((file) => toPosix(relative(root, file)));
+  const manifests = await loadPackageManifests(root, files);
+  const repositoryName =
+    manifests.find((manifest) => manifest.path === "package.json")?.name ?? basename(root);
+  const repository: ProfileRecord = record(repositoryName, "git-repository", {
+    root: ".",
+    confidence: relativeFiles.some((path) => path.startsWith(".git/")) ? "HIGH" : "MEDIUM",
+    evidence: [relativeFiles.includes("package.json") ? "package.json" : "repository root"]
+  });
+  const workspaces = manifests
+    .filter((manifest) => manifest.path !== "package.json")
+    .map((manifest) =>
+      record(manifest.name, "package-workspace", {
+        root: manifest.directory,
+        confidence: "HIGH",
+        evidence: [manifest.path]
+      })
+    );
+  const applications = manifests.map((manifest) => applicationRecord(manifest));
+  const languages = languageRecords(root, files);
+  const frameworks = capabilityRecords(capabilities, [
+    ["frontend", "frontend-framework"],
+    ["api", "backend-framework"],
+    ["realtime", "realtime-framework"]
+  ]);
+  const packageManagers = packageManagerRecords(relativeFiles);
+  const databases = capabilityRecords(capabilities, [["database", "database"]]);
+  const orms = await contentRecords(root, files, [
+    ["Prisma", "orm", /@prisma\/client|schema\.prisma/iu],
+    ["Drizzle", "orm", /drizzle-orm/iu],
+    ["TypeORM", "orm", /typeorm/iu],
+    ["Sequelize", "orm", /sequelize/iu],
+    ["Mongoose", "odm", /mongoose/iu]
+  ]);
+  const authentication = capabilityRecords(capabilities, [
+    ["authentication", "authentication-boundary"]
+  ]);
+  const sessions = await contentRecords(root, files, [
+    ["Session handling", "session", /\b(?:session|cookie|refreshToken|accessToken)\b/iu]
+  ]);
+  const authorization = capabilityRecords(capabilities, [
+    ["authorization", "authorization-policy"]
+  ]);
+  const roles = await detectNamedValues(
+    root,
+    files,
+    "role",
+    /\b(?:role|roles)\b[^\n]{0,80}["'`]([A-Za-z][A-Za-z0-9_-]{1,30})["'`]/giu
+  );
+  const tenantBoundaries = capabilityRecords(capabilities, [["tenancy", "tenant-boundary"]]);
+  const routes = await routeRecords(root, files);
+  const storage = capabilityRecords(capabilities, [["storage", "object-storage"]]);
+  const uploadPipelines = capabilityRecords(capabilities, [["uploads", "upload-pipeline"]]);
+  const caches = capabilityRecords(capabilities, [["cache", "cache"]]);
+  const queues = capabilityRecords(capabilities, [["jobs", "queue"]]);
+  const scheduledJobs = await contentRecords(root, files, [
+    ["Scheduled job", "scheduled-job", /\b(?:cron|schedule|scheduled)\b/iu]
+  ]);
+  const tests = relativeFiles
+    .filter((path) => /(?:^|\/)(?:test|tests|__tests__)\/|\.(?:test|spec)\.[^.]+$/iu.test(path))
+    .slice(0, 80)
+    .map((path) =>
+      record(basename(path), "test-file", { location: path, confidence: "HIGH", evidence: [path] })
+    );
+  const ci = relativeFiles
+    .filter((path) =>
+      /^(?:\.github\/workflows\/.*\.ya?ml|\.gitlab-ci\.yml|\.circleci\/config\.yml|azure-pipelines\.yml|Jenkinsfile)$/iu.test(
+        path
+      )
+    )
+    .map((path) =>
+      record(basename(path), "ci-workflow", {
+        location: path,
+        confidence: "HIGH",
+        evidence: [path]
+      })
+    );
+  const observability = capabilityRecords(capabilities, [["observability", "observability"]]);
+  const integrations = capabilityRecords(capabilities, [["integrations", "external-integration"]]);
+  const aiProviders = capabilityRecords(capabilities, [["ai", "ai-provider"]]);
+  const paymentProviders = capabilityRecords(capabilities, [["payments", "payment-provider"]]);
+  const hosting = await contentRecords(
+    root,
+    files,
+    [
+      ["Vercel", "hosting", /(?:^|\/)vercel\.json$|\bvercel\b/iu],
+      ["Cloudflare", "hosting", /wrangler\.(?:jsonc?|toml)|cloudflare/iu],
+      ["Netlify", "hosting", /netlify\.toml|\bnetlify\b/iu],
+      ["Container", "hosting", /(?:^|\/)Dockerfile$|\bcontainer\b/iu]
+    ],
+    true
+  );
+  const deployment = capabilityRecords(capabilities, [["deployment", "deployment-config"]]);
+  const environmentTemplates = relativeFiles
+    .filter((path) => /(?:^|\/)\.env\.(?:example|sample|template|defaults)$/iu.test(path))
+    .map((path) =>
+      record(basename(path), "environment-template", {
+        location: path,
+        confidence: "HIGH",
+        evidence: [path]
+      })
+    );
+  const criticalWorkflows = await contentRecords(root, files, [
+    ["Authentication workflow", "critical-workflow", /\b(?:login|signIn|authenticate)\s*\(/u],
+    ["Upload workflow", "critical-workflow", /\b(?:upload|multipart)\b/iu],
+    ["Payment workflow", "critical-workflow", /\b(?:payment|checkout|invoice|charge)\b/iu],
+    [
+      "AI irreversible-action boundary",
+      "critical-workflow",
+      /\b(?:model|openai|anthropic)\b[\s\S]{0,500}\b(?:pay|charge|adjustStock|grantPermission)\s*\(/iu
+    ]
+  ]);
+
+  return {
+    repository,
+    workspaces: uniqueRecords(workspaces),
+    applications: uniqueRecords(applications),
+    languages,
+    frameworks,
+    package_managers: packageManagers,
+    databases,
+    orms,
+    authentication,
+    sessions,
+    authorization,
+    roles,
+    tenant_boundaries: tenantBoundaries,
+    routes,
+    storage,
+    upload_pipelines: uploadPipelines,
+    caches,
+    queues,
+    scheduled_jobs: scheduledJobs,
+    tests,
+    ci,
+    observability,
+    integrations,
+    ai_providers: aiProviders,
+    payment_providers: paymentProviders,
+    hosting,
+    deployment,
+    environment_templates: environmentTemplates,
+    critical_workflows: criticalWorkflows
+  };
+}
+
+type PackageManifestRecord = {
+  path: string;
+  directory: string;
+  name: string;
+  manifest: Record<string, unknown>;
+};
+
+async function loadPackageManifests(
+  root: string,
+  files: string[]
+): Promise<PackageManifestRecord[]> {
+  const output: PackageManifestRecord[] = [];
+  for (const file of files.filter((candidate) => basename(candidate) === "package.json")) {
+    const content = await readTextIfPresent(file);
+    if (content === undefined) continue;
+    try {
+      const manifest = JSON.parse(content) as unknown;
+      if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) continue;
+      const candidate = manifest as Record<string, unknown>;
+      const path = toPosix(relative(root, file));
+      output.push({
+        path,
+        directory: toPosix(relative(root, dirname(file))) || ".",
+        name: typeof candidate.name === "string" ? candidate.name : basename(dirname(file)),
+        manifest: candidate
+      });
+    } catch {
+      // Invalid manifests remain evidence for the dependency analyzer.
+    }
+  }
+  return output.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+function applicationRecord(manifest: PackageManifestRecord): ProfileRecord {
+  const dependencies = {
+    ...(isRecord(manifest.manifest.dependencies) ? manifest.manifest.dependencies : {}),
+    ...(isRecord(manifest.manifest.devDependencies) ? manifest.manifest.devDependencies : {})
+  };
+  const names = new Set(Object.keys(dependencies));
+  let type = "library";
+  if (["react-native", "expo"].some((name) => names.has(name))) type = "mobile";
+  else if (["electron", "@tauri-apps/api"].some((name) => names.has(name))) type = "desktop";
+  else if (["wrangler", "@cloudflare/workers-types"].some((name) => names.has(name)))
+    type = "worker";
+  else if (["express", "fastify", "@nestjs/core", "hono"].some((name) => names.has(name)))
+    type = "backend";
+  else if (["next", "react", "vue", "svelte"].some((name) => names.has(name))) type = "frontend";
+  else if (
+    /docs?|website/iu.test(manifest.name) ||
+    /(?:^|\/)docs?(?:\/|$)/iu.test(manifest.directory)
+  )
+    type = "documentation";
+  return record(manifest.name, type, {
+    root: manifest.directory,
+    confidence: "HIGH",
+    evidence: [manifest.path]
+  });
+}
+
+function languageRecords(root: string, files: string[]): ProfileRecord[] {
+  const mapping: Record<string, string> = {
+    ".ts": "TypeScript",
+    ".tsx": "TypeScript",
+    ".mts": "TypeScript",
+    ".cts": "TypeScript",
+    ".js": "JavaScript",
+    ".jsx": "JavaScript",
+    ".mjs": "JavaScript",
+    ".cjs": "JavaScript",
+    ".py": "Python",
+    ".go": "Go",
+    ".rs": "Rust",
+    ".java": "Java",
+    ".kt": "Kotlin"
+  };
+  const evidence = new Map<string, string[]>();
+  for (const file of files) {
+    const language = mapping[extname(file).toLowerCase()];
+    if (language === undefined) continue;
+    const current = evidence.get(language) ?? [];
+    if (current.length < 12) current.push(toPosix(relative(root, file)));
+    evidence.set(language, current);
+  }
+  return [...evidence.entries()].map(([name, paths]) =>
+    record(name, "language", { confidence: "HIGH", evidence: paths })
+  );
+}
+
+function capabilityRecords(
+  capabilities: Record<string, Detection>,
+  mappings: Array<[string, string]>
+): ProfileRecord[] {
+  return mappings.flatMap(([capability, type]) => {
+    const detection = capabilities[capability];
+    return detection === undefined
+      ? []
+      : [
+          record(detection.name, type, {
+            confidence: detection.confidence,
+            evidence: detection.evidence
+          })
+        ];
+  });
+}
+
+function packageManagerRecords(files: string[]): ProfileRecord[] {
+  const mapping: Array<[string, string]> = [
+    ["package-lock.json", "npm"],
+    ["pnpm-lock.yaml", "pnpm"],
+    ["yarn.lock", "yarn"],
+    ["bun.lock", "bun"]
+  ];
+  return mapping.flatMap(([path, name]) =>
+    files.includes(path)
+      ? [record(name, "package-manager", { confidence: "HIGH", evidence: [path] })]
+      : []
+  );
+}
+
+async function contentRecords(
+  root: string,
+  files: string[],
+  patterns: Array<[string, string, RegExp]>,
+  matchPath = false
+): Promise<ProfileRecord[]> {
+  const output: ProfileRecord[] = [];
+  for (const [name, type, pattern] of patterns) {
+    const evidence: string[] = [];
+    for (const file of files) {
+      const path = toPosix(relative(root, file));
+      const content = matchPath ? path : await readTextIfPresent(file);
+      pattern.lastIndex = 0;
+      if (content !== undefined && pattern.test(content) && evidence.length < 12)
+        evidence.push(path);
+    }
+    if (evidence.length > 0) output.push(record(name, type, { confidence: "MEDIUM", evidence }));
+  }
+  return output;
+}
+
+async function detectNamedValues(
+  root: string,
+  files: string[],
+  type: string,
+  pattern: RegExp
+): Promise<ProfileRecord[]> {
+  const values = new Map<string, string[]>();
+  for (const file of files) {
+    const content = await readTextIfPresent(file);
+    if (content === undefined) continue;
+    pattern.lastIndex = 0;
+    for (const match of content.matchAll(pattern)) {
+      const name = match[1];
+      if (name === undefined) continue;
+      const path = toPosix(relative(root, file));
+      const current = values.get(name) ?? [];
+      if (!current.includes(path)) current.push(path);
+      values.set(name, current.slice(0, 12));
+    }
+  }
+  return [...values.entries()].map(([name, evidence]) =>
+    record(name, type, { confidence: "MEDIUM", evidence })
+  );
+}
+
+async function routeRecords(root: string, files: string[]): Promise<RouteRecord[]> {
+  const output: RouteRecord[] = [];
+  const pattern = /\b(?:app|router)\.(get|post|put|patch|delete|use)\s*\(\s*["'`]([^"'`]+)["'`]/giu;
+  for (const file of files.filter((candidate) => /\.(?:[cm]?[jt]sx?)$/iu.test(candidate))) {
+    const content = await readTextIfPresent(file);
+    if (content === undefined) continue;
+    pattern.lastIndex = 0;
+    for (const match of content.matchAll(pattern)) {
+      const method = match[1]?.toUpperCase() ?? "ROUTE";
+      const route = match[2] ?? "unknown";
+      const path = toPosix(relative(root, file));
+      const afterDeclaration = content.slice(match.index + match[0].length);
+      const nextRoute = afterDeclaration.search(
+        /\b(?:app|router)\.(?:get|post|put|patch|delete|use)\s*\(/u
+      );
+      const contextEnd =
+        nextRoute === -1
+          ? Math.min(content.length, match.index + 900)
+          : match.index + match[0].length + nextRoute;
+      const context = content.slice(match.index, contextEnd);
+      let visibility: RouteRecord["visibility"] = "unknown";
+      if (/\b(?:requireRole\s*\(\s*["']admin|isAdmin|role\s*===?\s*["']admin)/iu.test(context))
+        visibility = "admin";
+      else if (
+        /\b(?:requireAuth|authenticate|getServerSession|session\.user|auth\.user)/u.test(context)
+      )
+        visibility = "authenticated";
+      else if (/\/(?:internal|cron|webhooks?)(?:\/|$)/iu.test(route)) visibility = "internal";
+      else if (/\/(?:health|login|signup|public)(?:\/|$)/iu.test(route)) visibility = "public";
+      output.push({
+        name: `${method} ${route}`,
+        type: "http-route",
+        location: path,
+        confidence: "HIGH",
+        evidence: [`${path}:${lineForIndex(content, match.index)}`],
+        visibility
+      });
+    }
+  }
+  return output;
+}
+
+function record(
+  name: string,
+  type: string,
+  options: {
+    root?: string;
+    location?: string;
+    confidence: Confidence;
+    evidence: string[];
+  }
+): ProfileRecord {
+  return {
+    name,
+    type,
+    ...(options.root === undefined ? {} : { root: options.root }),
+    ...(options.location === undefined ? {} : { location: options.location }),
+    confidence: options.confidence,
+    evidence: options.evidence
+  };
+}
+
+function uniqueRecords<T extends ProfileRecord>(records: T[]): T[] {
+  const byKey = new Map<string, T>();
+  for (const item of records) {
+    const key = `${item.name}\u0000${item.type}\u0000${item.root ?? item.location ?? ""}`;
+    const current = byKey.get(key);
+    if (current === undefined) byKey.set(key, item);
+    else current.evidence = [...new Set([...current.evidence, ...item.evidence])].slice(0, 12);
+  }
+  return [...byKey.values()];
+}
+
+function lineForIndex(content: string, index: number): number {
+  return content.slice(0, index).split("\n").length;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function renderArchitectureMap(profile: ProjectProfile): string {
-  const nodes = profile.detections
-    .slice(0, 24)
-    .map((detection, index) => `  N${index}["${escapeMermaid(detection.name)}"]`)
-    .join("\n");
-  const edges = profile.detections
-    .slice(1, 24)
-    .map((_detection, index) => `  N0 -. "detected with" .-> N${index + 1}`)
-    .join("\n");
-  const evidence = profile.detections
+  const applications = profile.applications.slice(0, 12);
+  const boundaries = [
+    ...profile.databases,
+    ...profile.storage,
+    ...profile.caches,
+    ...profile.queues,
+    ...profile.integrations,
+    ...profile.ai_providers,
+    ...profile.payment_providers
+  ].slice(0, 16);
+  const appNodes = applications
     .map(
-      (detection) =>
-        `- **${detection.name}** (${detection.confidence}): ${detection.evidence.join(", ")}`
+      (application, index) =>
+        `  A${index}["${escapeMermaid(application.name)} (${escapeMermaid(application.type)})"]`
+    )
+    .join("\n");
+  const boundaryNodes = boundaries
+    .map(
+      (boundary, index) =>
+        `  B${index}["${escapeMermaid(boundary.name)} (${escapeMermaid(boundary.type)})"]`
+    )
+    .join("\n");
+  const edges = applications
+    .flatMap((_application, appIndex) =>
+      boundaries.map(
+        (_boundary, boundaryIndex) =>
+          `  A${appIndex} -. "evidence requires trace" .-> B${boundaryIndex}`
+      )
+    )
+    .slice(0, 24)
+    .join("\n");
+  const evidence = [
+    ...profile.applications,
+    ...profile.routes,
+    ...boundaries,
+    ...profile.critical_workflows
+  ]
+    .map(
+      (item) => `- **${item.name}** (${item.type}, ${item.confidence}): ${item.evidence.join(", ")}`
     )
     .join("\n");
   return `# Architecture map
 
-Generated from static repository evidence at ${profile.generated_at}. Dashed edges mean
-co-detection, not a proven runtime call path. Trace critical flows manually before treating an edge
-as architectural fact.
+Generated from project-profile schema v2 evidence at ${profile.generated_at}. Dashed edges are
+candidate trust-boundary traces, not proven runtime calls. Route visibility remains unknown unless
+the supported handler contains direct authentication or role evidence.
 
 \`\`\`mermaid
 flowchart LR
-${nodes || '  Unknown["No technology detected"]'}
+${appNodes || '  Unknown["No application boundary detected"]'}
+${boundaryNodes}
 ${edges}
 \`\`\`
 
-## Evidence
+## Applications, routes, and boundaries
 
-${evidence || "- No supported detections. Inspect the repository manually."}
+${evidence || "- No supported structured records. Inspect the repository manually."}
 
 ## Unverified boundaries
 
-Runtime topology, production configuration, user roles, tenant context, and provider-side controls
-remain NOT_VERIFIED unless direct evidence is added.
+Runtime topology, unknown route visibility, production configuration, permission enforcement,
+tenant propagation, storage release, payment/AI confirmation, and provider-side controls remain
+NOT_VERIFIED unless direct evidence is added.
 `;
 }
 

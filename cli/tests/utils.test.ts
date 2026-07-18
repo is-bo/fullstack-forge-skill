@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import test from "node:test";
 import { PACKAGE_ROOT } from "../src/constants.js";
-import { assertSafeRelative, resolveInside, runFile } from "../src/utils.js";
+import { assertSafeRelative, resolveInside, runFile, walkFiles } from "../src/utils.js";
+import { withTemporaryProject } from "./helpers.js";
 
 test("portable path validation rejects traversal, Windows roots, devices, and ADS", () => {
   for (const path of [
@@ -27,4 +30,13 @@ test("subprocess runner applies its timeout", async () => {
     50
   );
   assert.notEqual(result.exitCode, 0);
+});
+
+test("repository walks fail closed when file or byte budgets are exceeded", async () => {
+  await withTemporaryProject("walk-budget", async (root) => {
+    await writeFile(join(root, "one.txt"), "one", "utf8");
+    await writeFile(join(root, "two.txt"), "two", "utf8");
+    await assert.rejects(walkFiles(root, { maxFiles: 1 }), /file inspection budget/u);
+    await assert.rejects(walkFiles(root, { maxTotalBytes: 5 }), /byte inspection budget/u);
+  });
 });

@@ -1,13 +1,17 @@
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { ALWAYS_APPLICABLE, MODULE_SLUGS, PACKAGE_ROOT, PLATFORM_CONFIG, TOOL_NAMES, VERSION } from "./constants.js";
+import { ALWAYS_APPLICABLE, MODULE_SLUGS, PACKAGE_ROOT, PLATFORM_ALIASES, PLATFORM_CONFIG, TOOL_NAMES, VERSION } from "./constants.js";
 import { detectProjectCommands, discoverProject, writeProjectArtifacts } from "./discovery.js";
+import { executeFixes } from "./fixes.js";
+import { runShipGates } from "./gates.js";
 import { install, readInstallManifest, uninstall } from "./installer.js";
 import { inspectSection, isModuleSlug } from "./inspectors.js";
 import { createReport, readReport, renderMarkdown, writeReport } from "./report.js";
+import { analyzeChangedScope } from "./scope.js";
 import { runTool } from "./tools.js";
-import { canonicalDirectory, runFile } from "./utils.js";
+import { canonicalDirectory } from "./utils.js";
+import { verifyFindings } from "./verification.js";
 const MODES = new Set(["audit", "fix", "verify", "report"]);
 const HIGH_RISK_MODULES = new Set([
     "code",
@@ -44,7 +48,13 @@ export async function runCli(argv) {
         return 0;
     }
     if (command === "list") {
-        printValue({ version: VERSION, modules: MODULE_SLUGS, tools: TOOL_NAMES, platforms: PLATFORM_CONFIG }, options.json);
+        printValue({
+            version: VERSION,
+            modules: MODULE_SLUGS,
+            tools: TOOL_NAMES,
+            platform_destinations: PLATFORM_CONFIG,
+            platform_aliases: PLATFORM_ALIASES
+        }, options.json);
         return 0;
     }
     if (command === "init" || command === "update") {
@@ -97,20 +107,18 @@ export async function runCli(argv) {
 async function runModule(section, mode, options) {
     const root = await canonicalDirectory(options.cwd);
     if (mode === "report") {
-        const report = await readReport(join(root, ".forge", "report.json"));
+        const report = await readReport(root, join(root, ".forge", "report.json"));
         printValue(options.json ? report : renderMarkdown(report), options.json);
         return report.findings.some((finding) => finding.status === "FAIL") ? 1 : 0;
     }
     if (mode === "fix") {
-        const response = {
-            status: "BLOCKED",
-            section,
-            message: "The CLI does not guess code changes. Review report findings with the installed command skill, then authorize a concrete safe fix. --safe never authorizes policy, architecture, data, identity, financial, secret, or production changes.",
-            safe_requested: options.safe,
-            severity_filter: options.severity ?? null
-        };
+        const response = await executeFixes(root, section, {
+            dryRun: options.dryRun,
+            allowRun: options.allowRun,
+            ...(options.severity === undefined ? {} : { severity: options.severity })
+        });
         printValue(response, options.json);
-        return 2;
+        return response.status === "PASS" ? 0 : response.status === "FAIL" ? 1 : 2;
     }
     const profile = await discoverProject(root);
     if (section === "discover") {
@@ -126,28 +134,32 @@ async function runModule(section, mode, options) {
     if (mode === "verify") {
         return verifySection(section, root, profile, options);
     }
-    const { sections, selected } = selectSections(section, profile, options);
-    const results = await Promise.all(selected.map((slug) => inspectSection(slug, root, profile)));
+    const selection = selectSections(section, profile, options);
+    let selected = selection.selected;
+    let changedScope;
+    if (section === "all" && options.scope === "changed") {
+        changedScope = await analyzeChangedScope(root, profile, options.base);
+        selected = selected.filter((slug) => changedScope?.modules.has(slug));
+    }
+    if (!options.dryRun)
+        await writeProjectArtifacts(profile);
+    const results = await Promise.all(selected.map((slug) => inspectSection(slug, root, profile, changedScope?.files)));
     const findings = results.flatMap((result, index) => {
         if (result.findings.length > 0)
             return result.findings;
         return [
-            coverageFinding(selected[index] ?? section, result.observations.length, "Static inventory completed; module manual and runtime checks remain NOT_VERIFIED.")
+            coverageFinding(selected[index] ?? section, result.observations.length, coverageDetail(selected[index] ?? section, profile, result))
         ];
     });
     if (section === "all") {
-        const notApplicable = sections
+        const notApplicable = selection.sections
             .filter((slug) => !selected.includes(slug))
             .map((slug) => applicabilityFinding(slug, profile));
         findings.push(...notApplicable);
     }
-    const report = createReport(root, profile, findings, options.scope ?? (section === "all" ? "applicable" : section), [], options.scope === "changed"
-        ? [
-            "Changed scope uses a conservative full-repository static scan; use the changed-scope Agent Skill profile to trace merge-base callers, schemas, policies, tests, and deployment effects."
-        ]
-        : [], [
+    const report = createReport(root, profile, findings, options.scope ?? (section === "all" ? "applicable" : section), [], [], [
         "Static inspection does not verify running application, production, provider, database, browser, or operator controls."
-    ]);
+    ], changedScope?.evidence);
     const paths = options.dryRun ? [] : await writeReport(report);
     printValue(options.json
         ? { report, report_paths: paths, observations: summarize(results), dry_run: options.dryRun }
@@ -155,97 +167,31 @@ async function runModule(section, mode, options) {
     return report.findings.some((finding) => finding.status === "FAIL") ? 1 : 0;
 }
 async function verifySection(section, root, profile, options) {
-    const previous = await readReport(join(root, ".forge", "report.json"));
-    const { sections, selected } = selectSections(section, profile, options);
-    const results = await Promise.all(selected.map((slug) => inspectSection(slug, root, profile)));
-    const current = results.flatMap((result, index) => {
-        if (result.findings.length > 0)
-            return result.findings;
-        return [
-            coverageFinding(selected[index] ?? section, result.observations.length, "Verification reran static inspection; behavior-level proof is still required.")
-        ];
+    const result = await verifyFindings(root, section, profile, {
+        allowRun: options.allowRun,
+        dryRun: options.dryRun
     });
-    if (section === "all")
-        current.push(...sections
-            .filter((slug) => !selected.includes(slug))
-            .map((slug) => applicabilityFinding(slug, profile)));
-    const scopedSections = new Set(section === "all" ? sections : [section]);
-    const currentKeys = new Set(current.map(findingKey));
-    const findings = previous.findings
-        .filter((finding) => scopedSections.has(finding.section))
-        .map((finding) => {
-        if (finding.status !== "FAIL")
-            return finding;
-        if (currentKeys.has(findingKey(finding)))
-            return finding;
-        return {
-            ...finding,
-            status: "NOT_VERIFIED",
-            evidence: [
-                ...finding.evidence,
-                "The current scanner did not reproduce the pattern; behavior-level verification is still required."
-            ]
-        };
-    });
-    findings.push(...current.filter((finding) => !findings.some((existing) => findingKey(existing) === findingKey(finding))));
-    const report = createReport(root, profile, findings, `verify ${section}${options.risk === undefined ? "" : ` --risk ${options.risk}`}`);
-    const paths = options.dryRun ? [] : await writeReport(report);
-    printValue(options.json ? { report, report_paths: paths } : renderMarkdown(report), options.json);
-    return report.findings.some((finding) => finding.status === "FAIL") ? 1 : 0;
+    printValue(options.json ? result : renderMarkdown(result.report), options.json);
+    if (result.report.findings.some((finding) => finding.status === "FAIL"))
+        return 1;
+    if (result.report.findings.some((finding) => finding.status === "BLOCKED"))
+        return 2;
+    return 0;
 }
 async function ship(options) {
     const root = await canonicalDirectory(options.cwd);
     const commands = await detectProjectCommands(root);
-    const preferred = [
-        "format:check",
-        "lint",
-        "typecheck",
-        "test",
-        "build",
-        "validate",
-        "check:platforms",
-        "package:platforms",
-        "smoke:install"
-    ];
-    const selected = preferred.flatMap((name) => {
-        const command = commands.find((candidate) => candidate.name === name);
-        return command === undefined ? [] : [command];
-    });
-    if (!options.allowRun) {
-        printValue({
-            status: "BLOCKED",
-            reason: "Release checks are local project scripts. Review their definitions, then re-run with --allow-run.",
-            commands: selected
-        }, options.json);
-        return 2;
-    }
-    const execution = [];
-    for (const command of selected) {
-        const result = await runFile(command.executable, command.args, root, 15 * 60_000);
-        execution.push({
-            command: [command.executable, ...command.args],
-            exitCode: result.exitCode,
-            output: `${result.stdout}\n${result.stderr}`.trim()
-        });
-        if (result.exitCode !== 0)
-            break;
-    }
     const profile = await discoverProject(root);
     let previous;
     try {
-        previous = await readReport(join(root, ".forge", "report.json"));
+        previous = await readReport(root, join(root, ".forge", "report.json"));
     }
     catch (error) {
         if (error.code !== "ENOENT")
             throw error;
     }
-    const openHigh = previous?.findings.filter((finding) => finding.status === "FAIL" && ["CRITICAL", "HIGH"].includes(finding.severity)) ?? [];
-    const unresolvedHighRisk = previous?.findings.filter((finding) => HIGH_RISK_MODULES.has(finding.section) &&
-        ["NOT_VERIFIED", "BLOCKED"].includes(finding.status)) ?? [];
-    const commandFailed = execution.some((record) => record.exitCode !== 0);
-    const failed = commandFailed || openHigh.length > 0;
-    const blocked = previous === undefined || selected.length === 0 || unresolvedHighRisk.length > 0;
-    const status = failed ? "FAIL" : blocked ? "BLOCKED" : "PASS";
+    const gateResult = await runShipGates(root, profile, previous, commands, options.allowRun);
+    const status = gateResult.status;
     const finding = {
         id: "FF-SHIP-001",
         section: "ship",
@@ -259,11 +205,7 @@ async function ship(options) {
         status,
         location: [{ path: "package.json" }],
         evidence: [
-            ...execution.map((record) => `${record.command.join(" ")} exited ${record.exitCode}`),
-            ...(previous === undefined ? ["No prior Fullstack Forge audit report was available"] : []),
-            ...openHigh.map((item) => `Open ${item.severity} finding: ${item.id}`),
-            ...unresolvedHighRisk.map((item) => `Unresolved high-risk check: ${item.id}`),
-            ...(selected.length === 0 ? ["No recognized release scripts were detected"] : [])
+            ...gateResult.gates.map((gate) => `${gate.gate_id} ${gate.status}: ${gate.evidence.join("; ")}`)
         ],
         impact: status === "PASS"
             ? "The recorded local gates and prior audit support release readiness for this checkout."
@@ -278,13 +220,14 @@ async function ship(options) {
         ],
         standards: ["NIST SSDF", "SLSA 1.2", "Agent Skills Specification"]
     };
-    const report = createReport(root, profile, [finding], "ship", execution, [], [
+    const report = createReport(root, profile, [...(previous?.findings.filter((candidate) => candidate.section !== "ship") ?? []), finding], "ship", gateResult.execution, previous?.assumptions ?? [], [
+        ...(previous?.residual_risk ?? []),
         "Remote CI, registry, GitHub release, deployment, and production state require separate direct evidence."
-    ]);
+    ], previous?.scope_evidence);
     if (!options.dryRun)
         await writeReport(report);
     printValue(options.json ? report : renderMarkdown(report), options.json);
-    return failed ? 1 : blocked ? 2 : 0;
+    return status === "FAIL" ? 1 : status === "BLOCKED" ? 2 : 0;
 }
 function selectSections(section, profile, options) {
     let sections = section === "all"
@@ -403,15 +346,34 @@ function applicabilityFinding(section, profile) {
         impact: "No audit impact within the detected repository scope."
     };
 }
-function findingKey(finding) {
-    return `${finding.section}\u0000${finding.title}\u0000${finding.location.map((location) => `${location.path}:${location.line ?? ""}`).join("|")}`;
-}
 function summarize(results) {
     return results.map((result) => ({
         tool: result.tool,
         observations: result.observations.length,
         findings: result.findings.length
     }));
+}
+function coverageDetail(section, profile, result) {
+    const boundedSections = new Set([
+        "accessibility",
+        "ai",
+        "authorization",
+        "cache",
+        "deployment",
+        "frontend",
+        "integrations",
+        "payments",
+        "queries",
+        "security",
+        "tenancy",
+        "uploads"
+    ]);
+    const supportedLanguage = profile.languages.some((language) => ["JavaScript", "TypeScript"].includes(language.name));
+    const analyzerRan = result.observations.some((observation) => observation.category === "bounded-analyzer");
+    if (boundedSections.has(section) && !supportedLanguage && !analyzerRan) {
+        return `No bounded first-party analyzer supports the detected language set (${profile.languages.map((language) => language.name).join(", ") || "unknown"}); keyword inventory is discovery evidence only.`;
+    }
+    return "Bounded static analysis and secondary inventory completed; manual and runtime checks remain NOT_VERIFIED.";
 }
 function parseArguments(argv) {
     const options = {
@@ -428,6 +390,7 @@ function parseArguments(argv) {
         "--root": "cwd",
         "--cwd": "cwd",
         "--scope": "scope",
+        "--base": "base",
         "--risk": "risk",
         "--severity": "severity",
         "--ai": "platform",
@@ -496,7 +459,7 @@ function printHelp() {
 
 Usage:
   forge <section> <audit|fix|verify|report> [options]
-  forge all audit [--scope full|changed] [--risk high]
+  forge all audit [--scope full|changed] [--base origin/main] [--risk high]
   forge ship --allow-run
   forge init <platform|all> | init --ai <platform|all>
   forge update [platform] | uninstall [platform] | doctor | validate | package | list
@@ -506,6 +469,7 @@ Options:
   --root <path>   Select a project root (defaults to the current directory)
   --ai <platform> Platform selector for init (alias: --platform)
   --global        Use the verified user-level platform path
+  --base <ref>    Select the Git base for --scope changed
   --dry-run       Plan writes or removals without changing files
   --json          Emit machine-readable JSON
   --offline       Do not opt into network-dependent behavior

@@ -1,0 +1,7 @@
+{
+  "name": "fixture-safe-fixes",
+  "private": true,
+  "dependencies": {
+    "react": "0.0.0-fixture"
+  }
+}

@@ -1,18 +1,22 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { assertFindings } from "./finding.js";
-import { utcNow } from "./utils.js";
+import { assertNoSymlinkPath, utcNow } from "./utils.js";
 export async function writeReport(report, outputDirectory) {
     assertFindings(report.findings);
     const directory = outputDirectory ?? join(report.root, ".forge");
+    await assertNoSymlinkPath(report.root, directory);
     await mkdir(directory, { recursive: true });
     const jsonPath = join(directory, "report.json");
     const markdownPath = join(directory, "report.md");
+    await assertNoSymlinkPath(report.root, jsonPath);
+    await assertNoSymlinkPath(report.root, markdownPath);
     await writeFile(jsonPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
     await writeFile(markdownPath, renderMarkdown(report), "utf8");
     return [jsonPath, markdownPath];
 }
-export async function readReport(path) {
+export async function readReport(root, path) {
+    await assertNoSymlinkPath(root, path);
     const value = JSON.parse(await readFile(path, "utf8"));
     if (!isAuditReport(value)) {
         throw new Error("Unsupported or invalid Fullstack Forge report");
@@ -35,7 +39,7 @@ function isAuditReport(value) {
         Array.isArray(candidate.assumptions) &&
         Array.isArray(candidate.residual_risk));
 }
-export function createReport(root, profile, findings, scope, execution = [], assumptions = [], residualRisk = []) {
+export function createReport(root, profile, findings, scope, execution = [], assumptions = [], residualRisk = [], scopeEvidence) {
     return {
         schema_version: 1,
         generated_at: utcNow(),
@@ -45,7 +49,8 @@ export function createReport(root, profile, findings, scope, execution = [], ass
         findings: sortFindings(deduplicateFindings(findings)),
         execution,
         assumptions,
-        residual_risk: residualRisk
+        residual_risk: residualRisk,
+        ...(scopeEvidence === undefined ? {} : { scope_evidence: scopeEvidence })
     };
 }
 export function renderMarkdown(report) {
@@ -57,7 +62,15 @@ export function renderMarkdown(report) {
     const findings = report.findings.map(renderFinding).join("\n\n") ||
         "No findings were recorded. This is not evidence of a pass.";
     const execution = report.execution
-        .map((record) => `- \`${record.command.join(" ")}\` → exit ${record.exitCode}: ${compact(record.output)}`)
+        .map((record) => {
+        const timing = [
+            record.started_at === undefined ? undefined : `started ${record.started_at}`,
+            record.duration_ms === undefined ? undefined : `${record.duration_ms} ms`
+        ]
+            .filter((value) => value !== undefined)
+            .join(", ");
+        return `- \`${record.command.join(" ")}\` → exit ${record.exitCode}${timing.length === 0 ? "" : ` (${timing})`}: ${compact(record.output)}`;
+    })
         .join("\n");
     const assumptions = report.assumptions.map((value) => `- ${value}`).join("\n") || "- None recorded.";
     const residual = report.residual_risk.map((value) => `- ${value}`).join("\n") || "- None recorded.";
@@ -69,6 +82,15 @@ export function renderMarkdown(report) {
         .filter((finding) => ["BLOCKED", "NOT_VERIFIED"].includes(finding.status))
         .map((finding) => `- ${finding.id}: ${finding.verification.join("; ")}`)
         .join("\n");
+    const changedScope = report.scope_evidence === undefined
+        ? "- Not a Git-aware changed-scope report."
+        : `- Base: \`${report.scope_evidence.base_ref}\` (${report.scope_evidence.base_commit})
+- Merge base: \`${report.scope_evidence.merge_base}\`
+- Changed paths: ${report.scope_evidence.changed_files.length}
+- Included paths after impact expansion: ${report.scope_evidence.included_files.length}
+- Affected applications: ${report.scope_evidence.affected_applications.map((application) => application.name).join(", ") || "none"}
+
+${report.scope_evidence.included_files.map((item) => `- \`${item.path}\`: ${item.reasons.join("; ")}`).join("\n")}`;
     return `# Fullstack Forge report
 
 - Generated: ${report.generated_at}
@@ -82,6 +104,10 @@ ${summary}
 ## Detected profile
 
 ${report.profile.detections.map((detection) => `- **${detection.name}** (${detection.confidence}): ${detection.evidence.join(", ")}`).join("\n") || "- No technologies detected."}
+
+## Changed-scope evidence
+
+${changedScope}
 
 ## Findings
 

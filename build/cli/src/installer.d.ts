@@ -9,9 +9,11 @@ export declare function normalizePlatforms(selector: string): Platform[];
 export declare function install(rootInput: string, selector: string, options: {
     global: boolean;
     dryRun: boolean;
+    home?: string;
 }): Promise<InstallAction[]>;
 export declare function uninstall(rootInput: string, selector: string, options: {
     global: boolean;
     dryRun: boolean;
+    home?: string;
 }): Promise<InstallAction[]>;
 export declare function readInstallManifest(rootInput: string): Promise<InstallManifest | undefined>;

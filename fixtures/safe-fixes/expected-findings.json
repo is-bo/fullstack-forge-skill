@@ -1,0 +1,5 @@
+{
+  "capabilities": ["frontend", "deployment"],
+  "tools": { "inspect-env-template": 1, "inspect-deployment-config": 0 },
+  "sections": ["security", "frontend", "deployment"]
+}

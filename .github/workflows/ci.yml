@@ -31,6 +31,8 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Run complete verification
         run: npm run check
+      - name: Audit locked dependencies
+        run: npm audit --ignore-scripts
       - name: Build deterministic platform archives
         run: npm run package:platforms
       - name: Smoke-install the packed npm artifact

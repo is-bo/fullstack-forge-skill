@@ -72,6 +72,10 @@ and preserved `NOT_APPLICABLE` and `NOT_VERIFIED` states instead of manufacturin
 `verify` and `report` modes succeeded; security `fix --safe` and an unauthorized `ship` invocation
 both returned exit code 2 with `BLOCKED`, as required by their safety boundaries.
 
+This is historical v0.1.0 evidence: that release intentionally blocked every CLI fix. It does not
+claim that v0.1.0 executed an automatic safe fix, and the behavior must not be interpreted as
+satisfying the v0.1.1 executable-fix contract.
+
 ## Manual repository presentation step
 
 The social-preview artwork is prepared at

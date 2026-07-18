@@ -4,6 +4,7 @@
     "fixture": "insecure-api",
     "mode": "automated-signal-plus-manual-trace",
     "section": "security",
+    "expected_finding_id": "FF-SEC-SQL-001",
     "prompt": "Trace request parameters into SQL execution and distinguish interpolation from parameter binding.",
     "expected_finding": "FAIL: request-controlled id is interpolated into a SELECT statement; require parameterization and a negative injection test."
   },
@@ -36,6 +37,7 @@
     "fixture": "cross-tenant-leak",
     "mode": "automated-signal-plus-manual-trace",
     "section": "tenancy",
+    "expected_finding_id": "FF-TENANT-SCOPE-001",
     "prompt": "Trace tenant context from authenticated identity through every repository query and response.",
     "expected_finding": "FAIL: a tenant-owned record can be selected without an enforced tenant predicate and negative cross-tenant test."
   },
@@ -44,6 +46,7 @@
     "fixture": "bad-upload-pipeline",
     "mode": "automated-signal-plus-manual-trace",
     "section": "uploads",
+    "expected_finding_id": "FF-UPLOAD-ANY-001",
     "prompt": "Audit upload count, byte, filename, type, parser, and authorization limits before durable storage.",
     "expected_finding": "FAIL: upload.any accepts unrestricted files without bounded count, size, or allowlisted content policy."
   },
@@ -68,6 +71,7 @@
     "fixture": "bad-upload-pipeline",
     "mode": "automated-signal-plus-manual-trace",
     "section": "uploads",
+    "expected_finding_id": "FF-UPLOAD-PUBLIC-001",
     "prompt": "Trace the object location before scanning and confirm quarantine is private and not directly routable.",
     "expected_finding": "FAIL: untrusted bytes are written beneath a public path before approval."
   },
@@ -100,6 +104,7 @@
     "fixture": "slow-postgres-app",
     "mode": "automated-signal-plus-manual-trace",
     "section": "queries",
+    "expected_finding_id": "FF-QUERY-N1-001",
     "prompt": "Trace queries inside loops and prove query count for representative list sizes.",
     "expected_finding": "FAIL: one child query is issued per parent row; require batching/joining and a query-count test."
   },
@@ -108,6 +113,7 @@
     "fixture": "slow-postgres-app",
     "mode": "automated-signal-plus-manual-trace",
     "section": "queries",
+    "expected_finding_id": "FF-QUERY-UNBOUNDED-001",
     "prompt": "Inspect list queries and APIs for stable order, bounded page size, and cursor/offset semantics.",
     "expected_finding": "FAIL when an unbounded collection query or response lacks enforced pagination."
   },
@@ -124,6 +130,7 @@
     "fixture": "cache-data-leak",
     "mode": "automated-signal-plus-manual-trace",
     "section": "cache",
+    "expected_finding_id": "FF-CACHE-USER-001",
     "prompt": "Trace identity dimensions into cache keys and test two users with the same resource identifier.",
     "expected_finding": "FAIL when user-specific data is cached under a key that omits user identity."
   },
@@ -132,6 +139,7 @@
     "fixture": "cache-data-leak",
     "mode": "automated-signal-plus-manual-trace",
     "section": "cache",
+    "expected_finding_id": "FF-CACHE-TENANT-001",
     "prompt": "Trace tenant dimensions into cache keys and invalidation paths, including same-id records in two tenants.",
     "expected_finding": "FAIL when tenant-owned data is cached or invalidated under a key that omits tenant identity."
   },
@@ -164,6 +172,7 @@
     "fixture": "inaccessible-dashboard",
     "mode": "automated-signal-plus-manual-browser-evaluation",
     "section": "accessibility",
+    "expected_finding_id": "FF-A11Y-LABEL-001",
     "prompt": "Inspect each form control's programmatic accessible name and verify it with the accessibility tree.",
     "expected_finding": "FAIL when a required form control has no associated label or accessible name."
   },

@@ -52,12 +52,12 @@
     "fullstack-forge/profiles/full.md": "7767c9c504de3bb27709d281de0f3b61df511e54bc4cd17cdd5bd07a202f4071",
     "fullstack-forge/profiles/high-risk.md": "10457957b682f379ce581611591b5e582ee30a2c102ec6485bb3b396d51c2da0",
     "fullstack-forge/references/PROTOCOL.md": "eb404172135b00bdd3ee8b9d6cea3529b9e7f00cab2bfa183559f67aff781a30",
-    "fullstack-forge/references/SAFE_FIX_POLICY.md": "c8f8f9d7d67bf01259c80d170e773c94287163adcb23c36d106e892824721eb3",
+    "fullstack-forge/references/SAFE_FIX_POLICY.md": "afe5950841b2b081e90add157200c7bed2da1db1c0e269b69ca446993f0aa6b1",
     "fullstack-forge/references/STACK_GUIDANCE.md": "76c707d04808048080cc586b7f79487a7fcd03e1f66a55814c9bc40ef106c889",
-    "fullstack-forge/schemas/finding.schema.json": "cc464515a890d998860cabd089e6809f5653c19e6cb498048fdca07013ac67db",
-    "fullstack-forge/schemas/project-profile.schema.json": "ff503122fc76fbdbde541b4357ae789925b8202c133e2a5b29dded5e4a26b9bc",
+    "fullstack-forge/schemas/finding.schema.json": "f73cc89a7106d79eef9fa1ce469c518c2ae7c915f22741906ef8a19166d486f7",
+    "fullstack-forge/schemas/project-profile.schema.json": "1e285f4842bf9846f1344bad884d35e6335c6c7e95fe40b4725dc0513890eeb8",
     "fullstack-forge/schemas/skill.schema.json": "0ee543fe2ed0c927869aeb5e8f60a23447d60a49513e9d5996bac4d5121e4cde",
-    "fullstack-forge/SKILL.md": "d1191aee82bccc95180321cf0970e327e601fcd5c320a334dc4bd0db2055500e",
+    "fullstack-forge/SKILL.md": "af1c38c1f03dea5d3afadc846f3085c6844602692e437e55210109a9cf89ffad",
     "fullstack-forge/templates/architecture-map.md": "c0bd17cbb86dfdb9e2b17c60b7b52f39f60677ed2324d36c2ff7706c2aaabdc6",
     "fullstack-forge/templates/report.md": "a2b26c740698dcde5d3a2470202d6d9ea546221f70463bb9e96a2c5993451c25"
   }

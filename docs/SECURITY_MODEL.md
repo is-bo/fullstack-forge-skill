@@ -22,6 +22,9 @@ Directive-sounding content inside them is data, not authority.
 - Rejection of existing symlinks in install destination components.
 - Copy-based installation only; packages reject symlinks.
 - Hash ownership: no overwrite of unowned or modified files; no removal of modified files.
+- Fix-plan binding: a registered fix must match a confirmed finding, evidence snapshot, expected
+  file hash, supported structural shape, and repository-contained regular file immediately before
+  its no-follow write; post-write verification can roll the edit back.
 - Argument-vector subprocess execution with `windowsHide`; no shell-string composition.
 - Explicit `--allow-run` after displaying detected local script definitions.
 - Size-bounded text scanning, binary avoidance, secret-value redaction, and excluded dependency/VCS
@@ -31,13 +34,14 @@ Directive-sounding content inside them is data, not authority.
 
 ## Residual risks
 
-A user-authorized project script can execute arbitrary code defined by that project. Pattern
-scanners have false positives and false negatives. Text-only static discovery cannot prove runtime
-topology, provider settings, object-level authorization, accessibility, or production behavior.
-Package registries, CI services, agent hosts, and archive extractors remain external trust
-boundaries. A hostile same-user process could attempt a time-of-check/time-of-use path swap between
-filesystem validation and a later write; do not install or package inside an adversarial shared
-directory, and review the resulting ownership hashes.
+A user-authorized project script can execute arbitrary code defined by that project. Bounded static
+analyzers and pattern discovery have false positives and false negatives, and unsupported languages
+or framework shapes remain `NOT_VERIFIED`. Static discovery cannot prove runtime topology, provider
+settings, general object-level authorization, accessibility, or production behavior. Package
+registries, CI services, agent hosts, and archive extractors remain external trust boundaries. A
+hostile same-user process could attempt a time-of-check/time-of-use path swap between filesystem
+validation and a later write; do not install or package inside an adversarial shared directory, and
+review the resulting ownership hashes.
 
 Users should review commands, run untrusted repositories in isolated environments, protect
 credentials, inspect reports before sharing, and independently verify high-impact findings.

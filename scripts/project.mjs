@@ -54,7 +54,11 @@ export const expectedSlugs = Object.freeze([
 ]);
 
 export const platformTargets = Object.freeze([
-  { id: "agents", label: "Codex, Antigravity, and generic Agent Skills", path: ".agents/skills" },
+  {
+    id: "agents",
+    label: "Codex, Antigravity project, and generic Agent Skills",
+    path: ".agents/skills"
+  },
   { id: "claude", label: "Claude Code", path: ".claude/skills" },
   { id: "cursor", label: "Cursor", path: ".cursor/skills" },
   { id: "gemini", label: "Gemini CLI", path: ".gemini/skills" },

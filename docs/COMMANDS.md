@@ -13,10 +13,13 @@ counts as evidence by itself.
 forge <section> <audit|fix|verify|report> [options]
 ```
 
-- `audit` discovers the project, selects applicable static inspections, and records direct evidence.
-- `fix` produces a `BLOCKED` safe/risky decision boundary; the CLI never invents source edits.
-- `verify` reruns inspection and keeps an unresolved result `NOT_VERIFIED` until behavior evidence
-  exists.
+- `audit` discovers the project, runs bounded analyzers for supported JavaScript, TypeScript, JSON,
+  YAML, HTML, JSX, and configuration shapes, and records direct evidence. Unsupported stacks remain
+  `NOT_VERIFIED`; text matches are discovery signals, not proof of a completed audit.
+- `fix` loads a confirmed finding from the previous report and can apply only a registered,
+  structurally validated safe fix whose evidence and file hash are still current.
+- `verify` executes the finding's recorded verification plan. A disappeared pattern remains
+  `NOT_VERIFIED` unless the requested behavior is directly demonstrated.
 - `report` renders the current `.forge/report.json` without claiming new checks ran.
 
 Examples:
@@ -27,9 +30,25 @@ forge security audit --json
 forge uploads audit
 forge queries audit
 forge all audit --scope changed
+forge all audit --scope changed --base origin/main
 forge all fix --safe
+forge all fix --safe --dry-run --json
 forge ship
 ```
+
+The v0.1.1 safe-fix registry supports three deliberately narrow transformations:
+
+- replace actual-looking values in environment example/template files with explicit placeholders;
+- add `rel="noopener noreferrer"` to a structurally proven HTML/JSX `target="_blank"` link; and
+- add `X-Content-Type-Options: nosniff` to a supported structured Vercel global-header rule.
+
+The engine records planned operations and rollback data, rejects symlinks and paths outside the
+repository, verifies the post-audit hash before writing, and reruns the named analyzer afterward.
+When `--allow-run` is supplied and a project-native `test` command was detected, it runs that
+bounded argument vector, records exit code/output/duration, and rolls the edits back if the
+regression fails. Credential replacement does not rotate a provider secret, so that finding remains
+`NOT_VERIFIED` until rotation is confirmed. Authorization, tenancy, uploads, AI, payments,
+integrations, and any policy-bearing remediation remain `BLOCKED` pending explicit human decisions.
 
 The 42 valid sections are emitted by `forge list`. Unknown sections and modes fail closed.
 
@@ -60,10 +79,14 @@ remain unowned, and modified owned files are preserved during update or uninstal
 
 ## Release gate
 
-`forge ship` reports the detected local release scripts and returns `BLOCKED`. After reviewing those
-definitions, `forge ship --allow-run` invokes their executable and argument arrays without a shell,
-with a bounded working directory and timeout. Remote CI, hosting, registry, provider, and production
-state still require separate evidence.
+`forge ship` evaluates an explicit Forge gate registry: finding/schema validation, skill and
+generated-copy synchronization, secret/dependency/license/archive/package/install/evaluation checks,
+project-native commands, previous findings, and applicable authorization, tenancy, upload,
+migration, and security capabilities. It verifies the report root and current source-evidence hashes
+and preserves the prior audit findings in the ship report. Project scripts supplement the internal
+gates; a project with no recognized commands cannot pass by omission. `forge ship --allow-run` is
+required before invoking project-defined scripts, which run as bounded argument vectors without a
+shell. Remote CI, hosting, registry, provider, and production state still require separate evidence.
 
 ## Tool interface
 
@@ -106,6 +129,7 @@ runtime access, or proof remain `NOT_VERIFIED` or `BLOCKED`.
 - `--offline`: assert offline intent.
 - `--allow-run`: authorize one detected project script by its allowlisted name.
 - `--safe`: restrict fix planning; it grants no policy or destructive authority.
+- `--base <ref>`: select the Git merge-base reference for a changed-scope audit.
 - `--scope`, `--risk`, `--severity`, `--output`: command-specific selection.
 
 Exit `0` means the command completed under its stated contract, `1` means failure/finding, and `2`

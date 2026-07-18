@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
-import { access, readFile } from "node:fs/promises";
+import { access, cp, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
+import { runAnalyzers } from "../src/analyzers.js";
 import { PACKAGE_ROOT } from "../src/constants.js";
+import { withTemporaryProject } from "./helpers.js";
 const expectedIds = [
     "sql-injection",
     "nosql-injection",
@@ -41,6 +43,37 @@ test("evaluation catalog covers the exact required failure modes with explicit e
         assert.ok(entry.section.length > 1);
         assert.ok(entry.prompt.length > 40);
         assert.match(entry.expected_finding, /^(?:FAIL|NOT_VERIFIED)/u);
+    }
+});
+test("every automated evaluation executes its analyzer against a temporary fixture copy", async (t) => {
+    const cases = JSON.parse(await readFile(join(PACKAGE_ROOT, "evals", "cases.json"), "utf8"));
+    const automated = cases.filter((entry) => entry.mode.startsWith("automated-signal"));
+    assert.equal(automated.length, 9);
+    for (const entry of automated) {
+        await t.test(entry.id, async () => {
+            assert.ok(entry.expected_finding_id, `${entry.id} must declare a stable finding ID`);
+            await withTemporaryProject(`eval-${entry.id}`, async (temporary) => {
+                const root = join(temporary, "project");
+                await cp(join(PACKAGE_ROOT, "fixtures", entry.fixture), root, { recursive: true });
+                const runs = await runAnalyzers(entry.section, root);
+                const finding = runs
+                    .flatMap((run) => run.findings)
+                    .find((candidate) => candidate.id === entry.expected_finding_id);
+                assert.ok(finding, `${entry.id} should emit ${entry.expected_finding_id}`);
+                assert.equal(finding.id, entry.expected_finding_id);
+                assert.equal(finding.section, entry.section);
+                assert.equal(finding.status, "FAIL");
+                assert.ok(["CRITICAL", "HIGH"].includes(finding.severity));
+                assert.ok(finding.location.length > 0);
+                assert.ok(finding.location.every((location) => location.path.length > 0));
+                assert.ok(finding.evidence.length > 0);
+                assert.ok(finding.evidence.every((evidence) => evidence.includes(":")));
+                assert.ok(finding.recommendation.length > 20);
+                assert.ok(finding.verification.length > 0);
+                assert.ok(finding.analyzer_id);
+                assert.ok(finding.trace && finding.trace.length > 0);
+            });
+        });
     }
 });
 //# sourceMappingURL=evals.test.js.map

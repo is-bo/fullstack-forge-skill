@@ -18,8 +18,17 @@ The authoritative JSON Schema is `src/fullstack-forge/schemas/finding.schema.jso
 | `verification`   | Exact checks that can close or confirm the finding                        |
 | `standards`      | Relevant versioned criteria; never a compliance claim                     |
 
+Analyzer findings may additionally contain:
+
+- `analyzer_id`: the stable named analyzer that produced the finding;
+- `trace`: source, sink, and trace-quality details used to assign confidence;
+- `evidence_snapshot`: the audited file hash and evidence excerpt used to reject stale fixes; and
+- `verification_plan`: analyzer, structural check, targeted command, fixture regression, or manual
+  actions that must be evaluated independently.
+
 Severity and confidence are independent. A critical low-confidence signal remains critical pending
-triage. Verification appends evidence and preserves the original identifier and observation.
+triage. Verification appends evidence and preserves the original identifier, observation, and
+evidence snapshot. A pattern that disappears without behavior-level proof remains `NOT_VERIFIED`.
 
 A `PASS` requires affirmative evidence: direct code/configuration with location, a successful
 automated check, inspected running behavior, a behavior-demonstrating test, or verified

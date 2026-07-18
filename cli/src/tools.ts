@@ -206,8 +206,9 @@ async function loadOrDiscoverProfile(root: string): Promise<ProjectProfile> {
     const parsed = JSON.parse(
       await readFile(join(root, ".forge", "project-profile.json"), "utf8")
     ) as unknown;
-    if (!isProjectProfile(parsed)) throw new Error("Invalid .forge/project-profile.json");
-    return parsed;
+    if (isProjectProfile(parsed)) return parsed;
+    if (isLegacyProjectProfile(parsed)) return discoverProject(root);
+    throw new Error("Invalid .forge/project-profile.json");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     return discoverProject(root);
@@ -218,13 +219,57 @@ function isProjectProfile(value: unknown): value is ProjectProfile {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const candidate = value as Record<string, unknown>;
   return (
-    candidate.schema_version === 1 &&
+    candidate.schema_version === 2 &&
     typeof candidate.root === "string" &&
     typeof candidate.generated_at === "string" &&
     Array.isArray(candidate.detections) &&
     typeof candidate.capabilities === "object" &&
     candidate.capabilities !== null &&
-    !Array.isArray(candidate.capabilities)
+    !Array.isArray(candidate.capabilities) &&
+    typeof candidate.repository === "object" &&
+    candidate.repository !== null &&
+    [
+      "workspaces",
+      "applications",
+      "languages",
+      "frameworks",
+      "package_managers",
+      "databases",
+      "orms",
+      "authentication",
+      "sessions",
+      "authorization",
+      "roles",
+      "tenant_boundaries",
+      "routes",
+      "storage",
+      "upload_pipelines",
+      "caches",
+      "queues",
+      "scheduled_jobs",
+      "tests",
+      "ci",
+      "observability",
+      "integrations",
+      "ai_providers",
+      "payment_providers",
+      "hosting",
+      "deployment",
+      "environment_templates",
+      "critical_workflows"
+    ].every((field) => Array.isArray(candidate[field]))
+  );
+}
+
+function isLegacyProjectProfile(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    candidate.schema_version === 1 &&
+    typeof candidate.root === "string" &&
+    Array.isArray(candidate.detections) &&
+    typeof candidate.capabilities === "object" &&
+    candidate.capabilities !== null
   );
 }
 
