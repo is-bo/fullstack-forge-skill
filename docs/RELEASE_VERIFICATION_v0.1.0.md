@@ -66,6 +66,12 @@ GitHub Copilot, and Windsurf each installed 43 skills, completed an idempotent u
 `doctor` checks as `PASS`, and contained no symlink or reparse point. Every installed platform copy
 was checked again for all 42 modules and 957 criteria.
 
+Representative UI, UX, security, uploads, database, queries, and full audits emitted JSON and
+Markdown evidence reports from the published CLI. The full audit routed all 39 specialist modules
+and preserved `NOT_APPLICABLE` and `NOT_VERIFIED` states instead of manufacturing passes. UI
+`verify` and `report` modes succeeded; security `fix --safe` and an unauthorized `ship` invocation
+both returned exit code 2 with `BLOCKED`, as required by their safety boundaries.
+
 ## Manual repository presentation step
 
 The social-preview artwork is prepared at
