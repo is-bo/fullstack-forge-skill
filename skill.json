@@ -1,0 +1,10 @@
+{
+  "$schema": "./src/fullstack-forge/schemas/skill.schema.json",
+  "name": "fullstack-forge",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "description": "Evidence-driven production audits for full-stack applications.",
+  "entrypoint": "src/fullstack-forge/SKILL.md",
+  "moduleCatalog": "config/modules.json",
+  "platforms": ["agents", "claude", "gemini", "cursor", "windsurf", "github"]
+}

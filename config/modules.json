@@ -1,0 +1,1368 @@
+[
+  {
+    "slug": "discover",
+    "title": "Project discovery",
+    "purpose": "Build an evidence-backed application profile and architecture map before any specialized audit begins.",
+    "applies": ["Every repository audit", "A changed monorepo layout or deployment model"],
+    "notApplies": ["A report-only replay with an unchanged, still-valid profile"],
+    "inputs": ["repository root", "version-control status", "package and workspace manifests"],
+    "checks": [
+      "Detect languages, frameworks, package managers, applications, data stores, queues, providers, tests, CI, and deployment files",
+      "Map public, private, admin, tenant, upload, payment, and AI boundaries with file evidence",
+      "Record a confidence level and evidence list for every detected capability"
+    ],
+    "manual": [
+      "Confirm ambiguous service boundaries and critical user workflows",
+      "Compare detected deployment topology with operator documentation"
+    ],
+    "safeFixes": [
+      "Create missing local .forge report directories",
+      "Normalize a stale generated profile after discovery"
+    ],
+    "approval": [
+      "Changing application boundaries or deployment topology",
+      "Enabling a provider inferred only from dormant code"
+    ],
+    "verify": [
+      "Validate project-profile.json against its schema",
+      "Trace every architecture-map node back to profile evidence"
+    ],
+    "standards": ["Agent Skills Specification", "C4 model concepts"],
+    "stack": [
+      "Prefer native workspace commands and manifest semantics for the detected package manager"
+    ],
+    "limitations": ["Runtime-only infrastructure may remain NOT_VERIFIED without operator access"]
+  },
+  {
+    "slug": "requirements",
+    "title": "Requirements and domain logic",
+    "purpose": "Trace business rules and acceptance criteria to executable behavior, including adverse and recovery paths.",
+    "applies": ["Feature work", "Domain-rule changes", "Release readiness"],
+    "notApplies": ["Pure formatting changes with no behavior impact"],
+    "inputs": ["project profile", "product documentation", "tests and route handlers"],
+    "checks": [
+      "Trace stated outcomes, invariants, duplicate-operation behavior, recovery, ownership, and offline assumptions to code and tests",
+      "Identify contradictory rules and hidden defaults at trust boundaries",
+      "Exercise success, empty, error, retry, cancellation, and partial-failure paths"
+    ],
+    "manual": [
+      "Confirm ambiguous business policy with an accountable owner",
+      "Review financial, entitlement, and lifecycle rules with representative examples"
+    ],
+    "safeFixes": [
+      "Add missing assertions for an already-established rule",
+      "Document an observed invariant and its evidence"
+    ],
+    "approval": ["Changing business policy, ownership, pricing, or entitlement semantics"],
+    "verify": [
+      "Run targeted acceptance tests",
+      "Map every claimed requirement to code, test, or NOT_VERIFIED evidence"
+    ],
+    "standards": ["ISO/IEC/IEEE 29148 concepts", "RFC 2119 requirement language"],
+    "stack": ["Locate validation in the actual domain boundary rather than only the UI"],
+    "limitations": ["Unwritten policy cannot be inferred as verified intent"]
+  },
+  {
+    "slug": "architecture",
+    "title": "Architecture",
+    "purpose": "Evaluate system boundaries, dependency direction, failure domains, and the fitness of the current topology.",
+    "applies": [
+      "Multi-component applications",
+      "Material structural changes",
+      "Scale or reliability reviews"
+    ],
+    "notApplies": ["A single isolated script with no service or data boundary"],
+    "inputs": ["architecture map", "dependency manifests", "runtime and deployment configuration"],
+    "checks": [
+      "Trace one critical request end to end across UI, API, jobs, data, and integrations",
+      "Detect cycles, boundary leakage, shared mutable state, and single points of failure",
+      "Compare complexity and operational cost with demonstrated requirements"
+    ],
+    "manual": [
+      "Validate context boundaries and ownership with maintainers",
+      "Review unavailable runtime dependencies and organization constraints"
+    ],
+    "safeFixes": [
+      "Add or update an architecture decision record",
+      "Clarify module ownership and dependency rules"
+    ],
+    "approval": ["Splitting services, changing data ownership, or replacing core infrastructure"],
+    "verify": [
+      "Re-run dependency and boundary checks",
+      "Exercise the traced critical flow after structural changes"
+    ],
+    "standards": ["C4 model concepts", "NIST SSDF"],
+    "stack": ["Respect framework composition boundaries before introducing custom layers"],
+    "limitations": [
+      "Production traffic shape and organizational coupling require external evidence"
+    ]
+  },
+  {
+    "slug": "code",
+    "title": "Code quality",
+    "purpose": "Find correctness, maintainability, type-safety, error-handling, and dead-code risks in changed and critical paths.",
+    "applies": ["Source changes", "Release readiness", "Refactoring"],
+    "notApplies": ["Repositories containing only non-executable documentation"],
+    "inputs": ["project profile", "changed-file set", "formatter, linter, and typecheck commands"],
+    "checks": [
+      "Run available format, lint, type, unit, and build checks without hiding failures",
+      "Inspect boundary validation, error propagation, resource cleanup, concurrency, and unsafe casts",
+      "Compare changes with the newest established local precedent and remove only proven dead code"
+    ],
+    "manual": [
+      "Review complex control flow and public API clarity",
+      "Inspect generated or excluded paths not covered by tools"
+    ],
+    "safeFixes": [
+      "Apply deterministic formatting",
+      "Correct proven lint, typing, cleanup, and assertion defects"
+    ],
+    "approval": ["Changing a public contract or broad behavior during cleanup"],
+    "verify": [
+      "Run gates after the final edit",
+      "Exercise the affected behavior rather than relying only on compilation"
+    ],
+    "standards": ["NIST SSDF", "language-specific style guidance"],
+    "stack": ["Use the repository's pinned toolchain and scripts"],
+    "limitations": ["Static analysis cannot prove runtime behavior or requirement intent"]
+  },
+  {
+    "slug": "ui",
+    "title": "User interface",
+    "purpose": "Inspect rendered interfaces for responsive behavior, hierarchy, state clarity, consistency, and visual defects.",
+    "applies": ["Web, mobile, or desktop interfaces", "Component libraries"],
+    "notApplies": ["Headless services with no operator or user interface"],
+    "inputs": [
+      "frontend applications",
+      "routes",
+      "design tokens",
+      "running-app URL when available"
+    ],
+    "checks": [
+      "Inspect the running application at representative small, medium, and wide viewports where possible",
+      "Verify loading, empty, error, success, disabled, focus, hover, and long-content states",
+      "Check semantic tokens, typography hierarchy, spacing rhythm, image dimensions, overflow, and reduced motion"
+    ],
+    "manual": [
+      "Compare critical screens across themes and input methods",
+      "Judge visual hierarchy and brand consistency from captured evidence"
+    ],
+    "safeFixes": [
+      "Add missing accessible labels or non-breaking responsive constraints",
+      "Correct token use and layout-shift-causing dimensions"
+    ],
+    "approval": ["Changing the product's visual language or interaction model"],
+    "verify": [
+      "Reinspect changed screens at 320, 375, 768, 1024, and 1440 CSS pixels",
+      "Confirm keyboard focus and no unintended horizontal overflow"
+    ],
+    "standards": ["WCAG 2.2", "WAI-ARIA Authoring Practices Guide", "Core Web Vitals"],
+    "stack": ["Use native framework semantics and preserve server/client rendering boundaries"],
+    "limitations": ["Do not claim browser or device inspection unless it actually ran"]
+  },
+  {
+    "slug": "ux",
+    "title": "User experience",
+    "purpose": "Evaluate real task flows for clarity, feedback, recovery, accessibility, and avoidance of user harm.",
+    "applies": [
+      "Interactive products",
+      "Onboarding, forms, search, checkout, or destructive flows"
+    ],
+    "notApplies": ["Libraries with no end-user workflow"],
+    "inputs": ["critical workflows", "routes", "analytics vocabulary", "support documentation"],
+    "checks": [
+      "Walk primary and adverse journeys from entry to durable outcome",
+      "Inspect labels, defaults, validation timing, progress, cancellation, retry, undo, and destructive confirmations",
+      "Verify that errors state cause and recovery and preserve user-entered data"
+    ],
+    "manual": [
+      "Assess information scent and cognitive load with realistic data",
+      "Review sensitive consent and irreversible actions for user control"
+    ],
+    "safeFixes": [
+      "Clarify labels, helper text, and error recovery",
+      "Add missing non-destructive feedback states"
+    ],
+    "approval": ["Changing workflow order, consent, or destructive-action semantics"],
+    "verify": [
+      "Repeat representative journeys with keyboard and narrow viewport",
+      "Confirm durable state after refresh, retry, and duplicate action"
+    ],
+    "standards": ["WCAG 2.2", "ISO 9241-210 concepts"],
+    "stack": ["Test client and server transitions, including optimistic rollback"],
+    "limitations": [
+      "Usability conclusions without user research are hypotheses, not verified user outcomes"
+    ]
+  },
+  {
+    "slug": "accessibility",
+    "title": "Accessibility",
+    "purpose": "Audit conformance with WCAG 2.2 AA using automated evidence plus keyboard and assistive-technology reasoning.",
+    "applies": [
+      "Any user or operator interface",
+      "Generated documents with interactive navigation"
+    ],
+    "notApplies": ["A protocol-only library with no human-facing output"],
+    "inputs": ["rendered routes", "component source", "automated accessibility command"],
+    "checks": [
+      "Check names, roles, states, landmarks, headings, labels, alternatives, contrast, zoom, reflow, target size, and status messages",
+      "Complete all critical workflows using keyboard only",
+      "Inspect focus order, focus trapping, restoration, errors, dynamic updates, and reduced motion"
+    ],
+    "manual": [
+      "Review accessible names in context and screen-reader reading order",
+      "Test high-risk custom widgets against the APG pattern"
+    ],
+    "safeFixes": [
+      "Associate labels, restore visible focus, and add missing semantic state",
+      "Add text alternatives supported by surrounding context"
+    ],
+    "approval": ["Replacing a custom interaction or materially changing content meaning"],
+    "verify": [
+      "Re-run automated checks and keyboard walkthroughs",
+      "Map findings to exact WCAG success criteria"
+    ],
+    "standards": ["WCAG 2.2 Level AA", "WAI-ARIA 1.2", "WAI-ARIA Authoring Practices Guide"],
+    "stack": ["Prefer native HTML or platform controls before ARIA-based reimplementation"],
+    "limitations": [
+      "Automated scanners cover only part of WCAG; unperformed assistive-technology tests are NOT_VERIFIED"
+    ]
+  },
+  {
+    "slug": "i18n",
+    "title": "Internationalization",
+    "purpose": "Find locale, translation, formatting, expansion, fallback, and bidirectional-layout defects.",
+    "applies": [
+      "Localized or locale-sensitive products",
+      "Products handling names, addresses, dates, currency, or pluralization"
+    ],
+    "notApplies": ["Locale-neutral internal protocols"],
+    "inputs": ["locale catalogs", "routing and middleware", "formatting utilities"],
+    "checks": [
+      "Detect user-facing hard-coded text and inconsistent translation keys",
+      "Inspect locale negotiation, fallback, pluralization, date, number, currency, time-zone, and collation behavior",
+      "Check text expansion, RTL direction, mirrored layout, Unicode input, and localized metadata"
+    ],
+    "manual": [
+      "Review culturally sensitive copy and incomplete translations",
+      "Exercise representative RTL and long-string layouts"
+    ],
+    "safeFixes": [
+      "Replace ad hoc formatting with existing locale utilities",
+      "Add missing fallback keys when translation intent is known"
+    ],
+    "approval": ["Changing source copy, locale support policy, or financial formatting rules"],
+    "verify": [
+      "Run catalog consistency checks",
+      "Render representative locales and confirm fallback behavior"
+    ],
+    "standards": ["Unicode CLDR", "BCP 47", "ECMA-402"],
+    "stack": ["Use the detected framework's routing and message extraction conventions"],
+    "limitations": ["Translation quality requires qualified human review"]
+  },
+  {
+    "slug": "seo",
+    "title": "Search discoverability",
+    "purpose": "Conditionally inspect public web content for crawlability, canonicalization, metadata, structured data, and rendering.",
+    "applies": [
+      "Public indexable web routes",
+      "Marketing, documentation, catalog, or editorial content"
+    ],
+    "notApplies": ["Private applications and routes intentionally excluded from search"],
+    "inputs": ["public route inventory", "robots and sitemap files", "rendered HTML"],
+    "checks": [
+      "Verify status codes, indexability, canonical URLs, robots directives, sitemap coverage, titles, descriptions, and social metadata",
+      "Inspect server-rendered content, internal links, pagination, redirects, duplicate URLs, and structured-data validity",
+      "Separate performance evidence from unmeasured assumptions"
+    ],
+    "manual": [
+      "Judge search intent and snippet quality",
+      "Confirm private or tenant data is never made indexable"
+    ],
+    "safeFixes": [
+      "Correct deterministic canonical, robots, or metadata omissions",
+      "Add missing image dimensions and link descriptions"
+    ],
+    "approval": ["Changing URL structure, redirect policy, or indexability"],
+    "verify": [
+      "Fetch representative routes as a crawler",
+      "Validate sitemap and structured data with recorded output"
+    ],
+    "standards": ["Google Search Essentials", "Schema.org", "RFC 9110"],
+    "stack": ["Inspect both framework metadata APIs and final response HTML"],
+    "limitations": ["Rankings and external index state cannot be promised from repository evidence"]
+  },
+  {
+    "slug": "frontend",
+    "title": "Frontend engineering",
+    "purpose": "Inspect rendering, state, network, hydration, browser security, and bundle behavior in frontend applications.",
+    "applies": ["Browser applications", "Hybrid server/client rendered frontends"],
+    "notApplies": ["Backend-only services"],
+    "inputs": ["frontend manifests", "route tree", "build configuration", "network client code"],
+    "checks": [
+      "Trace data fetching, caching, cancellation, race handling, optimistic rollback, and stale-state behavior",
+      "Inspect rendering boundaries, hydration, error boundaries, code splitting, source maps, and browser compatibility",
+      "Check untrusted HTML, client secrets, CSRF assumptions, and sensitive storage"
+    ],
+    "manual": [
+      "Exercise slow, offline, duplicate, and out-of-order responses",
+      "Inspect bundle composition and runtime console output when tooling is available"
+    ],
+    "safeFixes": [
+      "Add abort handling, explicit states, and deterministic lazy boundaries",
+      "Remove confirmed client-side secret exposure"
+    ],
+    "approval": ["Replacing state architecture or changing rendering strategy"],
+    "verify": [
+      "Run production build and representative browser flows",
+      "Confirm server/client output and network failure recovery"
+    ],
+    "standards": ["WHATWG HTML", "Core Web Vitals", "OWASP XSS Prevention Cheat Sheet"],
+    "stack": ["Follow the detected framework's current server/client and cache semantics"],
+    "limitations": ["Bundle and performance claims require measured artifacts"]
+  },
+  {
+    "slug": "api",
+    "title": "API design and implementation",
+    "purpose": "Audit API contracts, boundary validation, authorization, consistency, pagination, errors, and idempotency.",
+    "applies": ["HTTP, GraphQL, RPC, or event-consumed application interfaces"],
+    "notApplies": ["Applications with no machine-consumed interface"],
+    "inputs": ["route inventory", "API specifications", "handlers, middleware, and tests"],
+    "checks": [
+      "Compare implemented routes, methods, schemas, status codes, errors, and versioning with the contract",
+      "Inspect input limits, mass assignment, object authorization, rate limits, pagination, filtering, and response data exposure",
+      "Verify idempotency and concurrency behavior for retryable or money-moving operations"
+    ],
+    "manual": [
+      "Review compatibility and deprecation policy",
+      "Inspect representative requests across roles and ownership boundaries"
+    ],
+    "safeFixes": [
+      "Add schema validation, explicit limits, and consistent error envelopes",
+      "Correct documentation that is demonstrably stale"
+    ],
+    "approval": ["Changing a public contract, version, or authorization semantics"],
+    "verify": [
+      "Run contract and negative-boundary tests",
+      "Replay duplicates and unauthorized object identifiers"
+    ],
+    "standards": ["OpenAPI 3.2", "OWASP API Security Top 10 2023", "RFC 9110"],
+    "stack": ["Inspect the final router and middleware composition, not annotations alone"],
+    "limitations": ["External consumer behavior requires compatibility evidence"]
+  },
+  {
+    "slug": "jobs",
+    "title": "Background jobs",
+    "purpose": "Inspect queued and scheduled work for durability, idempotency, retries, poison messages, and operability.",
+    "applies": ["Queues, workers, cron, scheduled functions, and outbox consumers"],
+    "notApplies": ["Applications with no asynchronous or scheduled execution"],
+    "inputs": ["queue and scheduler configuration", "producers and consumers", "job tests"],
+    "checks": [
+      "Trace enqueue-to-effect flow and delivery guarantees",
+      "Inspect idempotency keys, leases, timeouts, retries, jitter, dead-letter handling, ordering, concurrency, and payload versioning",
+      "Verify transaction boundaries, outbox/inbox behavior, observability, replay, and shutdown"
+    ],
+    "manual": [
+      "Review operational replay and poison-message runbooks",
+      "Confirm provider retention and retry settings outside the repository"
+    ],
+    "safeFixes": [
+      "Add bounded retry metadata, structured job logging, and payload validation",
+      "Add tests for duplicate delivery"
+    ],
+    "approval": ["Introducing a queue or changing delivery and ordering semantics"],
+    "verify": [
+      "Deliver the same job twice and observe one durable outcome",
+      "Force failure through retry and dead-letter paths"
+    ],
+    "standards": ["CloudEvents concepts", "NIST SSDF"],
+    "stack": ["Use provider-native acknowledgement and visibility-timeout semantics"],
+    "limitations": ["Managed queue policy is NOT_VERIFIED without configuration output"]
+  },
+  {
+    "slug": "integrations",
+    "title": "External integrations",
+    "purpose": "Audit outbound and inbound integrations for authentication, validation, failure isolation, drift, and replay safety.",
+    "applies": ["Third-party APIs, webhooks, SDKs, and service-to-service calls"],
+    "notApplies": ["Self-contained applications with no external dependency"],
+    "inputs": ["integration inventory", "SDK manifests", "webhook routes and secrets"],
+    "checks": [
+      "Inspect timeouts, bounded retries, jitter, circuit behavior, rate limits, and fallback",
+      "Verify webhook signatures against raw bytes, freshness, replay defense, and event idempotency",
+      "Check credential scope, version pinning, data minimization, sandbox separation, and error redaction"
+    ],
+    "manual": [
+      "Review provider dashboards, quotas, and deprecation notices",
+      "Confirm contractual retention and incident obligations"
+    ],
+    "safeFixes": [
+      "Add explicit timeouts, payload validation, and secret redaction",
+      "Pin a compatible SDK version after tests"
+    ],
+    "approval": ["Changing provider, credentials, contractual data flow, or failure policy"],
+    "verify": [
+      "Replay signed and tampered payloads",
+      "Simulate timeout, rate limit, and provider error responses"
+    ],
+    "standards": ["OWASP API Security Top 10 2023", "RFC 9110"],
+    "stack": [
+      "Prefer official SDK verification primitives while validating their configured options"
+    ],
+    "limitations": ["Provider-side state and contracts require external evidence"]
+  },
+  {
+    "slug": "auth",
+    "title": "Authentication",
+    "purpose": "Inspect identity proofing, credentials, sessions, recovery, federation, and reauthentication controls.",
+    "applies": ["Applications identifying users, services, or administrators"],
+    "notApplies": ["Truly anonymous static content with no privileged operation"],
+    "inputs": ["authentication provider and middleware", "session configuration", "account routes"],
+    "checks": [
+      "Trace sign-up, sign-in, logout, recovery, verification, MFA, reauthentication, and account linking",
+      "Inspect password hashing, session rotation, expiry, cookie flags, CSRF, token audience/issuer/algorithm, enumeration, and brute-force defenses",
+      "Verify state-changing endpoints derive identity from trusted server context"
+    ],
+    "manual": [
+      "Review provider tenant settings and recovery support procedures",
+      "Test session revocation and high-risk reauthentication"
+    ],
+    "safeFixes": [
+      "Harden cookie flags and redact authentication errors",
+      "Add missing token claim validation supported by current configuration"
+    ],
+    "approval": ["Replacing authentication, changing identity linkage, or rotating credentials"],
+    "verify": [
+      "Run positive and negative flows with expired, replayed, tampered, and cross-environment credentials",
+      "Confirm logout and revocation invalidate durable sessions"
+    ],
+    "standards": ["OWASP ASVS 5.0", "OWASP Authentication Cheat Sheet", "NIST SP 800-63B"],
+    "stack": ["Validate framework middleware order and provider defaults explicitly"],
+    "limitations": ["Hosted-provider settings remain NOT_VERIFIED without exported configuration"]
+  },
+  {
+    "slug": "authorization",
+    "title": "Authorization",
+    "purpose": "Verify deny-by-default function, object, role, tenant, and administrative authorization on every path.",
+    "applies": ["Any private, role-gated, owned, tenant, or administrative resource"],
+    "notApplies": ["Public read-only content with no hidden data or action"],
+    "inputs": ["role inventory", "private and admin routes", "policy code and tests"],
+    "checks": [
+      "Build a subject-action-resource-context matrix for critical resources",
+      "Trace enforcement at server boundaries, jobs, exports, uploads, websockets, and indirect identifiers",
+      "Test horizontal, vertical, tenant, stale-role, bulk, and confused-deputy cases"
+    ],
+    "manual": [
+      "Confirm intended role semantics and ownership transitions",
+      "Review break-glass and support impersonation controls"
+    ],
+    "safeFixes": [
+      "Centralize an existing repeated policy check without semantic change",
+      "Add negative authorization tests"
+    ],
+    "approval": ["Changing roles, policy semantics, tenant isolation, or administrative access"],
+    "verify": [
+      "Run the matrix with allowed and denied principals",
+      "Verify denied attempts are safely logged without sensitive data"
+    ],
+    "standards": ["OWASP ASVS 5.0", "OWASP Authorization Cheat Sheet", "OWASP API1 and API5"],
+    "stack": ["Never rely on UI visibility as authorization; test final data access"],
+    "limitations": ["Policy intent requires an authoritative owner"]
+  },
+  {
+    "slug": "security",
+    "title": "Application security",
+    "purpose": "Perform a threat-informed audit of trust boundaries, injection, secrets, browser controls, dependencies, and abuse cases.",
+    "applies": ["Every production-bound application", "Security-sensitive changes"],
+    "notApplies": ["No exemption; scope may be reduced for non-executable documentation"],
+    "inputs": [
+      "project and architecture profile",
+      "trust boundaries",
+      "dependency and secret scan outputs"
+    ],
+    "checks": [
+      "Model assets, actors, entry points, trust boundaries, abuse cases, and mitigations",
+      "Inspect injection, XSS, CSRF, SSRF, deserialization, path handling, redirects, headers, CORS, secrets, logging, and denial-of-service limits",
+      "Run available dependency, static, and secret checks while distinguishing confirmed evidence from pattern matches"
+    ],
+    "manual": [
+      "Review business-logic abuse and chained attack paths",
+      "Validate production-only controls with operators"
+    ],
+    "safeFixes": [
+      "Parameterize known trust-boundary inputs, redact secrets, and add straightforward security headers",
+      "Add allowlists and explicit size limits"
+    ],
+    "approval": [
+      "Disabling controls, rotating secrets, or changing authentication, network, or production infrastructure"
+    ],
+    "verify": [
+      "Re-run scanners and targeted exploit regression tests",
+      "Confirm every PASS has direct evidence"
+    ],
+    "standards": ["OWASP ASVS 5.0", "OWASP Cheat Sheet Series", "NIST SSDF"],
+    "stack": ["Use framework-native escaping and query parameterization at the final sink"],
+    "limitations": ["This audit is not a penetration test and must not be represented as one"]
+  },
+  {
+    "slug": "privacy",
+    "title": "Privacy",
+    "purpose": "Inspect personal-data inventory, purpose, minimization, consent, retention, access, deletion, export, and logging.",
+    "applies": ["Applications processing personal, device, behavioral, or sensitive data"],
+    "notApplies": ["Systems proven to process no data linkable to a person"],
+    "inputs": [
+      "data inventory",
+      "schemas",
+      "analytics and integration flows",
+      "privacy documentation"
+    ],
+    "checks": [
+      "Map collection, purpose, legal basis or consent, storage, processors, transfer, retention, and deletion",
+      "Inspect logs, analytics, backups, exports, support access, subject requests, and privacy defaults",
+      "Verify sensitive fields are minimized, protected, and excluded from accidental telemetry"
+    ],
+    "manual": [
+      "Obtain qualified legal review for jurisdiction-specific obligations",
+      "Confirm processor contracts and production retention settings"
+    ],
+    "safeFixes": [
+      "Redact unnecessary personal data from logs",
+      "Document a verified data-flow or retention control"
+    ],
+    "approval": ["Changing consent, retention, deletion, data sharing, or legal representations"],
+    "verify": [
+      "Trace representative data through create, access, export, deletion, and backup handling",
+      "Confirm telemetry does not receive prohibited fields"
+    ],
+    "standards": ["NIST Privacy Framework", "OWASP User Privacy Protection Cheat Sheet"],
+    "stack": ["Inspect generated telemetry and managed-service defaults, not schemas alone"],
+    "limitations": ["Do not provide legal conclusions; mark missing policy evidence NOT_VERIFIED"]
+  },
+  {
+    "slug": "tenancy",
+    "title": "Multi-tenancy",
+    "purpose": "Verify tenant context propagation and isolation across data, cache, files, jobs, search, analytics, and administration.",
+    "applies": ["Shared applications serving distinct organizations or customer partitions"],
+    "notApplies": ["Single-tenant deployments with no shared data plane"],
+    "inputs": [
+      "tenant model",
+      "authorization policies",
+      "queries, cache keys, storage paths, and jobs"
+    ],
+    "checks": [
+      "Identify the trusted tenant-context source and follow it through every boundary",
+      "Test missing, forged, stale, and cross-tenant identifiers in reads, writes, bulk actions, exports, jobs, and websockets",
+      "Inspect composite uniqueness, row policies, cache namespaces, object prefixes, logs, and support tooling"
+    ],
+    "manual": [
+      "Review provisioning, suspension, migration, deletion, and break-glass flows",
+      "Validate database and provider isolation settings"
+    ],
+    "safeFixes": [
+      "Add tenant-scoped tests and explicit cache-key namespaces",
+      "Reject missing tenant context at an existing boundary"
+    ],
+    "approval": ["Changing tenant identifiers, isolation strategy, or support access"],
+    "verify": [
+      "Run cross-tenant negative tests for every critical resource",
+      "Confirm asynchronous work restores trusted tenant context"
+    ],
+    "standards": ["OWASP Multi Tenant Security Cheat Sheet", "OWASP Authorization Cheat Sheet"],
+    "stack": ["Ensure ORM helpers cannot be bypassed by raw queries or background workers"],
+    "limitations": ["Infrastructure-level isolation requires live configuration evidence"]
+  },
+  {
+    "slug": "uploads",
+    "title": "File uploads",
+    "purpose": "Audit the complete upload, processing, storage, delivery, and deletion pipeline against hostile files.",
+    "applies": [
+      "Direct or presigned uploads",
+      "Imports, attachments, avatars, media, and generated files"
+    ],
+    "notApplies": ["Systems with no file ingestion or user-controlled object references"],
+    "inputs": ["upload routes", "storage configuration", "processors and download paths"],
+    "checks": [
+      "Trace authorization, filename normalization, extension and MIME allowlists, signature detection, size and count limits",
+      "Inspect archive bombs, path traversal, parser isolation, malware scanning, image re-encoding, metadata stripping, and quarantine",
+      "Verify private storage, random object names, signed URL scope/expiry, download headers, tenant boundaries, cleanup, and orphan handling"
+    ],
+    "manual": [
+      "Review provider bucket policy and malware-scanner failure mode",
+      "Exercise polyglot, oversized, malformed, duplicate, and unauthorized objects"
+    ],
+    "safeFixes": [
+      "Add explicit size/count limits and safe content-disposition",
+      "Normalize generated object names and log redaction"
+    ],
+    "approval": [
+      "Changing bucket visibility, accepted types, retention, or processing architecture"
+    ],
+    "verify": [
+      "Run a hostile-file fixture suite through the real pipeline",
+      "Confirm rejected and quarantined files are neither served nor orphaned"
+    ],
+    "standards": ["OWASP File Upload Cheat Sheet", "OWASP ASVS 5.0"],
+    "stack": ["Do not trust client MIME or original filenames; validate after streaming limits"],
+    "limitations": ["Scanner effectiveness and storage policy need direct service evidence"]
+  },
+  {
+    "slug": "database",
+    "title": "Database design",
+    "purpose": "Inspect schema integrity, migrations, constraints, tenancy, lifecycle, recovery, and production-safe evolution.",
+    "applies": ["Applications with a database or durable structured store"],
+    "notApplies": ["Stateless applications proven to store no durable data"],
+    "inputs": ["schema and migrations", "ORM metadata", "database configuration and tests"],
+    "checks": [
+      "Inspect keys, types, nullability, defaults, foreign keys, uniqueness, checks, indexes, and cascade behavior",
+      "Review migration ordering, transactional safety, locks, backfills, expand-contract compatibility, and rollback or forward-fix strategy",
+      "Trace tenant isolation, encryption, retention, audit fields, soft deletion, and backup expectations"
+    ],
+    "manual": [
+      "Review applied production migration state and large-table risk with operators",
+      "Confirm restore objectives and managed-database settings"
+    ],
+    "safeFixes": [
+      "Add documentation and tests for existing constraints",
+      "Create a new unapplied safe migration when lock and compatibility risk is understood"
+    ],
+    "approval": [
+      "Editing applied migrations, dropping data, changing ownership, or rewriting architecture"
+    ],
+    "verify": [
+      "Apply migrations to an empty and representative upgraded database",
+      "Run integrity and rollback/forward-fix tests"
+    ],
+    "standards": ["PostgreSQL current documentation", "OWASP Database Security Cheat Sheet"],
+    "stack": ["Inspect generated SQL and actual constraints, not ORM declarations alone"],
+    "limitations": ["Production row counts, locks, and plans cannot be inferred"]
+  },
+  {
+    "slug": "queries",
+    "title": "Query behavior",
+    "purpose": "Find correctness, injection, overfetching, N+1, pagination, locking, and index-use risks in data access.",
+    "applies": ["Database, search, analytics, and remote query code"],
+    "notApplies": ["Systems with no queryable data source"],
+    "inputs": [
+      "query call sites",
+      "schema and indexes",
+      "representative query plans when available"
+    ],
+    "checks": [
+      "Trace user-controlled values to parameterized query boundaries",
+      "Detect N+1 patterns, unbounded reads, offset drift, incorrect joins, overfetching, missing ordering, and unsafe dynamic identifiers",
+      "Review transactions, isolation, locks, timeouts, connection use, batching, and candidate indexes"
+    ],
+    "manual": [
+      "Review real EXPLAIN output for high-impact queries",
+      "Confirm data-distribution and concurrency assumptions"
+    ],
+    "safeFixes": [
+      "Parameterize values, add explicit bounds, and select required columns",
+      "Add a proven non-disruptive index through a new migration"
+    ],
+    "approval": ["Changing result semantics, isolation, production indexes, or query architecture"],
+    "verify": [
+      "Run correctness tests with boundary and concurrent cases",
+      "Compare measured plans before and after performance changes"
+    ],
+    "standards": [
+      "PostgreSQL index and EXPLAIN documentation",
+      "OWASP Injection Prevention Cheat Sheet"
+    ],
+    "stack": ["Account for ORM lazy loading, implicit transactions, and generated SQL"],
+    "limitations": ["Never fabricate a query plan or production cardinality"]
+  },
+  {
+    "slug": "cache",
+    "title": "Caching",
+    "purpose": "First decide whether caching is justified, then audit keys, invalidation, consistency, privacy, and failure behavior.",
+    "applies": ["Detected caches, CDNs, memoization, or a measured proposal to add caching"],
+    "notApplies": ["No cache and no measured latency or load need"],
+    "inputs": [
+      "cache clients and configuration",
+      "query and request flows",
+      "performance evidence"
+    ],
+    "checks": [
+      "Require a measured bottleneck and explicit freshness contract before recommending a cache",
+      "Inspect key completeness, tenant and user scope, TTL, invalidation, stampede control, negative caching, serialization, and versioning",
+      "Check sensitive-data exposure, authorization changes, eviction, memory limits, outage fallback, and observability"
+    ],
+    "manual": [
+      "Review consistency tolerance with product owners",
+      "Validate managed cache eviction and network policy"
+    ],
+    "safeFixes": [
+      "Namespace incomplete keys and add bounded TTLs where semantics are established",
+      "Add cache hit/miss and fallback telemetry without sensitive values"
+    ],
+    "approval": ["Introducing Redis or changing consistency and invalidation semantics"],
+    "verify": [
+      "Exercise hit, miss, stale, invalidated, stampede, and cache-down paths",
+      "Confirm cross-user and cross-tenant isolation"
+    ],
+    "standards": ["Redis eviction documentation", "RFC 9111"],
+    "stack": ["Account for framework, CDN, browser, server, and data caches as separate layers"],
+    "limitations": ["Cache value requires workload measurements"]
+  },
+  {
+    "slug": "storage",
+    "title": "Object and file storage",
+    "purpose": "Inspect object naming, access control, encryption, lifecycle, consistency, integrity, and recovery.",
+    "applies": ["Object stores, file systems, blob databases, and CDN-backed assets"],
+    "notApplies": ["No persistent files or objects"],
+    "inputs": ["storage clients", "bucket and CDN configuration", "object references"],
+    "checks": [
+      "Trace create, read, replace, copy, list, and delete authorization",
+      "Inspect private-by-default policy, object naming, tenant prefixes, signed URL constraints, encryption, checksums, versioning, and lifecycle",
+      "Check orphan cleanup, partial writes, metadata leakage, CDN caching, legal holds, and restore expectations"
+    ],
+    "manual": [
+      "Review actual bucket, key, network, replication, and lifecycle policy",
+      "Test provider consistency and failure assumptions"
+    ],
+    "safeFixes": [
+      "Add integrity validation and explicit content headers",
+      "Add cleanup for proven temporary-object leaks"
+    ],
+    "approval": ["Changing visibility, retention, replication, or deleting objects"],
+    "verify": [
+      "Exercise unauthorized and cross-tenant object access",
+      "Verify lifecycle and restore behavior with recorded provider output"
+    ],
+    "standards": ["OWASP ASVS 5.0", "CIS storage-service guidance"],
+    "stack": [
+      "Treat presigned URLs as scoped credentials and bind method, object, size, and expiry"
+    ],
+    "limitations": ["Repository configuration does not prove deployed bucket policy"]
+  },
+  {
+    "slug": "testing",
+    "title": "Testing strategy",
+    "purpose": "Evaluate whether tests provide reliable risk-based evidence across units, boundaries, workflows, and failure modes.",
+    "applies": ["Executable software", "Release readiness"],
+    "notApplies": ["Non-executable documentation-only packages"],
+    "inputs": [
+      "test manifests and commands",
+      "coverage configuration",
+      "critical workflow inventory"
+    ],
+    "checks": [
+      "Map critical risks to unit, integration, contract, end-to-end, migration, security, and accessibility tests",
+      "Inspect determinism, isolation, data factories, assertions, cleanup, time control, concurrency, and flaky retries",
+      "Verify tests can fail for the defect they claim to detect and do not overmock the boundary under test"
+    ],
+    "manual": [
+      "Review omitted high-impact scenarios and test maintainability",
+      "Inspect CI artifacts and quarantine policy"
+    ],
+    "safeFixes": [
+      "Add missing assertions and deterministic setup",
+      "Remove an unnecessary retry only after proving the test is stable"
+    ],
+    "approval": [
+      "Deleting coverage, weakening assertions, or changing product behavior to satisfy tests"
+    ],
+    "verify": [
+      "Run targeted tests before and after inducing a representative failure",
+      "Run the relevant full suite after final edits"
+    ],
+    "standards": ["NIST SSDF", "testing-pyramid and contract-testing concepts"],
+    "stack": [
+      "Use native test isolation and real boundary substitutes such as ephemeral databases where practical"
+    ],
+    "limitations": ["Coverage percentage alone does not establish behavior coverage"]
+  },
+  {
+    "slug": "performance",
+    "title": "Performance",
+    "purpose": "Measure and improve user- and system-visible latency, throughput, resource use, and stability without guessing.",
+    "applies": ["Performance-sensitive workflows", "Known regressions", "Release budgets"],
+    "notApplies": ["No claimed or measured performance requirement"],
+    "inputs": ["performance budgets", "build artifacts", "profiles, traces, and load results"],
+    "checks": [
+      "Define representative workloads, devices, networks, data sizes, and percentile budgets",
+      "Measure frontend Core Web Vitals, bundle cost, server latency, database time, memory, CPU, I/O, and external calls as applicable",
+      "Identify the dominant bottleneck before changing code and check cold starts, concurrency, leaks, and backpressure"
+    ],
+    "manual": [
+      "Validate workload realism and user impact",
+      "Review production traces when authorized"
+    ],
+    "safeFixes": [
+      "Remove proven duplicate work and add bounded pagination",
+      "Declare dimensions and lazy-load noncritical assets after measurement"
+    ],
+    "approval": [
+      "Adding infrastructure, caches, denormalization, or behavior-changing approximations"
+    ],
+    "verify": [
+      "Repeat the same benchmark with uncertainty and environment recorded",
+      "Confirm correctness and tail latency did not regress"
+    ],
+    "standards": ["Core Web Vitals", "OpenTelemetry semantic conventions"],
+    "stack": [
+      "Use production builds and framework profilers, never development timing as release proof"
+    ],
+    "limitations": ["Do not invent performance measurements or extrapolate from unrelated hardware"]
+  },
+  {
+    "slug": "scale",
+    "title": "Scalability",
+    "purpose": "Assess growth limits, contention, partitioning, quotas, backpressure, and cost against explicit demand scenarios.",
+    "applies": ["Expected growth, load concentration, or capacity incidents"],
+    "notApplies": ["No scale requirement beyond measured current capacity"],
+    "inputs": ["architecture and performance evidence", "capacity targets", "provider quotas"],
+    "checks": [
+      "Model request, data, tenant, connection, queue, storage, and third-party growth",
+      "Find serial bottlenecks, hot keys, fan-out, unbounded work, connection exhaustion, and noisy neighbors",
+      "Inspect horizontal state, partition keys, rate shaping, load shedding, autoscaling signals, and graceful degradation"
+    ],
+    "manual": [
+      "Validate growth and burst assumptions with operators and product owners",
+      "Review regional and provider quota constraints"
+    ],
+    "safeFixes": [
+      "Add explicit bounds, batching, backpressure, and capacity telemetry",
+      "Document measured limits"
+    ],
+    "approval": ["Introducing services, sharding, queues, caches, or multi-region topology"],
+    "verify": [
+      "Run staged load tests through saturation and recovery",
+      "Confirm correctness and tenant fairness under contention"
+    ],
+    "standards": ["Google SRE capacity-planning concepts", "OpenTelemetry"],
+    "stack": [
+      "Account for framework connection pools, runtime concurrency, and managed-service quotas"
+    ],
+    "limitations": ["Capacity projections are only as credible as workload evidence"]
+  },
+  {
+    "slug": "observability",
+    "title": "Observability",
+    "purpose": "Verify that logs, metrics, traces, events, alerts, and dashboards answer concrete operational questions safely.",
+    "applies": ["Long-running or production services", "Critical client workflows"],
+    "notApplies": ["Pure build-time artifacts with no runtime behavior"],
+    "inputs": ["telemetry instrumentation", "dashboards and alerts as code", "incident runbooks"],
+    "checks": [
+      "Trace a request across service, job, database, and integration boundaries with stable correlation",
+      "Inspect structured event names, metric units, cardinality, sampling, error status, service metadata, and deployment version",
+      "Check alert symptom quality, ownership, runbook links, SLO coverage, redaction, access, and retention"
+    ],
+    "manual": [
+      "Use telemetry to answer latency, error, saturation, and affected-user questions",
+      "Review deployed dashboards and paging routes"
+    ],
+    "safeFixes": [
+      "Add bounded context and correlation identifiers",
+      "Redact secrets and high-cardinality or personal fields"
+    ],
+    "approval": ["Changing telemetry vendors, retention, sampling, or personal-data collection"],
+    "verify": [
+      "Generate a known success and failure and locate both in telemetry",
+      "Validate alerts with a controlled signal where safe"
+    ],
+    "standards": ["OpenTelemetry Specification 1.59", "OWASP Logging Cheat Sheet"],
+    "stack": ["Instrument framework and provider boundaries without double-counting spans"],
+    "limitations": ["Instrumentation code does not prove deployed ingestion or alert delivery"]
+  },
+  {
+    "slug": "reliability",
+    "title": "Reliability",
+    "purpose": "Audit timeouts, retries, overload, dependencies, degradation, consistency, and operational objectives.",
+    "applies": ["Services and critical workflows with availability or durability expectations"],
+    "notApplies": ["Disposable local-only utilities with no reliability objective"],
+    "inputs": ["dependency graph", "SLOs", "failure handling and incident history"],
+    "checks": [
+      "Define user-visible service indicators and error-budget expectations",
+      "Inspect timeout budgets, bounded retries, jitter, circuit behavior, health checks, overload, bulkheads, and dependency fallbacks",
+      "Check graceful shutdown, deploy overlap, consistency, partial failure, idempotency, and clock assumptions"
+    ],
+    "manual": [
+      "Review known failure modes and incident learnings",
+      "Confirm provider SLAs and operator escalation paths"
+    ],
+    "safeFixes": [
+      "Add bounded timeouts, retry classification, and graceful shutdown",
+      "Add health checks that reflect readiness without exposing internals"
+    ],
+    "approval": [
+      "Changing consistency, fail-open behavior, provider topology, or availability targets"
+    ],
+    "verify": [
+      "Inject dependency, timeout, overload, and shutdown failures",
+      "Confirm recovery without duplicate durable effects"
+    ],
+    "standards": ["Google SRE principles", "RFC 9110"],
+    "stack": ["Align platform health and termination semantics with application lifecycle"],
+    "limitations": ["Availability claims require measured production evidence"]
+  },
+  {
+    "slug": "recovery",
+    "title": "Backup and recovery",
+    "purpose": "Verify recoverability of data and service against explicit RPO, RTO, corruption, deletion, and regional scenarios.",
+    "applies": ["Durable production data or stateful critical services"],
+    "notApplies": ["Reproducible stateless artifacts with no unique data"],
+    "inputs": ["data inventory", "backup configuration", "restore and disaster runbooks"],
+    "checks": [
+      "Map every durable store, object, secret, configuration, and external dependency to backup ownership",
+      "Inspect frequency, retention, encryption, immutability, isolation, monitoring, restore order, schema compatibility, and credentials",
+      "Compare RPO/RTO targets with tested restore timings and dependencies"
+    ],
+    "manual": [
+      "Review recent restore evidence and incident communications",
+      "Confirm managed-service backup and regional failover settings"
+    ],
+    "safeFixes": [
+      "Correct runbook steps and add backup monitoring",
+      "Add restore validation to an isolated test environment"
+    ],
+    "approval": ["Deleting backups, changing retention, or initiating production failover"],
+    "verify": [
+      "Perform an isolated restore and application integrity check",
+      "Record actual recovery point and elapsed time"
+    ],
+    "standards": ["NIST SP 800-34", "CIS Controls data-recovery guidance"],
+    "stack": ["Restore application, schema, objects, queues, and secrets in dependency order"],
+    "limitations": ["A configured backup without a tested restore is NOT_VERIFIED"]
+  },
+  {
+    "slug": "deployment",
+    "title": "Deployment",
+    "purpose": "Inspect build promotion, configuration, migrations, rollout, rollback, health, and environment parity.",
+    "applies": ["Deployable applications and services"],
+    "notApplies": ["Source-only examples never deployed or distributed"],
+    "inputs": ["CI workflow", "deployment configuration", "build and migration commands"],
+    "checks": [
+      "Trace one immutable artifact from source revision through build, test, provenance, promotion, and runtime",
+      "Inspect environment validation, secrets, migration ordering, readiness, termination, rollout, rollback, concurrency, and smoke checks",
+      "Check preview isolation, production approvals, branch protections, and artifact retention"
+    ],
+    "manual": [
+      "Review deployed settings and last successful rollback evidence",
+      "Confirm operator access and incident procedures"
+    ],
+    "safeFixes": [
+      "Add preflight validation and post-deploy smoke checks",
+      "Pin action versions and clarify rollout documentation"
+    ],
+    "approval": [
+      "Deploying, rolling back production, changing secrets, or altering production topology"
+    ],
+    "verify": [
+      "Deploy to an isolated environment and exercise critical checks",
+      "Demonstrate rollback or forward-fix with compatible migrations"
+    ],
+    "standards": ["NIST SSDF", "SLSA 1.2"],
+    "stack": ["Use platform-native immutable artifacts and health semantics"],
+    "limitations": ["Repository workflows do not prove production settings or permissions"]
+  },
+  {
+    "slug": "infrastructure",
+    "title": "Infrastructure",
+    "purpose": "Audit infrastructure as code, network and identity boundaries, encryption, state, drift, and least privilege.",
+    "applies": [
+      "Cloud, container, orchestration, network, or infrastructure-as-code configuration"
+    ],
+    "notApplies": ["No managed runtime or infrastructure under project control"],
+    "inputs": ["infrastructure code", "deployment profile", "policy and plan outputs"],
+    "checks": [
+      "Inspect identity, role trust, network exposure, ingress/egress, encryption, keys, secret injection, and metadata access",
+      "Review state protection, locking, module versions, destructive changes, drift, tags, quotas, backups, and multi-environment isolation",
+      "Run format, validate, lint, policy, and non-mutating plan tools where available"
+    ],
+    "manual": [
+      "Review live drift, organization policies, and break-glass access",
+      "Inspect plan output for replacements and data risk"
+    ],
+    "safeFixes": [
+      "Pin compatible modules and correct validated non-destructive policy omissions",
+      "Add least-privilege documentation and static checks"
+    ],
+    "approval": [
+      "Applying infrastructure, replacing resources, widening access, or changing production networking"
+    ],
+    "verify": [
+      "Run validate and policy checks after final edits",
+      "Apply only in an authorized isolated environment and inspect resulting controls"
+    ],
+    "standards": ["CIS Benchmarks", "NIST SP 800-53 concepts", "SLSA 1.2"],
+    "stack": ["Respect provider and IaC tool state, lifecycle, and import semantics"],
+    "limitations": ["Static IaC cannot establish live drift or inherited organization policy"]
+  },
+  {
+    "slug": "supply-chain",
+    "title": "Software supply chain",
+    "purpose": "Inspect dependencies, build integrity, provenance, releases, licenses, actions, and secret exposure across the delivery chain.",
+    "applies": ["Any project consuming or publishing software artifacts"],
+    "notApplies": ["No exemption for executable release artifacts"],
+    "inputs": ["lockfiles", "build and release workflows", "artifact and license inventory"],
+    "checks": [
+      "Verify lockfile integrity, direct and transitive dependency review, vulnerability output, lifecycle scripts, and abandoned packages",
+      "Inspect CI action pinning, token permissions, untrusted build inputs, artifact signing, provenance, checksums, reproducibility, and protected release flow",
+      "Validate declared licenses, notices, source attribution, generated-file provenance, and secret scanning"
+    ],
+    "manual": [
+      "Triage vulnerabilities for actual reachability and compensating controls",
+      "Review maintainer and registry trust for critical dependencies"
+    ],
+    "safeFixes": [
+      "Pin action commits and compatible dependency patches after tests",
+      "Correct license inventory and checksums"
+    ],
+    "approval": [
+      "Major dependency upgrades, replacing registries, rotating tokens, or changing release authority"
+    ],
+    "verify": [
+      "Rebuild from a clean checkout with the lockfile",
+      "Compare artifacts, checksums, SBOM, and provenance"
+    ],
+    "standards": ["SLSA 1.2", "NIST SSDF", "OpenSSF Scorecard concepts"],
+    "stack": [
+      "Disable or isolate install scripts where compatible and use least-privilege CI tokens"
+    ],
+    "limitations": ["A vulnerability identifier alone does not prove exploitability or safety"]
+  },
+  {
+    "slug": "cost",
+    "title": "Cost efficiency",
+    "purpose": "Tie resource and vendor cost to workloads, ownership, unit economics, budgets, and safe optimization choices.",
+    "applies": ["Paid infrastructure, APIs, AI, storage, messaging, or observability"],
+    "notApplies": ["No material variable or fixed operating cost"],
+    "inputs": ["architecture profile", "usage measurements", "pricing and billing exports"],
+    "checks": [
+      "Map cost centers to services, tenants, features, environments, and owners",
+      "Inspect idle resources, retention, egress, log cardinality, build minutes, queries, storage lifecycle, and retry amplification",
+      "Define budgets, anomaly alerts, unit metrics, and cost-performance-reliability tradeoffs"
+    ],
+    "manual": [
+      "Review current provider pricing and contractual commitments",
+      "Validate product value and growth assumptions"
+    ],
+    "safeFixes": [
+      "Add cost attribution tags and bounded retention",
+      "Remove a proven unused non-production resource through an approved workflow"
+    ],
+    "approval": [
+      "Deleting resources, changing service tier, retention, reliability, or customer-visible limits"
+    ],
+    "verify": [
+      "Compare normalized billing before and after over a representative period",
+      "Confirm reliability and performance budgets remain satisfied"
+    ],
+    "standards": ["FinOps Framework concepts", "provider billing documentation"],
+    "stack": ["Include managed-service minimums, egress, support, and observability costs"],
+    "limitations": ["Pricing is time-sensitive and must be verified at audit time"]
+  },
+  {
+    "slug": "docs",
+    "title": "Documentation",
+    "purpose": "Verify that user, contributor, architecture, operations, security, and release documentation is accurate and executable.",
+    "applies": ["Every maintained or distributed project"],
+    "notApplies": ["No exemption; scope follows the artifact's audience"],
+    "inputs": ["documentation tree", "CLI help", "configuration and workflows"],
+    "checks": [
+      "Run installation, quick-start, command, configuration, troubleshooting, and contribution steps from a clean context",
+      "Check architecture, data, security, deployment, recovery, compatibility, ownership, and release notes against current code",
+      "Validate links, examples, diagrams, generated references, accessibility, and secret-free sample values"
+    ],
+    "manual": [
+      "Review information hierarchy for each audience",
+      "Check that limitations and human-only steps are conspicuous"
+    ],
+    "safeFixes": [
+      "Correct stale commands, links, examples, and diagrams",
+      "Add missing evidence-backed operational notes"
+    ],
+    "approval": ["Changing public commitments, support policy, or legal statements"],
+    "verify": [
+      "Follow the quick start in a clean directory",
+      "Run link, example, and CLI-help consistency checks"
+    ],
+    "standards": ["Diátaxis concepts", "CommonMark", "WCAG 2.2"],
+    "stack": [
+      "Generate reference material from the same command and schema sources when practical"
+    ],
+    "limitations": ["Documentation cannot substitute for unimplemented behavior"]
+  },
+  {
+    "slug": "analytics",
+    "title": "Analytics",
+    "purpose": "Audit event semantics, consent, data quality, identity, privacy, delivery, and decision usefulness.",
+    "applies": ["Product, marketing, operational, or experimentation analytics"],
+    "notApplies": ["No analytics collection or derived behavioral data"],
+    "inputs": ["event taxonomy", "tracking code", "consent and destination configuration"],
+    "checks": [
+      "Map each event to a decision, owner, schema, trigger, identity, consent state, and retention",
+      "Inspect duplicate delivery, ordering, retries, offline queues, bot/internal traffic, versioning, and schema validation",
+      "Check personal and sensitive fields, tenant boundaries, deletion propagation, access, and experimentation exposure"
+    ],
+    "manual": [
+      "Compare sample warehouse events with source actions",
+      "Review metric definitions and consent behavior with owners"
+    ],
+    "safeFixes": [
+      "Remove prohibited fields and add schema validation",
+      "Document and de-duplicate a clearly defined event"
+    ],
+    "approval": [
+      "Adding tracking, changing consent, identity stitching, retention, or metric definitions"
+    ],
+    "verify": [
+      "Trigger one action and trace its exact event through the pipeline",
+      "Test consent denied, offline, retry, and deletion paths"
+    ],
+    "standards": ["NIST Privacy Framework", "W3C Data Privacy Vocabulary concepts"],
+    "stack": ["Separate server and client identity sources and avoid embedding secrets"],
+    "limitations": ["Warehouse correctness needs sampled destination evidence"]
+  },
+  {
+    "slug": "notifications",
+    "title": "Notifications",
+    "purpose": "Inspect email, SMS, push, and in-app notifications for authorization, preferences, retries, privacy, and deliverability.",
+    "applies": ["Transactional, security, lifecycle, or marketing messages"],
+    "notApplies": ["No outbound or in-product notification system"],
+    "inputs": ["message producers and templates", "preference model", "provider integrations"],
+    "checks": [
+      "Trace trigger, recipient authorization, template data, locale, channel selection, send, webhook, and state update",
+      "Inspect idempotency, deduplication, rate limits, quiet hours, retry, expiry, unsubscribe, suppression, and bounce handling",
+      "Check sensitive preview content, deep links, spoof resistance, preference overrides, tenant isolation, and provider secrets"
+    ],
+    "manual": [
+      "Review content accuracy, accessibility, and deliverability settings",
+      "Confirm legally required and user-controlled preference semantics"
+    ],
+    "safeFixes": [
+      "Add deduplication keys, expiry, and sensitive-data redaction",
+      "Correct accessible template markup"
+    ],
+    "approval": ["Changing mandatory-message policy, consent, sender identity, or provider"],
+    "verify": [
+      "Send to controlled sinks and trace provider callbacks",
+      "Exercise duplicate, stale, opted-out, bounced, and cross-tenant cases"
+    ],
+    "standards": ["OWASP ASVS 5.0", "RFC 8058", "WCAG 2.2"],
+    "stack": ["Treat provider webhooks as hostile signed input and make handlers idempotent"],
+    "limitations": ["Deliverability and carrier behavior require provider evidence"]
+  },
+  {
+    "slug": "ai",
+    "title": "AI-enabled features",
+    "purpose": "Audit model boundaries, prompt injection, tool authority, data handling, output validation, evaluation, fallback, and cost.",
+    "applies": ["LLM, embedding, classifier, agent, retrieval, or generative-media features"],
+    "notApplies": ["No model inference or model-derived decision"],
+    "inputs": [
+      "AI provider inventory",
+      "prompts and tool definitions",
+      "retrieval, evaluation, and moderation code"
+    ],
+    "checks": [
+      "Map data, instructions, model, retrieval, tools, outputs, users, and trust boundaries",
+      "Inspect prompt injection, instruction/data separation, tool allowlists, per-object authorization, argument validation, confirmation, sandboxing, and output encoding",
+      "Review model/version pinning, privacy, retention, training opt-outs, evaluation sets, hallucination handling, moderation, fallback, rate limits, and cost bounds"
+    ],
+    "manual": [
+      "Adversarially test indirect injection and excessive-agency scenarios",
+      "Review high-impact decisions and human oversight"
+    ],
+    "safeFixes": [
+      "Constrain tool schemas, redact sensitive context, and encode output at its sink",
+      "Add deterministic evaluation cases and token limits"
+    ],
+    "approval": [
+      "Granting new tool authority, changing model provider, sending new sensitive data, or automating high-impact decisions"
+    ],
+    "verify": [
+      "Run versioned benign, adversarial, multilingual, and failure evaluation sets",
+      "Confirm unauthorized tool and data requests are denied at execution time"
+    ],
+    "standards": [
+      "OWASP LLM Prompt Injection Prevention Cheat Sheet",
+      "OWASP AI Agent Security Cheat Sheet",
+      "NIST AI RMF"
+    ],
+    "stack": [
+      "Treat model output and retrieved content as untrusted; enforce controls outside the prompt"
+    ],
+    "limitations": ["Model behavior is probabilistic; report evaluation scope and residual risk"]
+  },
+  {
+    "slug": "payments",
+    "title": "Payments",
+    "purpose": "Audit money movement, pricing, entitlements, provider events, reconciliation, idempotency, and sensitive data boundaries.",
+    "applies": [
+      "Payments, billing, subscriptions, refunds, credits, invoices, or financial ledgers"
+    ],
+    "notApplies": ["No money, stored value, pricing, or paid entitlement"],
+    "inputs": [
+      "payment routes and provider integration",
+      "pricing and ledger models",
+      "webhook handlers"
+    ],
+    "checks": [
+      "Trace quote-to-entitlement and refund/dispute flows with currency and minor-unit handling",
+      "Inspect server-authoritative amounts, idempotency, webhook raw-body signatures, replay defense, ordering, duplicate events, state machines, and reconciliation",
+      "Check authorization, audit trails, secrets, hosted-field boundaries, tax/discount rounding, negative amounts, and failure recovery"
+    ],
+    "manual": [
+      "Review provider dashboard settings and sample reconciliations",
+      "Obtain qualified compliance and financial review where applicable"
+    ],
+    "safeFixes": [
+      "Add idempotency storage, explicit currency validation, and duplicate-event tests",
+      "Redact payment identifiers from logs"
+    ],
+    "approval": [
+      "Changing financial calculations, prices, ledgers, provider, settlement, or entitlement semantics"
+    ],
+    "verify": [
+      "Run sandbox success, duplicate, timeout, delayed webhook, refund, and dispute scenarios",
+      "Reconcile provider, internal ledger, and granted entitlement"
+    ],
+    "standards": [
+      "OWASP Third Party Payment Gateway Integration Cheat Sheet",
+      "PCI DSS scope concepts"
+    ],
+    "stack": [
+      "Use provider-hosted collection where possible and never trust client-calculated amounts"
+    ],
+    "limitations": ["Do not claim PCI or financial compliance from a code audit"]
+  },
+  {
+    "slug": "realtime",
+    "title": "Realtime communication",
+    "purpose": "Inspect WebSocket, SSE, subscription, and presence flows for authorization, lifecycle, ordering, abuse, and recovery.",
+    "applies": ["WebSockets, SSE, subscriptions, live presence, or collaborative state"],
+    "notApplies": ["Request-response applications with no persistent or pushed channel"],
+    "inputs": [
+      "connection handlers",
+      "channel and subscription policies",
+      "client reconnection code"
+    ],
+    "checks": [
+      "Authenticate handshakes and authorize every subscribe, publish, and resource action",
+      "Inspect token expiry, revocation, origin, message schema and size, rate limits, backpressure, heartbeats, cleanup, and connection caps",
+      "Check ordering, deduplication, cursor/resume, reconnect storms, stale presence, tenant namespaces, and sensitive errors"
+    ],
+    "manual": [
+      "Observe network interruption and multi-device behavior",
+      "Review gateway limits and load-balancer timeouts"
+    ],
+    "safeFixes": [
+      "Add message bounds, schema validation, and cleanup",
+      "Namespace channels and add bounded reconnect jitter"
+    ],
+    "approval": ["Changing delivery guarantees, channel authorization, or gateway topology"],
+    "verify": [
+      "Test expired, revoked, unauthorized, duplicate, out-of-order, and oversized messages",
+      "Disconnect abruptly and confirm cleanup and resume semantics"
+    ],
+    "standards": ["RFC 6455", "OWASP WebSocket Security Cheat Sheet"],
+    "stack": ["Enforce authorization server-side for each resource, not just at connection time"],
+    "limitations": ["Gateway and network behavior require runtime load evidence"]
+  },
+  {
+    "slug": "offline",
+    "title": "Offline behavior",
+    "purpose": "Audit local persistence, queued actions, synchronization, conflicts, revocation, privacy, and recovery under intermittent connectivity.",
+    "applies": [
+      "Offline-capable web, mobile, or desktop applications",
+      "Clients that queue writes or cache private state"
+    ],
+    "notApplies": ["Online-only clients that store no durable application data locally"],
+    "inputs": [
+      "service workers and local stores",
+      "sync protocol",
+      "authorization and conflict rules"
+    ],
+    "checks": [
+      "Inventory locally stored data, cached responses, queued actions, versioning, encryption, and eviction",
+      "Inspect duplicate delivery, ordering, conflict detection/resolution, tombstones, schema migration, partial sync, clock skew, and retry bounds",
+      "Verify logout, revocation, role/tenant changes, device loss, shared-device privacy, stale authorization, and cache invalidation"
+    ],
+    "manual": [
+      "Exercise long-offline, low-storage, clock-change, and multi-device edits",
+      "Review user-visible conflict and data-loss recovery"
+    ],
+    "safeFixes": [
+      "Add queue idempotency keys, version markers, and explicit offline states",
+      "Clear scoped private caches on verified logout"
+    ],
+    "approval": [
+      "Changing conflict policy, offline authorization, retention, or destructive synchronization"
+    ],
+    "verify": [
+      "Run online-offline-reconnect flows with duplicate and conflicting actions",
+      "Confirm revoked access does not remain usable offline beyond stated policy"
+    ],
+    "standards": ["Service Workers specification", "OWASP Mobile Application Security concepts"],
+    "stack": ["Treat the local database and service-worker cache as separate security boundaries"],
+    "limitations": ["Platform background-execution and storage eviction vary by device"]
+  },
+  {
+    "slug": "all",
+    "title": "Orchestrated audit",
+    "purpose": "Discover the project, select applicable modules, run safe independent checks, merge evidence, and prioritize remediation.",
+    "applies": [
+      "Repository-wide audits",
+      "Changed-scope reviews",
+      "High-risk review before release"
+    ],
+    "notApplies": ["A narrowly requested module where orchestration adds no value"],
+    "inputs": ["project profile", "scope and risk flags", "all applicable module outputs"],
+    "checks": [
+      "Run discovery first and determine applicability from recorded evidence",
+      "Execute independent read-only checks concurrently only where safe and preserve raw results",
+      "Merge duplicates without losing locations or standards and rank by severity, confidence, impact, and effort"
+    ],
+    "manual": [
+      "Review applicability decisions and merged-finding fidelity",
+      "Approve any risky fix plan before mutation"
+    ],
+    "safeFixes": [
+      "Apply only fixes each module labels safe when --safe is explicit",
+      "Regenerate Markdown and JSON reports"
+    ],
+    "approval": ["Any risky module change or expansion outside the requested scope"],
+    "verify": [
+      "Re-run affected modules and the applicable regression suite",
+      "Mark every skipped, blocked, or unverified check explicitly"
+    ],
+    "standards": ["Fullstack Forge finding schema", "NIST SSDF"],
+    "stack": ["Use project-native commands discovered from manifests and CI"],
+    "limitations": ["Orchestration does not turn unavailable runtime evidence into PASS"]
+  },
+  {
+    "slug": "ship",
+    "title": "Release readiness",
+    "purpose": "Enforce a fail-closed release gate across project checks, findings, generated assets, packages, licenses, and installation.",
+    "applies": ["A candidate release or deployment"],
+    "notApplies": ["Exploratory work not represented as release-ready"],
+    "inputs": [
+      "project profile",
+      "finding reports",
+      "detected project commands",
+      "package and license manifests"
+    ],
+    "checks": [
+      "Run applicable format, lint, type, unit, integration, end-to-end, build, security, dependency, migration, authorization, upload, and validation checks",
+      "Check canonical/generated synchronization, deterministic packaging, checksums, attribution, and clean installation",
+      "Fail for open critical or required high findings, failed gates, incomplete packages, or required high-risk NOT_VERIFIED checks"
+    ],
+    "manual": [
+      "Review residual risk, skipped checks, release notes, rollback, and human-only publication steps",
+      "Confirm production authority before any deployment"
+    ],
+    "safeFixes": [
+      "No implicit fixes; invoke module fix modes separately with explicit scope",
+      "Regenerate deterministic derived assets"
+    ],
+    "approval": ["Publishing, deploying, bypassing a gate, or accepting high residual risk"],
+    "verify": [
+      "Repeat the complete gate after the final change",
+      "Install release artifacts in a clean temporary project and invoke the skill"
+    ],
+    "standards": ["SLSA 1.2", "NIST SSDF", "Agent Skills Specification"],
+    "stack": ["Use the repository's authoritative CI commands and pinned runtime"],
+    "limitations": ["A local gate cannot prove remote CI, registry, release, or deployment status"]
+  }
+]
