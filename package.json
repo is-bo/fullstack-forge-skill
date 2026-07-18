@@ -1,0 +1,80 @@
+{
+  "name": "fullstack-forge-skill",
+  "version": "0.1.0",
+  "description": "Evidence-driven production audits for full-stack applications and AI coding agents.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "author": "thethunderbolt",
+  "homepage": "https://github.com/thethunderbolt/fullstack-forge-skill#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thethunderbolt/fullstack-forge-skill.git"
+  },
+  "bugs": {
+    "url": "https://github.com/thethunderbolt/fullstack-forge-skill/issues"
+  },
+  "keywords": [
+    "agent-skills",
+    "ai-agents",
+    "application-security",
+    "fullstack",
+    "software-audit"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "fullstack-forge": "build/cli/src/index.js",
+    "forge": "build/cli/src/index.js"
+  },
+  "files": [
+    "build/cli/src/",
+    "config/",
+    ".agents/",
+    ".claude/",
+    ".cursor/",
+    ".gemini/",
+    ".github/skills/",
+    ".windsurf/",
+    "docs/",
+    "research/",
+    "scripts/",
+    "skill.json",
+    "src/fullstack-forge/",
+    "README.md",
+    "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md",
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "NOTICE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "scripts": {
+    "build": "npm run generate && tsc -p tsconfig.json",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run validate && npm run check:platforms && npm run check:links && npm run check:licenses && npm run check:branding && npm run scan:secrets",
+    "check:branding": "node scripts/check-branding.mjs",
+    "check:licenses": "node scripts/check-licenses.mjs",
+    "check:links": "node scripts/check-links.mjs",
+    "check:platforms": "node scripts/check-platform-assets.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "generate": "node scripts/generate-modules.mjs && node scripts/sync-platform-assets.mjs",
+    "lint": "eslint .",
+    "package:platforms": "npm run build && node scripts/package-platforms.mjs && node scripts/validate-dist.mjs",
+    "scan:secrets": "node scripts/secret-scan.mjs",
+    "smoke:install": "npm run build && node scripts/smoke-install.mjs",
+    "test": "npm run build && node --test build/cli/tests/**/*.test.js scripts/tests/**/*.test.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "validate": "node scripts/validate-skill.mjs",
+    "validate:dist": "node scripts/validate-dist.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.13.3",
+    "eslint": "^10.7.0",
+    "prettier": "^3.9.5",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.64.0"
+  }
+}

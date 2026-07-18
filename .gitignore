@@ -1,0 +1,10 @@
+.tmp/
+node_modules/
+coverage/
+dist/
+graphify-out/
+.forge/
+*.log
+*.tgz
+.DS_Store
+Thumbs.db

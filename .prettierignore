@@ -1,0 +1,12 @@
+build/
+dist/
+FULLSTACK_FORGE_SPEC.md
+node_modules/
+.tmp/
+.agents/
+.claude/
+.cursor/
+.gemini/
+.github/skills/
+.windsurf/
+src/fullstack-forge/commands/
