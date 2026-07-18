@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 
@@ -7,19 +7,20 @@ export async function withTemporaryProject<T>(
   callback: (root: string) => Promise<T>
 ): Promise<T> {
   const safePrefix = `fullstack-forge-test-${prefix.replace(/[^a-z0-9-]/giu, "-")}-`;
-  const root = await mkdtemp(join(tmpdir(), safePrefix));
-  validate(root, safePrefix);
+  const canonicalTemp = await realpath(tmpdir());
+  const root = await realpath(await mkdtemp(join(canonicalTemp, safePrefix)));
+  validate(root, safePrefix, canonicalTemp);
   try {
     return await callback(root);
   } finally {
-    validate(root, safePrefix);
+    validate(root, safePrefix, canonicalTemp);
     await rm(root, { recursive: true });
   }
 }
 
-function validate(path: string, prefix: string): void {
+function validate(path: string, prefix: string, canonicalTemp: string): void {
   const resolved = resolve(path);
-  const temp = resolve(tmpdir());
+  const temp = resolve(canonicalTemp);
   const separator = process.platform === "win32" ? "\\" : "/";
   if (!resolved.startsWith(`${temp}${separator}`) || !basename(resolved).startsWith(prefix)) {
     throw new Error(`Refusing to remove unexpected test path: ${resolved}`);
