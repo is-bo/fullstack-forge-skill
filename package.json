@@ -71,7 +71,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^24.13.3",
+    "@types/node": "^26.1.1",
     "eslint": "^10.7.0",
     "prettier": "^3.9.5",
     "typescript": "^6.0.3",
