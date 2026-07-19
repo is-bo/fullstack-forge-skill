@@ -11,7 +11,14 @@ import {
   VERSION,
   type ModuleSlug
 } from "./constants.js";
+import {
+  DefaultAuditLedger,
+  orchestrateAudit,
+  type RuntimeEvidenceRecord
+} from "./audit-orchestration.js";
 import { detectProjectCommands, discoverProject, writeProjectArtifacts } from "./discovery.js";
+import { inspectRenderedUi } from "./rendered-ui.js";
+import { writeReportOutput } from "./report-output.js";
 import { executeFixes } from "./fixes.js";
 import { runShipGates } from "./gates.js";
 import { install, readInstallManifest, uninstall } from "./installer.js";
@@ -147,11 +154,7 @@ export async function runCli(argv: string[]): Promise<number> {
 
 async function runModule(section: ModuleSlug, mode: string, options: CliOptions): Promise<number> {
   const root = await canonicalDirectory(options.cwd);
-  if (mode === "report") {
-    const report = await readReport(root, join(root, ".forge", "report.json"));
-    printValue(options.json ? report : renderMarkdown(report), options.json);
-    return report.findings.some((finding) => finding.status === "FAIL") ? 1 : 0;
-  }
+  if (mode === "report") return reportMode(root, options);
   if (mode === "fix") {
     const response = await executeFixes(root, section, {
       dryRun: options.dryRun,
@@ -205,6 +208,31 @@ async function runModule(section: ModuleSlug, mode: string, options: CliOptions)
     selected = selected.filter((slug) => changedScope?.modules.has(slug));
   }
   if (!options.dryRun) await writeProjectArtifacts(profile);
+
+  // Orchestration decides what this audit is authorized to do before any of it happens, so the
+  // planned-check ledger is produced even when nothing turns out to be executable.
+  const ledger = new DefaultAuditLedger();
+  const orchestration = await orchestrateAudit({
+    root,
+    modules: selected,
+    commands: await detectProjectCommands(root),
+    allowRun: options.allowRun,
+    offline: options.offline,
+    dryRun: options.dryRun,
+    ledger,
+    collectRuntimeEvidence: (input) => collectRenderedEvidence(input, options, revision),
+    ...(options.url === undefined ? {} : { url: options.url }),
+    ...(options.evidenceDir === undefined ? {} : { evidenceDir: options.evidenceDir }),
+    ...(options.checks === undefined ? {} : { select: options.checks }),
+    ...(options.skipChecks === undefined ? {} : { skip: options.skipChecks })
+  });
+  // Module inspection runs only for modules orchestration actually planned and did not exclude.
+  const executedModules = new Set(
+    orchestration.outcomes
+      .filter((outcome) => outcome.kind === "module-inspection" && outcome.status === "EXECUTED")
+      .map((outcome) => outcome.id.slice("module:".length))
+  );
+  selected = selected.filter((slug) => executedModules.has(slug));
   const results = await Promise.all(
     selected.map((slug) => inspectSection(slug, root, profile, changedScope?.files))
   );
@@ -242,15 +270,17 @@ async function runModule(section: ModuleSlug, mode: string, options: CliOptions)
       .map((slug) => applicabilityFinding(slug, profile));
     findings.push(...notApplicable);
   }
+  findings.push(...ledger.findings());
   const report = createReport(
     root,
     profile,
     findings,
     options.scope ?? (section === "all" ? "applicable" : section),
-    [],
+    orchestration.execution,
     [],
     [
-      "Static inspection does not verify running application, production, provider, database, browser, or operator controls."
+      "Static inspection does not verify running application, production, provider, database, browser, or operator controls.",
+      ...ledger.residualRisk()
     ],
     changedScope?.evidence,
     results.flatMap((result) => result.gate_evidence),
@@ -261,11 +291,94 @@ async function runModule(section: ModuleSlug, mode: string, options: CliOptions)
   const paths = options.dryRun ? [] : await writeReport(report);
   printValue(
     options.json
-      ? { report, report_paths: paths, observations: summarize(results), dry_run: options.dryRun }
+      ? {
+          report,
+          report_paths: paths,
+          observations: summarize(results),
+          planned_checks: orchestration.planned,
+          check_outcomes: orchestration.outcomes,
+          runtime_evidence: orchestration.runtime_evidence,
+          evidence_complete: orchestration.evidence_complete,
+          dry_run: options.dryRun
+        }
       : renderMarkdown(report),
     options.json
   );
-  return report.findings.some((finding) => finding.status === "FAIL") ? 1 : 0;
+  // A proven defect outranks missing evidence, so FAIL keeps exit 1. Requested evidence that could
+  // not be collected exits 2: nothing failed, but the run did not prove what it was asked to prove.
+  if (report.findings.some((finding) => finding.status === "FAIL")) return 1;
+  return orchestration.evidence_complete ? 0 : 2;
+}
+
+/**
+ * Adapts the rendered-UI tool to the orchestration ledger.
+ *
+ * Only a `COMPLETE` capture counts as complete evidence; `PARTIAL`, `BLOCKED`, and `FAILED` all fail
+ * closed upstream, which is what keeps a half-captured page from contributing a rendered pass.
+ */
+async function collectRenderedEvidence(
+  input: { root: string; url: string; offline: boolean; allowRun: boolean; evidenceDir?: string },
+  options: CliOptions,
+  revision: string
+): Promise<RuntimeEvidenceRecord> {
+  const response = await inspectRenderedUi(
+    input.root,
+    [input.url],
+    {
+      ...options,
+      offline: input.offline,
+      allowRun: input.allowRun,
+      ...(input.evidenceDir === undefined ? {} : { evidenceDir: input.evidenceDir })
+    },
+    revision
+  );
+  const value = response.value;
+  return {
+    kind: "rendered-ui",
+    status: value.capture_status,
+    ...(value.url === undefined ? {} : { url: value.url }),
+    ...(value.evidence_dir === undefined ? {} : { evidence_dir: value.evidence_dir }),
+    artifacts: value.artifacts,
+    limitations:
+      value.reason === undefined ? value.limitations : [value.reason, ...value.limitations],
+    complete: value.capture_status === "COMPLETE"
+  };
+}
+
+/**
+ * Renders an audit that already ran.
+ *
+ * Report mode reads `.forge/report.json` and never re-audits: the rendered document must describe
+ * the run it names, with the same identity, revision, timestamps, and evidence. Stdout behavior is
+ * unchanged from earlier releases — Markdown by default, JSON under `--json`. `--output` redirects
+ * the documents to files and prints the write summary instead, so the two flags never compete for
+ * stdout: `--json` selects the *format* of what stdout carries, `--output` selects its *subject*.
+ */
+async function reportMode(root: string, options: CliOptions): Promise<number> {
+  const report = await readReport(root, join(root, ".forge", "report.json"));
+  const failing = report.findings.some((finding) => finding.status === "FAIL");
+  if (options.output === undefined) {
+    printValue(options.json ? report : renderMarkdown(report), options.json);
+    return failing ? 1 : 0;
+  }
+  const result = await writeReportOutput(root, options.output, report, options.dryRun);
+  const summary = {
+    operation: "report",
+    output: result.relative_directory,
+    dry_run: result.dry_run,
+    planned_paths: result.files.map((file) => ({ path: file.path, action: file.action })),
+    written: result.written
+  };
+  printValue(
+    options.json
+      ? summary
+      : [
+          `${result.dry_run ? "Planned" : "Wrote"} report output in ${result.relative_directory}:`,
+          ...result.files.map((file) => `- ${file.path} (${file.action})`)
+        ].join("\n"),
+    options.json
+  );
+  return failing ? 1 : 0;
 }
 
 async function verifySection(
@@ -553,7 +666,19 @@ function parseArguments(argv: string[]): { positionals: string[]; options: CliOp
     "--severity": "severity",
     "--ai": "platform",
     "--platform": "platform",
-    "--output": "output"
+    "--output": "output",
+    "--url": "url",
+    "--evidence-dir": "evidenceDir"
+  };
+  // Repeatable flags accumulate instead of overwriting, so `--check lint --check test` selects both
+  // rather than silently discarding the first value.
+  const listFlags: Record<string, "checks" | "skipChecks"> = {
+    "--check": "checks",
+    "--skip-check": "skipChecks"
+  };
+  const appendList = (flag: string, value: string): void => {
+    const key = listFlags[flag] as "checks" | "skipChecks";
+    options[key] = [...(options[key] ?? []), value];
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index] ?? "";
@@ -566,9 +691,18 @@ function parseArguments(argv: string[]): { positionals: string[]; options: CliOp
     else if (arg === "--safe") options.safe = true;
     else if (arg.startsWith("--") && arg.includes("=")) {
       const [flag, ...rest] = arg.split("=");
+      if ((flag ?? "") in listFlags) {
+        appendList(flag ?? "", rest.join("="));
+        continue;
+      }
       const key = valueFlags[flag ?? ""];
       if (key === undefined) throw new Error(`Unknown option '${flag}'`);
       options[key] = rest.join("=") as never;
+    } else if (arg in listFlags) {
+      const value = argv[index + 1];
+      if (value === undefined) throw new Error(`Option '${arg}' requires a value`);
+      appendList(arg, value);
+      index += 1;
     } else if (arg in valueFlags) {
       const key = valueFlags[arg];
       const value = argv[index + 1];
@@ -589,6 +723,21 @@ function parseArguments(argv: string[]): { positionals: string[]; options: CliOp
     !["critical", "high", "medium", "low", "info"].includes(options.severity.toLowerCase())
   )
     throw new Error(`Unknown severity '${options.severity}'.`);
+  // A malformed --url is rejected before any audit work begins, so an operator who mistypes the
+  // address is told immediately instead of receiving a report whose runtime criteria silently
+  // stayed NOT_VERIFIED.
+  if (options.url !== undefined) {
+    let parsed: URL;
+    try {
+      parsed = new URL(options.url);
+    } catch {
+      throw new Error(
+        `Option '--url' requires an absolute http or https URL, got '${options.url}'`
+      );
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+      throw new Error(`Option '--url' supports only http and https, got '${parsed.protocol}'`);
+  }
   return { positionals, options };
 }
 
@@ -609,6 +758,9 @@ function printHelp(): void {
 Usage:
   forge <section> <audit|fix|verify|report> [options]
   forge all audit [--scope full|changed] [--base origin/main] [--risk high]
+  forge all audit --allow-run [--check lint --check test] [--skip-check build]
+  forge all audit --url http://127.0.0.1:3000 --allow-run [--evidence-dir .forge/evidence]
+  forge security report [--json] [--output <directory> [--dry-run]]
   forge ship --allow-run
   forge init <platform|all> | init --ai <platform|all>
   forge update [platform] | uninstall [platform] | doctor | validate | package | list
@@ -625,6 +777,13 @@ Options:
                   network-dependent step; such checks report BLOCKED or NOT_VERIFIED
   --allow-run     Explicitly authorize inspected local project scripts
   --safe          Authorize execution of bounded safe fixes; without it 'fix' only plans
+  --check <name>       Run only the named planned check (repeatable)
+  --skip-check <name>  Never run the named planned check (repeatable)
+  --url <url>          Collect rendered evidence from an application you already started
+  --evidence-dir <dir> Repository-relative directory for collected runtime evidence
+  --output <dir>       Report mode only: write report.json and report.md into <dir>
+
+Exit codes: 0 success; 1 a FAIL finding or an error; 2 requested evidence could not be collected.
 
 Audit never treats missing evidence as PASS. See 'forge list' for modules and tools.`);
 }

@@ -5,6 +5,42 @@ versioning.
 
 ## [Unreleased]
 
+### Added
+
+- Audit orchestration. A normal `forge <section> audit` is now one coherent operation: it discovers
+  applicable modules, detects candidate project checks, builds a deterministic planned-check list,
+  executes only what it is explicitly authorized to execute, and records every check it did not run
+  together with the reason. `--json` output gains `planned_checks`, `check_outcomes`,
+  `runtime_evidence`, and `evidence_complete`.
+- New audit options, each of which changes behavior rather than being parsed and ignored:
+  `--check <name>` and `--skip-check <name>` (repeatable, accepting either the full check identifier
+  or the bare name, rejecting unknown values), `--url <url>` to integrate rendered evidence from an
+  application the operator already started, and `--evidence-dir <path>` to relocate collected
+  runtime evidence beneath the audited root.
+- Project-command execution during an audit is restricted to a bounded allowlist of read-only
+  scripts, so an audit can never start an unrecognized project server. Execution requires
+  `--allow-run`; under `--offline` a command whose definition reaches the network is refused before
+  the process is spawned. Browser tooling is never installed automatically.
+- Requested evidence fails closed. A rendered capture that is `PARTIAL`, `BLOCKED`, or `FAILED`
+  leaves the rendered criteria `NOT_VERIFIED` and makes the audit exit `2` — nothing failed, but the
+  run did not prove what it was asked to prove.
+- Report-mode output contract. `forge <section> report` renders Markdown to stdout, JSON under
+  `--json`, and writes `report.json` plus `report.md` under `--output <directory>`; adding
+  `--dry-run` prints the planned paths and writes nothing. Report mode never re-runs an audit, so
+  the rendered document preserves the identity, revision, timestamps, and evidence of the run it
+  names.
+- Report output is contained and owned. The directory is resolved beneath the authorized root;
+  traversal, absolute, drive-qualified, UNC, and symlinked destinations are refused. Forge records
+  the digest of each file it writes and refuses to overwrite either an unowned pre-existing file or
+  managed output that was edited after Forge wrote it; identical content is preserved rather than
+  rewritten.
+
+### Changed
+
+- An `AuditLedgerSink` boundary separates orchestration from the report schema. The default
+  implementation writes into the current schema; the planned-check and runtime-evidence ledgers can
+  be substituted without changing orchestration logic.
+
 ## [0.1.6] - 2026-07-19
 
 Rendered-UI security milestone. Three defects were independently reproduced against v0.1.5 before
