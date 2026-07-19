@@ -5,6 +5,57 @@ versioning.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-07-19
+
+Corrective correctness release. Thirteen reported problem areas were independently reproduced
+against source before any change; twelve confirmed, two narrowed to partially confirmed. See
+`docs/AUDIT_CLASSIFICATION_v0.1.3.md` for the per-issue evidence.
+
+### Fixed
+
+- A refused automatic fix no longer overwrites a proven `FAIL` or `WARNING` with `BLOCKED`. Defect
+  status, fix-attempt status, and verification status are now distinct, with refusals recorded in a
+  new `fix_attempts[]` structure on the finding.
+- `--safe` was parsed but never read, making `forge <section> fix` and `forge <section> fix --safe`
+  identical and both mutating. `fix` now plans only; `fix --safe` executes bounded safe registry
+  entries; `fix --safe --dry-run` plans without writing.
+- Findings gained a stable `instance_id` so separate occurrences of one rule no longer merge, and
+  verifying a resolved occurrence is no longer re-failed by an unrelated occurrence elsewhere.
+- `verify --dry-run --allow-run` executed project commands. A dry run now executes nothing.
+- Analyzer verification re-ran over the whole repository; it is now scoped to the original evidence
+  paths and matched on instance identity.
+- Ship gates marked every command-backed internal gate `NOT_APPLICABLE` and `required: false` for
+  non-Forge projects, silently disabling secret scanning, dependency inspection, and license
+  validation for every audited application. Gates now declare a `forge-self`, `audited-application`,
+  or `project-native` applicability class.
+- Removed an unreachable dependency-evidence branch in the gate loop.
+- Changed-scope base resolution no longer falls back to `HEAD`, which hid every committed branch
+  change. Precedence is `--base`, upstream, `origin/HEAD`, `origin/main`, `origin/master`, local
+  `main`, local `master`, then a structured `BLOCKED`.
+- Repository confidence used a `.git/` path test inside a walk that excludes `.git`, so it could
+  never be true. It now uses `git rev-parse --is-inside-work-tree`.
+- Every nested `package.json` was reported as a high-confidence active workspace. Workspaces are now
+  resolved from declared configuration; undeclared manifests are low-confidence `nested-package`
+  records.
+
+### Added
+
+- `cli/src/dataflow.ts`: bounded intra-file taint engine resolving aliases, reassignment,
+  destructuring, template and concatenation propagation, and same-file parameter summaries, with
+  source-to-sink trace evidence. Sanitizers bind to the specific tainted value instead of being
+  inferred from nearby keywords.
+- `cli/src/support.ts`: structured analyzer support registry with per-module coverage levels,
+  supported and unsupported shapes, and named required adapters for missing coverage.
+- Bounded route adapters for Next.js App Router, Next.js Pages Router, NestJS decorators, and
+  Fastify object-form routes. Name-based route visibility is now `LOW` confidence and discloses the
+  heuristic.
+
+### Notes
+
+- `docs/RELEASE_VERIFICATION_v0.1.2.md` was never committed; v0.1.2 shipped without a verification
+  record. This is documented rather than backdated.
+- Test total moved from 117 to 161 with no existing test removed or weakened.
+
 ## [0.1.2] - 2026-07-19
 
 Independent audit response. Every finding from the v0.1.1 conformance audit is addressed with
