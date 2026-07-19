@@ -4,6 +4,8 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { PACKAGE_ROOT } from "./constants.js";
+import { decideRequest, isLoopbackHost, websocketGuardScript } from "./net-policy.js";
+import { redactError, redactToString, redactUrl } from "./redaction.js";
 import { assertNoSymlinkPath, isInside, sha256, toPosix, utcNow } from "./utils.js";
 const VIEWPORTS = [
     { name: "desktop", width: 1280, height: 800 },
@@ -13,6 +15,214 @@ const VIEWPORTS = [
 const DRIVER_CANDIDATES = ["playwright", "@playwright/test", "playwright-core"];
 const NAVIGATION_TIMEOUT_MS = 15_000;
 const TOTAL_BUDGET_MS = 90_000;
+/**
+ * Drives the browser and returns exactly what it managed to capture.
+ *
+ * Exported so the fail-closed state machine and the offline interceptor can be tested against
+ * controlled fake browser objects; this release deliberately does not add Playwright or browser
+ * binaries as a required dependency.
+ */
+export async function captureRenderedUi(chromium, params) {
+    const { url, offline, evidenceDirectory, relativeEvidenceDir } = params;
+    const consoleEntries = [];
+    const blockedRequests = [];
+    const limitations = [];
+    const viewports = [];
+    const artifacts = [];
+    const screenshots = [];
+    let finalUrl;
+    const startedAt = Date.now();
+    let browser;
+    try {
+        browser = await chromium.launch({ headless: true });
+    }
+    catch (error) {
+        // A launch failure produced no evidence at all, so it can never be partial.
+        return {
+            capture_status: "FAILED",
+            viewports: VIEWPORTS.map((viewport) => ({
+                name: viewport.name,
+                width: viewport.width,
+                height: viewport.height,
+                status: "FAIL",
+                error: "browser launch failed"
+            })),
+            console_entries: [],
+            blocked_requests: [],
+            screenshots: [],
+            artifacts: [],
+            limitations: [`Browser launch failed: ${redactError(error)}`]
+        };
+    }
+    let closeError;
+    try {
+        const page = await browser.newPage();
+        page.setDefaultTimeout(NAVIGATION_TIMEOUT_MS);
+        // Offline enforcement is only real if every request can be inspected before it is sent. A
+        // driver that cannot route is refused outright rather than silently downgraded to the old
+        // initial-URL-only check.
+        if (offline) {
+            if (typeof page.route !== "function") {
+                // Returning from inside the try block still runs the cleanup in `finally`; closing here as
+                // well would shut the browser down twice.
+                return {
+                    capture_status: "BLOCKED",
+                    viewports: [],
+                    console_entries: [],
+                    blocked_requests: [],
+                    screenshots: [],
+                    artifacts: [],
+                    limitations: [
+                        "Offline mode requires browser request interception, which this driver does not " +
+                            "support. Rendered-state criteria stay NOT_VERIFIED."
+                    ],
+                    blocked_reason: "The resolved browser driver cannot intercept requests, so the offline boundary " +
+                        "cannot be enforced. No navigation was attempted."
+                };
+            }
+            await page.route("**/*", async (route, request) => {
+                const requestUrl = request.url();
+                const decision = decideRequest(requestUrl, true);
+                if (decision.allowed) {
+                    await route.continue();
+                    return;
+                }
+                // Each viewport renavigates, so the same destination is refused repeatedly. Evidence
+                // records the distinct destinations that were blocked, not one entry per attempt.
+                const redacted = redactUrl(requestUrl);
+                if (!blockedRequests.some((entry) => entry.url === redacted)) {
+                    blockedRequests.push({
+                        url: redacted,
+                        reason: decision.reason,
+                        ...(typeof request.resourceType === "function"
+                            ? { resource_type: request.resourceType() }
+                            : {})
+                    });
+                }
+                // Aborting here prevents the connection and the DNS lookup that would precede it.
+                await route.abort("blockedbyclient");
+            });
+            if (typeof page.addInitScript === "function") {
+                await page.addInitScript(websocketGuardScript());
+            }
+            else {
+                limitations.push("WebSocket connections could not be guarded: this driver does not support init " +
+                    "scripts. Non-loopback WebSocket traffic is NOT_VERIFIED.");
+            }
+            limitations.push("Offline enforcement covers HTTP and HTTPS requests via browser interception and " +
+                "WebSocket construction via an init script. Transports outside those two paths " +
+                "(for example WebRTC and browser-internal telemetry) are NOT_VERIFIED.");
+        }
+        page.on("console", (message) => {
+            const result = redactToString(message.text());
+            consoleEntries.push({ type: message.type(), text: result });
+        });
+        page.on("pageerror", (error) => {
+            consoleEntries.push({ type: "pageerror", text: redactError(error) });
+        });
+        for (const viewport of VIEWPORTS) {
+            if (Date.now() - startedAt > TOTAL_BUDGET_MS) {
+                viewports.push({
+                    name: viewport.name,
+                    width: viewport.width,
+                    height: viewport.height,
+                    status: "BLOCKED",
+                    error: "time budget exhausted before this viewport was attempted"
+                });
+                continue;
+            }
+            const name = `${viewport.name}-${viewport.width}x${viewport.height}.png`;
+            const artifact = join(evidenceDirectory, name);
+            try {
+                await page.setViewportSize({ width: viewport.width, height: viewport.height });
+                await page.goto(url, { waitUntil: "load" });
+                finalUrl = safeFinalUrl(page);
+                await page.screenshot({ path: artifact, fullPage: false });
+            }
+            catch (error) {
+                viewports.push({
+                    name: viewport.name,
+                    width: viewport.width,
+                    height: viewport.height,
+                    status: "FAIL",
+                    error: redactError(error)
+                });
+                continue;
+            }
+            // A screenshot call that resolves without producing a readable file is a failed capture, not
+            // a successful one; the artifact is proven to exist before it is counted as evidence.
+            let digest;
+            try {
+                digest = sha256(await readFile(artifact));
+            }
+            catch (error) {
+                viewports.push({
+                    name: viewport.name,
+                    width: viewport.width,
+                    height: viewport.height,
+                    status: "FAIL",
+                    error: `screenshot artifact missing after capture: ${redactError(error)}`
+                });
+                continue;
+            }
+            const relativeArtifact = toPosix(join(relativeEvidenceDir, name));
+            artifacts.push(relativeArtifact);
+            screenshots.push({
+                path: relativeArtifact,
+                viewport: `${viewport.width}x${viewport.height}`,
+                sha256: digest
+            });
+            viewports.push({
+                name: viewport.name,
+                width: viewport.width,
+                height: viewport.height,
+                status: "PASS",
+                artifact: relativeArtifact,
+                sha256: digest
+            });
+        }
+    }
+    catch (error) {
+        limitations.push(`Rendered inspection failed: ${redactError(error)}`);
+    }
+    finally {
+        // Cleanup runs on every launch-success path, and a failure to close is recorded rather than
+        // swallowed so a leaked browser process is visible in the evidence.
+        try {
+            await browser.close();
+        }
+        catch (error) {
+            closeError = redactError(error);
+            limitations.push(`Browser close failed: ${closeError}`);
+        }
+    }
+    for (const request of blockedRequests) {
+        limitations.push(`Offline policy blocked ${request.resource_type ?? "a"} request to ${request.url}: ${request.reason}.`);
+    }
+    const passed = viewports.filter((viewport) => viewport.status === "PASS").length;
+    let captureStatus;
+    if (passed === 0) {
+        captureStatus = "FAILED";
+    }
+    else if (passed < VIEWPORTS.length || blockedRequests.length > 0) {
+        // Any blocked request means the page did not render with all of its resources, so the capture
+        // cannot be described as complete even when every viewport produced a screenshot.
+        captureStatus = "PARTIAL";
+    }
+    else {
+        captureStatus = "COMPLETE";
+    }
+    return {
+        capture_status: captureStatus,
+        viewports,
+        console_entries: consoleEntries,
+        blocked_requests: blockedRequests,
+        screenshots,
+        artifacts,
+        limitations,
+        ...(finalUrl === undefined ? {} : { final_url: finalUrl })
+    };
+}
 export async function inspectRenderedUi(root, args, options, revision) {
     const offline = options.offline;
     const url = args.find((argument) => !argument.startsWith("-"));
@@ -59,6 +269,7 @@ export async function inspectRenderedUi(root, args, options, revision) {
             value: {
                 tool: "inspect-rendered-ui",
                 status: "OK",
+                capture_status: "BLOCKED",
                 url: redactUrl(parsed),
                 offline,
                 dry_run: true,
@@ -67,6 +278,8 @@ export async function inspectRenderedUi(root, args, options, revision) {
                 route_id: routeId,
                 artifacts: [],
                 planned_artifacts: plannedArtifacts,
+                viewports: [],
+                blocked_requests: [],
                 console_errors: 0,
                 console_warnings: 0,
                 limitations: [
@@ -83,53 +296,15 @@ export async function inspectRenderedUi(root, args, options, revision) {
     const evidenceDirectory = join(root, relativeEvidenceDir);
     await assertNoSymlinkPath(root, evidenceDirectory);
     await mkdir(evidenceDirectory, { recursive: true });
-    const consoleEntries = [];
-    const artifacts = [];
-    const screenshots = [];
-    const limitations = [];
-    let finalUrl;
-    const startedAt = Date.now();
-    const browser = await driver.chromium.launch({ headless: true });
-    try {
-        const page = await browser.newPage();
-        page.setDefaultTimeout(NAVIGATION_TIMEOUT_MS);
-        page.on("console", (message) => {
-            consoleEntries.push({ type: message.type(), text: message.text().slice(0, 500) });
-        });
-        page.on("pageerror", (error) => {
-            consoleEntries.push({ type: "pageerror", text: String(error.message).slice(0, 500) });
-        });
-        for (const viewport of VIEWPORTS) {
-            if (Date.now() - startedAt > TOTAL_BUDGET_MS) {
-                limitations.push(`Time budget exhausted after ${screenshots.length} viewport(s); remaining viewports are NOT_VERIFIED.`);
-                break;
-            }
-            const name = `${viewport.name}-${viewport.width}x${viewport.height}.png`;
-            const artifact = join(evidenceDirectory, name);
-            try {
-                await page.setViewportSize({ width: viewport.width, height: viewport.height });
-                await page.goto(url, { waitUntil: "load" });
-                finalUrl = safeFinalUrl(page);
-                await page.screenshot({ path: artifact, fullPage: false });
-            }
-            catch (error) {
-                // Partial failure keeps the evidence captured so far rather than discarding honest results.
-                limitations.push(`Viewport ${viewport.name} failed: ${error.message}`);
-                continue;
-            }
-            const relativeArtifact = toPosix(join(relativeEvidenceDir, name));
-            artifacts.push(relativeArtifact);
-            screenshots.push({
-                path: relativeArtifact,
-                viewport: `${viewport.width}x${viewport.height}`,
-                sha256: sha256(await readFile(artifact))
-            });
-        }
-    }
-    finally {
-        // Always release the browser process, including on partial failure.
-        await browser.close().catch(() => undefined);
-    }
+    const capture = await captureRenderedUi(driver.chromium, {
+        url,
+        offline,
+        evidenceDirectory,
+        relativeEvidenceDir
+    });
+    const consoleEntries = capture.console_entries;
+    const artifacts = [...capture.artifacts];
+    const limitations = [...capture.limitations];
     const consoleDocument = `${JSON.stringify({ url: redactUrl(parsed), route_id: routeId, captured_at: utcNow(), entries: consoleEntries }, null, 2)}\n`;
     const consolePath = join(evidenceDirectory, "console.json");
     await writeFile(consolePath, consoleDocument, "utf8");
@@ -137,21 +312,24 @@ export async function inspectRenderedUi(root, args, options, revision) {
     const errors = consoleEntries.filter((entry) => entry.type === "error" || entry.type === "pageerror");
     const warnings = consoleEntries.filter((entry) => entry.type === "warning");
     const manifest = {
-        schema_version: 1,
+        schema_version: 2,
         run_id: runId,
         route_id: routeId,
         revision,
         captured_at: utcNow(),
+        capture_status: capture.capture_status,
         source_url: redactUrl(parsed),
         origin: parsed.origin,
         path: parsed.pathname,
         query_keys: [...new Set([...parsed.searchParams.keys()])].sort(),
-        final_url: finalUrl === undefined ? null : redactUrlString(finalUrl),
-        redirected: finalUrl !== undefined && normalize(finalUrl) !== normalize(url),
+        final_url: capture.final_url === undefined ? null : redactUrl(capture.final_url),
+        redirected: capture.final_url !== undefined && normalize(capture.final_url) !== normalize(url),
         offline,
         allow_run: options.allowRun,
         driver: driver.identity,
-        screenshots,
+        viewports: capture.viewports,
+        blocked_requests: capture.blocked_requests,
+        screenshots: capture.screenshots,
         console: {
             path: toPosix(join(relativeEvidenceDir, "console.json")),
             sha256: sha256(consoleDocument),
@@ -163,8 +341,9 @@ export async function inspectRenderedUi(root, args, options, revision) {
     const manifestDocument = `${JSON.stringify(manifest, null, 2)}\n`;
     await writeFile(join(evidenceDirectory, "manifest.json"), manifestDocument, "utf8");
     artifacts.push(toPosix(join(relativeEvidenceDir, "manifest.json")));
+    const complete = capture.capture_status === "COMPLETE";
     const findings = [];
-    if (errors.length > 0) {
+    if (complete && errors.length > 0) {
         findings.push({
             id: "FF-UI-CONSOLE-001",
             section: "ui",
@@ -183,7 +362,8 @@ export async function inspectRenderedUi(root, args, options, revision) {
             standards: ["Fullstack Forge evidence protocol"]
         });
     }
-    else if (screenshots.length > 0) {
+    else if (complete) {
+        // Only a complete capture with zero console errors may contribute a rendered PASS.
         findings.push({
             id: "FF-UI-RENDER-001",
             section: "ui",
@@ -193,8 +373,9 @@ export async function inspectRenderedUi(root, args, options, revision) {
             status: "PASS",
             location: artifacts.map((artifact) => ({ path: artifact })),
             evidence: [
-                `Captured ${screenshots.length} viewport screenshot(s) of ${redactUrl(parsed)} with zero ` +
-                    `console errors using ${driver.identity.package}@${driver.identity.version ?? "unknown"}.`
+                `Captured all ${capture.screenshots.length} required viewport screenshot(s) of ` +
+                    `${redactUrl(parsed)} with zero console errors using ` +
+                    `${driver.identity.package}@${driver.identity.version ?? "unknown"}.`
             ],
             impact: "Direct running-application evidence for the rendered-state criteria of this route.",
             recommendation: "Review the captured screenshots for visual-hierarchy, state, and consistency criteria; " +
@@ -204,10 +385,41 @@ export async function inspectRenderedUi(root, args, options, revision) {
             standards: ["Fullstack Forge evidence protocol"]
         });
     }
+    else {
+        // Incomplete capture fails closed: the rendered criteria are explicitly not verified, and any
+        // console errors observed along the way are still reported.
+        const failed = capture.viewports.filter((viewport) => viewport.status !== "PASS");
+        findings.push({
+            id: "FF-UI-CAPTURE-001",
+            section: "ui",
+            title: `Rendered inspection did not produce complete evidence (${capture.capture_status})`,
+            severity: "MEDIUM",
+            confidence: "HIGH",
+            status: capture.capture_status === "FAILED" ? "FAIL" : "NOT_VERIFIED",
+            location: [{ path: toPosix(join(relativeEvidenceDir, "manifest.json")) }],
+            evidence: [
+                `Capture status ${capture.capture_status}: ${capture.screenshots.length} of ` +
+                    `${VIEWPORTS.length} required viewport(s) captured, ` +
+                    `${capture.blocked_requests.length} request(s) blocked by offline policy.`,
+                ...failed
+                    .slice(0, 5)
+                    .map((viewport) => `${viewport.name}: ${viewport.status} ${viewport.error ?? ""}`.trim())
+            ],
+            impact: "Rendered-state criteria for this route are not supported by complete evidence and must " +
+                "not be treated as verified.",
+            recommendation: "Re-run inspection with the application reachable and every required resource available, " +
+                "or record the rendered criteria as NOT_VERIFIED.",
+            safe_fix: false,
+            verification: ["Re-run inspect-rendered-ui and confirm capture_status is COMPLETE."],
+            standards: ["Fullstack Forge evidence protocol"]
+        });
+        limitations.push(`Capture status ${capture.capture_status}: rendered-state criteria remain NOT_VERIFIED.`);
+    }
     return {
         value: {
             tool: "inspect-rendered-ui",
             status: "OK",
+            capture_status: capture.capture_status,
             url: redactUrl(parsed),
             driver: driver.identity.package,
             driver_identity: driver.identity,
@@ -216,22 +428,45 @@ export async function inspectRenderedUi(root, args, options, revision) {
             run_id: runId,
             route_id: routeId,
             artifacts,
+            viewports: capture.viewports,
+            blocked_requests: capture.blocked_requests,
             console_errors: errors.length,
             console_warnings: warnings.length,
             limitations,
             findings
         },
-        exitCode: errors.length > 0 ? 1 : 0
+        exitCode: exitCodeFor(capture, errors.length)
     };
+}
+/**
+ * Exit codes follow one rule: `0` is reserved for a complete capture with nothing failing.
+ *
+ * `1` marks an executed run that produced a failing finding or a runtime failure; `2` marks a run
+ * whose evidence is merely absent, which callers treat as NOT_VERIFIED rather than as a defect.
+ */
+function exitCodeFor(capture, consoleErrors) {
+    if (capture.capture_status === "COMPLETE")
+        return consoleErrors > 0 ? 1 : 0;
+    if (capture.capture_status === "BLOCKED")
+        return 2;
+    if (capture.capture_status === "FAILED")
+        return 1;
+    // PARTIAL: a genuine viewport failure is a defect; evidence withheld purely by offline policy is
+    // an absence of proof.
+    const failedViewport = capture.viewports.some((viewport) => viewport.status === "FAIL");
+    return failedViewport || consoleErrors > 0 ? 1 : 2;
 }
 function blocked(offline, reason) {
     return {
         value: {
             tool: "inspect-rendered-ui",
             status: "BLOCKED",
+            capture_status: "BLOCKED",
             reason,
             offline,
             artifacts: [],
+            viewports: [],
+            blocked_requests: [],
             console_errors: 0,
             console_warnings: 0,
             limitations: ["Rendered-state criteria for this route remain NOT_VERIFIED."],
@@ -239,13 +474,6 @@ function blocked(offline, reason) {
         },
         exitCode: 2
     };
-}
-function isLoopbackHost(hostname) {
-    return (hostname === "localhost" ||
-        hostname === "127.0.0.1" ||
-        hostname === "::1" ||
-        hostname === "[::1]" ||
-        hostname.endsWith(".localhost"));
 }
 /**
  * Stable, collision-resistant identity for a route. The readable prefix is sanitized to a single
@@ -269,24 +497,6 @@ function normalize(href) {
     const parsed = new URL(href);
     parsed.hash = "";
     return parsed.href;
-}
-/** Query values can carry tokens or personal data, so only keys survive into public evidence. */
-function redactUrl(parsed) {
-    const copy = new URL(parsed.href);
-    copy.username = "";
-    copy.password = "";
-    copy.hash = "";
-    for (const key of [...new Set([...copy.searchParams.keys()])])
-        copy.searchParams.set(key, "[REDACTED]");
-    return copy.href;
-}
-function redactUrlString(href) {
-    try {
-        return redactUrl(new URL(href));
-    }
-    catch {
-        return "[UNPARSEABLE]";
-    }
 }
 function safeFinalUrl(page) {
     try {

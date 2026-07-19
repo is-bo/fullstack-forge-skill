@@ -65,6 +65,72 @@ async function plantMaliciousDriver(root: string): Promise<string> {
   return sentinel;
 }
 
+/**
+ * Plants a project-local `playwright` whose browser is fully controllable from a JSON spec. This is
+ * what lets the fail-closed state machine be exercised end to end — including the written evidence
+ * files, findings, and exit codes — without adding Playwright or a browser binary as a dependency.
+ */
+async function plantWorkingDriver(root: string, spec: Record<string, unknown>): Promise<void> {
+  const packageDirectory = join(root, "node_modules", "playwright");
+  await mkdir(packageDirectory, { recursive: true });
+  await writeFile(
+    join(packageDirectory, "package.json"),
+    `${JSON.stringify({
+      name: "playwright",
+      version: "1.0.0-fake",
+      type: "module",
+      main: "index.js"
+    })}\n`,
+    "utf8"
+  );
+  await writeFile(
+    join(packageDirectory, "index.js"),
+    `import { writeFileSync } from 'node:fs';
+const SPEC = ${JSON.stringify(spec)};
+export const chromium = {
+  launch: async () => {
+    if (SPEC.launchError) throw new Error(SPEC.launchError);
+    let vp = -1;
+    let onConsole;
+    let onPageError;
+    const page = {
+      setDefaultTimeout() {},
+      async setViewportSize() { vp += 1; },
+      async goto() {
+        if ((SPEC.failNavigation || []).includes(vp)) throw new Error('navigation failed ' + vp);
+        if (vp === 0) {
+          for (const entry of SPEC.console || []) {
+            onConsole && onConsole({ type: () => entry.type, text: () => entry.text });
+          }
+          for (const message of SPEC.pageErrors || []) {
+            onPageError && onPageError(new Error(message));
+          }
+        }
+      },
+      async screenshot(options) {
+        if ((SPEC.failScreenshot || []).includes(vp)) throw new Error('screenshot failed ' + vp);
+        writeFileSync(options.path, 'png-' + vp);
+      },
+      url() { return SPEC.finalUrl || 'http://127.0.0.1:3000/dashboard'; },
+      on(event, handler) {
+        if (event === 'console') onConsole = handler;
+        if (event === 'pageerror') onPageError = handler;
+      },
+      async route() {},
+      async addInitScript() {}
+    };
+    return { newPage: async () => page, close: async () => {} };
+  }
+};
+`,
+    "utf8"
+  );
+}
+
+async function readJson(path: string): Promise<Record<string, unknown>> {
+  return JSON.parse(await readFile(path, "utf8")) as Record<string, unknown>;
+}
+
 test("rendered-ui inspection blocks without a URL instead of guessing one", async () => {
   await withTemporaryProject("rendered-ui-no-url", async (root) => {
     await emptyProject(root);
@@ -306,4 +372,188 @@ test("the resolved driver identity records package, path, source, and trust", as
     assert.equal(response.value.status, "BLOCKED");
     assert.equal(response.value.driver_identity, undefined);
   });
+});
+
+test("a complete capture with no console errors is the only path to a rendered PASS", async () => {
+  await withTemporaryProject("rendered-ui-complete", async (root) => {
+    await emptyProject(root);
+    await plantWorkingDriver(root, {});
+    const response = await inspectRenderedUi(
+      root,
+      ["http://127.0.0.1:3000/dashboard"],
+      options({ allowRun: true }),
+      REVISION
+    );
+    assert.equal(response.exitCode, 0);
+    assert.equal(response.value.capture_status, "COMPLETE");
+    assert.equal(response.value.viewports.length, 3);
+    assert.ok(response.value.viewports.every((viewport) => viewport.status === "PASS"));
+    const finding = response.value.findings[0];
+    assert.ok(finding !== undefined);
+    assert.equal(finding.id, "FF-UI-RENDER-001");
+    assert.equal(finding.status, "PASS");
+    // The manifest must agree with the CLI result rather than telling a different story.
+    const manifest = await readJson(join(root, response.value.evidence_dir ?? "", "manifest.json"));
+    assert.equal(manifest["capture_status"], "COMPLETE");
+    assert.equal((manifest["viewports"] as unknown[]).length, 3);
+  });
+});
+
+test("every viewport failing returns FAILED, exit 1, and no rendered PASS", async () => {
+  await withTemporaryProject("rendered-ui-all-fail", async (root) => {
+    await emptyProject(root);
+    await plantWorkingDriver(root, { failNavigation: [0, 1, 2] });
+    const response = await inspectRenderedUi(
+      root,
+      ["http://127.0.0.1:3000/dashboard"],
+      options({ allowRun: true }),
+      REVISION
+    );
+    // The pre-fix implementation returned exit code 0 with no finding at all here.
+    assert.equal(response.exitCode, 1);
+    assert.equal(response.value.capture_status, "FAILED");
+    assert.ok(!response.value.findings.some((finding) => finding.status === "PASS"));
+    assert.equal(response.value.findings[0]?.id, "FF-UI-CAPTURE-001");
+    const manifest = await readJson(join(root, response.value.evidence_dir ?? "", "manifest.json"));
+    assert.equal(manifest["capture_status"], "FAILED");
+  });
+});
+
+test("one succeeding viewport out of three cannot produce a rendered PASS", async () => {
+  await withTemporaryProject("rendered-ui-partial", async (root) => {
+    await emptyProject(root);
+    await plantWorkingDriver(root, { failNavigation: [1, 2] });
+    const response = await inspectRenderedUi(
+      root,
+      ["http://127.0.0.1:3000/dashboard"],
+      options({ allowRun: true }),
+      REVISION
+    );
+    assert.equal(response.value.capture_status, "PARTIAL");
+    assert.equal(response.exitCode, 1);
+    assert.ok(!response.value.findings.some((finding) => finding.status === "PASS"));
+    // Partial evidence is retained honestly: the one good screenshot is still recorded.
+    assert.equal(response.value.viewports.filter((v) => v.status === "PASS").length, 1);
+    assert.ok(
+      response.value.artifacts.some((artifact) => artifact.endsWith("desktop-1280x800.png"))
+    );
+    assert.match(response.value.limitations.join(" "), /NOT_VERIFIED/u);
+  });
+});
+
+test("a screenshot failure degrades the run below COMPLETE", async () => {
+  await withTemporaryProject("rendered-ui-shot-fail", async (root) => {
+    await emptyProject(root);
+    await plantWorkingDriver(root, { failScreenshot: [2] });
+    const response = await inspectRenderedUi(
+      root,
+      ["http://127.0.0.1:3000/dashboard"],
+      options({ allowRun: true }),
+      REVISION
+    );
+    assert.equal(response.value.capture_status, "PARTIAL");
+    assert.notEqual(response.exitCode, 0);
+    assert.ok(!response.value.findings.some((finding) => finding.status === "PASS"));
+  });
+});
+
+test("a browser launch failure fails closed instead of reporting success", async () => {
+  await withTemporaryProject("rendered-ui-launch-fail", async (root) => {
+    await emptyProject(root);
+    await plantWorkingDriver(root, { launchError: "chromium binary missing" });
+    const response = await inspectRenderedUi(
+      root,
+      ["http://127.0.0.1:3000/dashboard"],
+      options({ allowRun: true }),
+      REVISION
+    );
+    assert.equal(response.value.capture_status, "FAILED");
+    assert.equal(response.exitCode, 1);
+    assert.ok(!response.value.findings.some((finding) => finding.status === "PASS"));
+  });
+});
+
+test("console errors on a complete capture produce a failing finding and exit 1", async () => {
+  await withTemporaryProject("rendered-ui-console-errors", async (root) => {
+    await emptyProject(root);
+    await plantWorkingDriver(root, {
+      console: [{ type: "error", text: "Uncaught TypeError: undefined is not a function" }]
+    });
+    const response = await inspectRenderedUi(
+      root,
+      ["http://127.0.0.1:3000/dashboard"],
+      options({ allowRun: true }),
+      REVISION
+    );
+    assert.equal(response.value.capture_status, "COMPLETE");
+    assert.equal(response.exitCode, 1);
+    assert.equal(response.value.console_errors, 1);
+    const finding = response.value.findings[0];
+    assert.ok(finding !== undefined);
+    assert.equal(finding.id, "FF-UI-CONSOLE-001");
+    assert.equal(finding.status, "FAIL");
+    assert.ok(!response.value.findings.some((entry) => entry.status === "PASS"));
+  });
+});
+
+test("secrets in console output never reach any evidence surface", async () => {
+  await withTemporaryProject("rendered-ui-secret-console", async (root) => {
+    await emptyProject(root);
+    const sentinel = "sentinel-console-00001111222233334444aaaa";
+    const pathSentinel = "sentinel-pageerror-0000111122223333bbbb";
+    await plantWorkingDriver(root, {
+      console: [
+        { type: "error", text: `request failed: Authorization: Bearer ${sentinel}` },
+        { type: "warning", text: `retrying http://127.0.0.1:3000/api?token=${sentinel}` }
+      ],
+      pageErrors: [`crash while reading api_key=${pathSentinel}`]
+    });
+    const response = await inspectRenderedUi(
+      root,
+      ["http://127.0.0.1:3000/dashboard"],
+      options({ allowRun: true }),
+      REVISION
+    );
+    const evidenceDir = join(root, response.value.evidence_dir ?? "");
+    const consoleText = await readFile(join(evidenceDir, "console.json"), "utf8");
+    const manifestText = await readFile(join(evidenceDir, "manifest.json"), "utf8");
+    const cliJson = JSON.stringify(response.value);
+
+    for (const [surface, content] of [
+      ["console.json", consoleText],
+      ["manifest.json", manifestText],
+      ["CLI JSON", cliJson]
+    ] as const) {
+      assert.ok(!content.includes(sentinel), `${surface} must not contain the bearer sentinel`);
+      assert.ok(!content.includes(pathSentinel), `${surface} must not contain the key sentinel`);
+    }
+    // The evidence stays diagnosable even after redaction.
+    assert.match(consoleText, /request failed/u);
+    assert.match(consoleText, /REDACTED/u);
+  });
+});
+
+test("the capture status in the manifest always matches the CLI result", async () => {
+  const specs: Array<[Record<string, unknown>, string]> = [
+    [{}, "COMPLETE"],
+    [{ failNavigation: [1, 2] }, "PARTIAL"],
+    [{ failNavigation: [0, 1, 2] }, "FAILED"]
+  ];
+  for (const [spec, expected] of specs) {
+    await withTemporaryProject(`rendered-ui-agree-${expected}`, async (root) => {
+      await emptyProject(root);
+      await plantWorkingDriver(root, spec);
+      const response = await inspectRenderedUi(
+        root,
+        ["http://127.0.0.1:3000/dashboard"],
+        options({ allowRun: true }),
+        REVISION
+      );
+      assert.equal(response.value.capture_status, expected);
+      const manifest = await readJson(
+        join(root, response.value.evidence_dir ?? "", "manifest.json")
+      );
+      assert.equal(manifest["capture_status"], expected);
+    });
+  }
 });

@@ -47,9 +47,18 @@ if (findings.length > 0) {
 
 function isExplicitlySynthetic(value, relative) {
   const normalized = value.toLowerCase();
+  // Redaction tests must embed credential-shaped values to prove the redactor removes them. Those
+  // values are exempt only where fixtures live and only when the value names itself as synthetic,
+  // so a genuine secret committed to a test still fails the scan.
+  // `build/` mirrors the sources, so the compiled copy of a test is judged like its origin.
+  const source = relative.startsWith("build/") ? relative.slice("build/".length) : relative;
+  const syntheticRoot =
+    source.startsWith("fixtures/") ||
+    source.startsWith("cli/tests/") ||
+    source.startsWith("scripts/tests/");
   return (
-    relative.startsWith("fixtures/") &&
-    ["fixture", "example", "fake", "placeholder", "test", "redacted"].some((word) =>
+    syntheticRoot &&
+    ["fixture", "example", "fake", "placeholder", "test", "redacted", "sentinel"].some((word) =>
       normalized.includes(word)
     )
   );
