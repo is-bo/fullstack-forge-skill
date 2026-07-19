@@ -98,6 +98,7 @@ framework=FastAPI; required adapter=fastapi-authorization-boundaries
 
 ## Release status
 
-This version is prepared and verified **locally**. Tag creation, CI across Linux, Windows, and
-macOS, release publication, published-asset checksums, and provenance attestations are recorded as
-`BLOCKED` in the verification record and have not been performed.
+Published as https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.3 from commit
+`0aab8ec`. CI passed on Linux, Windows, and macOS. All nine published archive checksums verify, the
+archives are byte-reproducible from source, contain no symlinks, and carry SLSA v1 build provenance
+bound to the tag. Installation was verified from the tag and from a published archive.

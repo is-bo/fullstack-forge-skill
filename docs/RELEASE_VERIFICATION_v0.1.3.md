@@ -1,7 +1,7 @@
 # Release verification — v0.1.3
 
-Status: **DRAFT — remote evidence BLOCKED.** Local verification is complete; every remote step is
-recorded as `BLOCKED` below and must not be read as `PASS`.
+Status: **COMPLETE.** Local and remote verification both finished. Every remote step below was
+executed and its evidence recorded directly.
 
 ## Baseline and scope
 
@@ -106,30 +106,65 @@ defect status after the refused fix  → FF-SEC-SQL-001 FAIL, FF-SEC-VALIDATION-
 The refused fix left both defects at `FAIL`. Under v0.1.2 both would have been rewritten to
 `BLOCKED`.
 
-## Remote verification — BLOCKED
+## Remote verification
 
-The following were **not performed**. They are `BLOCKED`, never `PASS`.
+| Step                         | Status | Evidence                                                                    |
+| ---------------------------- | ------ | --------------------------------------------------------------------------- |
+| Branch pushed                | PASS   | `fix/v0.1.3-correctness-audit`                                              |
+| Pull request                 | PASS   | https://github.com/thethunderbolt/fullstack-forge-skill/pull/10             |
+| Linux CI (PR)                | PASS   | Verify (ubuntu-latest), 1m31s                                               |
+| Windows CI (PR)              | PASS   | Verify (windows-latest), 2m48s                                              |
+| macOS CI (PR)                | PASS   | Verify (macos-latest), 1m3s                                                 |
+| Dependency review (PR)       | PASS   | 7s                                                                          |
+| Merge to `main`              | PASS   | merge commit `0aab8ec`                                                      |
+| Linux CI (main)              | PASS   | run 29675305109                                                             |
+| Windows CI (main)            | PASS   | run 29675305109                                                             |
+| macOS CI (main)              | PASS   | run 29675305109                                                             |
+| Annotated tag `v0.1.3`       | PASS   | created from `0aab8ec`; not moved or recreated                              |
+| Release workflow             | PASS   | run 29675398435, conclusion success                                         |
+| GitHub release               | PASS   | https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.3 |
+| Published assets             | PASS   | 11 assets: 9 ZIPs, `SHA256SUMS.txt`, `manifest.json`                        |
+| Published checksums          | PASS   | `sha256sum -c SHA256SUMS.txt` — 9/9 OK                                      |
+| Reproducibility              | PASS   | published sums byte-identical to a local rebuild from source                |
+| Symlinks / reparse points    | PASS   | 0 across all 9 published archives and the extracted tree                    |
+| Provenance attestation       | PASS   | SLSA v1, `release.yml@refs/tags/v0.1.3`, digest `0aab8ec`                   |
+| Install from tag             | PASS   | `npm install github:...#v0.1.3` → `forge --version` = 0.1.3                 |
+| Install from release archive | PASS   | `fullstack-forge-claude-v0.1.3.zip` extracted, 43 SKILL.md, 0 symlinks      |
 
-| Step                        | Status  | Reason                                  |
-| --------------------------- | ------- | --------------------------------------- |
-| Push branch to `origin`     | BLOCKED | Not performed in this pass.             |
-| Pull request                | BLOCKED | Not opened.                             |
-| Linux CI                    | BLOCKED | No workflow run exists for this branch. |
-| Windows CI                  | BLOCKED | No workflow run exists for this branch. |
-| macOS CI                    | BLOCKED | No workflow run exists for this branch. |
-| Release workflow            | BLOCKED | Not triggered.                          |
-| Annotated tag `v0.1.3`      | BLOCKED | Not created.                            |
-| GitHub release              | BLOCKED | Not published.                          |
-| Published release assets    | BLOCKED | No published assets exist to download.  |
-| Published-asset checksums   | BLOCKED | Depends on publication.                 |
-| Provenance attestations     | BLOCKED | Depends on the release workflow.        |
-| Install from release assets | BLOCKED | Depends on publication.                 |
-| Install from tag            | BLOCKED | Depends on the tag.                     |
+Packaging determinism was checked by running `npm run package:platforms` twice and comparing
+`SHA256SUMS.txt`: byte-identical.
 
-Additional constraint observed: the available GitHub token carries scopes `gist`, `read:org`, and
-`repo`. It does **not** carry `workflow`, so pushing changes that touch `.github/workflows/` would
-be rejected. No workflow file was modified in this pass, but this must be resolved before any
-release that changes CI definitions.
+### Corrected behaviour verified from the published release
+
+Installed from the tag into a clean directory, against a project containing an aliased SQL injection
+and a destructured SSRF flow:
+
+```
+FF-SEC-SQL-001         | FF-SEC-SQL-001:80b3eed33c64c2a0         | FAIL
+FF-SEC-SSRF-001        | FF-SEC-SSRF-001:5e3c6b6d9b97e6df        | FAIL
+FF-SEC-VALIDATION-001  | FF-SEC-VALIDATION-001:26d9750d953afb19  | FAIL
+```
+
+Neither the aliased SQL flow nor the destructured SSRF flow was detectable by v0.1.2.
+
+`forge security fix --root .` (no `--safe`) returned `status: BLOCKED`, `dry_run: true`,
+`changed_files: []`, and left all three defects at `FAIL`.
+
+Ship gates on the same ordinary application:
+
+```
+FF-GATE-PLATFORMS   NOT_APPLICABLE  Forge self-release check
+FF-GATE-ARCHIVES    NOT_APPLICABLE  Forge self-release check
+FF-GATE-PACKAGING   NOT_APPLICABLE  Forge self-release check
+FF-GATE-SMOKE       NOT_APPLICABLE  Forge self-release check
+FF-GATE-SECRETS     FAIL            FF-SEC-SQL-001; FF-SEC-SSRF-001; FF-SEC-VALIDATION-001
+FF-GATE-DEPENDENCIES NOT_VERIFIED   no command detected and no supply-chain evidence recorded
+FF-GATE-LICENSES    NOT_VERIFIED    no command detected and no supply-chain/docs evidence
+forge ship exit code 1
+```
+
+Under v0.1.2 the secret, dependency, and license gates would all have been `NOT_APPLICABLE` with
+`required: false`, so this application would have passed them without any evidence.
 
 Tags `v0.1.0`, `v0.1.1`, and `v0.1.2` were not moved, replaced, or modified.
 
