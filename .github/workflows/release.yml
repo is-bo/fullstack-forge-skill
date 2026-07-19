@@ -92,10 +92,8 @@ jobs:
             exit 1
           fi
       - name: Generate checksummed final release evidence
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          release_url="$(gh release view "$GITHUB_REF_NAME" --json url --jq .url)"
+          release_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
           mkdir release-evidence
           node scripts/generate-final-verification.mjs \
             --tag "$GITHUB_REF_NAME" \

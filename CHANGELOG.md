@@ -5,6 +5,11 @@ versioning.
 
 ## [Unreleased]
 
+- Use the canonical tag release URL in post-tag evidence instead of GitHub's temporary draft URL.
+- Update both CodeQL v4 steps together to the verified v4.37.1 commit.
+- Add the completed v0.1.4 post-release verification record; the immutable tag and release remain
+  unchanged.
+
 ## [0.1.4] - 2026-07-19
 
 Security-correctness and release-integrity patch. The supplied defects were independently reproduced

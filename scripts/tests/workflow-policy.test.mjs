@@ -26,4 +26,5 @@ test("workflow policy rejects mutable actions and clobbering", () => {
   assert.ok(errors.some((error) => error.includes("pull_request_target")));
   assert.ok(errors.some((error) => error.includes("full commit SHA")));
   assert.ok(errors.some((error) => error.includes("clobbering")));
+  assert.ok(errors.some((error) => error.includes("canonical post-publication release URL")));
 });
