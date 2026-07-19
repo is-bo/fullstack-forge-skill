@@ -202,11 +202,13 @@ test("offline mode aborts every non-loopback request before it reaches the netwo
             "wss://live.example.com/socket" // remote websocket
         ]
     }, { offline: true });
-    const remote = record.reachedNetwork.filter((url) => !url.includes("127.0.0.1"));
+    // Compare parsed hostnames, never substrings: "evil.com/?x=127.0.0.1" contains the loopback text.
+    const hostOf = (raw) => new URL(raw).hostname;
+    const remote = record.reachedNetwork.filter((url) => hostOf(url) !== "127.0.0.1");
     assert.deepEqual(remote, [], "no non-loopback destination may reach the network layer");
     // Each of the three viewports renavigates, so every remote request is aborted on every pass.
     assert.equal(record.aborted.length, 21, "every remote request is aborted on every navigation");
-    assert.ok(record.allowed.every((url) => url.includes("127.0.0.1")));
+    assert.ok(record.allowed.every((url) => hostOf(url) === "127.0.0.1"));
     assert.equal(outcome.blocked_requests.length, 7);
     // Blocked resources mean the page did not render completely.
     assert.equal(outcome.capture_status, "PARTIAL");
@@ -217,7 +219,7 @@ test("offline mode blocks a redirect to a public hostname", async () => {
         requests: ["https://evil.example.com/landing"],
         finalUrl: "https://evil.example.com/landing"
     }, { offline: true });
-    assert.deepEqual(record.reachedNetwork.filter((url) => url.includes("evil.example.com")), []);
+    assert.ok(!record.reachedNetwork.includes("https://evil.example.com/landing"), "the redirect destination must never reach the network layer");
     assert.equal(outcome.blocked_requests.length, 1);
     const [redirectBlock] = outcome.blocked_requests;
     assert.ok(redirectBlock !== undefined);
@@ -229,8 +231,11 @@ test("blocked request URLs are redacted before they are recorded", async () => {
     const serialized = JSON.stringify(outcome);
     assert.ok(!serialized.includes(sentinel), "no raw secret may enter blocked-request evidence");
     assert.equal(outcome.blocked_requests.length, 1);
-    // The destination stays identifiable without its secrets.
-    assert.match(outcome.blocked_requests[0]?.url ?? "", /api\.example\.com/u);
+    // The destination stays identifiable without its secrets. Compare the parsed host rather than a
+    // substring, which would also match an attacker-controlled URL that merely embeds the name.
+    const [secretBlock] = outcome.blocked_requests;
+    assert.ok(secretBlock !== undefined);
+    assert.equal(new URL(secretBlock.url).hostname, "api.example.com");
 });
 test("offline mode installs the websocket guard and records transport limitations", async () => {
     const { outcome, record } = await capture({}, { offline: true });
