@@ -8,4 +8,5 @@ export const STATUSES = [
 ];
 export const SEVERITIES = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"];
 export const CONFIDENCES = ["HIGH", "MEDIUM", "LOW"];
+export const FIX_ATTEMPT_STATUSES = ["PLANNED", "APPLIED", "BLOCKED", "ROLLED_BACK"];
 //# sourceMappingURL=types.js.map

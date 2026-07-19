@@ -49,7 +49,7 @@ export async function verifyFindings(
     const statuses: Status[] = [];
     for (const action of actions) {
       statuses.push(
-        await executeAction(action, finding, root, commands, options.allowRun, execution)
+        await executeAction(action, finding, root, commands, options, execution)
       );
     }
     finding.status = combineStatuses(statuses);
@@ -74,12 +74,26 @@ async function executeAction(
   finding: Finding,
   root: string,
   commands: Awaited<ReturnType<typeof detectProjectCommands>>,
-  allowRun: boolean,
+  options: { allowRun: boolean; dryRun: boolean },
   execution: ExecutionRecord[]
 ): Promise<Status> {
+  const { allowRun, dryRun } = options;
   if (action.type === "analyzer") {
-    const run = await runNamedAnalyzer(action.analyzer_id, root);
-    const reproduced = run.findings.find((candidate) => candidate.id === action.finding_id);
+    // Re-analysis is scoped to the paths the original evidence came from, so an unrelated
+    // occurrence of the same rule elsewhere cannot re-fail a resolved instance.
+    const scopePaths =
+      action.scope_paths ??
+      finding.evidence_snapshot?.map((snapshot) => snapshot.path) ??
+      finding.location.map((location) => location.path);
+    const run =
+      scopePaths.length > 0
+        ? await runNamedAnalyzer(action.analyzer_id, root, new Set(scopePaths))
+        : await runNamedAnalyzer(action.analyzer_id, root);
+    const reproduced = run.findings.find((candidate) =>
+      action.instance_id === undefined
+        ? candidate.id === action.finding_id
+        : candidate.instance_id === action.instance_id
+    );
     if (reproduced !== undefined) {
       finding.evidence.push(
         `${utcNow()}: ${action.analyzer_id} reproduced ${action.finding_id}: ${reproduced.evidence.join("; ")}`
@@ -129,6 +143,14 @@ async function executeAction(
       `${utcNow()}: project command '${action.command}' requires explicit --allow-run after review.`
     );
     return "BLOCKED";
+  }
+  if (dryRun) {
+    // A dry run must never execute anything, even when execution is authorized. It reports the
+    // command that would have run and leaves the finding unverified.
+    finding.evidence.push(
+      `${utcNow()}: dry run planned '${command.executable} ${command.args.join(" ")}' but executed nothing.`
+    );
+    return "NOT_VERIFIED";
   }
   const started = Date.now();
   const startedAt = utcNow();

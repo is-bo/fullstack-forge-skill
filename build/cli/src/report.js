@@ -153,7 +153,11 @@ function renderFinding(finding) {
 function deduplicateFindings(findings) {
     const byKey = new Map();
     for (const finding of findings) {
-        const key = `${finding.section}\u0000${finding.title}\u0000${finding.recommendation}`;
+        // Machine-readable findings preserve instance-level state. A finding carrying an
+        // instance identity merges only with the same instance; legacy
+        // findings without one keep the previous section/title/recommendation key.
+        const key = finding.instance_id ??
+            `${finding.section}\u0000${finding.title}\u0000${finding.recommendation}`;
         const current = byKey.get(key);
         if (current === undefined) {
             byKey.set(key, structuredClone(finding));

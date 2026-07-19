@@ -9,12 +9,25 @@ export type ShipGate = {
     status: GateStatus;
     evidence: string[];
 };
+/**
+ * Gate applicability classes.
+ *  - `forge-self`: Fullstack Forge release self-checks. Only meaningful when auditing this
+ *    repository; NOT_APPLICABLE elsewhere.
+ *  - `audited-application`: checks every audited project must satisfy. Never disabled merely
+ *    because a Forge-specific script is absent.
+ *  - `project-native`: commands detected in the audited project. These supplement the
+ *    audited-application gates; they never replace them.
+ */
+export type GateApplicability = "forge-self" | "audited-application" | "project-native";
 export type GateDefinition = {
     gate_id: string;
     name: string;
     category: ShipGate["category"];
+    applicability: GateApplicability;
     required: boolean;
     command?: string;
+    /** Finding sections that can satisfy this gate from audit evidence when no command exists. */
+    evidence_sections?: string[];
 };
 export declare const FORGE_GATE_REGISTRY: readonly GateDefinition[];
 export type ShipGateResult = {

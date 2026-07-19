@@ -1,4 +1,4 @@
-import { CONFIDENCES, SEVERITIES, STATUSES } from "./types.js";
+import { CONFIDENCES, FIX_ATTEMPT_STATUSES, SEVERITIES, STATUSES } from "./types.js";
 export function validateFinding(value) {
     const errors = [];
     if (!isRecord(value))
@@ -59,6 +59,27 @@ export function validateFinding(value) {
     if ("analyzer_id" in value &&
         (typeof value.analyzer_id !== "string" || value.analyzer_id.length === 0))
         errors.push("analyzer_id must be a non-empty string");
+    if ("instance_id" in value) {
+        if (typeof value.instance_id !== "string" || !/^FF-[A-Z0-9-]+-[0-9]{3,}:[a-f0-9]{8,}$/u.test(value.instance_id))
+            errors.push("instance_id must match <rule id>:<hex digest>");
+        else if (typeof value.id === "string" && !value.instance_id.startsWith(`${value.id}:`))
+            errors.push("instance_id must be prefixed by its rule id");
+    }
+    if ("fix_attempts" in value) {
+        if (!Array.isArray(value.fix_attempts))
+            errors.push("fix_attempts must be an array");
+        else {
+            for (const [index, attempt] of value.fix_attempts.entries()) {
+                if (!isRecord(attempt) ||
+                    !FIX_ATTEMPT_STATUSES.includes(attempt.status) ||
+                    typeof attempt.reason !== "string" ||
+                    attempt.reason.length === 0 ||
+                    typeof attempt.attempted_at !== "string") {
+                    errors.push(`fix_attempts[${index}] must contain status, reason, and attempted_at`);
+                }
+            }
+        }
+    }
     if ("trace" in value) {
         if (!Array.isArray(value.trace))
             errors.push("trace must be an array");

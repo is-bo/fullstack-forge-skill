@@ -12,6 +12,7 @@ import {
   assertNoSymlinkPath,
   canonicalDirectory,
   readTextIfPresent,
+  runFile,
   toPosix,
   utcNow,
   walkFiles
@@ -524,20 +525,36 @@ async function buildStructuredProfile(
   const manifests = await loadPackageManifests(root, files);
   const repositoryName =
     manifests.find((manifest) => manifest.path === "package.json")?.name ?? basename(root);
+  // `.git` is excluded from the walked file set, so it can never appear in `relativeFiles`.
+  // Ask Git directly instead of testing a path that is guaranteed absent.
+  const insideWorkTree = await isInsideGitWorkTree(root);
   const repository: ProfileRecord = record(repositoryName, "git-repository", {
     root: ".",
-    confidence: relativeFiles.some((path) => path.startsWith(".git/")) ? "HIGH" : "MEDIUM",
-    evidence: [relativeFiles.includes("package.json") ? "package.json" : "repository root"]
+    confidence: insideWorkTree ? "HIGH" : "MEDIUM",
+    evidence: [
+      insideWorkTree
+        ? "git rev-parse --is-inside-work-tree"
+        : relativeFiles.includes("package.json")
+          ? "package.json"
+          : "repository root"
+    ]
   });
+  const declaredWorkspaces = await loadDeclaredWorkspaces(root, manifests);
   const workspaces = manifests
     .filter((manifest) => manifest.path !== "package.json")
-    .map((manifest) =>
-      record(manifest.name, "package-workspace", {
+    .map((manifest) => {
+      const declaration = declaredWorkspaces.get(manifest.directory);
+      // An undeclared nested manifest (a fixture, an example, a vendored sample) is not an
+      // active workspace. It is still reported, at reduced confidence, as a candidate only.
+      return record(manifest.name, declaration === undefined ? "nested-package" : "package-workspace", {
         root: manifest.directory,
-        confidence: "HIGH",
-        evidence: [manifest.path]
-      })
-    );
+        confidence: declaration === undefined ? "LOW" : "HIGH",
+        evidence:
+          declaration === undefined
+            ? [manifest.path, "not declared by any root workspace configuration"]
+            : [manifest.path, declaration]
+      });
+    });
   const applications = manifests.map((manifest) => applicationRecord(manifest));
   const languages = languageRecords(root, files);
   const frameworks = capabilityRecords(capabilities, [
@@ -672,6 +689,88 @@ type PackageManifestRecord = {
   name: string;
   manifest: Record<string, unknown>;
 };
+
+async function isInsideGitWorkTree(root: string): Promise<boolean> {
+  try {
+    const result = await runFile("git", ["rev-parse", "--is-inside-work-tree"], root, 10_000);
+    return result.exitCode === 0 && result.stdout.trim() === "true";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolves workspace directories declared by the root project. Supports npm/yarn/bun
+ * `package.json` workspaces, pnpm-workspace.yaml, lerna.json, nx.json, and turbo.json.
+ * Returns a map of workspace directory to the evidence that declared it.
+ */
+async function loadDeclaredWorkspaces(
+  root: string,
+  manifests: PackageManifestRecord[]
+): Promise<Map<string, string>> {
+  const declared = new Map<string, string>();
+  const patterns: Array<{ pattern: string; evidence: string }> = [];
+  const rootManifest = manifests.find((manifest) => manifest.path === "package.json");
+  const rootWorkspaces = rootManifest?.manifest.workspaces;
+  const rootPatterns = Array.isArray(rootWorkspaces)
+    ? rootWorkspaces
+    : isRecord(rootWorkspaces) && Array.isArray(rootWorkspaces.packages)
+      ? rootWorkspaces.packages
+      : [];
+  for (const pattern of rootPatterns)
+    if (typeof pattern === "string") patterns.push({ pattern, evidence: "package.json workspaces" });
+
+  const pnpm = await readTextIfPresent(join(root, "pnpm-workspace.yaml"));
+  if (pnpm !== undefined) {
+    for (const match of pnpm.matchAll(/^\s*-\s*["']?([^"'\n#]+?)["']?\s*$/gmu))
+      patterns.push({ pattern: (match[1] ?? "").trim(), evidence: "pnpm-workspace.yaml" });
+  }
+  for (const [file, key] of [
+    ["lerna.json", "packages"],
+    ["nx.json", "projects"],
+    ["turbo.json", "workspaces"]
+  ] as const) {
+    const content = await readTextIfPresent(join(root, file));
+    if (content === undefined) continue;
+    try {
+      const parsed = JSON.parse(content) as unknown;
+      if (!isRecord(parsed)) continue;
+      const values = parsed[key];
+      if (Array.isArray(values))
+        for (const value of values)
+          if (typeof value === "string") patterns.push({ pattern: value, evidence: file });
+      else if (isRecord(values))
+        for (const value of Object.keys(values)) patterns.push({ pattern: value, evidence: file });
+    } catch {
+      // A malformed workspace declaration is evidence for other analyzers, not a crash here.
+    }
+  }
+
+  for (const manifest of manifests) {
+    if (manifest.directory === ".") continue;
+    for (const { pattern, evidence } of patterns) {
+      if (matchesWorkspacePattern(manifest.directory, pattern)) {
+        declared.set(manifest.directory, `declared by ${evidence} pattern '${pattern}'`);
+        break;
+      }
+    }
+  }
+  return declared;
+}
+
+function matchesWorkspacePattern(directory: string, pattern: string): boolean {
+  const normalized = pattern.replace(/^\.\//u, "").replace(/\/+$/u, "");
+  if (normalized.length === 0) return false;
+  const expression = normalized
+    .split("/")
+    .map((segment) =>
+      segment === "**"
+        ? "[^\\0]*"
+        : segment.replace(/[.+^${}()|[\]\\]/gu, "\\$&").replace(/\*/gu, "[^/]*")
+    )
+    .join("/");
+  return new RegExp(`^${expression}$`, "u").test(directory);
+}
 
 async function loadPackageManifests(
   root: string,

@@ -114,6 +114,7 @@ async function runModule(section, mode, options) {
     if (mode === "fix") {
         const response = await executeFixes(root, section, {
             dryRun: options.dryRun,
+            safe: options.safe,
             allowRun: options.allowRun,
             ...(options.severity === undefined ? {} : { severity: options.severity })
         });
@@ -474,7 +475,7 @@ Options:
   --json          Emit machine-readable JSON
   --offline       Do not opt into network-dependent behavior
   --allow-run     Explicitly authorize inspected local project scripts
-  --safe          Restrict fix planning to safe-fix classifications
+  --safe          Authorize execution of bounded safe fixes; without it 'fix' only plans
 
 Audit never treats missing evidence as PASS. See 'forge list' for modules and tools.`);
 }
