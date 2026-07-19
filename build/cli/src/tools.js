@@ -6,7 +6,7 @@ import { assertFindings, validateFinding } from "./finding.js";
 import { inspectWithTool } from "./inspectors.js";
 import { inspectRenderedUi } from "./rendered-ui.js";
 import { createReport, writeReport } from "./report.js";
-import { canonicalDirectory, resolveInside, runFile } from "./utils.js";
+import { canonicalDirectory, resolveInside, runFile, workingTreeRevision } from "./utils.js";
 export async function runTool(nameInput, args, options) {
     if (!isToolName(nameInput))
         throw new Error(`Unknown tool '${nameInput}'. Run 'forge list' for valid tools.`);
@@ -52,7 +52,7 @@ export async function runTool(nameInput, args, options) {
         return { value: { command, ...execution }, exitCode: execution.exitCode };
     }
     if (nameInput === "inspect-rendered-ui") {
-        return inspectRenderedUi(root, args, options);
+        return inspectRenderedUi(root, args, options, await workingTreeRevision(root));
     }
     if (isInspectionTool(nameInput)) {
         const inspection = await inspectWithTool(nameInput, root);

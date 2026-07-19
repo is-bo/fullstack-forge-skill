@@ -138,8 +138,15 @@ function resolveExpression(
     if (base.origin !== undefined) return appendStep(base, `property access ${text}`);
     const selector = expression.argumentExpression;
     const selected = resolveExpression(selector, sourceFile, index, states);
-    if (selected.origin === undefined || !isServerOwnedAllowlist(expression.expression, sourceFile))
-      return emptyState();
+    if (selected.origin === undefined) return emptyState();
+    if (!isFixedServerOwnedMap(expression.expression, index, states)) {
+      // The request controls the key of a map this engine cannot prove is fixed and server-owned,
+      // so the resulting value stays request-controlled and unprotected.
+      return appendStep(
+        selected,
+        `selected from unproven map ${expression.expression.getText(sourceFile)}`
+      );
+    }
     const producer = expression.expression.getText(sourceFile);
     return {
       origin: {
@@ -409,24 +416,79 @@ function classifyProtections(
     values.push(protection("encoded", "csv", target, expression));
   if (/(?:allowlist|assertAllowed|requireAllowed|allowedValue|\.enum|oneOf)/iu.test(target))
     values.push(protection("allowlisted", "value", target, expression));
-  if (
-    /(?:resolveAllowedDestination|allowedDestination|trustedDestination|mapDestination)/iu.test(
-      target
-    )
-  ) {
-    values.push(protection("allowlisted", "destination", target, expression));
-    values.push(protection("trusted-origin", "network", target, expression));
-    values.push(protection("network-constrained", "network", target, expression));
-  }
+  // Deliberately absent: no network or destination protection is granted from a callee name.
+  // A function called `mapDestination`, `trustedDestination`, or `resolveAllowedDestination` may be
+  // a no-op that returns its argument unchanged. Names are discovery hints, never proof; the only
+  // supported destination proof is a structurally verified fixed server-owned map (see
+  // `isFixedServerOwnedMap`) or a connected dominating guard checked at the sink.
   return values;
 }
 
-function isServerOwnedAllowlist(node: ts.Expression, sourceFile: ts.SourceFile): boolean {
-  const text = node.getText(sourceFile);
-  return (
-    /(?:allowlist|allowed|trusted|destinations?|redirects?|routes?)/iu.test(text) ||
-    /^[A-Z][A-Z0-9_]*$/u.test(text)
-  );
+/**
+ * Structural proof that an element access reads from a fixed, server-owned destination map.
+ *
+ * Requires the base identifier to resolve, in this file, to a `const` declaration initialized with
+ * an object literal whose every value is a fixed absolute http(s) URL literal. Under those
+ * conditions the request can influence only the lookup key, never the resulting URL. Nothing about
+ * the identifier's *name* contributes to the decision, and an unresolvable or non-literal map
+ * yields no protection rather than an assumed-safe one.
+ */
+function isFixedServerOwnedMap(
+  node: ts.Expression,
+  index: BindingIndex,
+  states: Map<Binding, ValueState>
+): boolean {
+  const expression = unwrap(node);
+  if (!ts.isIdentifier(expression)) return false;
+  const binding = resolveBinding(expression, index);
+  if (binding === undefined) return false;
+  // A map that ever received request-controlled data cannot constrain anything.
+  if (states.get(binding)?.origin !== undefined) return false;
+
+  const declaration = binding.declaration.parent;
+  if (!ts.isVariableDeclaration(declaration)) return false;
+  const list = declaration.parent;
+  if (!ts.isVariableDeclarationList(list)) return false;
+  if ((list.flags & ts.NodeFlags.Const) === 0) return false;
+
+  const initializer = declaration.initializer;
+  if (initializer === undefined) return false;
+  const literal = unwrapAssertions(initializer);
+  if (!ts.isObjectLiteralExpression(literal)) return false;
+  if (literal.properties.length === 0) return false;
+
+  return literal.properties.every((property) => {
+    if (!ts.isPropertyAssignment(property)) return false;
+    const value = unwrapAssertions(property.initializer);
+    if (!ts.isStringLiteral(value) && !ts.isNoSubstitutionTemplateLiteral(value)) return false;
+    return isFixedHttpUrl(value.text);
+  });
+}
+
+function unwrapAssertions(node: ts.Expression): ts.Expression {
+  let current: ts.Expression = node;
+  while (
+    ts.isAsExpression(current) ||
+    ts.isTypeAssertionExpression(current) ||
+    ts.isParenthesizedExpression(current) ||
+    ts.isSatisfiesExpression(current)
+  ) {
+    current = current.expression;
+  }
+  return current;
+}
+
+function isFixedHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return (
+      (parsed.protocol === "https:" || parsed.protocol === "http:") &&
+      parsed.username === "" &&
+      parsed.password === ""
+    );
+  } catch {
+    return false;
+  }
 }
 
 function protection(

@@ -5,6 +5,52 @@ versioning.
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-07-19
+
+Trust-boundary and honest-evidence patch. Four defects were independently reproduced against v0.1.4
+before remediation: a dead `--offline` flag, unauthorized execution of audited-project code through
+browser-driver import, name-based SSRF protection proof, and rendered evidence that overwrote itself
+on every run.
+
+### Fixed
+
+- `--offline` is now enforced rather than parsed and discarded. It refuses non-loopback destinations
+  before DNS resolution is attempted, refuses audited-project browser-driver resolution, and reports
+  network-dependent checks as `BLOCKED`/`NOT_VERIFIED` instead of `PASS`. The flag is recorded in
+  the report environment ledger and in every evidence manifest.
+- Rendered-UI inspection no longer imports browser tooling from the audited project by default.
+  Importing a package executes its top-level code, so a hostile repository could previously run
+  arbitrary code inside the auditor's process — including under `--dry-run` and for loopback URLs
+  with no `--allow-run`. Drivers are now resolved from the Fullstack Forge package root first; the
+  audited project's copy requires explicit `--allow-run`, real-path containment inside the audited
+  repository, and is refused under `--offline`. `--dry-run` resolves, imports, and launches nothing.
+- SSRF protection is no longer granted from identifier names. `mapDestination`,
+  `trustedDestination`, `resolveAllowedDestination`, `assertAllowed`, uppercase constants, and
+  request-owned objects named `ALLOWED_DESTINATIONS` or `TRUSTED` no longer suppress a finding.
+  Destination proof now requires a `const` declaration initialized with an object literal whose
+  every value is a fixed absolute http(s) URL literal, or a dominating guard bound to the same
+  tainted value as the sink.
+- Rendered evidence is written per revision, run, and route instead of to fixed filenames, so
+  multiple routes and repeated runs no longer destroy one another. Manifests record the revision,
+  redacted source and final URL, redirect state, viewport dimensions, driver identity and version,
+  per-screenshot SHA-256 hashes, console-output hash, authorization state, offline state, and
+  limitations from partial captures. URL credentials are rejected and query values are redacted
+  before reaching any artifact or directory name; partial browser failures preserve honest partial
+  evidence and always close the browser.
+
+### Added
+
+- An `environment` ledger in the report schema recording operating system, platform, architecture,
+  Node version, Forge version, offline mode, and execution authorization. The field is optional, so
+  v0.1.3 and v0.1.4 reports continue to load and render, stating the absence rather than
+  back-filling it.
+- `npm run check:install-docs`, which fails the build when documentation presents the unpublished
+  npm registry installation as currently usable.
+
+### Changed
+
+- The README now leads with the Git-tag installation that works today. The registry form is retained
+  only under an explicit "after npm registry publication" heading and marked NOT YET AVAILABLE.
 - Use the canonical tag release URL in post-tag evidence instead of GitHub's temporary draft URL.
 - Update both CodeQL v4 steps together to the verified v4.37.1 commit.
 - Add the completed v0.1.4 post-release verification record; the immutable tag and release remain

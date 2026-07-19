@@ -69,7 +69,7 @@ left in place on uninstall. Modified owned files are preserved and reported.
 - `--json`: machine-readable output.
 - `--dry-run`: plan supported writes/removals without changing files.
 - `--global`: user-level installation target.
-- `--offline`: assert offline intent; package smoke installation is local/offline.
+- `--offline`: enforce the offline contract (see below); it is not advisory.
 - `--allow-run`: explicit authorization for reviewed local project scripts.
 - `--safe`: restrict fix planning to safe classifications; never expands mutation authority.
 - `--base <ref>`: validated Git base reference for a changed-scope audit.
@@ -77,6 +77,57 @@ left in place on uninstall. Modified owned files are preserved and reported.
 
 Unknown flags, platforms, modules, tools, modes, escaping paths, and symlinked destinations fail
 closed.
+
+## The `--offline` contract
+
+`--offline` changes behavior; it is never silently ignored. Under `--offline` Fullstack Forge:
+
+- refuses HTTP and HTTPS requests to any non-loopback destination, before DNS resolution is
+  attempted, so a blocked remote URL produces no network side effect at all;
+- refuses to resolve a browser driver from the audited project, because resolution can trigger
+  installation or a registry lookup;
+- reports every network-dependent check as `BLOCKED`, and the criteria it would have covered as
+  `NOT_VERIFIED` — never as `PASS`;
+- records `offline: true` in the report environment ledger and in rendered-evidence manifests.
+
+Offline mode remains fully compatible with static analysis, local report generation, local
+verification, installation from bundled assets, and loopback UI inspection when a trusted browser
+driver is already available locally.
+
+## Browser-driver trust
+
+Importing a package executes its top-level code, so importing browser tooling from an audited
+repository would run that repository's code inside the auditor's process. Fullstack Forge therefore:
+
+- prefers a Fullstack Forge-owned driver resolved from the tool's own package root;
+- never imports the audited project's driver by default;
+- uses the audited project's driver only under explicit `--allow-run`, only after the resolved real
+  path is proven to lie inside the audited repository (defeating symlink and path-escape
+  redirection), and never under `--offline`;
+- records the resolved package, version, real path, trust domain, and whether it was trusted in the
+  evidence manifest;
+- resolves, imports, and launches nothing at all under `--dry-run`.
+
+## Rendered-evidence layout
+
+Rendered-UI evidence is written per revision, per run, and per route so no capture overwrites
+another:
+
+```text
+.forge/evidence/ui/<revision>/<run-id>/<route-id>/
+  desktop-1280x800.png
+  tablet-768x1024.png
+  mobile-375x812.png
+  console.json
+  manifest.json
+```
+
+The route identifier combines a sanitized single path segment with a hash of the normalized URL, so
+query strings, fragments, and traversal sequences cannot influence the directory layout. URL
+credentials are rejected outright, and query values are redacted to `[REDACTED]` in every artifact.
+The manifest records the revision, timestamp, redacted source and final URL, redirect state,
+viewport dimensions, driver identity, per-screenshot SHA-256 hashes, the console-output hash,
+authorization state, offline state, and any limitations from a partial capture.
 
 ## Tools
 
