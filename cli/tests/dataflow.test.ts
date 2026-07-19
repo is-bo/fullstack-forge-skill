@@ -147,3 +147,52 @@ const record = prisma.record.findUnique({ where: { id: req.params.id } });
     "naming a string 'owner policy' is not a sanitizer"
   );
 });
+
+test("Array.prototype.find is not treated as a database query sink", async () => {
+  const ids = await securityIds(
+    "sink-array-find",
+    "registry.ts",
+    `const DEFINITIONS = [];
+export function locate(finding) {
+  const definition = DEFINITIONS.find((candidate) => candidate.matches(finding));
+  const action = finding.plan?.actions.find((candidate) => candidate.type === "analyzer");
+  return [definition, action];
+}
+`
+  );
+  assert.ok(
+    !ids.has("FF-QUERY-N1-001"),
+    "searching an in-memory array must not be reported as an N+1 database query"
+  );
+  assert.ok(!ids.has("FF-TENANT-SCOPE-001"), "an array search has no tenant scope to enforce");
+});
+
+test("a genuine ORM query on a database receiver is still detected", async () => {
+  const ids = await securityIds(
+    "sink-orm-find",
+    "orders.ts",
+    `export async function list(req, db) {
+  return db.orders.find({ id: req.params.id });
+}
+`
+  );
+  assert.ok(
+    ids.size > 0,
+    "narrowing ambiguous receivers must not blind the analyzer to real ORM calls"
+  );
+});
+
+test("Object.assign is not treated as a model write sink", async () => {
+  const ids = await securityIds(
+    "sink-object-assign",
+    "merge.ts",
+    `export function merge(req, target) {
+  return Object.assign(target, req.body);
+}
+`
+  );
+  assert.ok(
+    !ids.has("FF-SEC-MASS-ASSIGN-001"),
+    "Object.assign onto a local object is not a persistence boundary"
+  );
+});

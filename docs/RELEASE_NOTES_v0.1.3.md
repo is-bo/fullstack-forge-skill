@@ -94,7 +94,7 @@ framework=FastAPI; required adapter=fastapi-authorization-boundaries
 
 ## Tests
 
-161 tests, all passing, up from 117 at v0.1.2. No existing test was removed or weakened.
+164 tests, all passing, up from 117 at v0.1.2. No existing test was removed or weakened.
 
 ## Release status
 

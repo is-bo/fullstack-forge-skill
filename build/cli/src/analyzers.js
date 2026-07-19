@@ -581,7 +581,22 @@ function isSqlSink(name) {
     return /(?:^|\.)(?:query|execute|raw|\$queryRawUnsafe|\$executeRawUnsafe)$/u.test(name);
 }
 function isNoSqlSink(name) {
-    return /(?:^|\.)(?:find|findOne|findMany|aggregate|updateMany|deleteMany)$/u.test(name);
+    // Unambiguous ORM/driver methods: the name alone identifies a data-access call.
+    if (/(?:^|\.)(?:findMany|aggregate|updateMany|deleteMany)$/u.test(name))
+        return true;
+    // `find` and `findOne` collide with Array.prototype.find and similar collection helpers, so
+    // they only count as query sinks when the receiver looks like a data accessor. Without this
+    // the analyzer reports every array search as a database query.
+    return /(?:^|\.)(?:find|findOne)$/u.test(name) && hasDataAccessReceiver(name);
+}
+/** Receiver vocabulary that indicates a database, ORM, collection, or repository handle. */
+function hasDataAccessReceiver(name) {
+    const segments = name.split(".");
+    if (segments.length < 2)
+        return false;
+    return segments
+        .slice(0, -1)
+        .some((segment) => /^(?:db|database|prisma|knex|sequelize|mongoose|mongo|client|conn|connection|pool|collection|repository|repo|models?|table|store|dataSource|entityManager|em|orm|tx|trx|session)$/iu.test(segment) || /(?:Repository|Collection|Model|Table|Store|Dao)$/u.test(segment));
 }
 function isQuerySink(name) {
     return (isSqlSink(name) || isNoSqlSink(name) || /(?:^|\.)(?:findUnique|findFirst|findById)$/u.test(name));
@@ -613,7 +628,12 @@ function isDeserializationSink(name) {
     return /(?:^|\.)load$/u.test(name) && /yaml/iu.test(name);
 }
 function isModelWriteSink(name) {
-    return /(?:^|\.)(?:create|update|updateOne|insertOne|insert|save|assign)$/u.test(name);
+    // Unambiguous persistence methods.
+    if (/(?:^|\.)(?:updateOne|insertOne)$/u.test(name))
+        return true;
+    // `create`, `update`, `insert`, `save`, and `assign` are common on non-persistence objects
+    // (Object.assign, factory helpers), so they require a data-access receiver.
+    return /(?:^|\.)(?:create|update|insert|save|assign)$/u.test(name) && hasDataAccessReceiver(name);
 }
 function referencesWholeRequestBody(argument, sourceFile) {
     let found = false;

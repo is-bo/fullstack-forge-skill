@@ -54,7 +54,7 @@ against source before any change; twelve confirmed, two narrowed to partially co
 
 - `docs/RELEASE_VERIFICATION_v0.1.2.md` was never committed; v0.1.2 shipped without a verification
   record. This is documented rather than backdated.
-- Test total moved from 117 to 161 with no existing test removed or weakened.
+- Test total moved from 117 to 164 with no existing test removed or weakened.
 
 ## [0.1.2] - 2026-07-19
 
