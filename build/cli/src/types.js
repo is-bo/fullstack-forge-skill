@@ -22,4 +22,25 @@ export const GATE_EVIDENCE_TYPES = [
     "project-test",
     "release-artifact-validation"
 ];
+/**
+ * Module applicability is deliberately expressed as two independent axes.
+ *
+ * `capability_status` answers "does this capability exist in the project at all?" and is the ONLY
+ * axis that may justify NOT_APPLICABLE. `selection_status` answers "did this run audit it?" and
+ * never proves absence: a module skipped because its files did not change, or because a risk
+ * filter narrowed the run, is unaudited — not inapplicable.
+ */
+export const MODULE_CAPABILITY_STATUSES = ["PRESENT", "ABSENT", "UNKNOWN"];
+export const MODULE_SELECTION_STATUSES = [
+    "SELECTED",
+    "OUT_OF_CHANGED_SCOPE",
+    "EXCLUDED_BY_RISK",
+    "NOT_REQUESTED"
+];
+export const PLANNED_CHECK_STATUSES = ["RUN", "NOT_RUN", "BLOCKED", "NOT_APPLICABLE"];
+export const NETWORK_POLICIES = ["OFFLINE_SAFE", "NETWORK_REQUIRED", "UNKNOWN"];
+export const RUNTIME_EVIDENCE_STATUSES = ["PASS", "FAIL", "BLOCKED", "NOT_VERIFIED"];
+export const TOOL_OWNERSHIPS = ["forge-owned", "project-owned", "external"];
+export const TOOL_TRUST_LEVELS = ["trusted", "untrusted", "unknown"];
+export const TOOL_VERSION_SOURCES = ["observed", "declared", "unknown"];
 //# sourceMappingURL=types.js.map
