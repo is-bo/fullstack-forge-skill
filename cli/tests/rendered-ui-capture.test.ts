@@ -342,9 +342,10 @@ test("online mode intercepts nothing and reaches every destination", async () =>
     requests: ["https://cdn.example.com/analytics.js"]
   });
   assert.equal(outcome.blocked_requests.length, 0);
+  // One request per viewport navigation, all of them allowed through.
   assert.equal(
     record.reachedNetwork.filter((raw) => new URL(raw).hostname === "cdn.example.com").length,
-    1,
+    3,
     "online mode reaches the remote destination unchanged"
   );
   assert.equal(outcome.capture_status, "COMPLETE");
