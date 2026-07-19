@@ -215,7 +215,8 @@ manifests. Synchronization refuses modified or unowned managed paths. CI fails i
 drifts.
 
 See [architecture](docs/ARCHITECTURE.md), [development](docs/DEVELOPMENT.md),
-[release process](docs/RELEASING.md), and the
+[release process](docs/RELEASING.md), the [traceability matrix](docs/TRACEABILITY_MATRIX.md) that
+maps every requirement to evidence, and the
 [v0.1.0 historical verification record](docs/RELEASE_VERIFICATION_v0.1.0.md). The
 [v0.1.1 verification record](docs/RELEASE_VERIFICATION_v0.1.1.md) separates local, CI, publication,
 asset-download, and clean-room evidence.

@@ -1,3 +1,5 @@
+import type { CapabilityAssessment } from "./discovery-evidence.js";
+
 export const STATUSES = [
   "PASS",
   "FAIL",
@@ -118,6 +120,11 @@ export type ProjectProfile = {
   generated_at: string;
   detections: Detection[];
   capabilities: Record<string, Detection>;
+  /**
+   * Classified discovery evidence with explicit activation weights. Optional for backwards
+   * compatibility with profiles written before evidence classification existed.
+   */
+  capability_assessments?: CapabilityAssessment[];
   repository: ProfileRecord;
   workspaces: ProfileRecord[];
   applications: ProfileRecord[];

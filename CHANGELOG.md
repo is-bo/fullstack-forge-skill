@@ -5,6 +5,27 @@ versioning.
 
 ## [Unreleased]
 
+### Added
+
+- Discovery now classifies every signal it observes. Each detection records an evidence class
+  (`manifest`, `implementation`, `configuration`, `route`, `schema`, `test`, `documentation`,
+  `fixture`, `generated`, `example`, `unknown`), the path and line it came from, a confidence, an
+  activation weight, a reason, and the workspace it belongs to. Only production-bearing evidence
+  activates a capability: documentation, tests, fixtures, and generated Forge or platform copies
+  carry zero activation weight, examples are separated from active applications, and keywords found
+  in comments or passive string literals are downgraded. Capability determination returns `PRESENT`,
+  `ABSENT`, or `UNKNOWN`, so a pile of weak signals now produces `UNKNOWN` instead of a false
+  `PRESENT`. Assessments are computed per workspace and published in `.forge/project-profile.json`
+  as `capability_assessments`. Existing language, framework, and structured discovery is unchanged.
+- A public specification traceability matrix records every authoritative requirement in the
+  maintainers' own words, with implementation, test, documentation, and release-verification
+  evidence, a status, and honest limitations. `config/traceability-matrix.json` is the source of
+  truth, `docs/TRACEABILITY_MATRIX.md` is generated from it, and `npm run check:traceability` (part
+  of `npm run check`, and therefore of CI) rejects duplicate identifiers, unsupported statuses,
+  missing repository paths, unevidenced `COMPLIANT` entries, unexplained `NON_COMPLIANT` entries,
+  and `NOT_VERIFIED` entries that do not distinguish an external limit from unfinished local work.
+  See [docs/TRACEABILITY.md](docs/TRACEABILITY.md).
+
 ## [0.1.6] - 2026-07-19
 
 Rendered-UI security milestone. Three defects were independently reproduced against v0.1.5 before

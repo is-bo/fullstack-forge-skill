@@ -1,0 +1,972 @@
+{
+  "schema_version": 1,
+  "description": "Independently worded requirement matrix for Fullstack Forge. Each entry restates one authoritative requirement in the maintainers' own words and links it to repository evidence. See docs/TRACEABILITY.md.",
+  "requirements": [
+    {
+      "id": "FF-GOV-01",
+      "summary": "All work targets one authoritative public repository; no parallel or renamed repository is used for distribution.",
+      "implementation": ["package.json", "scripts/release-preflight.mjs"],
+      "tests": ["scripts/tests/release-safety.test.mjs"],
+      "documentation": ["docs/RELEASING.md", "CONTRIBUTING.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-GOV-02",
+      "summary": "The project ships under a fixed identity: product name, skill name, CLI name and alias, license, language, and Node.js baseline.",
+      "implementation": ["package.json", "skill.json"],
+      "tests": ["cli/tests/catalog.test.ts"],
+      "documentation": ["README.md", "docs/BRAND.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-GOV-03",
+      "summary": "Every advertised capability must be working software rather than placeholders, pseudocode, or documentation-only promises.",
+      "implementation": ["cli/src/cli.ts", "cli/src/inspectors.ts", "cli/src/analyzers.ts"],
+      "tests": ["cli/tests/cli.test.ts", "cli/tests/analyzers.test.ts", "cli/tests/evals.test.ts"],
+      "documentation": ["docs/ANALYZER_SUPPORT.md", "docs/COVERAGE.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Several audit modules provide a documented inspection procedure with only partial executable analyzer coverage; the executable/partial/none split is published in docs/ANALYZER_SUPPORT.md rather than being claimed as complete automation."
+      ]
+    },
+    {
+      "id": "FF-GOV-04",
+      "summary": "The tool must never expose credentials, tokens, environment secrets, or unrelated local content from an audited project.",
+      "implementation": [
+        "cli/src/redaction.ts",
+        "cli/src/net-policy.ts",
+        "scripts/secret-scan.mjs"
+      ],
+      "tests": ["cli/tests/redaction.test.ts", "cli/tests/net-policy.test.ts"],
+      "documentation": ["docs/SECURITY_MODEL.md", "SECURITY.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-GOV-05",
+      "summary": "Version-control history uses clear conventional commits rather than noise commits per file.",
+      "implementation": [".github/pull_request_template.md"],
+      "tests": [],
+      "documentation": ["CONTRIBUTING.md", "docs/DEVELOPMENT.md"],
+      "release_verification": [],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Commit-message shape is documented and reviewed, but no automated commit-lint gate runs in CI."
+      ]
+    },
+    {
+      "id": "FF-GOV-06",
+      "summary": "The public repository surface carries a description, topics, issue templates, a pull-request template, a security policy, contribution guidance, and a code of conduct.",
+      "implementation": [
+        ".github/ISSUE_TEMPLATE/bug_report.yml",
+        ".github/ISSUE_TEMPLATE/feature_request.yml",
+        ".github/ISSUE_TEMPLATE/audit_module.yml",
+        ".github/pull_request_template.md"
+      ],
+      "tests": [],
+      "documentation": ["SECURITY.md", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "NOT_VERIFIED",
+      "verification_scope": "external",
+      "limitations": [
+        "Repository description and topics are GitHub-hosted settings. They cannot be proven from repository contents, so this entry stays NOT_VERIFIED until a maintainer records a GitHub-side check."
+      ]
+    },
+    {
+      "id": "FF-RES-01",
+      "summary": "Agent platform formats and installation conventions are researched from primary sources before generation targets are chosen.",
+      "implementation": ["scripts/sync-platform-assets.mjs", "scripts/check-platform-assets.mjs"],
+      "tests": ["cli/tests/catalog.test.ts"],
+      "documentation": ["research/SOURCES.md", "docs/PLATFORM_SUPPORT.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-RES-02",
+      "summary": "Audit content is grounded in neutral engineering and security standards rather than vendor marketing.",
+      "implementation": ["config/modules.json", "config/module-criteria.json"],
+      "tests": ["cli/tests/catalog.test.ts"],
+      "documentation": ["research/SOURCES.md"],
+      "release_verification": [],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-RES-03",
+      "summary": "Third-party material is treated as untrusted, never wholesale copied, and fully attributed with a license-compatibility record.",
+      "implementation": ["scripts/check-licenses.mjs"],
+      "tests": ["scripts/tests/git-files.test.mjs"],
+      "documentation": [
+        "research/LICENSE_MATRIX.md",
+        "research/ADAPTATION_NOTES.md",
+        "THIRD_PARTY_NOTICES.md",
+        "NOTICE"
+      ],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-ARCH-01",
+      "summary": "The suite uses progressive disclosure: a small orchestrating entry point, focused modules, one canonical source, generated platform copies, and no symlinks in published output.",
+      "implementation": [
+        "src/fullstack-forge/SKILL.md",
+        "scripts/generate-modules.mjs",
+        "scripts/package-platforms.mjs"
+      ],
+      "tests": ["cli/tests/catalog.test.ts", "scripts/tests/zip.test.mjs"],
+      "documentation": ["docs/ARCHITECTURE.md", "docs/ADDING_A_PLATFORM.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-CMD-01",
+      "summary": "Every focused section supports read-only audit, approval-gated fix, re-checking verify, and structured report modes.",
+      "implementation": [
+        "cli/src/cli.ts",
+        "cli/src/fixes.ts",
+        "cli/src/verification.ts",
+        "cli/src/report.ts"
+      ],
+      "tests": ["cli/tests/cli.test.ts", "cli/tests/fixes.test.ts", "cli/tests/report.test.ts"],
+      "documentation": ["docs/COMMANDS.md", "docs/CLI_REFERENCE.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "pending_integration": ["integration:v0.1.9"],
+      "limitations": [
+        "Report-output improvements are being developed on a parallel branch and are not present here; this entry records the current v0.1.6 report behaviour only."
+      ]
+    },
+    {
+      "id": "FF-CMD-02",
+      "summary": "A fixed catalogue of focused audit modules exists, and each module teaches a concrete inspection procedure instead of generic advice.",
+      "implementation": [
+        "config/modules.json",
+        "config/module-procedures.json",
+        "src/fullstack-forge/commands"
+      ],
+      "tests": ["cli/tests/catalog.test.ts", "cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md", "docs/ADDING_A_MODULE.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-DISC-01",
+      "summary": "Discovery profiles the audited project — languages, frameworks, workspaces, applications, data stores, routes, roles, tenancy, jobs, integrations, hosting, and deployment — with confidence and evidence, and writes a reusable profile and architecture map.",
+      "implementation": [
+        "cli/src/discovery.ts",
+        "cli/src/discovery-evidence.ts",
+        "src/fullstack-forge/schemas/project-profile.schema.json"
+      ],
+      "tests": ["cli/tests/discovery.test.ts", "cli/tests/discovery-evidence.test.ts"],
+      "documentation": ["docs/ARCHITECTURE.md", "docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": [
+        "Runtime topology and middleware-inherited route visibility remain unproven by static discovery and are reported as unknown rather than assumed."
+      ]
+    },
+    {
+      "id": "FF-MOD-01",
+      "summary": "Requirements and domain logic are inspected for missing, contradictory, or unverifiable business behaviour, including money, dates, ownership, and irreversible actions.",
+      "implementation": ["src/fullstack-forge/commands/forge-requirements"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Requirement conformance is a guided manual procedure; no executable analyzer proves domain correctness."
+      ]
+    },
+    {
+      "id": "FF-MOD-02",
+      "summary": "Architecture is inspected for boundaries, dependency direction, coupling, hidden shared state, and both under- and over-engineering.",
+      "implementation": ["src/fullstack-forge/commands/forge-architecture"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/ARCHITECTURE.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Architecture judgements are procedure-driven; the architecture map records candidate boundaries, not proven runtime calls."
+      ]
+    },
+    {
+      "id": "FF-MOD-03",
+      "summary": "Code quality is inspected for type safety, error handling, dead code, leaks, and maintainability using the project's own tooling where available.",
+      "implementation": ["src/fullstack-forge/commands/forge-code", "cli/src/analyzers.ts"],
+      "tests": ["cli/tests/analyzers.test.ts"],
+      "documentation": ["docs/ANALYZER_SUPPORT.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Analyzer coverage is language- and framework-bounded; unsupported shapes are reported as NOT_VERIFIED instead of PASS."
+      ]
+    },
+    {
+      "id": "FF-MOD-04",
+      "summary": "Visual interfaces are inspected in the rendered application, not only in component source, across viewports and interaction states.",
+      "implementation": ["src/fullstack-forge/commands/forge-ui", "cli/src/rendered-ui.ts"],
+      "tests": ["cli/tests/rendered-ui.test.ts", "cli/tests/rendered-ui-capture.test.ts"],
+      "documentation": ["docs/COMMANDS.md", "docs/SECURITY_MODEL.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "pending_integration": ["integration:v0.1.9"],
+      "limitations": [
+        "Rendered inspection requires an operator-approved runnable application; without one the module reports NOT_VERIFIED. Further rendered-UI work is in progress on a parallel branch and is not present here."
+      ]
+    },
+    {
+      "id": "FF-MOD-05",
+      "summary": "User experience is evaluated over real task journeys including failure, permission-denial, and session-expiry recovery.",
+      "implementation": ["src/fullstack-forge/commands/forge-ux"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Journey evaluation is a guided manual procedure with no executable analyzer."
+      ]
+    },
+    {
+      "id": "FF-MOD-06",
+      "summary": "Accessibility is inspected against WCAG 2.2 AA, and automated scanning is never presented as a complete audit.",
+      "implementation": ["src/fullstack-forge/commands/forge-accessibility"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Assistive-technology behaviour requires human confirmation and is reported as NOT_VERIFIED when unavailable."
+      ]
+    },
+    {
+      "id": "FF-MOD-07",
+      "summary": "Localization is inspected for hard-coded strings, formatting, pluralization, expansion, fallbacks, and bidirectional layout.",
+      "implementation": ["src/fullstack-forge/commands/forge-i18n"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Translation completeness depends on project-specific catalogues and is not proven automatically."
+      ]
+    },
+    {
+      "id": "FF-MOD-08",
+      "summary": "Search-engine and discoverability checks apply only to genuinely public web surfaces and are otherwise marked not applicable.",
+      "implementation": ["src/fullstack-forge/commands/forge-seo", "cli/src/gates.ts"],
+      "tests": ["cli/tests/gate-applicability.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-MOD-09",
+      "summary": "Frontend engineering is inspected for rendering boundaries, state, network waterfalls, hydration, leaks, and bundle behaviour.",
+      "implementation": ["src/fullstack-forge/commands/forge-frontend"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Bundle and runtime measurements require a project build and are otherwise NOT_VERIFIED."
+      ]
+    },
+    {
+      "id": "FF-MOD-10",
+      "summary": "Application interfaces are inspected for contract consistency, validation, authorization, pagination, errors, and idempotency.",
+      "implementation": ["src/fullstack-forge/commands/forge-api", "cli/src/inspectors.ts"],
+      "tests": ["cli/tests/route-adapters.test.ts", "cli/tests/adapter-coverage.test.ts"],
+      "documentation": ["docs/ANALYZER_SUPPORT.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Route adapters cover a bounded set of frameworks; unsupported registration shapes are declared rather than silently skipped."
+      ]
+    },
+    {
+      "id": "FF-MOD-11",
+      "summary": "Queued and scheduled work is inspected for idempotency, retries, dead-letter handling, ordering, and operability.",
+      "implementation": ["src/fullstack-forge/commands/forge-jobs"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Runtime queue behaviour cannot be proven statically and is reported as NOT_VERIFIED."
+      ]
+    },
+    {
+      "id": "FF-MOD-12",
+      "summary": "Outbound and inbound integrations are inspected for timeouts, retries, signature verification, replay safety, and failure isolation.",
+      "implementation": ["src/fullstack-forge/commands/forge-integrations", "cli/src/analyzers.ts"],
+      "tests": ["cli/tests/analyzers.test.ts"],
+      "documentation": ["docs/ANALYZER_SUPPORT.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": ["Provider-side controls are outside the repository and remain NOT_VERIFIED."]
+    },
+    {
+      "id": "FF-MOD-13",
+      "summary": "Identity handling is inspected across registration, credentials, sessions, recovery, federation, and reauthentication, without recommending bespoke cryptography.",
+      "implementation": ["src/fullstack-forge/commands/forge-auth", "cli/src/analyzers.ts"],
+      "tests": ["cli/tests/analyzers.test.ts", "cli/tests/evals.test.ts"],
+      "documentation": ["docs/ANALYZER_SUPPORT.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Provider-hosted authentication configuration cannot be proven from source and stays NOT_VERIFIED."
+      ]
+    },
+    {
+      "id": "FF-MOD-14",
+      "summary": "Authorization is audited separately from authentication, requires deny-by-default server-side enforcement on every path, and produces negative tests.",
+      "implementation": [
+        "src/fullstack-forge/commands/forge-authorization",
+        "cli/src/analyzers.ts"
+      ],
+      "tests": ["cli/tests/analyzers.test.ts", "cli/tests/gates.test.ts"],
+      "documentation": ["docs/ANALYZER_SUPPORT.md", "docs/FINDING_SCHEMA.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Middleware-inherited guards are not resolved statically; affected routes stay unknown rather than passing."
+      ]
+    },
+    {
+      "id": "FF-MOD-15",
+      "summary": "General application security is audited across injection, browser controls, secrets, cryptography, abuse cases, and dependency risk.",
+      "implementation": [
+        "src/fullstack-forge/commands/forge-security",
+        "cli/src/analyzers.ts",
+        "cli/src/dataflow.ts"
+      ],
+      "tests": ["cli/tests/analyzers.test.ts", "cli/tests/dataflow.test.ts"],
+      "documentation": ["docs/SECURITY_MODEL.md", "docs/ANALYZER_SUPPORT.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "pending_integration": ["integration:v0.1.9"],
+      "limitations": [
+        "Static analysis covers a declared rule set with declared unsupported shapes. Further static security analyzer work is in progress on a parallel branch and is not present here."
+      ]
+    },
+    {
+      "id": "FF-MOD-16",
+      "summary": "File uploads receive a dedicated audit covering validation, malware handling, storage isolation, media and document parsing, downloads, abuse limits, and lifecycle.",
+      "implementation": ["src/fullstack-forge/commands/forge-uploads", "cli/src/analyzers.ts"],
+      "tests": ["cli/tests/analyzers.test.ts", "cli/tests/evals.test.ts"],
+      "documentation": ["docs/ANALYZER_SUPPORT.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Scanner and storage-provider behaviour is external and reported as NOT_VERIFIED unless directly evidenced."
+      ]
+    },
+    {
+      "id": "FF-MOD-17",
+      "summary": "Privacy is audited beyond protection: whether personal data should have been collected, retained, exported, or deleted at all.",
+      "implementation": ["src/fullstack-forge/commands/forge-privacy"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Purpose and lawful basis are organizational facts that cannot be derived from source."
+      ]
+    },
+    {
+      "id": "FF-MOD-18",
+      "summary": "Tenant isolation is verified across data, cache, files, jobs, logs, exports, and administration, with cross-tenant tests recommended or created.",
+      "implementation": ["src/fullstack-forge/commands/forge-tenancy", "cli/src/analyzers.ts"],
+      "tests": ["cli/tests/analyzers.test.ts", "cli/tests/evals.test.ts"],
+      "documentation": ["docs/ANALYZER_SUPPORT.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Runtime tenant propagation is not proven statically; isolation stays NOT_VERIFIED without executed tests."
+      ]
+    },
+    {
+      "id": "FF-MOD-19",
+      "summary": "Database schemas are inspected for integrity constraints, typing, money and time representation, tenancy, migration history, and safe evolution.",
+      "implementation": ["src/fullstack-forge/commands/forge-database", "cli/src/inspectors.ts"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/ANALYZER_SUPPORT.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Applied production schema state is not readable from the repository and stays NOT_VERIFIED."
+      ]
+    },
+    {
+      "id": "FF-MOD-20",
+      "summary": "Data access is inspected for N+1 patterns, missing indexes, unbounded reads, locking, and non-deterministic ordering, and query-plan analysis never runs against production.",
+      "implementation": ["src/fullstack-forge/commands/forge-queries", "cli/src/analyzers.ts"],
+      "tests": ["cli/tests/analyzers.test.ts", "cli/tests/evals.test.ts"],
+      "documentation": ["docs/ANALYZER_SUPPORT.md", "docs/SECURITY_MODEL.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Plan analysis requires an operator-provided non-production database and is otherwise NOT_VERIFIED."
+      ]
+    },
+    {
+      "id": "FF-MOD-21",
+      "summary": "Caching is first justified, then audited for keys, isolation, invalidation, poisoning, and failure behaviour; concluding that a cache is unnecessary is a valid result.",
+      "implementation": ["src/fullstack-forge/commands/forge-cache", "cli/src/analyzers.ts"],
+      "tests": ["cli/tests/analyzers.test.ts", "cli/tests/evals.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-MOD-22",
+      "summary": "Object and file storage is inspected for access control, signed-URL safety, encryption, lifecycle, orphans, and environment isolation.",
+      "implementation": ["src/fullstack-forge/commands/forge-storage"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Bucket-side policy is provider state and stays NOT_VERIFIED without operator evidence."
+      ]
+    },
+    {
+      "id": "FF-MOD-23",
+      "summary": "Test adequacy is judged by risk coverage across units, boundaries, workflows, and failure modes rather than by line coverage alone.",
+      "implementation": ["src/fullstack-forge/commands/forge-testing", "scripts/run-coverage.mjs"],
+      "tests": ["scripts/tests/coverage.test.mjs"],
+      "documentation": ["docs/COVERAGE.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-MOD-24",
+      "summary": "Performance is measured rather than guessed, across user-visible latency, payloads, resource use, and slow devices.",
+      "implementation": ["src/fullstack-forge/commands/forge-performance"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Field measurements require a running application; unmeasured claims are reported as NOT_VERIFIED."
+      ]
+    },
+    {
+      "id": "FF-MOD-25",
+      "summary": "Capacity and growth limits are assessed against explicit demand assumptions, and additional infrastructure is never recommended without evidence.",
+      "implementation": ["src/fullstack-forge/commands/forge-scale"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Demand assumptions are operator inputs and cannot be derived from the repository."
+      ]
+    },
+    {
+      "id": "FF-MOD-26",
+      "summary": "Telemetry is inspected for structured logs, correlation, metrics, traces, alerting, redaction, and retention.",
+      "implementation": ["src/fullstack-forge/commands/forge-observability"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Dashboard and alert configuration lives in external systems and stays NOT_VERIFIED."
+      ]
+    },
+    {
+      "id": "FF-MOD-27",
+      "summary": "Reliability is inspected for timeouts, retries, overload behaviour, degradation, health signalling, and stated objectives.",
+      "implementation": ["src/fullstack-forge/commands/forge-reliability"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": ["Failure behaviour under real outages cannot be proven statically."]
+    },
+    {
+      "id": "FF-MOD-28",
+      "summary": "Backup and disaster recovery must never pass on configuration alone; restoration has to be tested or directly evidenced, otherwise the result is not verified.",
+      "implementation": ["src/fullstack-forge/commands/forge-recovery", "cli/src/gates.ts"],
+      "tests": ["cli/tests/gates.test.ts", "cli/tests/evals.test.ts"],
+      "documentation": ["docs/FINDING_SCHEMA.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-MOD-29",
+      "summary": "Delivery is inspected for build promotion, environment separation, migration ordering, rollout, rollback, and post-deployment verification.",
+      "implementation": ["src/fullstack-forge/commands/forge-deployment", "cli/src/inspectors.ts"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": ["Production deployment configuration is external and stays NOT_VERIFIED."]
+    },
+    {
+      "id": "FF-MOD-30",
+      "summary": "Infrastructure definitions are inspected for network exposure, identity boundaries, encryption, resource limits, and drift.",
+      "implementation": ["src/fullstack-forge/commands/forge-infrastructure"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Live cloud state is not readable from the repository; drift stays NOT_VERIFIED."
+      ]
+    },
+    {
+      "id": "FF-MOD-31",
+      "summary": "The delivery chain is inspected for vulnerable and unpinned dependencies, install scripts, build integrity, action pinning, licensing, and release provenance.",
+      "implementation": [
+        "src/fullstack-forge/commands/forge-supply-chain",
+        "scripts/check-workflows.mjs",
+        "scripts/lib/workflow-policy.mjs"
+      ],
+      "tests": ["scripts/tests/workflow-policy.test.mjs"],
+      "documentation": ["docs/SECURITY_MODEL.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-MOD-32",
+      "summary": "Resource and vendor cost is tied to workloads, ownership, unit economics, and safe optimization choices.",
+      "implementation": ["src/fullstack-forge/commands/forge-cost"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": ["Billing data is external and cannot be proven from the repository."]
+    },
+    {
+      "id": "FF-MOD-33",
+      "summary": "Project documentation is verified to be accurate and executable rather than aspirational.",
+      "implementation": [
+        "src/fullstack-forge/commands/forge-docs",
+        "scripts/check-links.mjs",
+        "scripts/check-install-docs.mjs"
+      ],
+      "tests": ["scripts/tests/git-files.test.mjs"],
+      "documentation": ["docs/DEVELOPMENT.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-MOD-34",
+      "summary": "Product analytics is inspected for event semantics, duplication, identity, consent, sensitive data, and schema versioning.",
+      "implementation": ["src/fullstack-forge/commands/forge-analytics"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": ["Delivered event streams live in external systems and stay NOT_VERIFIED."]
+    },
+    {
+      "id": "FF-MOD-35",
+      "summary": "Notifications are inspected for authorization, preferences, duplicate sends, retries, localization, sensitive content, and deliverability.",
+      "implementation": ["src/fullstack-forge/commands/forge-notifications"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": ["Provider delivery outcomes are external and stay NOT_VERIFIED."]
+    },
+    {
+      "id": "FF-MOD-36",
+      "summary": "AI features are audited for direct and indirect prompt injection, tool authority, tenant isolation, output validation, cost controls, and mandatory human confirmation before irreversible actions.",
+      "implementation": ["src/fullstack-forge/commands/forge-ai", "cli/src/analyzers.ts"],
+      "tests": ["cli/tests/analyzers.test.ts", "cli/tests/evals.test.ts"],
+      "documentation": ["docs/SECURITY_MODEL.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Model-side behaviour and evaluation results are external and stay NOT_VERIFIED."
+      ]
+    },
+    {
+      "id": "FF-MOD-37",
+      "summary": "Money movement is audited for server-side amounts, currency precision, webhook signatures, idempotency, reconciliation, and replay safety.",
+      "implementation": ["src/fullstack-forge/commands/forge-payments", "cli/src/analyzers.ts"],
+      "tests": ["cli/tests/analyzers.test.ts", "cli/tests/evals.test.ts"],
+      "documentation": ["docs/ANALYZER_SUPPORT.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Provider dashboard configuration and settlement data are external and stay NOT_VERIFIED."
+      ]
+    },
+    {
+      "id": "FF-MOD-38",
+      "summary": "Real-time transports are inspected for authorization, lifecycle, ordering, tenant channel separation, abuse limits, and recovery.",
+      "implementation": ["src/fullstack-forge/commands/forge-realtime"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": ["Connection-time authorization is not provable from static source alone."]
+    },
+    {
+      "id": "FF-MOD-39",
+      "summary": "Offline-capable applications are inspected for local persistence, queued writes, synchronization, conflicts, revocation, and logout cleanup.",
+      "implementation": ["src/fullstack-forge/commands/forge-offline"],
+      "tests": ["cli/tests/semantics.test.ts"],
+      "documentation": ["docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": ["Device-side synchronization behaviour requires runtime evidence."]
+    },
+    {
+      "id": "FF-EVID-01",
+      "summary": "One shared finding schema carries identity, severity, confidence, status, location, evidence, impact, recommendation, fix safety, verification, and standards; a pass requires direct evidence and unverifiable results must say so.",
+      "implementation": [
+        "cli/src/finding.ts",
+        "cli/src/types.ts",
+        "src/fullstack-forge/schemas/finding.schema.json"
+      ],
+      "tests": ["cli/tests/finding.test.ts", "cli/tests/report.test.ts"],
+      "documentation": ["docs/FINDING_SCHEMA.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-EVID-02",
+      "summary": "Every module carries a completion contract: written code is never sufficient, and failed or skipped checks must be reported rather than hidden.",
+      "implementation": [
+        "src/fullstack-forge/references/PROTOCOL.md",
+        "src/fullstack-forge/SKILL.md"
+      ],
+      "tests": ["cli/tests/catalog.test.ts", "cli/tests/semantics.test.ts"],
+      "documentation": ["docs/FINDING_SCHEMA.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-FIX-01",
+      "summary": "Automatic fixes are restricted to a declared safe set; destructive, architectural, financial, and security-weakening changes require explicit approval.",
+      "implementation": ["cli/src/fixes.ts", "src/fullstack-forge/references/SAFE_FIX_POLICY.md"],
+      "tests": ["cli/tests/fixes.test.ts"],
+      "documentation": ["docs/SECURITY_MODEL.md", "docs/COMMANDS.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-ORCH-01",
+      "summary": "A repository-wide orchestrator runs discovery, selects applicable modules, merges duplicate findings while preserving evidence, ranks remediation, and marks blocked or unverified checks.",
+      "implementation": ["cli/src/cli.ts", "cli/src/scope.ts", "cli/src/report.ts"],
+      "tests": ["cli/tests/cli.test.ts", "cli/tests/scope.test.ts", "cli/tests/scope-base.test.ts"],
+      "documentation": ["docs/COMMANDS.md", "docs/ARCHITECTURE.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "pending_integration": ["integration:v0.1.7", "integration:v0.1.8"],
+      "limitations": [
+        "Module applicability currently uses legacy capability presence. The explicit module-decision schema and the reworked audit orchestration and changed-scope handling are being developed on parallel branches and are not present here."
+      ]
+    },
+    {
+      "id": "FF-SHIP-01",
+      "summary": "A release-readiness gate fails closed on open critical findings, failed required checks, out-of-sync generated copies, unverified high-risk areas, incomplete packaging, or failed installation tests.",
+      "implementation": [
+        "cli/src/gates.ts",
+        "cli/src/support.ts",
+        "src/fullstack-forge/checklists/ship.md"
+      ],
+      "tests": [
+        "cli/tests/gates.test.ts",
+        "cli/tests/gate-applicability.test.ts",
+        "cli/tests/support.test.ts"
+      ],
+      "documentation": ["docs/COMMANDS.md", "docs/RELEASE.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-TOOL-01",
+      "summary": "Inspection is performed by real executable tools that detect commands before running them, use argument arrays, apply timeouts, and restrict working directories.",
+      "implementation": ["cli/src/tools.ts", "cli/src/inspectors.ts", "cli/src/utils.ts"],
+      "tests": [
+        "cli/tests/utils.test.ts",
+        "cli/tests/cli.test.ts",
+        "scripts/tests/fs-safety.test.mjs"
+      ],
+      "documentation": ["docs/CLI_REFERENCE.md", "docs/SECURITY_MODEL.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-CLI-01",
+      "summary": "The CLI installs, updates, validates, diagnoses, packages, and uninstalls across operating systems without symlinks, with dry-run and JSON output, an installation manifest, and ownership-restricted removal.",
+      "implementation": ["cli/src/installer.ts", "cli/src/cli.ts", "cli/src/constants.ts"],
+      "tests": ["cli/tests/installer.test.ts", "cli/tests/cli.test.ts"],
+      "documentation": ["docs/CLI_REFERENCE.md", "README.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-DIST-01",
+      "summary": "Platform copies are generated from one canonical source, committed, and continuously checked so that drift fails the build.",
+      "implementation": [
+        "scripts/generate-modules.mjs",
+        "scripts/sync-platform-assets.mjs",
+        "scripts/check-platform-assets.mjs"
+      ],
+      "tests": ["cli/tests/catalog.test.ts"],
+      "documentation": ["docs/PLATFORM_SUPPORT.md", "docs/ADDING_A_PLATFORM.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-DIST-02",
+      "summary": "Distribution archives contain real files, exclude dependencies, temporary material, and secrets, install from a clean directory, are deterministic, and ship with checksums.",
+      "implementation": [
+        "scripts/package-platforms.mjs",
+        "scripts/validate-dist.mjs",
+        "scripts/lib/zip.mjs",
+        "scripts/smoke-install.mjs",
+        "scripts/offline-install.mjs"
+      ],
+      "tests": ["scripts/tests/zip.test.mjs", "scripts/tests/smoke-install.test.mjs"],
+      "documentation": ["docs/RELEASING.md", "docs/PLATFORM_SUPPORT.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-BRAND-01",
+      "summary": "Original project artwork exists at the required dimensions and byte budget, documented as AI-assisted and implying no third-party endorsement.",
+      "implementation": [
+        "docs/assets/fullstack-forge-hero.png",
+        "docs/assets/fullstack-forge-icon.png",
+        "scripts/check-branding.mjs"
+      ],
+      "tests": ["cli/tests/catalog.test.ts"],
+      "documentation": ["docs/BRAND.md", "docs/IMAGE_GENERATION_BRIEF.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-BRAND-02",
+      "summary": "A correctly dimensioned social preview image is kept in the repository, with exact upload instructions when it cannot be configured programmatically.",
+      "implementation": [
+        "docs/assets/fullstack-forge-social-preview.png",
+        "scripts/check-branding.mjs"
+      ],
+      "tests": [],
+      "documentation": ["docs/RELEASING.md", "docs/BRAND.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "NOT_VERIFIED",
+      "verification_scope": "external",
+      "limitations": [
+        "Uploading a social preview is a GitHub repository setting performed by a maintainer. The image and instructions are present; the upload itself cannot be proven from repository contents."
+      ]
+    },
+    {
+      "id": "FF-BRAND-03",
+      "summary": "Before release, branding is validated for working image paths, useful alternative text, reasonable file sizes, and a README that still communicates when images fail.",
+      "implementation": ["scripts/check-branding.mjs", "scripts/check-links.mjs"],
+      "tests": ["scripts/tests/git-files.test.mjs"],
+      "documentation": ["docs/BRAND.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "PARTIALLY_COMPLIANT",
+      "limitations": [
+        "Paths, alternative text, and byte budgets are enforced automatically; how GitHub finally renders the images is observed manually and not asserted in CI."
+      ]
+    },
+    {
+      "id": "FF-DOCS-01",
+      "summary": "The README explains the product, audience, capabilities, installation, invocation, verification honesty, contribution path, and limitations without requiring source reading, and uses only real badges.",
+      "implementation": ["README.md"],
+      "tests": ["scripts/tests/git-files.test.mjs"],
+      "documentation": ["docs/COMMANDS.md", "docs/CLI_REFERENCE.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-DOCS-02",
+      "summary": "Editable diagrams explain the audit workflow and the command architecture.",
+      "implementation": ["README.md", "src/fullstack-forge/templates/architecture-map.md"],
+      "tests": [],
+      "documentation": ["docs/ARCHITECTURE.md"],
+      "release_verification": [],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-DOCS-03",
+      "summary": "A complete documentation set covers commands, architecture, platform support, the finding schema, the security model, module and platform extension, releasing, contribution, conduct, security reporting, and change history.",
+      "implementation": ["scripts/check-install-docs.mjs", "scripts/validate-release-docs.mjs"],
+      "tests": ["scripts/tests/release-safety.test.mjs"],
+      "documentation": [
+        "docs/COMMANDS.md",
+        "docs/ARCHITECTURE.md",
+        "docs/PLATFORM_SUPPORT.md",
+        "docs/FINDING_SCHEMA.md",
+        "docs/SECURITY_MODEL.md",
+        "docs/ADDING_A_MODULE.md",
+        "docs/ADDING_A_PLATFORM.md",
+        "docs/RELEASING.md",
+        "docs/IMAGE_GENERATION_BRIEF.md",
+        "CHANGELOG.md"
+      ],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-TEST-01",
+      "summary": "Deliberately flawed fixture projects and evaluation cases confirm that the declared defect classes are actually detected, without faking automated guarantees where detection is not deterministic.",
+      "implementation": [
+        "fixtures",
+        "evals/cases.json",
+        "scripts/check-fixtures.mjs",
+        "scripts/lib/fixture-manifests.mjs"
+      ],
+      "tests": [
+        "cli/tests/evals.test.ts",
+        "cli/tests/discovery.test.ts",
+        "scripts/tests/fixture-manifests.test.mjs"
+      ],
+      "documentation": ["fixtures/README.md", "evals/README.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-TEST-02",
+      "summary": "Automated tests cover skill metadata, the command registry, the finding schema, reporting, CLI parsing, install and uninstall lifecycles, dry-run and JSON output, platform generation, archive contents, path-traversal protection, and cross-platform paths.",
+      "implementation": ["scripts/run-coverage.mjs", "config/coverage-thresholds.json"],
+      "tests": [
+        "cli/tests/catalog.test.ts",
+        "cli/tests/cli.test.ts",
+        "cli/tests/installer.test.ts",
+        "cli/tests/finding.test.ts",
+        "cli/tests/report.test.ts",
+        "cli/tests/utils.test.ts",
+        "scripts/tests/fs-safety.test.mjs",
+        "scripts/tests/zip.test.mjs"
+      ],
+      "documentation": ["docs/COVERAGE.md", "docs/DEVELOPMENT.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-CI-01",
+      "summary": "Continuous integration runs installation, formatting, lint, type checking, tests, skill validation, synchronization, packaging, smoke tests, secret scanning, dependency review, and licence checks on multiple operating systems with least-privilege, pinned actions.",
+      "implementation": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/codeql.yml",
+        ".github/workflows/release.yml",
+        "scripts/check-workflows.mjs"
+      ],
+      "tests": ["scripts/tests/workflow-policy.test.mjs"],
+      "documentation": ["docs/DEVELOPMENT.md", "docs/RELEASING.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-SEC-01",
+      "summary": "The project audits itself for unsafe execution, traversal, archive and symlink attacks, secret leakage, unsafe update or uninstall behaviour, and prompt injection from audited repositories, and publishes the resulting threat model.",
+      "implementation": [
+        "cli/src/utils.ts",
+        "cli/src/installer.ts",
+        "cli/src/net-policy.ts",
+        "scripts/lib/fs-safety.mjs",
+        "scripts/secret-scan.mjs"
+      ],
+      "tests": [
+        "cli/tests/utils.test.ts",
+        "cli/tests/installer.test.ts",
+        "cli/tests/net-policy.test.ts",
+        "scripts/tests/fs-safety.test.mjs"
+      ],
+      "documentation": ["docs/SECURITY_MODEL.md", "SECURITY.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-REL-01",
+      "summary": "Before publication a fixed validation sequence runs formatting, lint, typing, tests, skill validation, synchronization, packaging, archive validation, installation tests, secret scanning, attribution checks, and link resolution.",
+      "implementation": [
+        "package.json",
+        "scripts/validate-skill.mjs",
+        "scripts/validate-dist.mjs",
+        "scripts/release-preflight.mjs"
+      ],
+      "tests": ["scripts/tests/release-safety.test.mjs", "scripts/tests/smoke-install.test.mjs"],
+      "documentation": ["docs/RELEASING.md", "docs/RELEASE.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-REL-02",
+      "summary": "Publication is proven rather than asserted: the remote commit, workflow status, tag, release, attached archives, and checksums are verified after the fact.",
+      "implementation": [
+        "scripts/verify-published-assets.mjs",
+        "scripts/release-preflight.mjs",
+        "scripts/generate-final-verification.mjs"
+      ],
+      "tests": ["scripts/tests/release-safety.test.mjs"],
+      "documentation": ["docs/RELEASING.md", "docs/RELEASE_NOTES_v0.1.6.md"],
+      "release_verification": ["docs/FINAL_RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": [
+        "Publication to the public package registry is optional by design and has not been performed; only the source release is verified."
+      ]
+    },
+    {
+      "id": "FF-REL-03",
+      "summary": "After publication, installation is re-tested from the published artifacts in a clean temporary environment across supported agent targets, and the outcome is recorded in a versioned verification document.",
+      "implementation": ["scripts/smoke-install.mjs", "scripts/offline-install.mjs"],
+      "tests": ["scripts/tests/smoke-install.test.mjs"],
+      "documentation": ["docs/RELEASING.md"],
+      "release_verification": [
+        "docs/RELEASE_VERIFICATION_v0.1.6.md",
+        "docs/FINAL_RELEASE_VERIFICATION_v0.1.6.md"
+      ],
+      "status": "COMPLIANT",
+      "limitations": []
+    },
+    {
+      "id": "FF-REL-04",
+      "summary": "The closing report states repository, release, version, commit, platforms, commands, test results, verification outcome, artifacts, limitations, and any genuinely blocked action, and never claims unverified success.",
+      "implementation": [
+        "scripts/generate-final-verification.mjs",
+        "scripts/validate-release-docs.mjs"
+      ],
+      "tests": ["scripts/tests/release-safety.test.mjs"],
+      "documentation": ["docs/RELEASE.md", "docs/RELEASE_NOTES_v0.1.6.md"],
+      "release_verification": ["docs/FINAL_RELEASE_VERIFICATION_v0.1.6.md"],
+      "status": "COMPLIANT",
+      "limitations": []
+    }
+  ]
+}
