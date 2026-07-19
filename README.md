@@ -22,7 +22,7 @@ evidence a pass.
 It works as an open-format Agent Skill collection and as a dependency-light TypeScript CLI.
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.2 && npx forge init all
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.3 && npx forge init all
 ```
 
 Codex, Claude Code, Antigravity, Gemini CLI, Cursor, Windsurf, GitHub Copilot, and generic Agent
@@ -67,7 +67,7 @@ npx forge init all
 Until the package is published to npm, install from the repository or a release tarball:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.2
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.3
 ```
 
 The installer writes `.fullstack-forge/install-manifest.json`. It will not overwrite unowned or

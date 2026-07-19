@@ -25,33 +25,109 @@ export type ShipGate = {
   evidence: string[];
 };
 
+/**
+ * Gate applicability classes.
+ *  - `forge-self`: Fullstack Forge release self-checks. Only meaningful when auditing this
+ *    repository; NOT_APPLICABLE elsewhere.
+ *  - `audited-application`: checks every audited project must satisfy. Never disabled merely
+ *    because a Forge-specific script is absent.
+ *  - `project-native`: commands detected in the audited project. These supplement the
+ *    audited-application gates; they never replace them.
+ */
+export type GateApplicability = "forge-self" | "audited-application" | "project-native";
+
 export type GateDefinition = {
   gate_id: string;
   name: string;
   category: ShipGate["category"];
+  applicability: GateApplicability;
   required: boolean;
   command?: string;
+  /** Finding sections that can satisfy this gate from audit evidence when no command exists. */
+  evidence_sections?: string[];
 };
 
 export const FORGE_GATE_REGISTRY: readonly GateDefinition[] = [
-  gate("FF-GATE-SCHEMA", "Finding-schema validation", "internal"),
-  gate("FF-GATE-AUDIT-FRESHNESS", "Prior audit evidence freshness", "audit-evidence"),
-  gate("FF-GATE-SKILLS", "Skill validation", "internal", "validate"),
-  gate("FF-GATE-PLATFORMS", "Generated platform synchronization", "internal", "check:platforms"),
-  gate("FF-GATE-SECRETS", "Secret scanning", "internal", "scan:secrets"),
-  gate("FF-GATE-DEPENDENCIES", "Dependency inspection", "internal", "audit:dependencies"),
-  gate("FF-GATE-LICENSES", "License and attribution validation", "internal", "check:licenses"),
-  gate("FF-GATE-ARCHIVES", "Archive validation", "internal", "validate:dist"),
-  gate("FF-GATE-PACKAGING", "Packaging completeness", "internal", "package:platforms"),
-  gate("FF-GATE-SMOKE", "Smoke installation", "internal", "smoke:install"),
-  gate("FF-GATE-INSTALLER", "Installer path and symlink protections", "internal", "test"),
-  gate("FF-GATE-EVALS", "Executable evaluation suite", "internal", "test"),
-  gate("FF-GATE-AUTH-EVAL", "Authorization evaluation", "capability"),
-  gate("FF-GATE-TENANT-EVAL", "Tenant-isolation evaluation", "capability"),
-  gate("FF-GATE-UPLOAD-EVAL", "Upload-security evaluation", "capability"),
-  gate("FF-GATE-SECURITY-EVAL", "Application-security evaluation", "capability"),
-  gate("FF-GATE-MIGRATIONS", "Migration and configuration inspection", "capability"),
-  gate("FF-GATE-OPEN-FINDINGS", "Open critical and required high findings", "audit-evidence")
+  gate("FF-GATE-SCHEMA", "Finding-schema validation", "internal", "audited-application"),
+  gate(
+    "FF-GATE-AUDIT-FRESHNESS",
+    "Prior audit evidence freshness",
+    "audit-evidence",
+    "audited-application"
+  ),
+  // Forge self-release gates.
+  gate("FF-GATE-SKILLS", "Skill validation", "internal", "forge-self", "validate"),
+  gate(
+    "FF-GATE-PLATFORMS",
+    "Generated platform synchronization",
+    "internal",
+    "forge-self",
+    "check:platforms"
+  ),
+  gate("FF-GATE-ARCHIVES", "Archive validation", "internal", "forge-self", "validate:dist"),
+  gate(
+    "FF-GATE-PACKAGING",
+    "Packaging completeness",
+    "internal",
+    "forge-self",
+    "package:platforms"
+  ),
+  gate("FF-GATE-SMOKE", "Smoke installation", "internal", "forge-self", "smoke:install"),
+  gate(
+    "FF-GATE-INSTALLER",
+    "Installer path and symlink protections",
+    "internal",
+    "forge-self",
+    "test"
+  ),
+  gate("FF-GATE-EVALS", "Executable evaluation suite", "internal", "forge-self", "test"),
+  // Audited-application gates. These apply to ordinary projects and fall back to audit
+  // evidence when the project exposes no corresponding command.
+  gate(
+    "FF-GATE-SECRETS",
+    "Secret exposure inspection",
+    "audit-evidence",
+    "audited-application",
+    "scan:secrets",
+    ["security"]
+  ),
+  gate(
+    "FF-GATE-DEPENDENCIES",
+    "Dependency and lockfile inspection",
+    "audit-evidence",
+    "audited-application",
+    "audit:dependencies",
+    ["supply-chain"]
+  ),
+  gate(
+    "FF-GATE-LICENSES",
+    "License and attribution validation",
+    "audit-evidence",
+    "audited-application",
+    "check:licenses",
+    ["supply-chain", "docs"]
+  ),
+  gate("FF-GATE-AUTH-EVAL", "Authorization evaluation", "capability", "audited-application"),
+  gate("FF-GATE-TENANT-EVAL", "Tenant-isolation evaluation", "capability", "audited-application"),
+  gate("FF-GATE-UPLOAD-EVAL", "Upload-security evaluation", "capability", "audited-application"),
+  gate(
+    "FF-GATE-SECURITY-EVAL",
+    "Application-security evaluation",
+    "capability",
+    "audited-application"
+  ),
+  gate(
+    "FF-GATE-MIGRATIONS",
+    "Migration and configuration inspection",
+    "capability",
+    "audited-application"
+  ),
+  gate(
+    "FF-GATE-OPEN-FINDINGS",
+    "Open critical and required high findings",
+    "audit-evidence",
+    "audited-application"
+  )
 ];
 
 export type ShipGateResult = {
@@ -92,41 +168,29 @@ export async function runShipGates(
       gates.push(capabilityGate(definition, profile, previous));
       continue;
     }
-    if (definition.command !== undefined) {
-      if (!isForgeRepository && definition.category === "internal") {
-        gates.push({
-          gate_id: definition.gate_id,
-          name: definition.name,
-          category: definition.category,
-          required: false,
-          status: "NOT_APPLICABLE",
-          evidence: ["This Fullstack Forge self-check does not apply to the audited project."]
-        });
-        continue;
-      }
-      const detected = commands.find((command) => command.name === definition.command);
-      const result = commandResults.get(definition.command);
-      gates.push(commandGate(definition, detected, result, allowRun));
-      continue;
-    }
-    if (definition.gate_id === "FF-GATE-DEPENDENCIES") {
-      const dependencyEvidence =
-        previous?.findings.filter((finding) => finding.section === "supply-chain") ?? [];
+    // Forge self-release gates are genuinely inapplicable to an audited application.
+    if (definition.applicability === "forge-self" && !isForgeRepository) {
       gates.push({
         gate_id: definition.gate_id,
         name: definition.name,
         category: definition.category,
-        required: true,
-        status: dependencyEvidence.some((finding) => finding.status === "FAIL")
-          ? "FAIL"
-          : dependencyEvidence.some((finding) => finding.status === "PASS")
-            ? "PASS"
-            : "NOT_VERIFIED",
-        evidence:
-          dependencyEvidence.length > 0
-            ? dependencyEvidence.map((finding) => `${finding.id}: ${finding.status}`)
-            : ["No direct dependency inspection evidence was recorded."]
+        required: false,
+        status: "NOT_APPLICABLE",
+        evidence: ["This Fullstack Forge self-release check does not apply to the audited project."]
       });
+      continue;
+    }
+    if (definition.command !== undefined) {
+      const detected = commands.find((command) => command.name === definition.command);
+      // An audited-application gate must not be skipped merely because the project exposes no
+      // matching script. It falls back to recorded audit evidence and stays required.
+      if (detected === undefined && definition.evidence_sections !== undefined) {
+        gates.push(evidenceGate(definition, definition.evidence_sections, previous));
+        continue;
+      }
+      const result = commandResults.get(definition.command);
+      gates.push(commandGate(definition, detected, result, allowRun));
+      continue;
     }
   }
 
@@ -140,6 +204,7 @@ export async function runShipGates(
           gate_id: `FF-GATE-PROJECT-${name.toUpperCase().replace(/[^A-Z0-9]/gu, "-")}`,
           name: `Project command ${name}`,
           category: "project-native",
+          applicability: "project-native",
           required: true,
           command: name
         },
@@ -334,6 +399,36 @@ function openFindingsGate(previous: AuditReport | undefined): ShipGate {
   );
 }
 
+/**
+ * Satisfies an audited-application gate from recorded audit evidence when the project exposes no
+ * corresponding command. Missing evidence is NOT_VERIFIED and still blocks; it is never PASS.
+ */
+function evidenceGate(
+  definition: GateDefinition,
+  sections: string[],
+  previous: AuditReport | undefined
+): ShipGate {
+  const evidence = previous?.findings.filter((finding) => sections.includes(finding.section)) ?? [];
+  const failed = evidence.some((finding) => ["FAIL", "WARNING"].includes(finding.status));
+  const proven = evidence.some((finding) => finding.status === "PASS");
+  const unresolved = evidence.some((finding) =>
+    ["BLOCKED", "NOT_VERIFIED"].includes(finding.status)
+  );
+  return {
+    gate_id: definition.gate_id,
+    name: definition.name,
+    category: definition.category,
+    required: true,
+    status: failed ? "FAIL" : proven && !unresolved ? "PASS" : "NOT_VERIFIED",
+    evidence:
+      evidence.length === 0
+        ? [
+            `No '${definition.command ?? definition.gate_id}' command was detected and no ${sections.join("/")} audit evidence was recorded.`
+          ]
+        : evidence.map((finding) => `${finding.id}: ${finding.status}`)
+  };
+}
+
 function capabilityGate(
   definition: GateDefinition,
   profile: ProjectProfile,
@@ -439,14 +534,18 @@ function gate(
   gateId: string,
   name: string,
   category: GateDefinition["category"],
-  command?: string
+  applicability: GateApplicability,
+  command?: string,
+  evidenceSections?: string[]
 ): GateDefinition {
   return {
     gate_id: gateId,
     name,
     category,
+    applicability,
     required: true,
-    ...(command === undefined ? {} : { command })
+    ...(command === undefined ? {} : { command }),
+    ...(evidenceSections === undefined ? {} : { evidence_sections: evidenceSections })
   };
 }
 

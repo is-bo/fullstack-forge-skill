@@ -1,6 +1,6 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join, relative } from "node:path";
-import { assertNoSymlinkPath, canonicalDirectory, readTextIfPresent, toPosix, utcNow, walkFiles } from "./utils.js";
+import { assertNoSymlinkPath, canonicalDirectory, readTextIfPresent, runFile, toPosix, utcNow, walkFiles } from "./utils.js";
 const EXCLUDED = new Set([
     ".git",
     ".forge",
@@ -477,18 +477,35 @@ async function buildStructuredProfile(root, files, capabilities) {
     const relativeFiles = files.map((file) => toPosix(relative(root, file)));
     const manifests = await loadPackageManifests(root, files);
     const repositoryName = manifests.find((manifest) => manifest.path === "package.json")?.name ?? basename(root);
+    // `.git` is excluded from the walked file set, so it can never appear in `relativeFiles`.
+    // Ask Git directly instead of testing a path that is guaranteed absent.
+    const insideWorkTree = await isInsideGitWorkTree(root);
     const repository = record(repositoryName, "git-repository", {
         root: ".",
-        confidence: relativeFiles.some((path) => path.startsWith(".git/")) ? "HIGH" : "MEDIUM",
-        evidence: [relativeFiles.includes("package.json") ? "package.json" : "repository root"]
+        confidence: insideWorkTree ? "HIGH" : "MEDIUM",
+        evidence: [
+            insideWorkTree
+                ? "git rev-parse --is-inside-work-tree"
+                : relativeFiles.includes("package.json")
+                    ? "package.json"
+                    : "repository root"
+        ]
     });
+    const declaredWorkspaces = await loadDeclaredWorkspaces(root, manifests);
     const workspaces = manifests
         .filter((manifest) => manifest.path !== "package.json")
-        .map((manifest) => record(manifest.name, "package-workspace", {
-        root: manifest.directory,
-        confidence: "HIGH",
-        evidence: [manifest.path]
-    }));
+        .map((manifest) => {
+        const declaration = declaredWorkspaces.get(manifest.directory);
+        // An undeclared nested manifest (a fixture, an example, a vendored sample) is not an
+        // active workspace. It is still reported, at reduced confidence, as a candidate only.
+        return record(manifest.name, declaration === undefined ? "nested-package" : "package-workspace", {
+            root: manifest.directory,
+            confidence: declaration === undefined ? "LOW" : "HIGH",
+            evidence: declaration === undefined
+                ? [manifest.path, "not declared by any root workspace configuration"]
+                : [manifest.path, declaration]
+        });
+    });
     const applications = manifests.map((manifest) => applicationRecord(manifest));
     const languages = languageRecords(root, files);
     const frameworks = capabilityRecords(capabilities, [
@@ -594,6 +611,87 @@ async function buildStructuredProfile(root, files, capabilities) {
         environment_templates: environmentTemplates,
         critical_workflows: criticalWorkflows
     };
+}
+async function isInsideGitWorkTree(root) {
+    try {
+        const result = await runFile("git", ["rev-parse", "--is-inside-work-tree"], root, 10_000);
+        return result.exitCode === 0 && result.stdout.trim() === "true";
+    }
+    catch {
+        return false;
+    }
+}
+/**
+ * Resolves workspace directories declared by the root project. Supports npm/yarn/bun
+ * `package.json` workspaces, pnpm-workspace.yaml, lerna.json, nx.json, and turbo.json.
+ * Returns a map of workspace directory to the evidence that declared it.
+ */
+async function loadDeclaredWorkspaces(root, manifests) {
+    const declared = new Map();
+    const patterns = [];
+    const rootManifest = manifests.find((manifest) => manifest.path === "package.json");
+    const rootWorkspaces = rootManifest?.manifest.workspaces;
+    const rootPatterns = Array.isArray(rootWorkspaces)
+        ? rootWorkspaces
+        : isRecord(rootWorkspaces) && Array.isArray(rootWorkspaces.packages)
+            ? rootWorkspaces.packages
+            : [];
+    for (const pattern of rootPatterns)
+        if (typeof pattern === "string")
+            patterns.push({ pattern, evidence: "package.json workspaces" });
+    const pnpm = await readTextIfPresent(join(root, "pnpm-workspace.yaml"));
+    if (pnpm !== undefined) {
+        for (const match of pnpm.matchAll(/^\s*-\s*["']?([^"'\n#]+?)["']?\s*$/gmu))
+            patterns.push({ pattern: (match[1] ?? "").trim(), evidence: "pnpm-workspace.yaml" });
+    }
+    for (const [file, key] of [
+        ["lerna.json", "packages"],
+        ["nx.json", "projects"],
+        ["turbo.json", "workspaces"]
+    ]) {
+        const content = await readTextIfPresent(join(root, file));
+        if (content === undefined)
+            continue;
+        try {
+            const parsed = JSON.parse(content);
+            if (!isRecord(parsed))
+                continue;
+            const values = parsed[key];
+            if (Array.isArray(values))
+                for (const value of values)
+                    if (typeof value === "string")
+                        patterns.push({ pattern: value, evidence: file });
+                    else if (isRecord(values))
+                        for (const value of Object.keys(values))
+                            patterns.push({ pattern: value, evidence: file });
+        }
+        catch {
+            // A malformed workspace declaration is evidence for other analyzers, not a crash here.
+        }
+    }
+    for (const manifest of manifests) {
+        if (manifest.directory === ".")
+            continue;
+        for (const { pattern, evidence } of patterns) {
+            if (matchesWorkspacePattern(manifest.directory, pattern)) {
+                declared.set(manifest.directory, `declared by ${evidence} pattern '${pattern}'`);
+                break;
+            }
+        }
+    }
+    return declared;
+}
+function matchesWorkspacePattern(directory, pattern) {
+    const normalized = pattern.replace(/^\.\//u, "").replace(/\/+$/u, "");
+    if (normalized.length === 0)
+        return false;
+    const expression = normalized
+        .split("/")
+        .map((segment) => segment === "**"
+        ? "[^\\0]*"
+        : segment.replace(/[.+^${}()|[\]\\]/gu, "\\$&").replace(/\*/gu, "[^/]*"))
+        .join("/");
+    return new RegExp(`^${expression}$`, "u").test(directory);
 }
 async function loadPackageManifests(root, files) {
     const output = [];
@@ -757,21 +855,98 @@ async function routeRecords(root, files) {
                 visibility = "admin";
             else if (/\b(?:requireAuth|authenticate|getServerSession|session\.user|auth\.user)/u.test(context))
                 visibility = "authenticated";
-            else if (/\/(?:internal|cron|webhooks?)(?:\/|$)/iu.test(route))
+            // Name-based visibility is an explicit low-confidence heuristic, never proof. A route is
+            // not public merely because its path contains "login", "health", or "public".
+            let nameHeuristic = false;
+            if (visibility === "unknown" && /\/(?:internal|cron|webhooks?)(?:\/|$)/iu.test(route)) {
                 visibility = "internal";
-            else if (/\/(?:health|login|signup|public)(?:\/|$)/iu.test(route))
+                nameHeuristic = true;
+            }
+            else if (visibility === "unknown" &&
+                /\/(?:health|login|signup|public)(?:\/|$)/iu.test(route)) {
                 visibility = "public";
+                nameHeuristic = true;
+            }
             output.push({
                 name: `${method} ${route}`,
                 type: "http-route",
                 location: path,
-                confidence: "HIGH",
-                evidence: [`${path}:${lineForIndex(content, match.index)}`],
+                confidence: nameHeuristic ? "LOW" : "HIGH",
+                evidence: [
+                    `${path}:${lineForIndex(content, match.index)}`,
+                    "adapter: express-like",
+                    ...(nameHeuristic
+                        ? ["visibility inferred from the route name only; not proven by a guard"]
+                        : [])
+                ],
                 visibility
             });
         }
     }
+    output.push(...(await frameworkRouteRecords(root, files)));
     return output;
+}
+/**
+ * Bounded route adapters for frameworks whose routes are not literal Express registrations.
+ * Each adapter states which adapter produced the record so coverage is auditable. Middleware
+ * inheritance is not resolved, so visibility stays `unknown` unless a guard is directly visible.
+ */
+async function frameworkRouteRecords(root, files) {
+    const output = [];
+    const methods = "GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS";
+    for (const file of files.filter((candidate) => /\.(?:[cm]?[jt]sx?)$/iu.test(candidate))) {
+        const content = await readTextIfPresent(file);
+        if (content === undefined)
+            continue;
+        const path = toPosix(relative(root, file));
+        // Next.js App Router: app/**/route.ts exporting HTTP method handlers.
+        if (/(?:^|\/)app\/.*\/route\.[cm]?[jt]sx?$/iu.test(path)) {
+            const segment = path
+                .replace(/^.*?(?:^|\/)app\//iu, "/")
+                .replace(/\/route\.[cm]?[jt]sx?$/iu, "")
+                .replace(/\/\((?:[^/]+)\)/gu, "");
+            for (const match of content.matchAll(new RegExp(`export\\s+(?:async\\s+)?function\\s+(${methods})\\b`, "gu")))
+                output.push(frameworkRoute(`${match[1]} ${segment || "/"}`, path, content, match.index, "nextjs-app-router"));
+        }
+        // Next.js Pages Router: pages/api/**.ts default-exported handler.
+        if (/(?:^|\/)pages\/api\/.*\.[cm]?[jt]sx?$/iu.test(path) && /export\s+default/u.test(content)) {
+            const segment = path
+                .replace(/^.*?(?:^|\/)pages\//iu, "/")
+                .replace(/\.[cm]?[jt]sx?$/iu, "")
+                .replace(/\/index$/u, "");
+            output.push(frameworkRoute(`ROUTE ${segment || "/"}`, path, content, 0, "nextjs-pages-router"));
+        }
+        // NestJS controller decorators.
+        const controller = /@Controller\s*\(\s*["'`]([^"'`]*)["'`]/u.exec(content);
+        if (controller !== null) {
+            const base = `/${(controller[1] ?? "").replace(/^\/+|\/+$/gu, "")}`;
+            for (const match of content.matchAll(/@(Get|Post|Put|Patch|Delete|Head|Options)\s*\(\s*(?:["'`]([^"'`]*)["'`])?\s*\)/gu)) {
+                const suffix = (match[2] ?? "").replace(/^\/+/u, "");
+                const route = `${base === "/" ? "" : base}/${suffix}`.replace(/\/+$/u, "") || "/";
+                output.push(frameworkRoute(`${(match[1] ?? "ROUTE").toUpperCase()} ${route}`, path, content, match.index, "nestjs-decorators"));
+            }
+        }
+        // Fastify object-form route registration.
+        for (const match of content.matchAll(/\.route\s*\(\s*\{[^}]*?method\s*:\s*["'`]([A-Za-z]+)["'`][^}]*?url\s*:\s*["'`]([^"'`]+)["'`]/gsu))
+            output.push(frameworkRoute(`${(match[1] ?? "ROUTE").toUpperCase()} ${match[2] ?? "unknown"}`, path, content, match.index, "fastify-route-object"));
+    }
+    return output;
+}
+function frameworkRoute(name, path, content, index, adapter) {
+    return {
+        name,
+        type: "http-route",
+        location: path,
+        confidence: "HIGH",
+        evidence: [
+            `${path}:${lineForIndex(content, index)}`,
+            `adapter: ${adapter}`,
+            "middleware-inherited visibility is not resolved by this adapter"
+        ],
+        // Visibility is unknown unless a guard is directly observed. Framework middleware and
+        // decorator-level guards applied elsewhere are deliberately not treated as proof.
+        visibility: "unknown"
+    };
 }
 function record(name, type, options) {
     return {

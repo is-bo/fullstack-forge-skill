@@ -5,7 +5,7 @@ import ts from "typescript";
 import { runNamedAnalyzer } from "./analyzers.js";
 import { detectProjectCommands } from "./discovery.js";
 import { readReport, writeReport, type AuditReport, type ExecutionRecord } from "./report.js";
-import type { Finding } from "./types.js";
+import type { Finding, FixAttempt } from "./types.js";
 import {
   assertNoSymlinkPath,
   assertSafeRelative,
@@ -17,6 +17,12 @@ import {
 } from "./utils.js";
 
 export type FixRisk = "safe" | "risky";
+
+export type BlockedFix = {
+  finding_id: string;
+  reason: string;
+  risk?: FixRisk | "unsupported";
+};
 
 export type FixRegistryEntry = {
   fix_id: string;
@@ -50,7 +56,7 @@ export type FixResult = {
   dry_run: boolean;
   operations: FixOperation[];
   changed_files: string[];
-  blocked_findings: Array<{ finding_id: string; reason: string }>;
+  blocked_findings: BlockedFix[];
   execution: ExecutionRecord[];
   report_paths: string[];
 };
@@ -171,11 +177,22 @@ export const FIX_REGISTRY: readonly FixRegistryEntry[] = [
   }
 ];
 
+/**
+ * Fix contract:
+ *   `forge <section> fix`                  plans only and never mutates files.
+ *   `forge <section> fix --safe`           executes bounded safe registry entries.
+ *   `forge <section> fix --safe --dry-run` plans safe entries without writing.
+ * Risky changes always require a separate, explicit, approval-bound mechanism and are never
+ * implied by the absence of `--safe`.
+ */
 export async function executeFixes(
   rootInput: string,
   section: string,
-  options: { dryRun: boolean; severity?: string; allowRun?: boolean }
+  options: { dryRun: boolean; safe?: boolean; severity?: string; allowRun?: boolean }
 ): Promise<FixResult> {
+  // Planning mode is any run that must not write: an explicit --dry-run, or the absence of
+  // the explicit --safe execution opt-in.
+  const planOnly = options.dryRun || options.safe !== true;
   const root = await canonicalDirectory(rootInput);
   const reportPath = join(root, ".forge", "report.json");
   await assertNoSymlinkPath(root, reportPath);
@@ -192,7 +209,7 @@ export async function executeFixes(
       (severity === undefined || finding.severity === severity)
   );
   const planned: PlannedWrite[] = [];
-  const blocked: Array<{ finding_id: string; reason: string }> = [];
+  const blocked: BlockedFix[] = [];
   for (const finding of scoped) {
     const definition = SAFE_DEFINITIONS.find((candidate) => candidate.matches(finding));
     if (definition === undefined) {
@@ -200,6 +217,7 @@ export async function executeFixes(
       if (risky !== undefined || finding.safe_fix === false) {
         blocked.push({
           finding_id: finding.id,
+          risk: risky === undefined ? "unsupported" : "risky",
           reason:
             risky?.reason ??
             "No bounded safe registry entry supports this finding; the finding remains approval-bound."
@@ -270,12 +288,19 @@ export async function executeFixes(
     }
   }
 
-  if (options.dryRun) {
+  if (planOnly) {
     const idempotent =
       planned.length === 0 && blocked.length === 0 && hasPreviouslyResolvedSafeFix(report, section);
     return {
+      // Planning without the explicit --safe execution opt-in is never PASS: nothing was applied.
       status:
-        blocked.length > 0 ? "BLOCKED" : planned.length > 0 || idempotent ? "PASS" : "BLOCKED",
+        options.safe !== true
+          ? "BLOCKED"
+          : blocked.length > 0
+            ? "BLOCKED"
+            : planned.length > 0 || idempotent
+              ? "PASS"
+              : "BLOCKED",
       dry_run: true,
       operations: planned.map(publicOperation),
       changed_files: [],
@@ -525,7 +550,7 @@ async function rollbackWrites(root: string, operations: PlannedWrite[]): Promise
 function updateReportAfterFix(
   report: AuditReport,
   operations: PlannedWrite[],
-  blocked: Array<{ finding_id: string; reason: string }>
+  blocked: BlockedFix[]
 ): void {
   const byFinding = new Map<string, PlannedWrite[]>();
   for (const operation of operations) {
@@ -538,6 +563,16 @@ function updateReportAfterFix(
     if (applied !== undefined) {
       const directlyProven = applied.every((operation) => operation.absenceProvesResolution);
       finding.status = directlyProven ? "PASS" : "NOT_VERIFIED";
+      recordFixAttempt(finding, {
+        ...(applied[0] === undefined ? {} : { fix_id: applied[0].fix_id }),
+        status: "APPLIED",
+        risk: "safe",
+        reason: directlyProven
+          ? "Bounded safe fix applied and the exact structural condition was directly disproven."
+          : "Bounded safe fix applied; behaviour-level proof remains outstanding.",
+        attempted_at: utcNow(),
+        paths: [...new Set(applied.map((operation) => operation.path))].sort()
+      });
       finding.evidence.push(
         `${utcNow()}: applied ${applied.map((operation) => operation.fix_id).join(", ")} to ${applied.map((operation) => operation.path).join(", ")}; finding-specific structural analyzers no longer reproduce the exact condition.`
       );
@@ -548,12 +583,25 @@ function updateReportAfterFix(
     }
     const refusal = blocked.find((item) => item.finding_id === finding.id);
     if (refusal !== undefined) {
-      finding.status = "BLOCKED";
-      finding.evidence.push(`${utcNow()}: automatic fix refused: ${refusal.reason}`);
+      // A refused fix says nothing about whether the defect was proven. The original FAIL or
+      // WARNING is preserved; only the fix attempt is recorded as BLOCKED.
+      recordFixAttempt(finding, {
+        status: "BLOCKED",
+        risk: refusal.risk ?? "unsupported",
+        reason: refusal.reason,
+        attempted_at: utcNow()
+      });
+      finding.evidence.push(
+        `${utcNow()}: automatic fix refused: ${refusal.reason}; the original ${finding.status} defect status is preserved.`
+      );
     }
   }
   report.generated_at = utcNow();
   report.scope = `${report.scope}; bounded safe fix`;
+}
+
+function recordFixAttempt(finding: Finding, attempt: FixAttempt): void {
+  finding.fix_attempts = [...(finding.fix_attempts ?? []), attempt];
 }
 
 function publicOperation(operation: PlannedWrite): FixOperation {

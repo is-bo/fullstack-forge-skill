@@ -8,6 +8,7 @@ import type {
   Severity,
   TraceEvidence
 } from "./types.js";
+import { buildTaintModel, type TaintModel, type TaintOrigin } from "./dataflow.js";
 import { lineNumber, readTextIfPresent, sha256, toPosix, walkFiles } from "./utils.js";
 
 const EXCLUDED = new Set([
@@ -685,45 +686,53 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
   for (const file of files) {
     const labelIds = collectLabelIds(file.sourceFile);
     const functions = collectFunctionRanges(file.sourceFile);
+    const taint = buildTaintModel(file.sourceFile);
     visit(file.sourceFile, [], (node, ancestors) => {
       if (ts.isCallExpression(node)) {
         const name = callName(node.expression);
         const argumentText = node.arguments
           .map((argument) => argument.getText(file.sourceFile))
           .join(", ");
-        const requestControlled = containsRequestData(argumentText);
+        // Data-flow first: resolves aliases, reassignment, destructuring, template and
+        // concatenation propagation, and same-file parameter summaries. The literal-text regex
+        // is retained as a union so no previously detected direct flow regresses.
+        const flow = resolveArgumentTaint(node, file, taint);
+        const requestControlled = flow !== undefined || containsRequestData(argumentText);
+        // A sanitizer only clears the value it was applied to, never a neighbouring keyword.
+        const sanitized = argumentSymbolsSanitized(node, file, taint);
         if (
           isSqlSink(name) &&
           requestControlled &&
-          hasInterpolation(node.arguments, file.sourceFile)
+          (hasInterpolation(node.arguments, file.sourceFile) ||
+            flowPassedThroughInterpolation(flow))
         ) {
-          issues.push(issue(SPECS.sql, file, node, requestSource(argumentText), name));
-          if (!hasValidationNear(node, file, functions))
-            issues.push(issue(SPECS.validation, file, node, requestSource(argumentText), name));
+          issues.push(issue(SPECS.sql, file, node, flowSource(flow, argumentText), name));
+          if (!sanitized)
+            issues.push(issue(SPECS.validation, file, node, flowSource(flow, argumentText), name));
         }
         if (
           isNoSqlSink(name) &&
           requestControlled &&
           /[${}]|\$where|req\.(?:body|query)(?:\.|\b)/u.test(argumentText)
         ) {
-          issues.push(issue(SPECS.nosql, file, node, requestSource(argumentText), name));
-          if (!hasValidationNear(node, file, functions))
-            issues.push(issue(SPECS.validation, file, node, requestSource(argumentText), name));
+          issues.push(issue(SPECS.nosql, file, node, flowSource(flow, argumentText), name));
+          if (!sanitized)
+            issues.push(issue(SPECS.validation, file, node, flowSource(flow, argumentText), name));
         }
         if (isShellSink(name) && requestControlled) {
-          issues.push(issue(SPECS.shell, file, node, requestSource(argumentText), name));
-          if (!hasValidationNear(node, file, functions))
-            issues.push(issue(SPECS.validation, file, node, requestSource(argumentText), name));
+          issues.push(issue(SPECS.shell, file, node, flowSource(flow, argumentText), name));
+          if (!sanitized)
+            issues.push(issue(SPECS.validation, file, node, flowSource(flow, argumentText), name));
         }
         if (
           /\bredirect$/u.test(name) &&
           requestControlled &&
           !/allowlist|allowedRedirect|safeRedirect/iu.test(enclosingText(node, file, functions))
         ) {
-          issues.push(issue(SPECS.redirect, file, node, requestSource(argumentText), name));
+          issues.push(issue(SPECS.redirect, file, node, flowSource(flow, argumentText), name));
         }
         if (isLogSink(name) && containsSensitiveLogData(argumentText))
-          issues.push(issue(SPECS.sensitiveLog, file, node, requestSource(argumentText), name));
+          issues.push(issue(SPECS.sensitiveLog, file, node, flowSource(flow, argumentText), name));
         if (name.endsWith("upload.any"))
           issues.push(issue(SPECS.uploadAny, file, node, "unrestricted multipart fields", name));
         if (isQuerySink(name) && ancestors.some(isLoop))
@@ -746,14 +755,14 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
               context
             )
           )
-            issues.push(issue(SPECS.objectAuth, file, node, requestSource(argumentText), name));
+            issues.push(issue(SPECS.objectAuth, file, node, flowSource(flow, argumentText), name));
         }
         if (
           isQuerySink(name) &&
           /(?:tenant|organization)(?:Id|_id)?\s*:\s*req\.(?:params|query|body)/u.test(argumentText)
         ) {
-          issues.push(issue(SPECS.tenantInput, file, node, requestSource(argumentText), name));
-          issues.push(issue(SPECS.tenantScope, file, node, requestSource(argumentText), name));
+          issues.push(issue(SPECS.tenantInput, file, node, flowSource(flow, argumentText), name));
+          issues.push(issue(SPECS.tenantScope, file, node, flowSource(flow, argumentText), name));
         }
         const queryContext = isQuerySink(name) ? enclosingText(node, file, functions) : "";
         if (
@@ -774,32 +783,36 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
           requestControlled &&
           /invoice|document|attachment|ocr|text/iu.test(argumentText)
         )
-          issues.push(issue(SPECS.aiPrompt, file, node, requestSource(argumentText), name));
+          issues.push(issue(SPECS.aiPrompt, file, node, flowSource(flow, argumentText), name));
         if (
           isPaymentSink(name) &&
           /req\.(?:body|query|params).*\b(?:amount|price|currency)|(?:amount|price|currency).*req\.(?:body|query|params)/isu.test(
             argumentText
           )
         )
-          issues.push(issue(SPECS.clientAmount, file, node, requestSource(argumentText), name));
+          issues.push(issue(SPECS.clientAmount, file, node, flowSource(flow, argumentText), name));
         if (isHttpClientSink(name)) {
-          const target = node.arguments[0]?.getText(file.sourceFile) ?? "";
+          const targetNode = node.arguments[0];
+          const target = targetNode?.getText(file.sourceFile) ?? "";
+          const targetFlow = targetNode === undefined ? undefined : taint.resolve(targetNode);
           if (
-            containsRequestData(target) &&
+            (targetFlow !== undefined || containsRequestData(target)) &&
             !/allowlist|allowedHosts|allowedDestinations|blockPrivateAddresses/iu.test(
               enclosingText(node, file, functions)
             )
           )
-            issues.push(issue(SPECS.ssrf, file, node, requestSource(target), name));
+            issues.push(
+              issue(SPECS.ssrf, file, node, flowSource(targetFlow ?? flow, target), name)
+            );
         }
         if (isDeserializationSink(name) && requestControlled)
-          issues.push(issue(SPECS.deserialize, file, node, requestSource(argumentText), name));
+          issues.push(issue(SPECS.deserialize, file, node, flowSource(flow, argumentText), name));
         if (
           isModelWriteSink(name) &&
           node.arguments.some((argument) =>
             referencesWholeRequestBody(argument, file.sourceFile)
           ) &&
-          !hasValidationNear(node, file, functions)
+          !sanitized
         )
           issues.push(issue(SPECS.massAssign, file, node, "entire request body", name));
         if (/(?:^|\.)(?:cookie|setCookie)$/u.test(name) && node.arguments.length >= 2) {
@@ -816,7 +829,7 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
               );
             if (containsRequestData(cookieValue))
               issues.push(
-                issue(SPECS.authSessionValue, file, node, requestSource(cookieValue), name)
+                issue(SPECS.authSessionValue, file, node, flowSource(flow, cookieValue), name)
               );
           }
         }
@@ -1233,10 +1246,15 @@ function mergeIssues(issues: Issue[]): Finding[] {
       sink: candidate.sink,
       description: candidate.evidence
     };
-    const current = findings.get(candidate.spec.id);
+    // Instance identity is keyed on the rule, the repository-relative path, and the sink symbol.
+    // Line numbers are deliberately excluded so that unrelated inserted lines, or moving the code
+    // within the same file, do not mint a new identity for the same defect.
+    const instanceId = findingInstanceId(candidate.spec.id, candidate.file.path, candidate.sink);
+    const current = findings.get(instanceId);
     if (current === undefined) {
-      findings.set(candidate.spec.id, {
+      findings.set(instanceId, {
         id: candidate.spec.id,
+        instance_id: instanceId,
         section: candidate.spec.section,
         title: candidate.spec.title,
         severity: candidate.spec.severity,
@@ -1258,6 +1276,8 @@ function mergeIssues(issues: Issue[]): Finding[] {
               type: "analyzer",
               analyzer_id: candidate.spec.analyzer,
               finding_id: candidate.spec.id,
+              instance_id: instanceId,
+              scope_paths: [candidate.file.path],
               absence_proves_resolution: candidate.spec.absenceProvesResolution
             }
           ]
@@ -1278,7 +1298,18 @@ function mergeIssues(issues: Issue[]): Finding[] {
     )
       current.evidence_snapshot?.push(snapshot);
   }
-  return [...findings.values()].sort((a, b) => a.id.localeCompare(b.id));
+  return [...findings.values()].sort(
+    (a, b) => a.id.localeCompare(b.id) || (a.instance_id ?? "").localeCompare(b.instance_id ?? "")
+  );
+}
+
+/**
+ * Stable per-occurrence identity for a rule. Derived from the rule ID, the repository-relative
+ * path, and the sink symbol so that it survives unrelated edits to the same file.
+ */
+export function findingInstanceId(ruleId: string, path: string, sink: string): string {
+  const digest = sha256(`${ruleId} ${path} ${sink}`).slice(0, 16);
+  return `${ruleId}:${digest}`;
 }
 
 function spec(
@@ -1392,7 +1423,26 @@ function isSqlSink(name: string): boolean {
 }
 
 function isNoSqlSink(name: string): boolean {
-  return /(?:^|\.)(?:find|findOne|findMany|aggregate|updateMany|deleteMany)$/u.test(name);
+  // Unambiguous ORM/driver methods: the name alone identifies a data-access call.
+  if (/(?:^|\.)(?:findMany|aggregate|updateMany|deleteMany)$/u.test(name)) return true;
+  // `find` and `findOne` collide with Array.prototype.find and similar collection helpers, so
+  // they only count as query sinks when the receiver looks like a data accessor. Without this
+  // the analyzer reports every array search as a database query.
+  return /(?:^|\.)(?:find|findOne)$/u.test(name) && hasDataAccessReceiver(name);
+}
+
+/** Receiver vocabulary that indicates a database, ORM, collection, or repository handle. */
+function hasDataAccessReceiver(name: string): boolean {
+  const segments = name.split(".");
+  if (segments.length < 2) return false;
+  return segments
+    .slice(0, -1)
+    .some(
+      (segment) =>
+        /^(?:db|database|prisma|knex|sequelize|mongoose|mongo|client|conn|connection|pool|collection|repository|repo|models?|table|store|dataSource|entityManager|em|orm|tx|trx|session)$/iu.test(
+          segment
+        ) || /(?:Repository|Collection|Model|Table|Store|Dao)$/u.test(segment)
+    );
 }
 
 function isQuerySink(name: string): boolean {
@@ -1435,7 +1485,11 @@ function isDeserializationSink(name: string): boolean {
 }
 
 function isModelWriteSink(name: string): boolean {
-  return /(?:^|\.)(?:create|update|updateOne|insertOne|insert|save|assign)$/u.test(name);
+  // Unambiguous persistence methods.
+  if (/(?:^|\.)(?:updateOne|insertOne)$/u.test(name)) return true;
+  // `create`, `update`, `insert`, `save`, and `assign` are common on non-persistence objects
+  // (Object.assign, factory helpers), so they require a data-access receiver.
+  return /(?:^|\.)(?:create|update|insert|save|assign)$/u.test(name) && hasDataAccessReceiver(name);
 }
 
 function referencesWholeRequestBody(argument: ts.Expression, sourceFile: ts.SourceFile): boolean {
@@ -1477,6 +1531,59 @@ function containsSensitiveLogData(text: string): boolean {
   );
 }
 
+/** Resolves the strongest taint origin across a call's arguments. */
+function resolveArgumentTaint(
+  node: ts.CallExpression,
+  file: SourceRecord,
+  taint: TaintModel
+): TaintOrigin | undefined {
+  for (const argument of node.arguments) {
+    const origin = taint.resolve(argument);
+    if (origin !== undefined) return origin;
+  }
+  void file;
+  return undefined;
+}
+
+/**
+ * True only when every request-controlled identifier reaching this call was itself sanitized.
+ * Unrelated validation elsewhere in the enclosing function proves nothing about these values.
+ */
+function argumentSymbolsSanitized(
+  node: ts.CallExpression,
+  file: SourceRecord,
+  taint: TaintModel
+): boolean {
+  const names = new Set<string>();
+  for (const argument of node.arguments) collectIdentifiers(argument, file.sourceFile, names);
+  const relevant = [...names].filter((name) => taint.tainted.has(name));
+  if (relevant.length === 0) return false;
+  return relevant.every((name) => taint.isSanitized(name));
+}
+
+function collectIdentifiers(node: ts.Node, sourceFile: ts.SourceFile, into: Set<string>): void {
+  if (ts.isIdentifier(node)) into.add(node.text);
+  node.forEachChild((child) => collectIdentifiers(child, sourceFile, into));
+}
+
+/**
+ * True when the resolved flow reached the sink through string interpolation or concatenation,
+ * even though the sink argument itself is a plain identifier.
+ */
+function flowPassedThroughInterpolation(flow: TaintOrigin | undefined): boolean {
+  return (
+    flow?.steps.some(
+      (step) => step.includes("template literal") || step.includes("string concatenation")
+    ) ?? false
+  );
+}
+
+/** Renders the source for evidence, preferring a resolved data-flow origin over raw text. */
+function flowSource(flow: TaintOrigin | undefined, text: string): string {
+  if (flow === undefined) return requestSource(text);
+  return flow.steps.length === 0 ? flow.source : `${flow.source} (${flow.steps.join(" -> ")})`;
+}
+
 function requestSource(text: string): string {
   return (
     /(?:req|request)\.(?:body|params|query|headers|file|files)(?:\.[A-Za-z0-9_$]+)?/u.exec(
@@ -1509,18 +1616,6 @@ function enclosingText(
   return (
     functions.find((range) => range.start <= start && range.end >= node.getEnd())?.text ??
     file.content
-  );
-}
-
-function hasValidationNear(
-  node: ts.Node,
-  file: SourceRecord,
-  functions: Array<{ start: number; end: number; text: string }>
-): boolean {
-  const context = enclosingText(node, file, functions);
-  const before = context.slice(0, Math.max(0, context.indexOf(node.getText(file.sourceFile))));
-  return /\b(?:safeParse|parse|validate|schema|allowlist|whitelist|assert[A-Z]|is[A-Z])\b/u.test(
-    before
   );
 }
 

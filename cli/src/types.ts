@@ -38,6 +38,10 @@ export type VerificationAction =
       type: "analyzer";
       analyzer_id: string;
       finding_id: string;
+      /** Optional for backwards compatibility with reports written before instance identity. */
+      instance_id?: string;
+      /** Repository-relative paths the original evidence came from; scopes re-analysis. */
+      scope_paths?: string[];
       absence_proves_resolution: boolean;
     }
   | { type: "project-command"; command: string; required: boolean }
@@ -45,6 +49,22 @@ export type VerificationAction =
 
 export type VerificationPlan = {
   actions: VerificationAction[];
+};
+
+export const FIX_ATTEMPT_STATUSES = ["PLANNED", "APPLIED", "BLOCKED", "ROLLED_BACK"] as const;
+export type FixAttemptStatus = (typeof FIX_ATTEMPT_STATUSES)[number];
+
+/**
+ * A fix attempt is recorded independently of the defect it targets. Refusing to fix a defect
+ * never changes whether the defect was proven; it only records that remediation did not run.
+ */
+export type FixAttempt = {
+  fix_id?: string;
+  status: FixAttemptStatus;
+  risk: "safe" | "risky" | "unsupported";
+  reason: string;
+  attempted_at: string;
+  paths?: string[];
 };
 
 export type Finding = {
@@ -62,9 +82,15 @@ export type Finding = {
   verification: string[];
   standards: string[];
   analyzer_id?: string;
+  /**
+   * Stable per-occurrence identity: `<rule id>:<hash>`. The rule-level `id` is preserved for
+   * backwards compatibility; `instance_id` distinguishes separate occurrences of one rule.
+   */
+  instance_id?: string;
   trace?: TraceEvidence[];
   evidence_snapshot?: EvidenceSnapshot[];
   verification_plan?: VerificationPlan;
+  fix_attempts?: FixAttempt[];
 };
 
 export type Detection = {

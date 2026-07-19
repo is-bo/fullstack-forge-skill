@@ -7,3 +7,8 @@ export type AnalyzerRun = {
 };
 export declare function runAnalyzers(section: string, root: string, scope?: AnalyzerScope): Promise<AnalyzerRun[]>;
 export declare function runNamedAnalyzer(analyzerId: string, root: string, scope?: AnalyzerScope): Promise<AnalyzerRun>;
+/**
+ * Stable per-occurrence identity for a rule. Derived from the rule ID, the repository-relative
+ * path, and the sink symbol so that it survives unrelated edits to the same file.
+ */
+export declare function findingInstanceId(ruleId: string, path: string, sink: string): string;

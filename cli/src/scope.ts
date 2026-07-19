@@ -182,7 +182,22 @@ function validateBase(value: string): string {
   return value;
 }
 
+/**
+ * Base precedence: explicit --base, then the current branch upstream, then origin/HEAD,
+ * origin/main, origin/master, then local main and master.
+ *
+ * HEAD is deliberately never used as a fallback: `merge-base HEAD HEAD` is HEAD itself, which
+ * would silently hide every committed change on the branch and imply full coverage. When no
+ * meaningful base exists the caller receives a structured BLOCKED error instead.
+ */
 async function determineDefaultBase(root: string): Promise<string> {
+  const upstream = await gitOptional(root, [
+    "rev-parse",
+    "--abbrev-ref",
+    "--symbolic-full-name",
+    "@{upstream}"
+  ]);
+  if (upstream !== undefined && upstream.trim().length > 0) return validateBase(upstream.trim());
   const remoteHead = await gitOptional(root, [
     "symbolic-ref",
     "--quiet",
@@ -190,11 +205,17 @@ async function determineDefaultBase(root: string): Promise<string> {
   ]);
   if (remoteHead !== undefined)
     return validateBase(remoteHead.trim().replace(/^refs\/remotes\//u, ""));
+  for (const candidate of ["origin/main", "origin/master"]) {
+    const exists = await gitOptional(root, ["show-ref", "--verify", `refs/remotes/${candidate}`]);
+    if (exists !== undefined) return candidate;
+  }
   for (const candidate of ["main", "master"]) {
     const exists = await gitOptional(root, ["show-ref", "--verify", `refs/heads/${candidate}`]);
     if (exists !== undefined) return candidate;
   }
-  return "HEAD";
+  throw new Error(
+    "BLOCKED: no comparison base could be resolved. Tried the branch upstream, origin/HEAD, origin/main, origin/master, and local main and master. Pass an explicit --base."
+  );
 }
 
 async function resolveCommit(root: string, base: string): Promise<string> {
