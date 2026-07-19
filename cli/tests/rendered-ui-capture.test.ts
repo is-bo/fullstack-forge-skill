@@ -284,8 +284,12 @@ test("offline mode blocks a redirect to a public hostname", async () => {
     },
     { offline: true }
   );
-  assert.ok(
-    !record.reachedNetwork.includes("https://evil.example.com/landing"),
+  // Compare parsed hostnames rather than searching the URL text, so the assertion cannot be
+  // satisfied by an unrelated URL that merely embeds the loopback address.
+  const reachedHosts = record.reachedNetwork.map((raw) => new URL(raw).hostname);
+  assert.deepEqual(
+    reachedHosts.filter((host) => host !== "127.0.0.1"),
+    [],
     "the redirect destination must never reach the network layer"
   );
   assert.equal(outcome.blocked_requests.length, 1);
@@ -338,7 +342,11 @@ test("online mode intercepts nothing and reaches every destination", async () =>
     requests: ["https://cdn.example.com/analytics.js"]
   });
   assert.equal(outcome.blocked_requests.length, 0);
-  assert.ok(record.reachedNetwork.includes("https://cdn.example.com/analytics.js"));
+  assert.equal(
+    record.reachedNetwork.filter((raw) => new URL(raw).hostname === "cdn.example.com").length,
+    1,
+    "online mode reaches the remote destination unchanged"
+  );
   assert.equal(outcome.capture_status, "COMPLETE");
 });
 
