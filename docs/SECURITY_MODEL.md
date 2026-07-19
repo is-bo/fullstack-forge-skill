@@ -67,10 +67,15 @@ Directive-sounding content inside them is data, not authority.
   loopback, private, link-local, unspecified, multicast, reserved, shared-carrier, and
   cloud-metadata addresses all fail, including IPv4-mapped IPv6 and trailing-dot `localhost` forms;
   no export of the declaration; no property write, delete, alias into another binding, return,
-  export, or pass to a function the engine does not model; the selected destination flowing directly
-  to the sink, so concatenation or interpolation drops the proof; and an explicit redirect
-  constraint at the sink. Hostname destinations are accepted but recorded as DNS-dependent: no
-  resolution is performed, so DNS rebinding and private A records stay outside the proof.
+  export, or pass to a function the engine does not model; and an address guard that is modeled
+  rather than named — `isPrivate`, `isLinkLocal`, `isInternal`, and `privateAddress` are discovery
+  hints only, and a guard is credited solely when a same-file implementation takes the value under
+  test, references it, and decides against concrete non-public address evidence. A guard imported
+  from another module is not modeled, so that mitigation stays unverified and the finding is
+  reported rather than suppressed; the selected destination flowing directly to the sink, so
+  concatenation or interpolation drops the proof; and an explicit redirect constraint at the sink.
+  Hostname destinations are accepted but recorded as DNS-dependent: no resolution is performed, so
+  DNS rebinding and private A records stay outside the proof.
 - Offline command policy. `--offline` reaches every execution path, not only the rendered-UI driver.
   An arbitrary audited-project script is classified `UNKNOWN` — Forge cannot read the transitive
   behavior of a shell pipeline, lifecycle chain, or task runner, and never claims such a script is

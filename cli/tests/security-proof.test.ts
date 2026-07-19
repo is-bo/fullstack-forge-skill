@@ -406,3 +406,73 @@ test("hostname destinations are accepted but recorded as DNS-dependent", () => {
   );
   assert.equal(classifyDestination("https://93.184.216.34/").dns_dependent, false);
 });
+
+/**
+ * An address guard used to be credited from its callee *name*, so a no-op named `isPrivate`
+ * suppressed SSRF while blocking nothing. Only a same-file implementation whose behavior is
+ * actually modeled may suppress the finding.
+ */
+const ADDRESS_GUARD_NAMES = ["isPrivate", "isLinkLocal", "isInternal", "privateAddress"] as const;
+
+test("no-op address guards never suppress SSRF", async () => {
+  for (const name of ADDRESS_GUARD_NAMES) {
+    const ids = await securityIds(
+      `noop-address-${name}`,
+      `const ALLOWED = new Set(["https://docs.example.com/"]);
+function ${name}(value) {
+  return false;
+}
+export function proxy(req) {
+  if (!ALLOWED.has(req.query.url)) throw new Error("denied");
+  if (${name}(req.query.url)) throw new Error("blocked");
+  return fetch(req.query.url, { redirect: "manual" });
+}`
+    );
+    assert.ok(
+      ids.has("FF-SEC-SSRF-001"),
+      `a no-op ${name} must not prove the destination is public`
+    );
+  }
+});
+
+test("an address guard with no local implementation stays unverified", async () => {
+  const ids = await securityIds(
+    "imported-address-guard",
+    `import { isPrivate } from "netutils";
+const ALLOWED = new Set(["https://docs.example.com/"]);
+export function proxy(req) {
+  if (!ALLOWED.has(req.query.url)) throw new Error("denied");
+  if (isPrivate(req.query.url)) throw new Error("blocked");
+  return fetch(req.query.url, { redirect: "manual" });
+}`
+  );
+  assert.ok(
+    ids.has("FF-SEC-SSRF-001"),
+    "an unmodeled imported guard must be reported, not credited"
+  );
+});
+
+test("a modeled address guard still suppresses SSRF", async () => {
+  const ids = await securityIds(
+    "modeled-address-guard",
+    `const ALLOWED = new Set(["https://docs.example.com/"]);
+function isPrivate(host) {
+  return (
+    host.startsWith("127.") ||
+    host.startsWith("10.") ||
+    host.startsWith("192.168.") ||
+    host.startsWith("169.254.") ||
+    host === "::1"
+  );
+}
+export function proxy(req) {
+  if (!ALLOWED.has(req.query.url)) throw new Error("denied");
+  if (isPrivate(req.query.url)) throw new Error("blocked");
+  return fetch(req.query.url, { redirect: "manual" });
+}`
+  );
+  assert.ok(
+    !ids.has("FF-SEC-SSRF-001"),
+    "a genuine structurally proven address guard must still suppress"
+  );
+});

@@ -947,6 +947,97 @@ function isMembershipCheck(call) {
         return false;
     return callee.name.text === "has" || callee.name.text === "includes";
 }
+/**
+ * Literals that show a function body is genuinely reasoning about non-public address space:
+ * loopback, RFC 1918, link-local (including the cloud metadata address), and IPv6 equivalents.
+ */
+const ADDRESS_RANGE_LITERAL = /(?:\b(?:10|127)\.|\b169\.254\.|\b172\.(?:1[6-9]|2\d|3[01])\.|\b192\.168\.|::1\b|\bfc00|\bfd00|\bfe80|\blocalhost\b|\b0x7f)/iu;
+/** The simple callee identifier, ignoring any receiver. */
+function simpleCalleeName(expression) {
+    if (ts.isIdentifier(expression))
+        return expression.text;
+    if (ts.isPropertyAccessExpression(expression))
+        return expression.name.text;
+    return undefined;
+}
+/** A same-file `function f() {}` or `const f = () => {}` declaration for `name`. */
+function findLocalFunction(name, sourceFile) {
+    let found;
+    visit(sourceFile, [], (node) => {
+        if (found !== undefined)
+            return;
+        if (ts.isFunctionDeclaration(node) && node.name?.text === name) {
+            found = node;
+            return;
+        }
+        if (!ts.isVariableDeclaration(node))
+            return;
+        if (!ts.isIdentifier(node.name) || node.name.text !== name)
+            return;
+        const initializer = node.initializer;
+        if (initializer === undefined)
+            return;
+        if (ts.isArrowFunction(initializer) || ts.isFunctionExpression(initializer))
+            found = initializer;
+    });
+    return found;
+}
+/**
+ * An address guard is credited only when a supported same-file implementation actually models
+ * address classification. The name alone proves nothing — `function isPrivate() { return false; }`
+ * reads as a guard and blocks nothing, so name recognition credits a mitigation that does not
+ * exist. The implementation must take the value under test, reference it, and decide against
+ * concrete non-public address evidence.
+ *
+ * Limitation: a guard imported from another module or a package is not modeled here. That
+ * mitigation stays *unverified* rather than credited, so the finding is reported.
+ */
+function isModeledAddressGuard(call, sourceFile) {
+    const name = simpleCalleeName(call.expression);
+    if (name === undefined)
+        return false;
+    const declaration = findLocalFunction(name, sourceFile);
+    if (declaration === undefined)
+        return false;
+    const parameter = declaration.parameters[0];
+    if (parameter === undefined || !ts.isIdentifier(parameter.name))
+        return false;
+    const parameterName = parameter.name.text;
+    const body = declaration.body;
+    if (body === undefined)
+        return false;
+    // A constant-returning body decides nothing about its argument.
+    if (!ts.isBlock(body)) {
+        if (isConstantExpression(body))
+            return false;
+    }
+    else {
+        const statements = body.statements.filter((statement) => !ts.isEmptyStatement(statement));
+        const only = statements[0];
+        if (statements.length === 1 &&
+            only !== undefined &&
+            ts.isReturnStatement(only) &&
+            (only.expression === undefined || isConstantExpression(only.expression)))
+            return false;
+    }
+    // The body must both use the value under test and weigh it against real address evidence.
+    const nodes = [];
+    visit(body, [], (node) => {
+        nodes.push(node);
+    });
+    const referencesParameter = nodes.some((node) => ts.isIdentifier(node) && node.text === parameterName);
+    const hasAddressEvidence = nodes.some((node) => (ts.isStringLiteralLike(node) || ts.isRegularExpressionLiteral(node)) &&
+        ADDRESS_RANGE_LITERAL.test(node.getText(sourceFile)));
+    return referencesParameter && hasAddressEvidence;
+}
+/** `true`, `false`, `null`, a number, or a string — nothing derived from an argument. */
+function isConstantExpression(node) {
+    return (node.kind === ts.SyntaxKind.TrueKeyword ||
+        node.kind === ts.SyntaxKind.FalseKeyword ||
+        node.kind === ts.SyntaxKind.NullKeyword ||
+        ts.isNumericLiteral(node) ||
+        ts.isStringLiteralLike(node));
+}
 function isNetworkConstrainedTarget(sink, target, file, taint) {
     if (target === undefined)
         return false;
@@ -963,8 +1054,7 @@ function isNetworkConstrainedTarget(sink, target, file, taint) {
             : undefined;
     });
     const privateBlocked = hasDominatingGuard(sink, file.sourceFile, (call) => {
-        const name = callName(call.expression);
-        if (!/(?:isPrivate|isLinkLocal|isInternal|privateAddress|linkLocal)/iu.test(name))
+        if (!isModeledAddressGuard(call, file.sourceFile))
             return undefined;
         const argument = call.arguments[0];
         return argument !== undefined && sameTaintedValue(argument, target, taint)

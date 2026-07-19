@@ -26,6 +26,15 @@ versioning.
   semantics, schema operations attached to the exact value, dominating guards whose deny branch
   terminates, specification-defined sink encoding, parameterized database calls, shell argument
   separation, and same-file helpers whose bodies are actually analyzed.
+- SSRF address guards are no longer credited from their names. `isPrivate`, `isLinkLocal`,
+  `isInternal`, and `privateAddress` were still recognized by name alone, so a no-op guard —
+  `function isPrivate(value) { return false; }` — suppressed the SSRF finding while blocking
+  nothing, contradicting the documented claim that no protection is granted from an identifier's
+  name. A guard is now credited only when a same-file implementation is analyzed: it must accept the
+  value under test, reference it, and decide against concrete loopback, private, or link-local
+  address evidence, and a constant-returning body proves nothing. A guard imported from another
+  module is not modeled, so that mitigation is reported as unverified instead of credited. Genuine
+  structurally proven address guards continue to suppress.
 - Destination maps require strong proof before they suppress SSRF. A `const` object of URL strings
   is no longer sufficient: `http://127.0.0.1:3000/` and `http://169.254.169.254/latest/meta-data/`
   are fixed literals and exactly the destinations an SSRF attack wants. Suppression now requires
