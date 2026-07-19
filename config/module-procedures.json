@@ -1,0 +1,298 @@
+{
+  "discover": [
+    "Enumerate workspace manifests, lockfiles, and entry points, and record every application root with its package manager and language evidence.",
+    "Map executable surfaces: HTTP routes, background workers, scheduled jobs, CLIs, and build outputs, each with a file citation.",
+    "Identify data boundaries: databases, ORMs, migrations, caches, queues, object storage, and external providers from configuration and dependency evidence.",
+    "Identify identity boundaries: authentication providers, session mechanisms, roles, and tenant markers, distinguishing declared dependencies from wired code paths.",
+    "Write `.forge/project-profile.json` and `.forge/architecture-map.md` with a confidence level and file evidence for every detection, and flag low-confidence guesses for manual confirmation."
+  ],
+  "requirements": [
+    "Collect the requirement sources that exist: issues, specifications, READMEs, acceptance tests, and inline business rules, and record where each behavior is defined.",
+    "Trace each stated business rule to the code path and test that enforces it, recording rules that exist only in prose.",
+    "Enumerate state machines and lifecycle transitions (orders, subscriptions, approvals) and check that every declared state has entry, exit, and failure handling.",
+    "Inspect financial calculations for currency units, rounding mode, and precision, and compare them against the documented business rule.",
+    "Probe undefined behavior: ownership after deletion, permission defaults, concurrent edits, and time-zone-dependent rules, and record contradictions between sources."
+  ],
+  "architecture": [
+    "Build the dependency graph between modules or packages and record direction violations, cycles, and layering breaks with file evidence.",
+    "Locate domain logic and check whether it sits inside framework handlers, UI components, or migrations rather than in testable core modules.",
+    "Trace one write-path transaction end to end and record where transaction, error, and retry boundaries actually sit.",
+    "Identify shared mutable state, singletons, and hidden coupling between components that the module graph does not show.",
+    "Assess the topology against actual scale evidence: flag both missing boundaries under real load and speculative microservices, queues, or abstraction layers with no driver."
+  ],
+  "code": [
+    "Run the project's own formatter, linter, and type checker in check mode and record their exact exit codes and counts.",
+    "Sample the highest-churn and highest-complexity files and inspect error handling, unsafe casts, and unhandled promise paths.",
+    "Search for dead exports, duplicated logic, and TODO/FIXME markers, verifying each candidate is genuinely unreferenced before reporting it.",
+    "Trace resource lifecycles: opened handles, listeners, timers, and subscriptions, and verify each has a close or cleanup path.",
+    "Check the test surface of changed code paths and record which risky functions have no direct test."
+  ],
+  "ui": [
+    "Start or attach to the running application and enumerate representative routes from router or navigation evidence.",
+    "Inspect each representative screen at small, medium, and wide viewports, recording URL, viewport, and observed layout for every check.",
+    "Force loading, empty, error, success, and disabled states through data or network manipulation and record each state's rendering.",
+    "Compare repeated components (buttons, forms, tables, dialogs) across screens for token, spacing, and typography drift.",
+    "Capture browser console output on every inspected route and treat errors and warnings as findings, not noise.",
+    "When no running application is reachable, mark every rendered-state criterion `NOT_VERIFIED` and state exactly which routes were not exercised."
+  ],
+  "ux": [
+    "Select the product's critical journeys from discovery (registration, core object create/edit/delete, search, upload, payment) and execute each end to end.",
+    "At every step record what the user must know, what feedback appears, and how the user recovers from an error without losing entered data.",
+    "Exercise interruption paths: expired session mid-form, back button, refresh during submission, and permission denial, and record where work is lost or the user dead-ends.",
+    "Check destructive actions for confirmation, undo, and clarity about the scope of loss.",
+    "Measure friction: count fields, steps, and decisions per journey and flag steps that exist for the system's benefit rather than the user's."
+  ],
+  "accessibility": [
+    "Traverse each representative screen with keyboard only: record tab order, focus visibility, traps, and any control unreachable without a pointer.",
+    "Compute accessible names and roles for interactive elements from markup or the accessibility tree, not from visual labels.",
+    "Check contrast for text and interactive states against WCAG 2.2 AA thresholds using measured colors.",
+    "Exercise dynamic behavior: dialogs, expanders, validation errors, and live updates, and record what assistive technology is told at each change.",
+    "Test zoom to 200% and reflow at 320px width, recording clipped or unusable content.",
+    "Run an automated scanner when available, then state plainly which criteria it cannot judge and mark those manual."
+  ],
+  "i18n": [
+    "Inventory user-facing strings and locate hard-coded literals outside the translation system.",
+    "Compare message catalogs for completeness across supported locales and record missing or stale keys.",
+    "Render representative screens in Arabic (RTL), French, and English, checking direction, alignment, mixed-direction text, and expansion overflow.",
+    "Trace date, time, number, and currency values from storage to display and verify locale-aware formatting at the display boundary, with time zones handled at the edges.",
+    "Check pluralization rules, sorting and collation, and locale persistence across sessions and communication channels (emails, PDFs, errors)."
+  ],
+  "seo": [
+    "Decide applicability first: enumerate genuinely public indexable routes; for private dashboards or non-public products record `NOT_APPLICABLE` with the routing evidence.",
+    "Fetch each public route as a crawler would and verify title, meta description, canonical URL, and robots directives in the delivered HTML.",
+    "Validate structured data and Open Graph metadata against the rendered content.",
+    "Crawl internal links for broken targets, redirect chains, and duplicate-content URLs.",
+    "Verify sitemap coverage matches the actual public route set and check rendering of JavaScript-dependent content in the crawler-delivered output."
+  ],
+  "frontend": [
+    "Map component and data-fetching boundaries, identify server/client splits, and trace one interactive flow from route load to rendered state.",
+    "Profile network behavior for fetch waterfalls, duplicate requests, and missing caching on repeat navigation.",
+    "Inspect state management for stale-state, race, and error-boundary gaps: determine what happens when a slow response returns after navigation.",
+    "Measure bundle composition and record the heaviest dependencies, missing code splitting, and unused code on the initial route.",
+    "Check cleanup paths for listeners, observers, timers, and subscriptions on unmount, and hydration consistency for server-rendered markup."
+  ],
+  "api": [
+    "Enumerate every route from router evidence, with method, path, handler location, and authentication expectation.",
+    "Trace representative endpoints from input parsing to response: verify server-side validation at entry, output shape control at exit, and correct status codes for each failure class.",
+    "Check list endpoints for pagination, bounds, filtering, and deterministic ordering.",
+    "Inspect error responses for internal detail leakage and contract consistency.",
+    "Verify idempotency for retried mutations, rate limits on unauthenticated surfaces, request-size limits, and that the documented contract (OpenAPI or schema) matches the implementation."
+  ],
+  "jobs": [
+    "Inventory queues, workers, and scheduled jobs with their triggers, and trace one job from enqueue to completion including the failure path.",
+    "Verify idempotency: determine what happens when the same job runs twice, concurrently, or after a partial failure.",
+    "Inspect retry policy, backoff, limits, and the destination of permanently failing jobs (dead-letter or silent loss).",
+    "Check transaction boundaries: whether enqueue happens atomically with the state change that requires it (outbox or equivalent).",
+    "Verify observability: how an operator would find a stuck queue, a poison message, or a job that never ran, and how deploys interact with in-flight jobs."
+  ],
+  "integrations": [
+    "Inventory outbound calls and inbound webhooks with their providers, credentials, and code locations.",
+    "For each outbound call verify timeout, retry policy with idempotency, rate-limit handling, and response validation before use.",
+    "For each inbound webhook trace signature verification over raw bytes before parsing, then duplicate and out-of-order delivery handling.",
+    "Check environment separation: sandbox versus production credentials, endpoints, and event routing.",
+    "Probe failure isolation: determine what user-visible behavior results when the provider is down, slow, or returns malformed data."
+  ],
+  "auth": [
+    "Trace registration, login, and logout end to end, recording where credentials are validated, hashed, and stored.",
+    "Inspect session issuance: how identifiers are generated, what the cookie or token carries, its flags, lifetime, and revocation path.",
+    "Trace password reset and recovery flows for token entropy, expiry, single-use enforcement, and account-enumeration behavior.",
+    "Check brute-force protections, MFA enrollment and verification, and reauthentication for sensitive actions.",
+    "Verify session-fixation defense (rotation at login), remember-me behavior, and device/session management against the session store."
+  ],
+  "authorization": [
+    "Build the access-control matrix: subjects, roles, resources, and operations, derived from code rather than documentation.",
+    "Trace each protected route to the final data query and locate the authorization predicate at the last boundary, not only in middleware.",
+    "Test object-level access: substitute another subject's identifier at every ID-taking endpoint and record the enforcement evidence.",
+    "Check non-HTTP paths: exports, downloads, background jobs, scheduled tasks, WebSocket subscriptions, and admin interfaces for the same predicates.",
+    "Verify default-deny: enumerate what an unauthenticated and a minimally privileged caller can reach, and demand negative tests for every privileged operation."
+  ],
+  "security": [
+    "Model the attack surface from discovery: entry points, trust boundaries, secrets, and the assets behind each.",
+    "Trace untrusted input from every entry point to execution sinks (SQL, shell, template, deserialization, HTTP clients, file paths), recording interpolation versus binding at each sink.",
+    "Inspect browser-boundary controls: output encoding, CSRF protection, CORS policy, security headers, and cookie flags on the actual responses.",
+    "Search for secrets in code, configuration, templates, and history; verify error responses and logs do not leak internals or sensitive data.",
+    "Run available dependency, static, and secret scanners, separating confirmed findings from pattern matches, and check rate limiting and abuse controls on expensive or state-changing operations."
+  ],
+  "privacy": [
+    "Inventory personal-data fields across the schema, logs, analytics, and third-party flows, and record the purpose for each.",
+    "Trace collection points against the stated purpose and flag fields collected without use or consent.",
+    "Verify retention: deletion paths for accounts and tenants actually remove or anonymize the data, including files, caches, backup policy, and analytics.",
+    "Inspect logging and error paths for personal data and verify redaction at the sink.",
+    "Check export and correction capabilities, third-party processor flows, and residency constraints against the documented policy."
+  ],
+  "tenancy": [
+    "Locate the tenant identifier's origin and verify it derives from authenticated identity, never from request input.",
+    "Trace tenant-context propagation through every data query, verifying the tenant predicate at the final data-access boundary.",
+    "Check isolation beyond the database: cache keys, file paths, background jobs, logs, metrics, and search indexes.",
+    "Inspect unique constraints and identifiers for tenant scoping, and admin or support access for explicit cross-tenant audit trails.",
+    "Run or demand negative tests: the same object identifier across two tenants on every access path, including exports and downloads."
+  ],
+  "uploads": [
+    "Map the complete pipeline: entry points, validation layers, processing steps, storage destinations, and delivery paths.",
+    "Verify server-side validation order: authorization, then count and byte limits, then decoded content and signature checks — never extension or client MIME alone.",
+    "Trace where bytes rest at each stage; verify private-by-default quarantine before scanning and that scanner errors or timeouts fail closed.",
+    "Inspect object keys (server-generated, unguessable), tenant separation, signed-URL scope and expiry, and delivery headers (Content-Disposition, fixed Content-Type, nosniff).",
+    "Exercise hostile inputs where a fixture suite exists: polyglots, oversized files, archive bombs, and traversal names; verify cleanup of temporary, abandoned, and replaced objects."
+  ],
+  "database": [
+    "Read the schema (migrations, ORM models, or live catalog) and verify primary keys, foreign keys, unique constraints, and nullability against the domain rules.",
+    "Check types for money (integer minor units or decimal), timestamps (time-zone aware), enums (evolution path), and identifiers.",
+    "Trace referential integrity and cascade behavior for deletion paths, including soft-deletion consistency.",
+    "Review the migration history for destructive operations, lock-heavy changes on large tables, and reversibility.",
+    "Verify tenant-scoping columns and indexes, audit fields, and database-level permissions against least privilege."
+  ],
+  "queries": [
+    "Collect query call sites from ORM and driver evidence and identify the hot paths from routes and jobs.",
+    "Detect N+1 shapes: queries inside loops or per-row lazy loads, and verify batch or join alternatives.",
+    "Check every list query for bounds, a pagination strategy that holds at scale, and deterministic ordering with a tie-breaker.",
+    "Compare indexes against actual predicates and sort orders; flag missing, redundant, and unused indexes with schema evidence.",
+    "For critical PostgreSQL queries run `EXPLAIN (ANALYZE, BUFFERS)` against a safe non-production database only, and record the plans; inspect transaction length, lock scope, and connection-pool sizing."
+  ],
+  "cache": [
+    "First establish necessity: find the measured bottleneck a cache addresses; if none exists, conclude that no cache — including Redis — is justified.",
+    "Inventory cache layers (browser, CDN, application, framework) and every key-construction site.",
+    "Verify keys include every dimension that changes the value: user, tenant, locale, and version; test two-user and two-tenant collisions.",
+    "Trace invalidation for each write path that changes cached data, and check TTL, stampede protection, and negative caching.",
+    "Inspect failure behavior (cache down must degrade correctly), sensitive-data exposure in shared caches, and memory or eviction limits."
+  ],
+  "storage": [
+    "Inventory storage destinations (buckets, filesystems, database blobs) with their access policies and encryption settings.",
+    "Verify private-by-default access and trace every public exposure to an explicit recorded decision.",
+    "Check signed-URL generation for prior authorization, scope, and expiry, and object keys for server generation and tenant separation.",
+    "Trace lifecycle: replacement, orphan detection, account and tenant deletion, retention, and backup inclusion for stored objects.",
+    "Verify environment separation and quota or growth controls."
+  ],
+  "testing": [
+    "Map the test pyramid: what exists at unit, integration, API, end-to-end, and evaluation level, and what each layer actually asserts.",
+    "Trace the riskiest workflows from discovery to their covering tests; record critical paths with no failure-path or authorization test.",
+    "Inspect test quality: assertions that prove behavior versus existence, mock realism, isolation, and determinism (hunt flaky patterns).",
+    "Verify negative coverage: unauthorized access, invalid input, concurrency, retries, and idempotency for the paths that claim them.",
+    "Run the suite and record counts, duration, skips, and any tests that cannot fail."
+  ],
+  "performance": [
+    "Establish the measured baseline first: collect Core Web Vitals (LCP, INP, CLS), API latency percentiles, and database timings from real tooling, never estimates.",
+    "Profile the critical user flow and identify the dominant cost: network waterfall, bundle, rendering, query, or serialization.",
+    "Inspect payloads: bundle composition, image and font delivery, compression, and response sizes.",
+    "Trace the slowest database interactions to query plans and the cache hit ratios that matter.",
+    "Verify mobile and slow-device behavior with throttled profiles, and record background-job throughput where it gates user-visible outcomes."
+  ],
+  "scale": [
+    "State the demand scenario first: expected users, concurrency, and data growth; without one, record the assumptions explicitly.",
+    "Find the first bottleneck: connection limits, stateful servers, shared filesystems, hot rows or hot tenants, and single-writer constraints.",
+    "Verify horizontal-scaling readiness: session placement, sticky state, file locality, and job distribution.",
+    "Check backpressure and load shedding: determine what happens at the queue, pool, and API layer when demand exceeds capacity.",
+    "Project storage, log, and cost growth against the scenario, and reject infrastructure additions (microservices, Kubernetes, Redis, queues) not justified by this evidence."
+  ],
+  "observability": [
+    "Pick three real operational questions (why is this request slow, what failed for this user, is this job stuck) and verify the current telemetry can answer each.",
+    "Inspect log structure, levels, correlation and request identifiers, and propagation across services and jobs.",
+    "Verify metrics and traces exist for the critical paths, with OpenTelemetry-compatible semantics where practical.",
+    "Check alerting: which failures page someone, which dashboards exist, and whether silent failure modes (dead queues, cron no-runs) are detected.",
+    "Inspect telemetry for sensitive-data leakage and verify retention and sampling policies."
+  ],
+  "reliability": [
+    "Enumerate external dependencies and verify every remote call has a timeout, a bounded retry with idempotency, and a defined failure behavior.",
+    "Trace one dependency outage end to end: what the user sees, what degrades, and what data risks inconsistency.",
+    "Inspect health and readiness checks for truthfulness (they verify real dependencies) and safe shutdown for in-flight work.",
+    "Check retry-storm and thundering-herd protections at every retry site, and circuit breaking where cascades are possible.",
+    "Verify stated SLOs, recovery procedures, and consistency guarantees against implementation evidence, not documentation."
+  ],
+  "recovery": [
+    "Inventory data stores and their backup mechanisms, schedules, encryption, and retention from configuration evidence.",
+    "Verify restoration directly: find evidence of a successful recent restore test; without it, backups are `NOT_VERIFIED`, never `PASS`.",
+    "Trace point-in-time recovery capability and measure claimed RPO and RTO against configuration reality.",
+    "Check failure scenarios: accidental deletion, ransomware (immutable or offline copies), regional loss, and secret or infrastructure recreation.",
+    "Inspect runbooks for executability — could the on-call engineer actually follow them — and record drill history and ownership."
+  ],
+  "deployment": [
+    "Trace the path from commit to production: CI gates, build reproducibility, artifact promotion, and approval boundaries.",
+    "Inspect migration ordering against rolling deploys: verify old code can run against the new schema and vice versa during the window.",
+    "Verify rollback: the mechanism, data compatibility, and evidence that it has been exercised.",
+    "Check environment separation for configuration, secrets injection, and parity between staging and production.",
+    "Verify post-deployment verification, health gating, progressive rollout or feature flags, and release notes."
+  ],
+  "infrastructure": [
+    "Inventory infrastructure-as-code coverage and record resources managed outside it (console drift).",
+    "Map network exposure: what listens publicly, TLS posture, DNS, and firewall rules; verify databases and admin services are not publicly reachable.",
+    "Inspect identity boundaries: IAM roles, service accounts, and storage permissions against least privilege.",
+    "Verify secret management: storage, injection, rotation capability, and absence from code and state files.",
+    "Check resource limits, autoscaling bounds, persistent-volume policies, and production/debug configuration differences."
+  ],
+  "supply-chain": [
+    "Audit dependencies with the lockfile: known vulnerabilities, abandoned packages, and unexpected install scripts.",
+    "Verify lockfile consistency, pinning strategy, and provenance for critical packages, including typosquat review for recent additions.",
+    "Inspect CI workflows for action pinning, least-privilege tokens, fork safety, and secret exposure in logs.",
+    "Trace release-artifact integrity: reproducibility, checksums, and signing or provenance attestation.",
+    "Check container base images, the update strategy, and license compatibility across the dependency tree."
+  ],
+  "cost": [
+    "Attribute current spend: map each paid service, plan, and resource to the workload that uses it.",
+    "Identify waste: always-on resources for bursty loads, oversized instances, unused capacity, and orphaned resources.",
+    "Trace the expensive operations: costly queries, chatty integrations, retry amplification, AI token usage, and egress-heavy paths.",
+    "Compute unit economics where tenancy exists: cost per tenant or user against plan pricing.",
+    "Project cost at the stated growth scenario and check budgets, alerts, and retention policies for logs and storage."
+  ],
+  "docs": [
+    "Execute the README setup path in a clean environment and record where it breaks or diverges from reality.",
+    "Verify every documented command, environment variable, and configuration key against the current code.",
+    "Check operational documentation: deployment, migration, backup restoration, and incident procedures for executability.",
+    "Trace critical business rules and the permission model to written documentation, and record decisions that exist only in code or chat.",
+    "Sweep for broken links, stale screenshots, and outdated version references."
+  ],
+  "analytics": [
+    "Inventory tracked events against the naming schema and record duplicates, orphans, and gaps in critical funnels.",
+    "Trace identity handling: anonymous-to-authenticated merging, cross-device behavior, and tenant properties.",
+    "Verify consent gating for regions that require it and check events for sensitive-data leakage.",
+    "Compare client-side and server-side event reliability for revenue-critical metrics.",
+    "Check schema versioning, validation at ingestion, and whether success, error, and abandonment events cover the decisions the product needs."
+  ],
+  "notifications": [
+    "Inventory channels (email, SMS, push, in-app) and triggers, and trace one message per channel from trigger to delivery.",
+    "Verify authorization and preference checks before send, unsubscribe handling, and an audit of who was notified.",
+    "Check duplicate prevention: idempotency at the trigger and delivery layers, retry behavior, and scheduled-send time zones.",
+    "Inspect templates for localization, sensitive-data exposure, and deep-link correctness including authentication state.",
+    "Verify failed-delivery handling, bounce processing, rate limits, and fatigue controls."
+  ],
+  "ai": [
+    "Map every model boundary: inputs, system instructions, tools, outputs, and the privileges each tool grants.",
+    "Trace untrusted content (user text, documents, web, retrieval) into prompts and verify it is isolated as data, not instructions.",
+    "Verify output handling: schema validation, independent recomputation of identifiers and totals, and no direct path from model output to irreversible actions without deterministic authorization and recorded confirmation.",
+    "Check tenant isolation of context and retrieval, rate limits, token budgets, cost controls, and logging redaction.",
+    "Inspect evaluation coverage for injection resistance and task quality, and verify fallback and model-change behavior."
+  ],
+  "payments": [
+    "Trace amount determination: every charge, refund, and credit derives from server-owned records, never client input.",
+    "Verify precision: minor-unit or decimal arithmetic, documented rounding, and tax and discount ordering.",
+    "Inspect webhooks: raw-byte signature verification before parsing, durable event-ID idempotency before side effects, and out-of-order tolerance.",
+    "Map the payment state machine: legal transitions, partial-failure recovery, and reconciliation against provider records.",
+    "Check test/live separation, sensitive-data boundaries (hosted fields), refund and dispute paths, and the audit trail for money movement."
+  ],
+  "realtime": [
+    "Inventory WebSocket and SSE endpoints and subscriptions; verify authentication at connect and authorization per channel or topic.",
+    "Trace tenant and user separation of channels, presence, and broadcast fan-out.",
+    "Exercise reconnection: missed-message recovery, ordering, duplicates, and state resynchronization after a gap.",
+    "Check backpressure and slow-consumer handling, message-size limits, and rate limits per connection.",
+    "Verify authentication refresh on long-lived connections, and cleanup of subscriptions, timers, and server resources on disconnect."
+  ],
+  "offline": [
+    "Map what is persisted locally: service-worker caches, IndexedDB, local storage, and their versioning and migration strategy.",
+    "Trace an offline write to synchronization: queuing, retry, conflict detection, and resolution semantics.",
+    "Exercise partial-sync interruption and recovery, duplicate-operation defense, and stale-data presentation.",
+    "Verify security: local encryption where warranted, cleanup at logout, and offline authorization assumptions (entitlement and license behavior, clock manipulation).",
+    "Check cache-version rollover: old clients against new APIs, and cache invalidation on deploy."
+  ],
+  "all": [
+    "Run discovery first and derive the applicable module set from capability evidence, recording an explicit `NOT_APPLICABLE` decision for each skipped module.",
+    "Order execution: independent read-only modules may run in any order; run discovery-dependent modules after the profile exists.",
+    "Execute each applicable module's own procedure, preserving its evidence and finding identifiers unchanged.",
+    "Merge duplicate findings across modules by root cause, preserving every location and the strictest severity.",
+    "Rank the combined findings by severity, confidence, effort, and impact, and emit a prioritized remediation plan with blocked and unverified checks stated plainly."
+  ],
+  "ship": [
+    "Assemble the gate inputs: latest audit findings, test and build results, skill validation, platform synchronization, packaging, and license checks — each from a real execution, not memory.",
+    "Fail the gate on any open CRITICAL finding, any required failing check, or any required high-risk check still `NOT_VERIFIED`; never downgrade a status to proceed.",
+    "Verify packaging integrity: archives build deterministically, contain no symlinks or excluded content, and match their checksums.",
+    "Run the installation smoke test from the packed artifact in a clean directory.",
+    "Emit the release decision with the complete evidence ledger: what ran, what did not, why, and the residual risk accepted by shipping."
+  ]
+}

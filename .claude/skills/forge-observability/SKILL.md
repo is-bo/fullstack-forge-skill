@@ -42,16 +42,17 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 
 ## Inspection procedure
 
-1. Confirm scope, repository state, active profile, and commands before running anything.
-2. State an applicability decision and the evidence supporting it.
-3. Trace at least one critical flow end to end; do not infer downstream enforcement from a UI or
-   declaration alone.
-4. Run the safe executable checks below. Capture command, exit code, relevant output, and time.
-5. Perform the manual inspections. Mark unavailable runtime or operator evidence `NOT_VERIFIED`.
-6. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location.
-7. In `fix` mode, separate safe fixes from approval-required changes before editing.
-8. In `verify` mode, reproduce the original condition, run the stated verification, and update
-   status without erasing earlier evidence.
+1. Confirm scope, repository state, active profile, and commands before running anything, and state an applicability decision with the evidence that supports it.
+2. Pick three real operational questions (why is this request slow, what failed for this user, is this job stuck) and verify the current telemetry can answer each.
+3. Inspect log structure, levels, correlation and request identifiers, and propagation across services and jobs.
+4. Verify metrics and traces exist for the critical paths, with OpenTelemetry-compatible semantics where practical.
+5. Check alerting: which failures page someone, which dashboards exist, and whether silent failure modes (dead queues, cron no-runs) are detected.
+6. Inspect telemetry for sensitive-data leakage and verify retention and sampling policies.
+7. Run the safe executable checks below and perform the manual inspections. Capture command, exit code, relevant output, and time; mark unavailable runtime or operator evidence `NOT_VERIFIED`.
+8. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location. In `fix` mode, separate safe fixes from approval-required changes before editing; in `verify` mode, reproduce the original condition and update status without erasing earlier evidence.
+
+Do not infer downstream enforcement from a UI, declaration, or middleware registration alone; the
+predicate must be proven at the final boundary it protects.
 
 ### Concrete checks
 

@@ -27,9 +27,16 @@ retrying.
 - `npm run validate`: validate skill structure, metadata, schemas, and required files.
 - `npm run check:platforms`: compare generated contents and ownership manifests.
 - `npm run package:platforms`: build deterministic ZIP archives and checksums.
-- `npm run smoke:install`: pack locally, install offline in a temporary consumer, and test
-  lifecycle.
+- `npm run smoke:install`: pack locally, install in a temporary consumer, and test lifecycle.
+- `npm run offline:install`: warm runtime dependencies, then install the packed artifact with
+  `--offline` (cache-only, no network) and generate every platform root against an unreachable
+  registry.
+- `npm run test:coverage`: run the suite with Node's experimental coverage reporter.
 - `npm run check`: formatting, lint, type, tests, validation, and synchronization.
+
+CI runs the full verification on Linux, Windows, and macOS, fails on stale committed `build/`
+output, reports coverage, and verifies both smoke and offline installation. The release workflow
+additionally attests build provenance for every published archive.
 
 ## Adding a module
 

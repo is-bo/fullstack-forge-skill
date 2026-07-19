@@ -72,9 +72,14 @@ try {
     "src",
     "index.js"
   );
+  const expectedVersion = JSON.parse(
+    await readFile(join(projectRoot, "package.json"), "utf8")
+  ).version;
   const version = await run(process.execPath, [cli, "--version"], consumerRoot);
-  if (version.code !== 0 || version.stdout.trim() !== "0.1.1")
-    throw new Error(`CLI version smoke failed: ${version.stdout} ${version.stderr}`);
+  if (version.code !== 0 || version.stdout.trim() !== expectedVersion)
+    throw new Error(
+      `CLI version smoke failed: expected ${expectedVersion}, got ${version.stdout} ${version.stderr}`
+    );
 
   const dryInit = await run(
     process.execPath,

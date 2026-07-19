@@ -7,12 +7,16 @@ const catalog = await readCatalog();
 const criteriaBySlug = JSON.parse(
   await readFile(join(projectRoot, "config", "module-criteria.json"), "utf8")
 );
+const proceduresBySlug = JSON.parse(
+  await readFile(join(projectRoot, "config", "module-procedures.json"), "utf8")
+);
 const actualSlugs = catalog.map((module) => module.slug);
 if (JSON.stringify(actualSlugs) !== JSON.stringify(expectedSlugs)) {
   throw new Error("config/modules.json must contain the authoritative module set in order");
 }
 validateCatalog(catalog);
 validateCriteria(criteriaBySlug);
+validateProcedures(proceduresBySlug);
 
 await assertNoSymlinkPath(projectRoot, commandRoot);
 await mkdir(commandRoot, { recursive: true });
@@ -30,7 +34,7 @@ for (const module of catalog) {
   await mkdir(directory, { recursive: true });
   const path = join(directory, "SKILL.md");
   await assertNoSymlinkPath(commandRoot, path);
-  const next = renderModule(module, criteriaBySlug[module.slug]);
+  const next = renderModule(module, criteriaBySlug[module.slug], proceduresBySlug[module.slug]);
   let current = "";
   try {
     current = await readFile(path, "utf8");
@@ -66,6 +70,36 @@ function validateCriteria(criteria) {
       new Set(values).size !== values.length
     ) {
       throw new Error(`Invalid or duplicate inspection criteria for ${slug}`);
+    }
+  }
+}
+
+function validateProcedures(procedures) {
+  if (
+    typeof procedures !== "object" ||
+    procedures === null ||
+    Array.isArray(procedures) ||
+    JSON.stringify(Object.keys(procedures)) !== JSON.stringify(expectedSlugs)
+  ) {
+    throw new Error(
+      "config/module-procedures.json must contain the authoritative module set in order"
+    );
+  }
+  for (const slug of expectedSlugs) {
+    const steps = procedures[slug];
+    if (
+      !Array.isArray(steps) ||
+      steps.length < 4 ||
+      steps.some(
+        (value) =>
+          typeof value !== "string" ||
+          value.trim().length === 0 ||
+          value !== value.trim() ||
+          /[\r\n]/u.test(value)
+      ) ||
+      new Set(steps).size !== steps.length
+    ) {
+      throw new Error(`Invalid, duplicate, or too-short inspection procedure for ${slug}`);
     }
   }
 }
@@ -120,6 +154,9 @@ function getToolHints(slug) {
       "inspect-env-template",
       "inspect-platform-skills"
     ],
+    ui: ["inspect-rendered-ui"],
+    ux: ["inspect-rendered-ui"],
+    accessibility: ["inspect-rendered-ui"],
     requirements: ["detect-project-commands", "run-project-command"],
     architecture: ["discover-project"],
     code: ["detect-project-commands", "run-project-command"],
@@ -177,7 +214,18 @@ function renderToolHints(slug) {
     .join("\n");
 }
 
-function renderModule(module, criteria) {
+function renderProcedure(steps) {
+  const head = [
+    "Confirm scope, repository state, active profile, and commands before running anything, and state an applicability decision with the evidence that supports it."
+  ];
+  const tail = [
+    "Run the safe executable checks below and perform the manual inspections. Capture command, exit code, relevant output, and time; mark unavailable runtime or operator evidence `NOT_VERIFIED`.",
+    "Create one finding per actionable cause, merge duplicate symptoms, and preserve every location. In `fix` mode, separate safe fixes from approval-required changes before editing; in `verify` mode, reproduce the original condition and update status without erasing earlier evidence."
+  ];
+  return [...head, ...steps, ...tail].map((step, index) => `${index + 1}. ${step}`).join("\n");
+}
+
+function renderModule(module, criteria, procedure) {
   const name = `forge-${module.slug}`;
   const findingPrefix = module.slug
     .split("-")
@@ -224,16 +272,10 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 
 ## Inspection procedure
 
-1. Confirm scope, repository state, active profile, and commands before running anything.
-2. State an applicability decision and the evidence supporting it.
-3. Trace at least one critical flow end to end; do not infer downstream enforcement from a UI or
-   declaration alone.
-4. Run the safe executable checks below. Capture command, exit code, relevant output, and time.
-5. Perform the manual inspections. Mark unavailable runtime or operator evidence \`NOT_VERIFIED\`.
-6. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location.
-7. In \`fix\` mode, separate safe fixes from approval-required changes before editing.
-8. In \`verify\` mode, reproduce the original condition, run the stated verification, and update
-   status without erasing earlier evidence.
+${renderProcedure(procedure)}
+
+Do not infer downstream enforcement from a UI, declaration, or middleware registration alone; the
+predicate must be proven at the final boundary it protects.
 
 ### Concrete checks
 

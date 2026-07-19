@@ -17,9 +17,11 @@
 
 ## GitHub publication
 
-Commit with clear Conventional Commit subjects, push `main`, and wait for both Linux and Windows CI.
-Create an annotated release tag only from the verified commit. Never move or recreate a public tag.
-The pinned release workflow rebuilds, validates, smoke-installs, and uploads every ZIP plus
+Commit with clear Conventional Commit subjects, push `main`, and wait for Linux, Windows, and macOS
+CI. Release notes must exist at `docs/RELEASE_NOTES_<tag>.md` before tagging; the release workflow
+fails closed when they are missing and attests build provenance for every published archive. Create
+an annotated release tag only from the verified commit. Never move or recreate a public tag. The
+pinned release workflow rebuilds, validates, smoke-installs, and uploads every ZIP plus
 `SHA256SUMS.txt` and `manifest.json`.
 
 Release notes must cover purpose, supported agents, installation, commands, evidence and safety

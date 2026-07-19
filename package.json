@@ -1,6 +1,6 @@
 {
   "name": "fullstack-forge-skill",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Evidence-driven production audits for full-stack applications and AI coding agents.",
   "type": "module",
   "license": "Apache-2.0",
@@ -68,7 +68,9 @@
     "package:platforms": "npm run build && node scripts/package-platforms.mjs && node scripts/validate-dist.mjs",
     "scan:secrets": "node scripts/secret-scan.mjs",
     "smoke:install": "npm run build && node scripts/smoke-install.mjs",
+    "offline:install": "npm run build && node scripts/offline-install.mjs",
     "test": "npm run build && node --test build/cli/tests/**/*.test.js scripts/tests/**/*.test.mjs",
+    "test:coverage": "npm run build && node --test --experimental-test-coverage build/cli/tests/**/*.test.js scripts/tests/**/*.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "validate": "node scripts/validate-skill.mjs",
     "validate:dist": "node scripts/validate-dist.mjs"

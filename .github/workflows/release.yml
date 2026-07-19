@@ -5,12 +5,16 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - name: Check out tagged source
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -26,17 +30,28 @@ jobs:
       - name: Verify tagged source
         run: |
           npm run check
+          git diff --exit-code -- build/
           npm audit --ignore-scripts
       - name: Package and smoke-install
         run: |
           npm run package:platforms
           npm run smoke:install
+          npm run offline:install
+      - name: Attest build provenance for release archives
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: dist/*.zip
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          notes="docs/RELEASE_NOTES_${GITHUB_REF_NAME}.md"
+          if [ ! -f "$notes" ]; then
+            echo "Missing release notes for ${GITHUB_REF_NAME} at ${notes}" >&2
+            exit 1
+          fi
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt dist/manifest.json --clobber
           else
-            gh release create "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt dist/manifest.json --verify-tag --notes-file docs/RELEASE_NOTES_v0.1.1.md --title "Fullstack Forge $GITHUB_REF_NAME"
+            gh release create "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt dist/manifest.json --verify-tag --notes-file "$notes" --title "Fullstack Forge $GITHUB_REF_NAME"
           fi

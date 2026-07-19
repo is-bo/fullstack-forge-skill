@@ -1,5 +1,9 @@
 {
-  "capabilities": ["api"],
-  "tools": { "inspect-routes": 1, "inspect-query-patterns": 1, "scan-secret-patterns": 1 },
-  "sections": ["api", "security", "queries"]
+  "capabilities": ["api", "authorization"],
+  "tools": {
+    "inspect-routes": 1,
+    "inspect-query-patterns": 1,
+    "scan-secret-patterns": 1
+  },
+  "sections": ["api", "security", "authorization", "queries"]
 }

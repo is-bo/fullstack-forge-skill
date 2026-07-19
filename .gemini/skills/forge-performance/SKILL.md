@@ -43,16 +43,17 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 
 ## Inspection procedure
 
-1. Confirm scope, repository state, active profile, and commands before running anything.
-2. State an applicability decision and the evidence supporting it.
-3. Trace at least one critical flow end to end; do not infer downstream enforcement from a UI or
-   declaration alone.
-4. Run the safe executable checks below. Capture command, exit code, relevant output, and time.
-5. Perform the manual inspections. Mark unavailable runtime or operator evidence `NOT_VERIFIED`.
-6. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location.
-7. In `fix` mode, separate safe fixes from approval-required changes before editing.
-8. In `verify` mode, reproduce the original condition, run the stated verification, and update
-   status without erasing earlier evidence.
+1. Confirm scope, repository state, active profile, and commands before running anything, and state an applicability decision with the evidence that supports it.
+2. Establish the measured baseline first: collect Core Web Vitals (LCP, INP, CLS), API latency percentiles, and database timings from real tooling, never estimates.
+3. Profile the critical user flow and identify the dominant cost: network waterfall, bundle, rendering, query, or serialization.
+4. Inspect payloads: bundle composition, image and font delivery, compression, and response sizes.
+5. Trace the slowest database interactions to query plans and the cache hit ratios that matter.
+6. Verify mobile and slow-device behavior with throttled profiles, and record background-job throughput where it gates user-visible outcomes.
+7. Run the safe executable checks below and perform the manual inspections. Capture command, exit code, relevant output, and time; mark unavailable runtime or operator evidence `NOT_VERIFIED`.
+8. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location. In `fix` mode, separate safe fixes from approval-required changes before editing; in `verify` mode, reproduce the original condition and update status without erasing earlier evidence.
+
+Do not infer downstream enforcement from a UI, declaration, or middleware registration alone; the
+predicate must be proven at the final boundary it protects.
 
 ### Concrete checks
 

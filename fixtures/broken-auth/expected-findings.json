@@ -1,5 +1,9 @@
 {
   "capabilities": ["api", "authentication"],
-  "tools": { "inspect-routes": 1, "inspect-auth-boundaries": 1 },
-  "sections": ["auth", "security"]
+  "tools": {
+    "inspect-routes": 1,
+    "inspect-auth-boundaries": 1
+  },
+  "sections": ["auth", "security"],
+  "expected_finding_ids": ["FF-AUTH-COOKIE-001", "FF-AUTH-SESSION-001"]
 }

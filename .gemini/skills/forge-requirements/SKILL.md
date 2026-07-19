@@ -43,16 +43,17 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 
 ## Inspection procedure
 
-1. Confirm scope, repository state, active profile, and commands before running anything.
-2. State an applicability decision and the evidence supporting it.
-3. Trace at least one critical flow end to end; do not infer downstream enforcement from a UI or
-   declaration alone.
-4. Run the safe executable checks below. Capture command, exit code, relevant output, and time.
-5. Perform the manual inspections. Mark unavailable runtime or operator evidence `NOT_VERIFIED`.
-6. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location.
-7. In `fix` mode, separate safe fixes from approval-required changes before editing.
-8. In `verify` mode, reproduce the original condition, run the stated verification, and update
-   status without erasing earlier evidence.
+1. Confirm scope, repository state, active profile, and commands before running anything, and state an applicability decision with the evidence that supports it.
+2. Collect the requirement sources that exist: issues, specifications, READMEs, acceptance tests, and inline business rules, and record where each behavior is defined.
+3. Trace each stated business rule to the code path and test that enforces it, recording rules that exist only in prose.
+4. Enumerate state machines and lifecycle transitions (orders, subscriptions, approvals) and check that every declared state has entry, exit, and failure handling.
+5. Inspect financial calculations for currency units, rounding mode, and precision, and compare them against the documented business rule.
+6. Probe undefined behavior: ownership after deletion, permission defaults, concurrent edits, and time-zone-dependent rules, and record contradictions between sources.
+7. Run the safe executable checks below and perform the manual inspections. Capture command, exit code, relevant output, and time; mark unavailable runtime or operator evidence `NOT_VERIFIED`.
+8. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location. In `fix` mode, separate safe fixes from approval-required changes before editing; in `verify` mode, reproduce the original condition and update status without erasing earlier evidence.
+
+Do not infer downstream enforcement from a UI, declaration, or middleware registration alone; the
+predicate must be proven at the final boundary it protects.
 
 ### Concrete checks
 

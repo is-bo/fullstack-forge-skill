@@ -41,16 +41,17 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 
 ## Inspection procedure
 
-1. Confirm scope, repository state, active profile, and commands before running anything.
-2. State an applicability decision and the evidence supporting it.
-3. Trace at least one critical flow end to end; do not infer downstream enforcement from a UI or
-   declaration alone.
-4. Run the safe executable checks below. Capture command, exit code, relevant output, and time.
-5. Perform the manual inspections. Mark unavailable runtime or operator evidence `NOT_VERIFIED`.
-6. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location.
-7. In `fix` mode, separate safe fixes from approval-required changes before editing.
-8. In `verify` mode, reproduce the original condition, run the stated verification, and update
-   status without erasing earlier evidence.
+1. Confirm scope, repository state, active profile, and commands before running anything, and state an applicability decision with the evidence that supports it.
+2. Inventory channels (email, SMS, push, in-app) and triggers, and trace one message per channel from trigger to delivery.
+3. Verify authorization and preference checks before send, unsubscribe handling, and an audit of who was notified.
+4. Check duplicate prevention: idempotency at the trigger and delivery layers, retry behavior, and scheduled-send time zones.
+5. Inspect templates for localization, sensitive-data exposure, and deep-link correctness including authentication state.
+6. Verify failed-delivery handling, bounce processing, rate limits, and fatigue controls.
+7. Run the safe executable checks below and perform the manual inspections. Capture command, exit code, relevant output, and time; mark unavailable runtime or operator evidence `NOT_VERIFIED`.
+8. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location. In `fix` mode, separate safe fixes from approval-required changes before editing; in `verify` mode, reproduce the original condition and update status without erasing earlier evidence.
+
+Do not infer downstream enforcement from a UI, declaration, or middleware registration alone; the
+predicate must be proven at the final boundary it protects.
 
 ### Concrete checks
 

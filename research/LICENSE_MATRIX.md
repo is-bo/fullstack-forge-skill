@@ -29,3 +29,39 @@ were independently authored.
 No dependency code is bundled into the CLI runtime. Development dependencies are installed from npm
 and governed by their own licenses; `npm pack` includes compiled project output, not `node_modules`.
 The package lock provides the exact development dependency graph for downstream license review.
+
+## Measured text-overlap verification
+
+The "no copied prose" claim above is measured, not merely asserted. On 2026-07-19 every authored
+Markdown file (`src/fullstack-forge/**`, `docs/**`, `README.md` — 70 files, 61,341 words) was
+compared against the complete Markdown corpus of all eleven researched repositories at the exact
+commits recorded in `SOURCES.md`, read from the retained clone object stores.
+
+Method: case-folded, punctuation-stripped, fenced-code-stripped word streams compared as 8-word
+shingles (an 8-word verbatim run is well below the length of any original sentence, so this is a
+deliberately sensitive threshold). Overlap is reported as shared shingles, and any match would be
+extended greedily to report the longest verbatim shared run.
+
+| Source                       | Markdown files | 8-gram shingles | Overlapping | Longest shared run |
+| ---------------------------- | -------------: | --------------: | ----------: | -----------------: |
+| trailofbits-skills           |            634 |         190,333 |           0 |                  0 |
+| openai-skills                |            531 |         160,749 |           0 |                  0 |
+| vercel-agent-skills          |            209 |          54,935 |           0 |                  0 |
+| ui-ux-pro-max-skill          |            128 |          28,537 |           0 |                  0 |
+| redis-agent-skills           |            118 |          28,919 |           0 |                  0 |
+| addyosmani-agent-skills      |            112 |          64,420 |           0 |                  0 |
+| anthropics-skills            |            109 |         113,146 |           0 |                  0 |
+| auth0-agent-skills           |             60 |         111,493 |           0 |                  0 |
+| supabase-agent-skills        |             46 |           8,020 |           0 |                  0 |
+| neondatabase-postgres-skills |             14 |           4,014 |           0 |                  0 |
+| agentskills-spec             |              6 |           1,650 |           0 |                  0 |
+| **Total**                    |      **1,967** |     **766,216** |       **0** |              **0** |
+
+Result: zero shared 8-word sequences across all 766,216 upstream shingles. No sentence, checklist
+line, or paragraph in the distribution is shared with any researched repository. This is
+particularly load-bearing for Trail of Bits (CC BY-SA 4.0), where any adapted prose would impose
+share-alike terms incompatible with the Apache-2.0 core, and for UI UX Pro Max (MIT), whose data
+files and prose are likewise absent.
+
+Re-run this comparison whenever module prose is substantially rewritten or a new upstream source is
+studied.

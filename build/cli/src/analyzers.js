@@ -31,6 +31,21 @@ const SPECS = {
     ], ["OWASP Secrets Management Cheat Sheet", "CWE-798"]),
     sensitiveLog: spec("FF-SEC-LOG-001", "js-ts-security", "security", "Sensitive request data reaches a logging sink", "HIGH", "Credentials or personal data can persist in logs beyond the request boundary.", "Log an allowlisted event shape and redact supported sensitive fields before serialization.", false, false, ["Re-run the js-ts-security analyzer", "Exercise the request and inspect captured logs"], ["OWASP Logging Cheat Sheet", "CWE-532"]),
     validation: spec("FF-SEC-VALIDATION-001", "js-ts-security", "security", "Supported high-risk sink lacks demonstrated server-side validation", "HIGH", "Malformed or hostile input reaches a boundary that depends on trusted shape or meaning.", "Validate and normalize the input immediately before constructing the supported sink input.", false, false, ["Re-run the js-ts-security analyzer", "Run schema rejection tests at the server boundary"], ["OWASP ASVS 5.0", "CWE-20"]),
+    ssrf: spec("FF-SEC-SSRF-001", "js-ts-security", "security", "Request-controlled URL reaches a server-side HTTP client", "HIGH", "The server can be induced to reach internal services, metadata endpoints, or attacker infrastructure.", "Resolve the destination from a server-owned allowlist and block private and link-local ranges.", false, false, [
+        "Re-run the js-ts-security analyzer",
+        "Test internal, metadata, and redirect-based destinations"
+    ], ["OWASP SSRF Prevention Cheat Sheet", "CWE-918"]),
+    deserialize: spec("FF-SEC-DESERIALIZE-001", "js-ts-security", "security", "Request-controlled data reaches an unsafe deserialization or code-evaluation sink", "CRITICAL", "Deserializing attacker-controlled input can execute code or corrupt application state.", "Parse untrusted input with a safe data-only format and validate an explicit schema.", false, false, ["Re-run the js-ts-security analyzer", "Run hostile-payload tests against the boundary"], ["OWASP Deserialization Cheat Sheet", "CWE-502"]),
+    csvFormula: spec("FF-SEC-CSV-001", "js-ts-security", "security", "CSV export assembles untrusted values without formula escaping", "MEDIUM", "Values beginning with =, +, -, or @ can execute as formulas in spreadsheet clients.", "Escape or prefix risky leading characters and quote fields before writing CSV output.", false, false, [
+        "Re-run the js-ts-security analyzer",
+        "Export a cell starting with = and inspect the escaping"
+    ], ["OWASP CSV Injection guidance", "CWE-1236"]),
+    massAssign: spec("FF-SEC-MASS-ASSIGN-001", "js-ts-security", "security", "Entire request body is written to a data model without field allowlisting", "HIGH", "A caller can set fields that were never intended to be writable, including roles or ownership.", "Copy an explicit allowlist of validated fields from the request into the write payload.", false, false, [
+        "Re-run the js-ts-security analyzer",
+        "Attempt to set a privileged field through the endpoint"
+    ], ["OWASP Mass Assignment Cheat Sheet", "CWE-915"]),
+    authCookie: spec("FF-AUTH-COOKIE-001", "js-ts-auth", "auth", "Session cookie is issued with weakened security attributes", "HIGH", "Disabling HttpOnly or Secure exposes the session credential to script access or cleartext transport.", "Set httpOnly and secure on session cookies and choose a SameSite value that fits the login flow.", false, false, ["Re-run the js-ts-auth analyzer", "Inspect Set-Cookie attributes in a real login response"], ["OWASP Session Management Cheat Sheet", "CWE-614", "CWE-1004"]),
+    authSessionValue: spec("FF-AUTH-SESSION-001", "js-ts-auth", "auth", "Session identifier is derived from request-controlled input", "CRITICAL", "A caller can forge or predict another user's session credential and bypass authentication.", "Issue an opaque high-entropy server-generated session identifier bound to server-side state.", false, false, ["Re-run the js-ts-auth analyzer", "Prove a forged cookie value cannot authenticate"], ["OWASP Session Management Cheat Sheet", "CWE-384", "CWE-330"]),
     objectAuth: spec("FF-AUTHZ-OBJECT-001", "js-ts-authorization", "authorization", "Object lookup lacks a demonstrated subject/object authorization predicate", "HIGH", "An authenticated caller may read or modify another subject's object by changing its identifier.", "Bind the final lookup to the authenticated subject or enforce a per-object policy before release.", false, false, ["Re-run the js-ts-authorization analyzer", "Run negative tests with another user's object ID"], ["OWASP API Security Top 10 2023 API1", "CWE-639"]),
     tenantInput: spec("FF-TENANT-INPUT-001", "js-ts-tenancy", "tenancy", "Tenant context is accepted from untrusted request input", "CRITICAL", "A caller can select another tenant's data boundary.", "Derive tenant context from authenticated identity and pass it through trusted server context.", false, false, ["Re-run the js-ts-tenancy analyzer", "Run a negative cross-tenant identifier test"], ["OWASP Multi Tenant Security Cheat Sheet", "CWE-639"]),
     tenantScope: spec("FF-TENANT-SCOPE-001", "js-ts-tenancy", "tenancy", "Tenant-owned query is not scoped by authenticated tenant identity", "CRITICAL", "Records can cross tenant boundaries at the final data-access sink.", "Include the authenticated tenant predicate in the final query and enforce it in negative tests.", false, false, ["Re-run the js-ts-tenancy analyzer", "Run same-ID tests in two tenants"], ["OWASP Multi Tenant Security Cheat Sheet", "CWE-284"]),
@@ -165,7 +180,35 @@ function analyzeScripts(files) {
                 if (isPaymentSink(name) &&
                     /req\.(?:body|query|params).*\b(?:amount|price|currency)|(?:amount|price|currency).*req\.(?:body|query|params)/isu.test(argumentText))
                     issues.push(issue(SPECS.clientAmount, file, node, requestSource(argumentText), name));
+                if (isHttpClientSink(name)) {
+                    const target = node.arguments[0]?.getText(file.sourceFile) ?? "";
+                    if (containsRequestData(target) &&
+                        !/allowlist|allowedHosts|allowedDestinations|blockPrivateAddresses/iu.test(enclosingText(node, file, functions)))
+                        issues.push(issue(SPECS.ssrf, file, node, requestSource(target), name));
+                }
+                if (isDeserializationSink(name) && requestControlled)
+                    issues.push(issue(SPECS.deserialize, file, node, requestSource(argumentText), name));
+                if (isModelWriteSink(name) &&
+                    node.arguments.some((argument) => referencesWholeRequestBody(argument, file.sourceFile)) &&
+                    !hasValidationNear(node, file, functions))
+                    issues.push(issue(SPECS.massAssign, file, node, "entire request body", name));
+                if (/(?:^|\.)(?:cookie|setCookie)$/u.test(name) && node.arguments.length >= 2) {
+                    const cookieName = node.arguments[0]?.getText(file.sourceFile) ?? "";
+                    const cookieValue = node.arguments[1]?.getText(file.sourceFile) ?? "";
+                    const cookieOptions = node.arguments[2]?.getText(file.sourceFile) ?? "";
+                    if (/session|token|auth|sid|jwt|remember/iu.test(cookieName)) {
+                        const weakened = ["httpOnly", "secure"].filter((flag) => new RegExp(`\\b${flag}\\s*:\\s*false`, "u").test(cookieOptions));
+                        if (weakened.length > 0)
+                            issues.push(issue(SPECS.authCookie, file, node, `${weakened.join(" and ")} set to false`, name));
+                        if (containsRequestData(cookieValue))
+                            issues.push(issue(SPECS.authSessionValue, file, node, requestSource(cookieValue), name));
+                    }
+                }
             }
+            if (ts.isNewExpression(node) &&
+                node.expression.getText(file.sourceFile) === "Function" &&
+                containsRequestData((node.arguments ?? []).map((argument) => argument.getText(file.sourceFile)).join(", ")))
+                issues.push(issue(SPECS.deserialize, file, node, requestSource((node.arguments ?? []).map((argument) => argument.getText(file.sourceFile)).join(", ")), "new Function"));
             if (ts.isVariableDeclaration(node) &&
                 ts.isIdentifier(node.name) &&
                 node.initializer !== undefined &&
@@ -187,6 +230,7 @@ function analyzeScripts(files) {
         analyzeUploadFile(issues, file);
         analyzeAiFile(issues, file);
         analyzeWebhookFile(issues, file);
+        analyzeCsvExport(issues, file);
     }
     return {
         analyzer_id: "js-ts-boundaries",
@@ -356,6 +400,23 @@ function analyzeWebhookFile(issues, file) {
         issues.push(textIssue(SPECS.webhookDuplicate, file, sideEffect.index, "duplicate provider event", "repeatable side effect"));
     }
 }
+function analyzeCsvExport(issues, file) {
+    const content = file.content;
+    const marker = /text\/csv|\.csv["'`]|attachment\s*\([^)]*\.csv/iu.exec(content);
+    if (marker === null)
+        return;
+    const assembled = /\.join\s*\(/u.test(content) || /`[^`]*\$\{/u.test(content);
+    if (!assembled)
+        return;
+    const untrusted = containsRequestData(content) ||
+        /\b(?:db|prisma|pool|knex|repository|models?)\s*\.\s*\w+/u.test(content);
+    if (!untrusted)
+        return;
+    const guarded = /escapeCsv|escapeFormula|sanitizeCsv|csv-stringify|papaparse|fast-csv|json2csv/iu.test(content) || /(?:startsWith|replace|test)\s*\(\s*(?:["']|\/)\^?\[?[=+@-]/u.test(content);
+    if (guarded)
+        return;
+    issues.push(textIssue(SPECS.csvFormula, file, marker.index, "untrusted field values", "spreadsheet-interpreted CSV output"));
+}
 function analyzeCacheCall(issues, file, node, name, functions) {
     const context = enclosingText(node, file, functions);
     const first = node.arguments[0]?.getText(file.sourceFile) ?? "";
@@ -510,6 +571,40 @@ function isCacheSink(name) {
 }
 function isObjectLookup(name) {
     return /(?:^|\.)(?:findUnique|findFirst|findOne|findById|query)$/u.test(name);
+}
+function isHttpClientSink(name) {
+    if (name === "fetch")
+        return true;
+    if (/^https?\.(?:get|request)$/u.test(name))
+        return true;
+    return /^(?:axios|got|superagent|undici|needle)(?:\.(?:get|post|put|patch|delete|head|request|fetch|stream))?$/u.test(name);
+}
+function isDeserializationSink(name) {
+    if (name === "eval")
+        return true;
+    if (/(?:^|\.)(?:unserialize|deserialize|runInContext|runInNewContext|runInThisContext)$/u.test(name))
+        return true;
+    return /(?:^|\.)load$/u.test(name) && /yaml/iu.test(name);
+}
+function isModelWriteSink(name) {
+    return /(?:^|\.)(?:create|update|updateOne|insertOne|insert|save|assign)$/u.test(name);
+}
+function referencesWholeRequestBody(argument, sourceFile) {
+    let found = false;
+    const check = (node) => {
+        if (found)
+            return;
+        if (ts.isPropertyAccessExpression(node) &&
+            /^(?:req|request)\.body$/u.test(node.getText(sourceFile)) &&
+            !(ts.isPropertyAccessExpression(node.parent) && node.parent.expression === node) &&
+            !(ts.isElementAccessExpression(node.parent) && node.parent.expression === node)) {
+            found = true;
+            return;
+        }
+        node.forEachChild(check);
+    };
+    check(argument);
+    return found;
 }
 function isModelSink(name) {
     return /(?:model|openai|anthropic|llm).*(?:run|generate|complete|create|invoke)$/iu.test(name);

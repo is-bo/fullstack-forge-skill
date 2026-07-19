@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - name: Check out source
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -31,12 +31,19 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Run complete verification
         run: npm run check
+      - name: Fail on stale committed build output
+        run: git diff --exit-code -- build/
+      - name: Report test coverage
+        continue-on-error: true
+        run: npm run test:coverage
       - name: Audit locked dependencies
         run: npm audit --ignore-scripts
       - name: Build deterministic platform archives
         run: npm run package:platforms
       - name: Smoke-install the packed npm artifact
         run: npm run smoke:install
+      - name: Verify offline installation from bundled assets
+        run: npm run offline:install
       - name: Upload release candidates
         if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

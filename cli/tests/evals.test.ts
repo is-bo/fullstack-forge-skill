@@ -32,7 +32,13 @@ const expectedIds = [
   "unverified-backup-claims",
   "unsigned-payment-webhooks",
   "duplicate-payment-handling",
-  "missing-webhook-idempotency"
+  "missing-webhook-idempotency",
+  "insecure-session-cookie-attributes",
+  "user-controlled-session-identifier",
+  "ssrf-url-fetch",
+  "unsafe-deserialization",
+  "csv-formula-injection",
+  "mass-assignment"
 ];
 
 test("evaluation catalog covers the exact required failure modes with explicit expectations", async () => {
@@ -72,7 +78,7 @@ test("every automated evaluation executes its analyzer against a temporary fixtu
     expected_finding_id?: string;
   }>;
   const automated = cases.filter((entry) => entry.mode.startsWith("automated-signal"));
-  assert.equal(automated.length, 9);
+  assert.equal(automated.length, 26);
   for (const entry of automated) {
     await t.test(entry.id, async () => {
       assert.ok(entry.expected_finding_id, `${entry.id} must declare a stable finding ID`);
@@ -87,7 +93,7 @@ test("every automated evaluation executes its analyzer against a temporary fixtu
         assert.equal(finding.id, entry.expected_finding_id);
         assert.equal(finding.section, entry.section);
         assert.equal(finding.status, "FAIL");
-        assert.ok(["CRITICAL", "HIGH"].includes(finding.severity));
+        assert.ok(["CRITICAL", "HIGH", "MEDIUM"].includes(finding.severity));
         assert.ok(finding.location.length > 0);
         assert.ok(finding.location.every((location) => location.path.length > 0));
         assert.ok(finding.evidence.length > 0);

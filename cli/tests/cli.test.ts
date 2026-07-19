@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { cp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
-import { PACKAGE_ROOT } from "../src/constants.js";
+import { PACKAGE_ROOT, VERSION } from "../src/constants.js";
 import { runFile } from "../src/utils.js";
 import { withTemporaryProject } from "./helpers.js";
 
@@ -11,12 +11,12 @@ const cli = join(PACKAGE_ROOT, "build", "cli", "src", "index.js");
 test("compiled CLI exposes version, list, and blocked command execution", async () => {
   const version = await runFile(process.execPath, [cli, "--version"], PACKAGE_ROOT);
   assert.equal(version.exitCode, 0);
-  assert.equal(version.stdout.trim(), "0.1.1");
+  assert.equal(version.stdout.trim(), VERSION);
   const list = await runFile(process.execPath, [cli, "list", "--json"], PACKAGE_ROOT);
   assert.equal(list.exitCode, 0);
   const parsed = JSON.parse(list.stdout) as { modules: string[]; tools: string[] };
   assert.equal(parsed.modules.length, 42);
-  assert.equal(parsed.tools.length, 24);
+  assert.equal(parsed.tools.length, 25);
 });
 
 test("compiled CLI performs discovery and writes evidence artifacts", async () => {

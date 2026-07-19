@@ -5,6 +5,11 @@ criteria in `config/module-criteria.json`. Generation and validation require eve
 appear in its canonical and platform-specific skill; a checklist item is routing context and never
 counts as evidence by itself.
 
+Each module also carries its own ordered inspection procedure from `config/module-procedures.json`
+(212 discipline-specific steps in total). The generator wraps those steps with a shared scope-and-
+applicability opening and a shared evidence-and-findings closing, so every module states how to
+inspect its own domain rather than repeating one generic checklist.
+
 `fullstack-forge` and `forge` are identical executables. Node.js 24 or newer is required.
 
 ## Audit modules

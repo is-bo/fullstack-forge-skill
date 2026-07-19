@@ -22,7 +22,7 @@ evidence a pass.
 It works as an open-format Agent Skill collection and as a dependency-light TypeScript CLI.
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.1 && npx forge init all
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.2 && npx forge init all
 ```
 
 Codex, Claude Code, Antigravity, Gemini CLI, Cursor, Windsurf, GitHub Copilot, and generic Agent
@@ -67,7 +67,7 @@ npx forge init all
 Until the package is published to npm, install from the repository or a release tarball:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.1
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.2
 ```
 
 The installer writes `.fullstack-forge/install-manifest.json`. It will not overwrite unowned or
@@ -116,8 +116,11 @@ Discovery creates ignored local artifacts at `.forge/project-profile.json` and
 Every command skill is self-contained and supports `audit`, `fix`, `verify`, and `report`. Each one
 defines when it applies, inputs, an executable and manual procedure, evidence rules, stable IDs,
 severity, safe/risky fixes, verification, standards, stack guidance, limitations, and the same
-completion contract. Together they enumerate 957 explicit inspection criteria, so specialized risks
-remain visible instead of disappearing behind a generic “best practices” instruction.
+completion contract. Together they enumerate 957 explicit inspection criteria and 212
+discipline-specific inspection steps — `forge-database` reads schema, types, cascades, and migration
+history, while `forge-realtime` traces connect authorization, channel isolation, reconnection, and
+backpressure — so specialized risks remain visible instead of disappearing behind a generic “best
+practices” instruction.
 
 ## Finding contract
 
@@ -163,11 +166,17 @@ forge tool <name>
 ```
 
 The CLI includes bounded TypeScript-compiler and structured-config analyzers for supported
-JavaScript/TypeScript security, authorization, tenancy, upload, query, cache, accessibility, AI,
-payment, and integration shapes. Keyword scanners remain secondary discovery signals and never
+JavaScript/TypeScript security, auth, authorization, tenancy, upload, query, cache, accessibility,
+AI, payment, and integration shapes. Keyword scanners remain secondary discovery signals and never
 establish a pass. Unsupported languages or frameworks are reported as `NOT_VERIFIED` with the
 missing adapter named. Project commands execute only after their local definitions are shown and
 `--allow-run` is supplied.
+
+When the audited project has Playwright installed, `forge tool inspect-rendered-ui <url>` captures
+desktop, tablet, and mobile screenshots plus browser console output into `.forge/evidence/ui/` as
+direct running-application evidence for UI, UX, and accessibility audits. Without Playwright or a
+reachable URL the tool reports `BLOCKED` and rendered-state criteria stay `NOT_VERIFIED` — visual
+evidence is captured, never fabricated.
 
 See [commands](docs/COMMANDS.md).
 

@@ -84,6 +84,7 @@ forge tool discover-project
 forge tool detect-project-commands
 forge tool run-project-command lint --allow-run
 forge tool scan-secret-patterns --json
+forge tool inspect-rendered-ui http://127.0.0.1:3000/ --json
 forge tool validate-finding-schema .forge/findings.json
 forge tool check-platform-assets
 forge tool smoke-install
@@ -100,13 +101,22 @@ inspect-authorization        inspect-upload-pipeline
 inspect-database-schema      inspect-query-patterns
 inspect-cache-usage          inspect-dependencies
 inspect-ci                   inspect-deployment-config
-inspect-platform-skills      generate-report
-validate-finding-schema      validate-skill
-sync-platform-assets         check-platform-assets
-package-platforms            smoke-install
+inspect-platform-skills      inspect-rendered-ui
+generate-report              validate-finding-schema
+validate-skill               sync-platform-assets
+check-platform-assets        package-platforms
+smoke-install
 ```
 
 Secret matches are redacted. Compiler-backed and structured analyzers prove only their supported
 shapes; keyword inventory remains a discovery signal, not a compliance verdict. Unsupported stacks
 remain `NOT_VERIFIED`. A nonzero scanner exit preserves an observed failure; it is not a tool crash
 by definition.
+
+`inspect-rendered-ui` captures desktop, tablet, and mobile screenshots plus browser console output
+into `.forge/evidence/ui/` using the audited project's own Playwright installation. Start the
+application yourself and pass its URL; the tool never launches project servers or guesses addresses.
+Loopback URLs work by default; any other destination requires explicit `--allow-run`. When
+Playwright is absent the tool reports `BLOCKED` and rendered-state criteria stay `NOT_VERIFIED` — it
+never fabricates visual evidence. Console errors on an inspected route produce a failing
+`FF-UI-CONSOLE-001` finding with the captured log as evidence.

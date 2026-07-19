@@ -4,6 +4,7 @@ import { MODULE_SLUGS, PACKAGE_ROOT, TOOL_NAMES } from "./constants.js";
 import { detectProjectCommands, discoverProject, writeProjectArtifacts } from "./discovery.js";
 import { assertFindings, validateFinding } from "./finding.js";
 import { inspectWithTool } from "./inspectors.js";
+import { inspectRenderedUi } from "./rendered-ui.js";
 import { createReport, writeReport } from "./report.js";
 import { canonicalDirectory, resolveInside, runFile } from "./utils.js";
 export async function runTool(nameInput, args, options) {
@@ -49,6 +50,9 @@ export async function runTool(nameInput, args, options) {
         }
         const execution = await runFile(command.executable, command.args, root);
         return { value: { command, ...execution }, exitCode: execution.exitCode };
+    }
+    if (nameInput === "inspect-rendered-ui") {
+        return inspectRenderedUi(root, args, options);
     }
     if (isInspectionTool(nameInput)) {
         const inspection = await inspectWithTool(nameInput, root);
@@ -252,6 +256,8 @@ function isToolName(value) {
     return TOOL_NAMES.includes(value);
 }
 function isInspectionTool(value) {
+    if (value === "inspect-rendered-ui")
+        return false;
     return value.startsWith("inspect-") && value !== "inspect-platform-skills"
         ? true
         : value === "inspect-platform-skills" || value === "scan-secret-patterns";

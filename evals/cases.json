@@ -11,24 +11,27 @@
   {
     "id": "nosql-injection",
     "fixture": "insecure-api",
-    "mode": "manual-evaluation",
+    "mode": "automated-signal-plus-manual-trace",
     "section": "security",
+    "expected_finding_id": "FF-SEC-NOSQL-001",
     "prompt": "Inspect whether parsed request objects can become Mongo-style query operators or filters without an allowlisted shape.",
     "expected_finding": "FAIL when request-controlled operators or filter objects reach a NoSQL query; require scalar/schema validation and negative operator tests."
   },
   {
     "id": "command-injection",
     "fixture": "insecure-api",
-    "mode": "manual-evaluation",
+    "mode": "automated-signal-plus-manual-trace",
     "section": "security",
+    "expected_finding_id": "FF-SEC-SHELL-001",
     "prompt": "Trace request data to subprocess or shell boundaries and verify executable/argument separation and allowlists.",
     "expected_finding": "FAIL when request text reaches a shell or executable selector; require argument arrays, allowlists, and a hostile-input test."
   },
   {
     "id": "broken-object-level-authorization",
     "fixture": "insecure-api",
-    "mode": "manual-evaluation",
+    "mode": "automated-signal-plus-manual-trace",
     "section": "authorization",
+    "expected_finding_id": "FF-AUTHZ-OBJECT-001",
     "prompt": "Trace the object identifier route to the final data query and locate a subject/object authorization predicate.",
     "expected_finding": "FAIL: object lookup has no demonstrated per-object authorization at the final query boundary."
   },
@@ -53,16 +56,18 @@
   {
     "id": "extension-only-validation",
     "fixture": "bad-upload-pipeline",
-    "mode": "manual-evaluation",
+    "mode": "automated-signal-plus-manual-trace",
     "section": "uploads",
+    "expected_finding_id": "FF-UPLOAD-EXTENSION-001",
     "prompt": "Determine whether acceptance relies on a filename extension rather than decoded content and magic bytes.",
     "expected_finding": "FAIL when extension-only validation can accept active or malformed content."
   },
   {
     "id": "mime-spoofing",
     "fixture": "bad-upload-pipeline",
-    "mode": "manual-evaluation",
+    "mode": "automated-signal-plus-manual-trace",
     "section": "uploads",
+    "expected_finding_id": "FF-UPLOAD-MIME-001",
     "prompt": "Compare client MIME, magic bytes, parser result, and permitted decoded type.",
     "expected_finding": "FAIL when a client-controlled MIME header is trusted as proof of file type."
   },
@@ -86,8 +91,9 @@
   {
     "id": "scanner-fail-open",
     "fixture": "bad-upload-pipeline",
-    "mode": "manual-evaluation",
+    "mode": "automated-signal-plus-manual-trace",
     "section": "uploads",
+    "expected_finding_id": "FF-UPLOAD-SCAN-ERROR-001",
     "prompt": "Follow scanner timeout/error paths and determine whether the object stays quarantined.",
     "expected_finding": "FAIL when scanner outage, timeout, or parse error releases the object instead of failing closed."
   },
@@ -146,16 +152,18 @@
   {
     "id": "invoice-prompt-injection",
     "fixture": "unsafe-ai-invoice",
-    "mode": "manual-evaluation",
+    "mode": "automated-signal-plus-manual-trace",
     "section": "ai",
+    "expected_finding_id": "FF-AI-PROMPT-001",
     "prompt": "Treat invoice and retrieved text as hostile data and trace whether it can instruct the model/tool policy.",
     "expected_finding": "FAIL when untrusted invoice text can alter system/tool instructions without isolation and policy enforcement."
   },
   {
     "id": "ai-irreversible-stock-change",
     "fixture": "unsafe-ai-invoice",
-    "mode": "manual-evaluation",
+    "mode": "automated-signal-plus-manual-trace",
     "section": "ai",
+    "expected_finding_id": "FF-AI-IRREVERSIBLE-001",
     "prompt": "Trace AI tool calls to irreversible inventory or financial effects and locate deterministic authorization and confirmation.",
     "expected_finding": "FAIL when model output alone can commit irreversible stock or payment changes without scoped authorization and human/deterministic confirmation."
   },
@@ -195,25 +203,82 @@
   {
     "id": "unsigned-payment-webhooks",
     "fixture": "unsigned-payment-webhook",
-    "mode": "manual-evaluation",
+    "mode": "automated-signal-plus-manual-trace",
     "section": "payments",
+    "expected_finding_id": "FF-PAY-WEBHOOK-SIGNATURE-001",
     "prompt": "Trace raw webhook bytes through signature verification before parsing or side effects.",
     "expected_finding": "FAIL when payment events are accepted without provider signature verification over the raw payload."
   },
   {
     "id": "duplicate-payment-handling",
     "fixture": "unsigned-payment-webhook",
-    "mode": "manual-evaluation",
+    "mode": "automated-signal-plus-manual-trace",
     "section": "payments",
+    "expected_finding_id": "FF-PAY-IDEMPOTENCY-001",
     "prompt": "Replay the same provider event and inspect uniqueness, transaction, and side-effect behavior.",
     "expected_finding": "FAIL when a duplicate provider event can repeat payment, fulfillment, notification, or ledger effects."
   },
   {
     "id": "missing-webhook-idempotency",
     "fixture": "unsigned-payment-webhook",
-    "mode": "manual-evaluation",
+    "mode": "automated-signal-plus-manual-trace",
     "section": "integrations",
+    "expected_finding_id": "FF-INTEGRATION-DUPLICATE-001",
     "prompt": "Locate durable event-id idempotency storage and verify concurrent/retried delivery behavior.",
     "expected_finding": "FAIL when webhook processing has no durable unique event key and atomic idempotency boundary."
+  },
+  {
+    "id": "insecure-session-cookie-attributes",
+    "fixture": "broken-auth",
+    "mode": "automated-signal-plus-manual-trace",
+    "section": "auth",
+    "expected_finding_id": "FF-AUTH-COOKIE-001",
+    "prompt": "Inspect session cookie issuance for HttpOnly, Secure, and SameSite attributes and confirm the observed Set-Cookie header in a real login response.",
+    "expected_finding": "FAIL: the session cookie is issued with httpOnly: false and secure: false; require hardened cookie attributes and a login-response header test."
+  },
+  {
+    "id": "user-controlled-session-identifier",
+    "fixture": "broken-auth",
+    "mode": "automated-signal-plus-manual-trace",
+    "section": "auth",
+    "expected_finding_id": "FF-AUTH-SESSION-001",
+    "prompt": "Trace how the session identifier is generated and prove it cannot be predicted or chosen by the caller.",
+    "expected_finding": "FAIL: the session cookie value is copied from request input, so any caller can forge another user session; require opaque server-generated identifiers."
+  },
+  {
+    "id": "ssrf-url-fetch",
+    "fixture": "insecure-api",
+    "mode": "automated-signal-plus-manual-trace",
+    "section": "security",
+    "expected_finding_id": "FF-SEC-SSRF-001",
+    "prompt": "Trace request-controlled URLs into server-side HTTP clients and verify an allowlist plus private-range blocking before any fetch.",
+    "expected_finding": "FAIL: a request-supplied URL reaches fetch without destination validation; require an allowlist and internal-range blocking with negative tests."
+  },
+  {
+    "id": "unsafe-deserialization",
+    "fixture": "insecure-api",
+    "mode": "automated-signal-plus-manual-trace",
+    "section": "security",
+    "expected_finding_id": "FF-SEC-DESERIALIZE-001",
+    "prompt": "Locate deserialization and code-evaluation boundaries and determine whether request-controlled data can reach them.",
+    "expected_finding": "FAIL: request-controlled data reaches an unserialize sink; require a safe data-only parser with schema validation and hostile-payload tests."
+  },
+  {
+    "id": "csv-formula-injection",
+    "fixture": "insecure-api",
+    "mode": "automated-signal-plus-manual-trace",
+    "section": "security",
+    "expected_finding_id": "FF-SEC-CSV-001",
+    "prompt": "Inspect CSV and spreadsheet exports for formula-prefix escaping of untrusted field values before delivery.",
+    "expected_finding": "FAIL: exported CSV cells are assembled from untrusted values without formula escaping; require prefix escaping and an export regression test."
+  },
+  {
+    "id": "mass-assignment",
+    "fixture": "insecure-api",
+    "mode": "automated-signal-plus-manual-trace",
+    "section": "security",
+    "expected_finding_id": "FF-SEC-MASS-ASSIGN-001",
+    "prompt": "Trace whole request bodies into model write operations and verify an explicit field allowlist at the write boundary.",
+    "expected_finding": "FAIL: the entire request body is written to a data model; require an allowlisted field projection and a privileged-field rejection test."
   }
 ]

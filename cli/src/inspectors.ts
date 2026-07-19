@@ -216,6 +216,7 @@ export async function inspectSection(
   const analyzerSections = new Set<ModuleSlug>([
     "accessibility",
     "ai",
+    "auth",
     "authorization",
     "cache",
     "deployment",

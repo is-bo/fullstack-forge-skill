@@ -157,7 +157,7 @@ const CRITERIA_SENTINELS = {
 test("module and tool catalogs are exact and unique", () => {
   assert.deepEqual(MODULE_SLUGS, EXPECTED);
   assert.equal(new Set(MODULE_SLUGS).size, 42);
-  assert.equal(new Set(TOOL_NAMES).size, 24);
+  assert.equal(new Set(TOOL_NAMES).size, 25);
   assert.equal(new Set(PLATFORMS).size, 7);
 });
 

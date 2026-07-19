@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const VERSION = "0.1.1";
+export const VERSION = "0.1.2";
 export const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 export const MODULE_SLUGS = [
@@ -121,6 +121,7 @@ export const TOOL_NAMES = [
   "inspect-ci",
   "inspect-deployment-config",
   "inspect-platform-skills",
+  "inspect-rendered-ui",
   "generate-report",
   "validate-finding-schema",
   "validate-skill",

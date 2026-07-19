@@ -6,18 +6,22 @@ substantial prose was copied. Commit IDs make the observations reproducible.
 
 ## Interoperability specifications and platform documentation
 
-| Source                              | URL                                                                              | Use                                                                                                                              |
-| ----------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Agent Skills Specification          | <https://agentskills.io/specification>                                           | Required `SKILL.md`, frontmatter, naming, description, progressive disclosure, and validation constraints                        |
-| OpenAI Codex skills manual          | <https://learn.chatgpt.com/docs/build-skills.md>                                 | Current `.agents/skills` repository path, discovery, explicit/implicit invocation, and optional `agents/openai.yaml`             |
-| Claude Code slash commands / skills | <https://code.claude.com/docs/en/slash-commands>                                 | `.claude/skills`, slash invocation, and legacy command distinction                                                               |
-| Gemini CLI Agent Skills             | <https://geminicli.com/docs/cli/using-agent-skills/>                             | Project `.gemini/skills` or `.agents/skills`; user `~/.gemini/skills` or `~/.agents/skills`                                      |
-| Antigravity getting started         | <https://codelabs.developers.google.com/getting-started-google-antigravity>      | Project `<project>/.agents/skills` and user `~/.gemini/config/skills` distinction                                                |
-| Antigravity skill authoring         | <https://codelabs.developers.google.com/getting-started-with-antigravity-skills> | Confirms installation-section paths; also records a later contradictory aside with older `.agent`/`antigravity-cli` names        |
-| Cursor 2.4 skills changelog         | <https://cursor.com/changelog/2-4>                                               | Agent Skills support in editor/CLI and slash invocation                                                                          |
-| Cursor skills paths confirmation    | <https://forum.cursor.com/t/support-for-agent-folder-compatibility/154167>       | Product team confirmation that `.agents/skills` is supported; `.cursor/skills` is the product-specific path documented by Cursor |
-| Windsurf / Devin Cascade skills     | <https://docs.devin.ai/desktop/cascade/skills>                                   | `.windsurf/skills`, global Cascade path, `.agents/skills`, and `@skill-name` invocation                                          |
-| GitHub Copilot Agent Skills         | <https://docs.github.com/en/copilot/concepts/agents/about-agent-skills>          | `.github/skills`, compatible repository paths, personal paths, and selection behavior                                            |
+Vendor documentation is not version-addressable the way a Git commit is, so each row records its own
+retrieval date. Re-verify a row before changing any generator or installer target that depends on
+it.
+
+| Source                              | URL                                                                              | Retrieved (UTC) | Use                                                                                                                              |
+| ----------------------------------- | -------------------------------------------------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Agent Skills Specification          | <https://agentskills.io/specification>                                           | 2026-07-18      | Required `SKILL.md`, frontmatter, naming, description, progressive disclosure, and validation constraints                        |
+| OpenAI Codex skills manual          | <https://learn.chatgpt.com/docs/build-skills.md>                                 | 2026-07-18      | Current `.agents/skills` repository path, discovery, explicit/implicit invocation, and optional `agents/openai.yaml`             |
+| Claude Code slash commands / skills | <https://code.claude.com/docs/en/slash-commands>                                 | 2026-07-18      | `.claude/skills`, slash invocation, and legacy command distinction                                                               |
+| Gemini CLI Agent Skills             | <https://geminicli.com/docs/cli/using-agent-skills/>                             | 2026-07-18      | Project `.gemini/skills` or `.agents/skills`; user `~/.gemini/skills` or `~/.agents/skills`                                      |
+| Antigravity getting started         | <https://codelabs.developers.google.com/getting-started-google-antigravity>      | 2026-07-18      | Project `<project>/.agents/skills` and user `~/.gemini/config/skills` distinction                                                |
+| Antigravity skill authoring         | <https://codelabs.developers.google.com/getting-started-with-antigravity-skills> | 2026-07-18      | Confirms installation-section paths; also records a later contradictory aside with older `.agent`/`antigravity-cli` names        |
+| Cursor 2.4 skills changelog         | <https://cursor.com/changelog/2-4>                                               | 2026-07-18      | Agent Skills support in editor/CLI and slash invocation                                                                          |
+| Cursor skills paths confirmation    | <https://forum.cursor.com/t/support-for-agent-folder-compatibility/154167>       | 2026-07-18      | Product team confirmation that `.agents/skills` is supported; `.cursor/skills` is the product-specific path documented by Cursor |
+| Windsurf / Devin Cascade skills     | <https://docs.devin.ai/desktop/cascade/skills>                                   | 2026-07-18      | `.windsurf/skills`, global Cascade path, `.agents/skills`, and `@skill-name` invocation                                          |
+| GitHub Copilot Agent Skills         | <https://docs.github.com/en/copilot/concepts/agents/about-agent-skills>          | 2026-07-18      | `.github/skills`, compatible repository paths, personal paths, and selection behavior                                            |
 
 Vendor documentation overrides older conventions found in reference repositories. In particular,
 Fullstack Forge uses `.agents/skills` for current Codex repository installations rather than the

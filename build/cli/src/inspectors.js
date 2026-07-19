@@ -200,6 +200,7 @@ export async function inspectSection(section, root, profile, scope) {
     const analyzerSections = new Set([
         "accessibility",
         "ai",
+        "auth",
         "authorization",
         "cache",
         "deployment",

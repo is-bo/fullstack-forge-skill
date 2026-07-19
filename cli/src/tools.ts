@@ -4,6 +4,7 @@ import { MODULE_SLUGS, PACKAGE_ROOT, TOOL_NAMES, type ToolName } from "./constan
 import { detectProjectCommands, discoverProject, writeProjectArtifacts } from "./discovery.js";
 import { assertFindings, validateFinding } from "./finding.js";
 import { inspectWithTool } from "./inspectors.js";
+import { inspectRenderedUi } from "./rendered-ui.js";
 import { createReport, writeReport } from "./report.js";
 import type { CliOptions, ProjectProfile } from "./types.js";
 import { canonicalDirectory, resolveInside, runFile } from "./utils.js";
@@ -58,6 +59,9 @@ export async function runTool(
     }
     const execution = await runFile(command.executable, command.args, root);
     return { value: { command, ...execution }, exitCode: execution.exitCode };
+  }
+  if (nameInput === "inspect-rendered-ui") {
+    return inspectRenderedUi(root, args, options);
   }
   if (isInspectionTool(nameInput)) {
     const inspection = await inspectWithTool(nameInput, root);
@@ -288,7 +292,11 @@ function isToolName(value: string): value is ToolName {
 
 function isInspectionTool(
   value: ToolName
-): value is Extract<ToolName, `inspect-${string}` | "scan-secret-patterns"> {
+): value is Exclude<
+  Extract<ToolName, `inspect-${string}` | "scan-secret-patterns">,
+  "inspect-rendered-ui"
+> {
+  if (value === "inspect-rendered-ui") return false;
   return value.startsWith("inspect-") && value !== "inspect-platform-skills"
     ? true
     : value === "inspect-platform-skills" || value === "scan-secret-patterns";
