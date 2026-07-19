@@ -6,6 +6,7 @@ import { discoverProject } from "../src/discovery.js";
 import { FORGE_GATE_REGISTRY, runShipGates, type ShipGate } from "../src/gates.js";
 import { createReport } from "../src/report.js";
 import type { Finding } from "../src/types.js";
+import { workingTreeRevision } from "../src/utils.js";
 import { withTemporaryProject } from "./helpers.js";
 
 async function writePackage(
@@ -86,7 +87,32 @@ test("a failing dependency finding fails the application dependency gate", async
       verification: ["Re-run dependency inspection."],
       standards: ["OWASP A06"]
     };
-    const previous = createReport(root, profile, [finding], "audit");
+    const revision = await workingTreeRevision(root);
+    const previous = createReport(
+      root,
+      profile,
+      [finding],
+      "audit",
+      [],
+      [],
+      [],
+      undefined,
+      [
+        {
+          evidence_type: "dependency-audit",
+          producer: "test-dependency-audit",
+          scope: ["package.json"],
+          timestamp: new Date().toISOString(),
+          revision,
+          status: "FAIL",
+          relevant_instance_ids: [finding.id],
+          absence_proves_success: true,
+          limitations: ["Synthetic typed evidence for gate isolation."]
+        }
+      ],
+      [],
+      revision
+    );
     const result = await runShipGates(root, profile, previous, [], false);
 
     assert.equal(gateById(result.gates, "FF-GATE-DEPENDENCIES").status, "FAIL");
@@ -148,7 +174,7 @@ test("no registry gate is both forge-self and backed by application evidence", (
   for (const definition of FORGE_GATE_REGISTRY)
     if (definition.applicability === "forge-self")
       assert.equal(
-        definition.evidence_sections,
+        definition.evidence_types,
         undefined,
         `${definition.gate_id} cannot be a self-check and an application evidence gate at once`
       );

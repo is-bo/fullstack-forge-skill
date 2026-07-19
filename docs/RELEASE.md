@@ -12,10 +12,12 @@
 7. Make final fixes, then run `npm run check` again after the last edit.
 8. Verify the local specification and temporary research are untracked and absent from npm and ZIP
    contents.
-9. Commit with conventional subjects, push `main`, and wait for remote CI.
-10. Create annotated tag `v0.1.1` without moving `v0.1.0`, publish the GitHub release with platform
-    archives, `SHA256SUMS.txt`, `manifest.json`, and release notes, then verify public assets from a
-    clean directory.
+9. Commit with conventional subjects, merge through a reviewed pull request, and wait for Linux,
+   Windows, macOS, dependency-review, and CodeQL results on `main`.
+10. Create the next annotated tag from the verified commit without moving any prior tag. The release
+    workflow must prove that no release exists, create a draft without clobbering, upload and attest
+    deterministic archives, verify downloaded bytes and checksums, attach checksummed final
+    evidence, publish once, and verify the resulting immutable release.
 
 Repository description, topics, and social preview must be set to match the release. If the hosting
 API cannot set a social preview, record that exact human-only step rather than claiming completion.

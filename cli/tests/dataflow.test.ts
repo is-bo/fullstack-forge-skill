@@ -4,6 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { runAnalyzers } from "../src/analyzers.js";
 import { buildTaintModel } from "../src/dataflow.js";
+import type { Finding } from "../src/types.js";
 import ts from "typescript";
 import { withTemporaryProject } from "./helpers.js";
 
@@ -19,6 +20,15 @@ async function securityIds(name: string, file: string, source: string): Promise<
     ids = new Set(runs.flatMap((run) => run.findings).map((finding) => finding.id));
   });
   return ids;
+}
+
+async function securityFindings(name: string, source: string): Promise<Finding[]> {
+  let findings: Finding[] = [];
+  await withTemporaryProject(name, async (root) => {
+    await writeFile(join(root, "case.ts"), source, "utf8");
+    findings = (await runAnalyzers("security", root)).flatMap((run) => run.findings);
+  });
+  return findings;
 }
 
 test("alias propagation reaches an interpolated SQL sink", async () => {
@@ -99,7 +109,7 @@ export async function handler(req, db) {
   );
 });
 
-test("a sanitizer bound to the tainted value clears only that value", () => {
+test("validation stays attached to the exact value without erasing taint", () => {
   const sourceFile = ts.createSourceFile(
     "sanitized.ts",
     `const id = z.string().uuid().parse(req.params.id);
@@ -109,8 +119,17 @@ const other = req.query.other;
     true
   );
   const model = buildTaintModel(sourceFile);
-  assert.equal(model.isSanitized("id"), true, "the parsed value is sanitized");
-  assert.equal(model.isSanitized("other"), false, "an unrelated value is not sanitized");
+  const id = sourceFile.statements[0];
+  const other = sourceFile.statements[1];
+  assert.ok(id !== undefined && other !== undefined);
+  assert.ok(ts.isVariableStatement(id) && ts.isVariableStatement(other));
+  const idName = id.declarationList.declarations[0]?.name;
+  const otherName = other.declarationList.declarations[0]?.name;
+  assert.ok(idName !== undefined && ts.isIdentifier(idName));
+  assert.ok(otherName !== undefined && ts.isIdentifier(otherName));
+  assert.ok(model.resolve(idName) !== undefined, "schema parsing must preserve taint provenance");
+  assert.equal(model.hasProtection(idName, "validated"), true);
+  assert.equal(model.hasProtection(otherName, "validated"), false);
   assert.ok(model.tainted.has("other"), "the unrelated value remains tainted");
 });
 
@@ -141,11 +160,12 @@ const record = prisma.record.findUnique({ where: { id: req.params.id } });
     true
   );
   const model = buildTaintModel(sourceFile);
-  assert.equal(
-    model.isSanitized("policyName"),
-    false,
-    "naming a string 'owner policy' is not a sanitizer"
-  );
+  const policy = sourceFile.statements[0];
+  assert.ok(policy !== undefined);
+  assert.ok(ts.isVariableStatement(policy));
+  const policyName = policy.declarationList.declarations[0]?.name;
+  assert.ok(policyName !== undefined && ts.isIdentifier(policyName));
+  assert.deepEqual(model.protections(policyName), [], "a policy string is not protection evidence");
 });
 
 test("Array.prototype.find is not treated as a database query sink", async () => {
@@ -194,5 +214,174 @@ test("Object.assign is not treated as a model write sink", async () => {
   assert.ok(
     !ids.has("FF-SEC-MASS-ASSIGN-001"),
     "Object.assign onto a local object is not a persistence boundary"
+  );
+});
+
+test("Zod string parsing does not suppress SQL interpolation", async () => {
+  const ids = await securityIds(
+    "typed-zod-sql",
+    "users.ts",
+    `export async function load(req, db) {
+  const id = z.string().parse(req.params.id);
+  return db.query(\`SELECT * FROM users WHERE id = \${id}\`);
+}`
+  );
+  assert.ok(ids.has("FF-SEC-SQL-001"));
+});
+
+test("UUID validation does not suppress SQL interpolation", async () => {
+  const ids = await securityIds(
+    "typed-uuid-sql",
+    "users.ts",
+    `export async function load(req, db) {
+  const id = validateUuid(req.params.id);
+  return db.query(\`SELECT * FROM users WHERE id = \${id}\`);
+}`
+  );
+  assert.ok(ids.has("FF-SEC-SQL-001"));
+});
+
+test("URL-component encoding does not make shell execution safe", async () => {
+  const ids = await securityIds(
+    "typed-url-shell",
+    "run.ts",
+    `import { exec } from "node:child_process";
+export function run(req) {
+  const command = encodeURIComponent(req.body.command);
+  exec(command);
+}`
+  );
+  assert.ok(ids.has("FF-SEC-SHELL-001"));
+});
+
+test("HTML escaping does not make SQL interpolation safe", async () => {
+  const ids = await securityIds(
+    "typed-html-sql",
+    "users.ts",
+    `export async function load(req, db) {
+  const id = escapeHtml(req.params.id);
+  return db.query(\`SELECT * FROM users WHERE id = \${id}\`);
+}`
+  );
+  assert.ok(ids.has("FF-SEC-SQL-001"));
+});
+
+test("driver parameter binding resolves the SQL structural finding", async () => {
+  const ids = await securityIds(
+    "typed-parameter-sql",
+    "users.ts",
+    `export async function load(req, db) {
+  return db.query("SELECT * FROM users WHERE id = ?", [req.params.id]);
+}`
+  );
+  assert.ok(!ids.has("FF-SEC-SQL-001"));
+});
+
+test("a fixed executable with a validated argument array is shell-separated", async () => {
+  const ids = await securityIds(
+    "typed-shell-array",
+    "run.ts",
+    `import { spawn } from "node:child_process";
+export function run(req) {
+  const ref = z.string().regex(/^[a-z0-9-]+$/).parse(req.query.ref);
+  return spawn("git", ["show", ref], { shell: false });
+}`
+  );
+  assert.ok(!ids.has("FF-SEC-SHELL-001"));
+});
+
+test("SSRF allowlisting is bound to the actual destination", async () => {
+  const protectedIds = await securityIds(
+    "typed-ssrf-target",
+    "proxy.ts",
+    `const ALLOWED_DESTINATIONS = { docs: "https://docs.example.test/" };
+export function proxy(req) {
+  const destination = ALLOWED_DESTINATIONS[req.query.destination];
+  return fetch(destination, { redirect: "manual" });
+}`
+  );
+  assert.ok(!protectedIds.has("FF-SEC-SSRF-001"));
+
+  const unrelatedIds = await securityIds(
+    "typed-ssrf-unrelated",
+    "proxy.ts",
+    `const ALLOWED_DESTINATIONS = { docs: "https://docs.example.test/" };
+export function proxy(req) {
+  const unrelated = ALLOWED_DESTINATIONS.docs;
+  return fetch(req.query.destination);
+}`
+  );
+  assert.ok(unrelatedIds.has("FF-SEC-SSRF-001"));
+
+  const redirectIds = await securityIds(
+    "typed-ssrf-redirect",
+    "proxy.ts",
+    `const ALLOWED_DESTINATIONS = { docs: "https://docs.example.test/" };
+export function proxy(req) {
+  const destination = ALLOWED_DESTINATIONS[req.query.destination];
+  return fetch(destination);
+}`
+  );
+  assert.ok(redirectIds.has("FF-SEC-SSRF-001"));
+});
+
+test("a raw reassignment invalidates an earlier destination protection", async () => {
+  const ids = await securityIds(
+    "typed-ssrf-reassignment",
+    "proxy.ts",
+    `const ALLOWED_DESTINATIONS = { docs: "https://docs.example.test/" };
+export function proxy(req) {
+  let destination = ALLOWED_DESTINATIONS[req.query.destination];
+  destination = req.query.override;
+  return fetch(destination);
+}`
+  );
+  assert.ok(ids.has("FF-SEC-SSRF-001"));
+});
+
+test("validation of one value does not protect another value", async () => {
+  const ids = await securityIds(
+    "typed-unrelated-value",
+    "users.ts",
+    `export async function load(req, db) {
+  const safe = z.string().parse(req.query.safe);
+  void safe;
+  return db.query(\`SELECT * FROM users WHERE id = \${req.params.id}\`);
+}`
+  );
+  assert.ok(ids.has("FF-SEC-SQL-001"));
+  assert.ok(ids.has("FF-SEC-VALIDATION-001"));
+});
+
+test("taint and typed validation survive aliases", async () => {
+  const ids = await securityIds(
+    "typed-alias-after-validation",
+    "users.ts",
+    `export async function load(req, db) {
+  const validated = z.string().parse(req.params.id);
+  const alias = validated;
+  return db.query(\`SELECT * FROM users WHERE id = \${alias}\`);
+}`
+  );
+  assert.ok(ids.has("FF-SEC-SQL-001"));
+});
+
+test("shadowed variables do not inherit unrelated taint or protection", async () => {
+  const findings = await securityFindings(
+    "typed-shadowing",
+    `const id = z.string().parse(req.params.id);
+export function outer(db) {
+  function inner() {
+    const id = "server-owned";
+    return db.query(\`SELECT * FROM users WHERE id = \${id}\`);
+  }
+  void inner;
+  return db.query(\`SELECT * FROM users WHERE id = \${id}\`);
+}`
+  );
+  assert.equal(
+    findings.filter((finding) => finding.id === "FF-SEC-SQL-001").length,
+    1,
+    "only the outer request-controlled binding is vulnerable"
   );
 });

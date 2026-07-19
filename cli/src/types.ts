@@ -173,12 +173,58 @@ export type CliOptions = {
   output?: string;
 };
 
+export const GATE_EVIDENCE_TYPES = [
+  "secret-scan",
+  "dependency-audit",
+  "lockfile-inspection",
+  "license-scan",
+  "authorization-evaluation",
+  "tenant-isolation-evaluation",
+  "upload-security-evaluation",
+  "application-security-static-analysis",
+  "migration-validation",
+  "project-test",
+  "release-artifact-validation"
+] as const;
+export type GateEvidenceType = (typeof GATE_EVIDENCE_TYPES)[number];
+export type GateEvidenceStatus = Extract<
+  Status,
+  "PASS" | "FAIL" | "BLOCKED" | "NOT_VERIFIED" | "NOT_APPLICABLE"
+>;
+
+/** Semantically typed evidence consumed by release gates. */
+export type GateEvidence = {
+  evidence_type: GateEvidenceType;
+  producer: string;
+  scope: string[];
+  timestamp: string;
+  revision: string;
+  status: GateEvidenceStatus;
+  relevant_instance_ids: string[];
+  absence_proves_success: boolean;
+  limitations: string[];
+};
+
+export type AnalyzerCoverage = {
+  status: "PASS" | "NOT_VERIFIED";
+  module: string;
+  language: string;
+  framework: string;
+  analyzer_id: string;
+  coverage: "executable" | "partial" | "none";
+  supported_shapes: string[];
+  unsupported_shapes: string[];
+  required_adapter?: string;
+};
+
 export type InspectionResult = {
   tool: string;
   root: string;
   generated_at: string;
   observations: Observation[];
   findings: Finding[];
+  gate_evidence: GateEvidence[];
+  analyzer_coverage: AnalyzerCoverage[];
 };
 
 export type Observation = {

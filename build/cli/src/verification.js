@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { runNamedAnalyzer } from "./analyzers.js";
 import { detectProjectCommands } from "./discovery.js";
 import { createReport, readReport, writeReport } from "./report.js";
-import { canonicalDirectory, readTextIfPresent, resolveInside, runFile, utcNow } from "./utils.js";
+import { canonicalDirectory, readTextIfPresent, resolveInside, runFile, utcNow, workingTreeRevision } from "./utils.js";
 export async function verifyFindings(rootInput, section, profile, options) {
     const root = await canonicalDirectory(rootInput);
     const previous = await readReport(root, join(root, ".forge", "report.json"));
@@ -33,7 +33,7 @@ export async function verifyFindings(rootInput, section, profile, options) {
         finding.status = combineStatuses(statuses);
         findings.push(finding);
     }
-    const report = createReport(root, profile, findings, `finding-specific verify ${section}`, execution, previous.assumptions, previous.residual_risk, previous.scope_evidence);
+    const report = createReport(root, profile, findings, `finding-specific verify ${section}`, execution, previous.assumptions, previous.residual_risk, previous.scope_evidence, previous.gate_evidence, previous.analyzer_coverage, await workingTreeRevision(root));
     const reportPaths = options.dryRun ? [] : await writeReport(report);
     return { report, report_paths: reportPaths };
 }

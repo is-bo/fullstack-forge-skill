@@ -9,7 +9,14 @@ import {
   type ExecutionRecord
 } from "./report.js";
 import type { Finding, ProjectProfile, Status, VerificationAction } from "./types.js";
-import { canonicalDirectory, readTextIfPresent, resolveInside, runFile, utcNow } from "./utils.js";
+import {
+  canonicalDirectory,
+  readTextIfPresent,
+  resolveInside,
+  runFile,
+  utcNow,
+  workingTreeRevision
+} from "./utils.js";
 
 export type VerificationResult = {
   report: AuditReport;
@@ -61,7 +68,10 @@ export async function verifyFindings(
     execution,
     previous.assumptions,
     previous.residual_risk,
-    previous.scope_evidence
+    previous.scope_evidence,
+    previous.gate_evidence,
+    previous.analyzer_coverage,
+    await workingTreeRevision(root)
   );
   const reportPaths = options.dryRun ? [] : await writeReport(report);
   return { report, report_paths: reportPaths };

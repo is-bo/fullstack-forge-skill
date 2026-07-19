@@ -8,7 +8,12 @@ import type {
   Severity,
   TraceEvidence
 } from "./types.js";
-import { buildTaintModel, type TaintModel, type TaintOrigin } from "./dataflow.js";
+import {
+  buildTaintModel,
+  type ProtectionKind,
+  type TaintModel,
+  type TaintOrigin
+} from "./dataflow.js";
 import { lineNumber, readTextIfPresent, sha256, toPosix, walkFiles } from "./utils.js";
 
 const EXCLUDED = new Set([
@@ -66,6 +71,7 @@ type IssueSpec = {
 type Issue = {
   spec: IssueSpec;
   file: SourceRecord;
+  node?: ts.Node;
   start: number;
   end?: number;
   evidence: string;
@@ -698,8 +704,10 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
         // is retained as a union so no previously detected direct flow regresses.
         const flow = resolveArgumentTaint(node, file, taint);
         const requestControlled = flow !== undefined || containsRequestData(argumentText);
-        // A sanitizer only clears the value it was applied to, never a neighbouring keyword.
-        const sanitized = argumentSymbolsSanitized(node, file, taint);
+        // Validation remains distinct from taint and from sink-specific protections. It can
+        // satisfy the generic validation sub-finding, but it never suppresses structural SQL,
+        // shell, redirect, or network findings by itself.
+        const validated = argumentsHaveProtection(node, file, taint, ["validated", "allowlisted"]);
         if (
           isSqlSink(name) &&
           requestControlled &&
@@ -707,7 +715,7 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
             flowPassedThroughInterpolation(flow))
         ) {
           issues.push(issue(SPECS.sql, file, node, flowSource(flow, argumentText), name));
-          if (!sanitized)
+          if (!validated)
             issues.push(issue(SPECS.validation, file, node, flowSource(flow, argumentText), name));
         }
         if (
@@ -716,18 +724,18 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
           /[${}]|\$where|req\.(?:body|query)(?:\.|\b)/u.test(argumentText)
         ) {
           issues.push(issue(SPECS.nosql, file, node, flowSource(flow, argumentText), name));
-          if (!sanitized)
+          if (!validated)
             issues.push(issue(SPECS.validation, file, node, flowSource(flow, argumentText), name));
         }
-        if (isShellSink(name) && requestControlled) {
+        if (isShellSink(name) && requestControlled && !isShellSeparatedCall(node, file, taint)) {
           issues.push(issue(SPECS.shell, file, node, flowSource(flow, argumentText), name));
-          if (!sanitized)
+          if (!validated)
             issues.push(issue(SPECS.validation, file, node, flowSource(flow, argumentText), name));
         }
         if (
           /\bredirect$/u.test(name) &&
           requestControlled &&
-          !/allowlist|allowedRedirect|safeRedirect/iu.test(enclosingText(node, file, functions))
+          !isConstrainedRedirect(node, file, taint)
         ) {
           issues.push(issue(SPECS.redirect, file, node, flowSource(flow, argumentText), name));
         }
@@ -749,12 +757,7 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
         }
         if (isCacheSink(name)) analyzeCacheCall(issues, file, node, name, functions);
         if (isObjectLookup(name) && requestControlled) {
-          const context = enclosingText(node, file, functions);
-          if (
-            !/\b(?:userId|ownerId|subjectId|session\.user|auth\.user|authorize|canAccess|policy)\b/u.test(
-              context
-            )
-          )
+          if (!hasObjectAuthorization(node, file, taint))
             issues.push(issue(SPECS.objectAuth, file, node, flowSource(flow, argumentText), name));
         }
         if (
@@ -774,7 +777,7 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
         }
         if (
           isQuerySink(name) &&
-          /\b(?:job|export|worker|queue)\b/iu.test(enclosingText(node, file, functions)) &&
+          isBackgroundExecutionContext(node, file) &&
           !/(?:tenant|organization)(?:Id|_id)?\s*:/u.test(argumentText)
         )
           issues.push(issue(SPECS.tenantBackground, file, node, "background/export context", name));
@@ -797,9 +800,7 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
           const targetFlow = targetNode === undefined ? undefined : taint.resolve(targetNode);
           if (
             (targetFlow !== undefined || containsRequestData(target)) &&
-            !/allowlist|allowedHosts|allowedDestinations|blockPrivateAddresses/iu.test(
-              enclosingText(node, file, functions)
-            )
+            !isNetworkConstrainedTarget(node, targetNode, file, taint)
           )
             issues.push(
               issue(SPECS.ssrf, file, node, flowSource(targetFlow ?? flow, target), name)
@@ -812,7 +813,7 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
           node.arguments.some((argument) =>
             referencesWholeRequestBody(argument, file.sourceFile)
           ) &&
-          !sanitized
+          !validated
         )
           issues.push(issue(SPECS.massAssign, file, node, "entire request body", name));
         if (/(?:^|\.)(?:cookie|setCookie)$/u.test(name) && node.arguments.length >= 2) {
@@ -1227,6 +1228,7 @@ function analyzeCacheCall(
 
 function mergeIssues(issues: Issue[]): Finding[] {
   const findings = new Map<string, Finding>();
+  const identities = structuralIdentities(issues);
   for (const candidate of issues) {
     const line = lineNumber(candidate.file.content, candidate.start);
     const endLine =
@@ -1246,10 +1248,9 @@ function mergeIssues(issues: Issue[]): Finding[] {
       sink: candidate.sink,
       description: candidate.evidence
     };
-    // Instance identity is keyed on the rule, the repository-relative path, and the sink symbol.
-    // Line numbers are deliberately excluded so that unrelated inserted lines, or moving the code
-    // within the same file, do not mint a new identity for the same defect.
-    const instanceId = findingInstanceId(candidate.spec.id, candidate.file.path, candidate.sink);
+    const identity = identities.get(candidate);
+    if (identity === undefined) throw new Error("Analyzer issue lacks structural identity.");
+    const instanceId = structuralFindingInstanceId(candidate, identity);
     const current = findings.get(instanceId);
     if (current === undefined) {
       findings.set(instanceId, {
@@ -1312,6 +1313,194 @@ export function findingInstanceId(ruleId: string, path: string, sink: string): s
   return `${ruleId}:${digest}`;
 }
 
+type StructuralIdentity = {
+  scope: string;
+  receiver: string;
+  fingerprint: string;
+  ordinal: number;
+};
+
+function structuralFindingInstanceId(candidate: Issue, identity: StructuralIdentity): string {
+  const digest = sha256(
+    [
+      candidate.spec.id,
+      toPosix(candidate.file.path),
+      identity.scope,
+      identity.receiver,
+      sinkFromName(candidate.sink),
+      identity.fingerprint,
+      String(identity.ordinal)
+    ].join("\u0000")
+  ).slice(0, 16);
+  return `${candidate.spec.id}:${digest}`;
+}
+
+function structuralIdentities(issues: Issue[]): Map<Issue, StructuralIdentity> {
+  const bases = new Map<string, Issue[]>();
+  const parts = new Map<Issue, Omit<StructuralIdentity, "ordinal">>();
+  for (const candidate of issues) {
+    const scope = containingScope(candidate);
+    const receiver = receiverFromSink(candidate.sink);
+    const fingerprint = structuralFingerprint(candidate);
+    const value = { scope, receiver, fingerprint };
+    parts.set(candidate, value);
+    const base = [
+      candidate.spec.id,
+      candidate.file.path,
+      scope,
+      receiver,
+      sinkFromName(candidate.sink),
+      fingerprint
+    ].join("\u0000");
+    const values = bases.get(base) ?? [];
+    values.push(candidate);
+    bases.set(base, values);
+  }
+  const result = new Map<Issue, StructuralIdentity>();
+  for (const values of bases.values()) {
+    const positions = [
+      ...new Set(values.map((candidate) => `${candidate.start}:${candidate.end ?? ""}`))
+    ].sort((left, right) => {
+      const [leftStart = "0", leftEnd = "0"] = left.split(":");
+      const [rightStart = "0", rightEnd = "0"] = right.split(":");
+      return Number(leftStart) - Number(rightStart) || Number(leftEnd) - Number(rightEnd);
+    });
+    for (const candidate of values) {
+      const part = parts.get(candidate);
+      if (part === undefined) continue;
+      const key = `${candidate.start}:${candidate.end ?? ""}`;
+      result.set(candidate, {
+        ...part,
+        ordinal: structuralOccurrenceOrdinal(candidate) ?? positions.indexOf(key) + 1
+      });
+    }
+  }
+  return result;
+}
+
+/**
+ * Counts all matching sink nodes in the containing scope, including already-safe peers. This keeps
+ * an unresolved peer's identity stable when another occurrence is fixed and disappears from the
+ * issue set.
+ */
+function structuralOccurrenceOrdinal(candidate: Issue): number | undefined {
+  const target = candidate.node;
+  if (target === undefined) return undefined;
+  let scope: ts.Node = candidate.file.sourceFile;
+  let parent: ts.Node = target;
+  while (!ts.isSourceFile(parent)) {
+    if (ts.isFunctionLike(parent)) {
+      scope = parent;
+      break;
+    }
+    parent = parent.parent;
+  }
+  let ordinal = 0;
+  const walkScope = (node: ts.Node): number | undefined => {
+    if (node !== scope && ts.isFunctionLike(node)) return undefined;
+    if (sameStructuralSinkNode(node, target, candidate.file.sourceFile)) {
+      ordinal += 1;
+      if (node === target) return ordinal;
+    }
+    return node.forEachChild(walkScope);
+  };
+  return walkScope(scope);
+}
+
+function sameStructuralSinkNode(
+  node: ts.Node,
+  target: ts.Node,
+  sourceFile: ts.SourceFile
+): boolean {
+  if (ts.isCallExpression(target))
+    return ts.isCallExpression(node) && callName(node.expression) === callName(target.expression);
+  if (ts.isNewExpression(target))
+    return (
+      ts.isNewExpression(node) &&
+      node.expression.getText(sourceFile) === target.expression.getText(sourceFile)
+    );
+  if (ts.isJsxOpeningElement(target) || ts.isJsxSelfClosingElement(target)) {
+    return (
+      (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
+      node.tagName.getText(sourceFile) === target.tagName.getText(sourceFile) &&
+      jsxAttributeValue(node, "target") === jsxAttributeValue(target, "target")
+    );
+  }
+  return node.kind === target.kind;
+}
+
+function containingScope(candidate: Issue): string {
+  let current = candidate.node;
+  while (current !== undefined) {
+    if (ts.isFunctionLike(current)) {
+      const name = functionNodeName(current, candidate.file.sourceFile);
+      if (name !== undefined) return `${ts.SyntaxKind[current.kind]}:${name}`;
+      if (ts.isCallExpression(current.parent)) {
+        const route = routeScopeName(current.parent, candidate.file.sourceFile);
+        if (route !== undefined) return route;
+      }
+      return `${ts.SyntaxKind[current.kind]}:anonymous`;
+    }
+    current = current.parent;
+  }
+  const anchor = closestNodeAt(candidate.file.sourceFile, candidate.start);
+  return anchor === undefined ? "source-file" : `top-level:${ts.SyntaxKind[anchor.kind]}`;
+}
+
+function routeScopeName(node: ts.CallExpression, sourceFile: ts.SourceFile): string | undefined {
+  void sourceFile;
+  const name = callName(node.expression);
+  if (!/(?:^|\.)(?:get|post|put|patch|delete|use)$/u.test(name)) return undefined;
+  const route = node.arguments[0];
+  return route !== undefined && ts.isStringLiteralLike(route)
+    ? `route:${name}:${route.text}`
+    : `route:${name}:dynamic`;
+}
+
+function structuralFingerprint(candidate: Issue): string {
+  const node = candidate.node ?? closestNodeAt(candidate.file.sourceFile, candidate.start);
+  if (node !== undefined) return sha256(astShape(node)).slice(0, 20);
+  const line = lineText(
+    candidate.file.content,
+    lineNumber(candidate.file.content, candidate.start)
+  );
+  return sha256(
+    line
+      .replace(/["'`][^"'`]*["'`]/gu, "<literal>")
+      .replace(/\s+/gu, " ")
+      .trim()
+  ).slice(0, 20);
+}
+
+function astShape(node: ts.Node): string {
+  if (ts.isIdentifier(node)) return `Identifier:${node.text}`;
+  if (ts.isStringLiteralLike(node)) return `StringLiteral:${sha256(node.text).slice(0, 8)}`;
+  if (ts.isNumericLiteral(node)) return `NumericLiteral:${node.text}`;
+  const children: string[] = [];
+  node.forEachChild((child) => children.push(astShape(child)));
+  return `${ts.SyntaxKind[node.kind]}(${children.join(",")})`;
+}
+
+function closestNodeAt(sourceFile: ts.SourceFile, position: number): ts.Node | undefined {
+  let best: ts.Node | undefined;
+  const search = (node: ts.Node): void => {
+    if (position < node.getFullStart() || position > node.getEnd()) return;
+    best = node;
+    node.forEachChild(search);
+  };
+  search(sourceFile);
+  return best;
+}
+
+function receiverFromSink(name: string): string {
+  const parts = name.split(".");
+  return parts.length > 1 ? parts.slice(0, -1).join(".") : "<direct>";
+}
+
+function sinkFromName(name: string): string {
+  return name.split(".").at(-1) ?? name;
+}
+
 function spec(
   id: string,
   analyzer: string,
@@ -1352,6 +1541,7 @@ function issue(
   return {
     spec: specValue,
     file,
+    node,
     start: node.getStart(file.sourceFile),
     end: node.getEnd(),
     evidence: `${source} reaches ${sink} at ${file.path}:${lineNumber(file.content, node.getStart(file.sourceFile))}.`,
@@ -1367,9 +1557,11 @@ function textIssue(
   source: string,
   sink: string
 ): Issue {
+  const node = closestNodeAt(file.sourceFile, Math.max(0, start));
   return {
     spec: specValue,
     file,
+    ...(node === undefined ? {} : { node }),
     start: Math.max(0, start),
     evidence: `${source} reaches ${sink} at ${file.path}:${lineNumber(file.content, Math.max(0, start))}.`,
     source,
@@ -1452,7 +1644,7 @@ function isQuerySink(name: string): boolean {
 }
 
 function isShellSink(name: string): boolean {
-  return /(?:^|\.)(?:exec|execSync|spawn|spawnSync|system)$/u.test(name);
+  return /(?:^|\.)(?:exec|execSync|execFile|execFileSync|spawn|spawnSync|system)$/u.test(name);
 }
 
 function isLogSink(name: string): boolean {
@@ -1464,7 +1656,7 @@ function isCacheSink(name: string): boolean {
 }
 
 function isObjectLookup(name: string): boolean {
-  return /(?:^|\.)(?:findUnique|findFirst|findOne|findById|query)$/u.test(name);
+  return /(?:^|\.)(?:findUnique|findFirst|findOne|findById)$/u.test(name);
 }
 
 function isHttpClientSink(name: string): boolean {
@@ -1546,24 +1738,388 @@ function resolveArgumentTaint(
 }
 
 /**
- * True only when every request-controlled identifier reaching this call was itself sanitized.
- * Unrelated validation elsewhere in the enclosing function proves nothing about these values.
+ * True only when every request-controlled value reaching this call carries one of the requested
+ * typed protections. A protection on a neighbouring value or unrelated call proves nothing.
  */
-function argumentSymbolsSanitized(
+function argumentsHaveProtection(
+  node: ts.CallExpression,
+  file: SourceRecord,
+  taint: TaintModel,
+  kinds: ProtectionKind[]
+): boolean {
+  const relevant = node.arguments.flatMap((argument) =>
+    collectTaintedValueExpressions(argument, file.sourceFile, taint)
+  );
+  if (relevant.length === 0) return false;
+  return relevant.every((expression) =>
+    kinds.some((kind) => taint.hasProtection(expression, kind))
+  );
+}
+
+function collectTaintedValueExpressions(
+  node: ts.Expression,
+  sourceFile: ts.SourceFile,
+  taint: TaintModel
+): ts.Expression[] {
+  const values: ts.Expression[] = [];
+  const collect = (candidate: ts.Node): void => {
+    if (!ts.isExpression(candidate)) {
+      candidate.forEachChild(collect);
+      return;
+    }
+    const origin = taint.resolve(candidate);
+    if (origin !== undefined) {
+      const directRequest = containsRequestData(candidate.getText(sourceFile));
+      const transformed =
+        (ts.isCallExpression(candidate) || ts.isNewExpression(candidate)) &&
+        taint.protections(candidate).length > 0;
+      if (ts.isIdentifier(candidate) || directRequest || transformed) {
+        values.push(candidate);
+        return;
+      }
+    }
+    candidate.forEachChild(collect);
+  };
+  collect(node);
+  return values;
+}
+
+/** Fixed executable + argument array + no shell + validated/allowlisted untrusted arguments. */
+function isShellSeparatedCall(
   node: ts.CallExpression,
   file: SourceRecord,
   taint: TaintModel
 ): boolean {
-  const names = new Set<string>();
-  for (const argument of node.arguments) collectIdentifiers(argument, file.sourceFile, names);
-  const relevant = [...names].filter((name) => taint.tainted.has(name));
-  if (relevant.length === 0) return false;
-  return relevant.every((name) => taint.isSanitized(name));
+  const name = callName(node.expression);
+  if (!/(?:^|\.)(?:spawn|spawnSync|execFile|execFileSync)$/u.test(name)) return false;
+  const executable = node.arguments[0];
+  if (
+    executable === undefined ||
+    !(ts.isStringLiteralLike(executable) || ts.isNoSubstitutionTemplateLiteral(executable))
+  )
+    return false;
+  const options = node.arguments.find(ts.isObjectLiteralExpression);
+  if (
+    options?.properties.some(
+      (property) =>
+        ts.isPropertyAssignment(property) &&
+        property.name.getText(file.sourceFile) === "shell" &&
+        property.initializer.kind === ts.SyntaxKind.TrueKeyword
+    )
+  )
+    return false;
+  const argumentValue = node.arguments[1];
+  if (argumentValue === undefined) return false;
+  const argumentArray = ts.isArrayLiteralExpression(argumentValue)
+    ? argumentValue
+    : ts.isIdentifier(argumentValue)
+      ? findArrayInitializer(argumentValue, node, file.sourceFile)
+      : undefined;
+  if (argumentArray === undefined) return false;
+  const untrusted = argumentArray.elements.flatMap((element) =>
+    ts.isExpression(element) ? collectTaintedValueExpressions(element, file.sourceFile, taint) : []
+  );
+  return (
+    untrusted.length > 0 &&
+    untrusted.every(
+      (expression) =>
+        taint.hasProtection(expression, "validated") ||
+        taint.hasProtection(expression, "allowlisted")
+    )
+  );
 }
 
-function collectIdentifiers(node: ts.Node, sourceFile: ts.SourceFile, into: Set<string>): void {
-  if (ts.isIdentifier(node)) into.add(node.text);
-  node.forEachChild((child) => collectIdentifiers(child, sourceFile, into));
+function findArrayInitializer(
+  identifier: ts.Identifier,
+  before: ts.Node,
+  sourceFile: ts.SourceFile
+): ts.ArrayLiteralExpression | undefined {
+  let best: ts.VariableDeclaration | undefined;
+  visit(sourceFile, [], (node) => {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === identifier.text &&
+      node.initializer !== undefined &&
+      ts.isArrayLiteralExpression(node.initializer) &&
+      node.getStart(sourceFile) < before.getStart(sourceFile) &&
+      (best === undefined || node.getStart(sourceFile) > best.getStart(sourceFile))
+    )
+      best = node;
+  });
+  return best?.initializer !== undefined && ts.isArrayLiteralExpression(best.initializer)
+    ? best.initializer
+    : undefined;
+}
+
+function isConstrainedRedirect(
+  node: ts.CallExpression,
+  file: SourceRecord,
+  taint: TaintModel
+): boolean {
+  const target = node.arguments[0];
+  if (target === undefined) return false;
+  if (taint.hasProtection(target, "allowlisted", "destination")) return true;
+  return hasDominatingGuard(node, file.sourceFile, (call) => {
+    const name = callName(call.expression);
+    if (!/(?:allow|trusted|redirect).*(?:has|includes)|(?:has|includes).*redirect/iu.test(name))
+      return undefined;
+    const argument = call.arguments[0];
+    return argument !== undefined && sameTaintedValue(argument, target, taint)
+      ? "deny-when-false"
+      : undefined;
+  });
+}
+
+function isNetworkConstrainedTarget(
+  sink: ts.CallExpression,
+  target: ts.Expression | undefined,
+  file: SourceRecord,
+  taint: TaintModel
+): boolean {
+  if (target === undefined) return false;
+  const redirectConstrained = hasExplicitRedirectConstraint(sink, file.sourceFile);
+  if (
+    taint.hasProtection(target, "trusted-origin", "network") &&
+    taint.hasProtection(target, "network-constrained", "network")
+  )
+    return redirectConstrained;
+  const allowlisted = hasDominatingGuard(sink, file.sourceFile, (call) => {
+    const name = callName(call.expression);
+    if (!/(?:allowed|allowlist|trusted).*(?:has|includes)|(?:has|includes).*host/iu.test(name))
+      return undefined;
+    const argument = call.arguments[0];
+    return argument !== undefined && sameTaintedValue(argument, target, taint)
+      ? "deny-when-false"
+      : undefined;
+  });
+  const privateBlocked = hasDominatingGuard(sink, file.sourceFile, (call) => {
+    const name = callName(call.expression);
+    if (!/(?:isPrivate|isLinkLocal|isInternal|privateAddress|linkLocal)/iu.test(name))
+      return undefined;
+    const argument = call.arguments[0];
+    return argument !== undefined && sameTaintedValue(argument, target, taint)
+      ? "deny-when-true"
+      : undefined;
+  });
+  return allowlisted && privateBlocked && redirectConstrained;
+}
+
+function hasExplicitRedirectConstraint(
+  sink: ts.CallExpression,
+  sourceFile: ts.SourceFile
+): boolean {
+  return sink.arguments.some(
+    (argument) =>
+      ts.isObjectLiteralExpression(argument) &&
+      argument.properties.some((property) => {
+        if (!ts.isPropertyAssignment(property)) return false;
+        const key = property.name.getText(sourceFile).replace(/["']/gu, "");
+        if (key === "redirect" && ts.isStringLiteralLike(property.initializer))
+          return ["manual", "error"].includes(property.initializer.text.toLowerCase());
+        return key === "maxRedirects" && property.initializer.getText(sourceFile) === "0";
+      })
+  );
+}
+
+function hasObjectAuthorization(
+  sink: ts.CallExpression,
+  file: SourceRecord,
+  taint: TaintModel
+): boolean {
+  if (queryEmbedsTrustedScope(sink, file.sourceFile)) return true;
+  const objectSources = new Set(
+    sink.arguments
+      .flatMap((argument) => collectTaintedValueExpressions(argument, file.sourceFile, taint))
+      .map((expression) => taint.resolve(expression)?.source)
+      .filter((source): source is string => source !== undefined)
+  );
+  if (objectSources.size === 0) return false;
+
+  const connected = (call: ts.CallExpression): boolean => {
+    const argumentsValue = [...call.arguments];
+    const hasSubject = argumentsValue.some((argument) =>
+      isTrustedSubjectExpression(argument, file.sourceFile)
+    );
+    const hasObject = argumentsValue.some((argument) => {
+      const source = taint.resolve(argument)?.source;
+      return source !== undefined && objectSources.has(source);
+    });
+    return hasSubject && hasObject;
+  };
+
+  for (const statement of precedingStatements(sink)) {
+    const candidate = unconditionalExpressionCall(statement);
+    if (candidate === undefined || !connected(candidate)) continue;
+    const name = callName(candidate.expression);
+    if (
+      /(?:^|\.)(?:authorize|assertCanAccess|requireAccess|enforcePolicy|authorizeObject)$/iu.test(
+        name
+      )
+    )
+      return true;
+  }
+
+  return hasDominatingGuard(sink, file.sourceFile, (call) => {
+    const name = callName(call.expression);
+    if (!/(?:canAccess|isAuthorized|policy|permit|allowed)/iu.test(name) || !connected(call))
+      return undefined;
+    return "deny-when-false";
+  });
+}
+
+function unconditionalExpressionCall(statement: ts.Statement): ts.CallExpression | undefined {
+  if (!ts.isExpressionStatement(statement)) return undefined;
+  let expression = statement.expression;
+  while (ts.isAwaitExpression(expression) || ts.isParenthesizedExpression(expression))
+    expression = expression.expression;
+  return ts.isCallExpression(expression) ? expression : undefined;
+}
+
+function queryEmbedsTrustedScope(node: ts.CallExpression, sourceFile: ts.SourceFile): boolean {
+  let connected = false;
+  for (const argument of node.arguments) {
+    visit(argument, [], (candidate) => {
+      if (connected || !ts.isPropertyAssignment(candidate)) return;
+      if (!isQueryPredicateProperty(candidate, argument, sourceFile)) return;
+      const key = candidate.name.getText(sourceFile).replace(/["']/gu, "");
+      if (/^(?:ownerId|userId|subjectId|createdById)$/iu.test(key))
+        connected = isTrustedSubjectExpression(candidate.initializer, sourceFile);
+      if (/^(?:tenantId|organizationId|workspaceId)$/iu.test(key))
+        connected = isTrustedTenantExpression(candidate.initializer, sourceFile);
+    });
+  }
+  return connected;
+}
+
+function isQueryPredicateProperty(
+  property: ts.PropertyAssignment,
+  argument: ts.Expression,
+  sourceFile: ts.SourceFile
+): boolean {
+  let current: ts.Node = property.parent;
+  while (current !== argument) {
+    if (ts.isPropertyAssignment(current)) {
+      const key = current.name.getText(sourceFile).replace(/["']/gu, "");
+      if (/^(?:where|filter|query|match)$/iu.test(key)) return true;
+      if (/^(?:data|select|include|create|update|projection)$/iu.test(key)) return false;
+    }
+    if (ts.isSourceFile(current)) return false;
+    current = current.parent;
+  }
+  return ts.isObjectLiteralExpression(argument) && property.parent === argument;
+}
+
+function isTrustedSubjectExpression(node: ts.Expression, sourceFile: ts.SourceFile): boolean {
+  const text = node.getText(sourceFile).replace(/\s+/gu, "");
+  return /^(?:req|request)\.(?:user|auth(?:\.user)?)(?:\.(?:id|userId|subjectId))?|^(?:session|auth|ctx\.state|context|locals)\.user(?:\.(?:id|userId|subjectId))?|^(?:currentUser|authenticatedUser|subject)\.(?:id|userId|subjectId)$/u.test(
+    text
+  );
+}
+
+function isTrustedTenantExpression(node: ts.Expression, sourceFile: ts.SourceFile): boolean {
+  const text = node.getText(sourceFile).replace(/\s+/gu, "");
+  return /^(?:req|request)\.(?:auth|user)\.(?:tenantId|organizationId|workspaceId)|^(?:session\.user|auth\.user|ctx\.state|context)\.(?:tenantId|organizationId|workspaceId)|^(?:trustedTenant|tenantContext)\.(?:id|tenantId|organizationId)$/u.test(
+    text
+  );
+}
+
+type GuardMeaning = "deny-when-true" | "deny-when-false";
+
+function hasDominatingGuard(
+  sink: ts.Node,
+  sourceFile: ts.SourceFile,
+  classify: (call: ts.CallExpression) => GuardMeaning | undefined
+): boolean {
+  for (const statement of precedingStatements(sink)) {
+    if (!ts.isIfStatement(statement) || !abruptlyExits(statement.thenStatement)) continue;
+    const calls: ts.CallExpression[] = [];
+    visit(statement.expression, [], (candidate) => {
+      if (ts.isCallExpression(candidate)) calls.push(candidate);
+    });
+    for (const candidate of calls) {
+      const meaning = classify(candidate);
+      if (meaning === undefined) continue;
+      const negated = isWithinNegation(candidate, statement.expression);
+      if ((meaning === "deny-when-true" && !negated) || (meaning === "deny-when-false" && negated))
+        return true;
+    }
+  }
+  void sourceFile;
+  return false;
+}
+
+function precedingStatements(node: ts.Node): ts.Statement[] {
+  let statement: ts.Node = node;
+  while (!ts.isStatement(statement)) {
+    if (ts.isSourceFile(statement)) return [];
+    statement = statement.parent;
+  }
+  const parent = statement.parent;
+  const statements = ts.isBlock(parent) || ts.isSourceFile(parent) ? [...parent.statements] : [];
+  const position = statements.indexOf(statement);
+  return position < 0 ? [] : statements.slice(0, position);
+}
+
+function abruptlyExits(node: ts.Statement): boolean {
+  if (ts.isReturnStatement(node) || ts.isThrowStatement(node)) return true;
+  if (ts.isBlock(node)) {
+    const last = node.statements.at(-1);
+    return last !== undefined && abruptlyExits(last);
+  }
+  if (ts.isIfStatement(node))
+    return (
+      node.elseStatement !== undefined &&
+      abruptlyExits(node.thenStatement) &&
+      abruptlyExits(node.elseStatement)
+    );
+  return false;
+}
+
+function isWithinNegation(node: ts.Node, boundary: ts.Node): boolean {
+  let current = node.parent;
+  let negated = false;
+  for (;;) {
+    if (ts.isPrefixUnaryExpression(current) && current.operator === ts.SyntaxKind.ExclamationToken)
+      negated = !negated;
+    if (current === boundary || ts.isSourceFile(current)) break;
+    current = current.parent;
+  }
+  return negated;
+}
+
+function sameTaintedValue(left: ts.Expression, right: ts.Expression, taint: TaintModel): boolean {
+  const leftSource = taint.resolve(left)?.source;
+  const rightSource = taint.resolve(right)?.source;
+  return leftSource !== undefined && leftSource === rightSource;
+}
+
+function isBackgroundExecutionContext(node: ts.Node, file: SourceRecord): boolean {
+  if (/(?:^|\/)(?:jobs?|workers?|queues?|exports?)(?:\/|\.|-)/iu.test(file.path)) return true;
+  let current: ts.Node = node;
+  for (;;) {
+    const name = functionNodeName(current, file.sourceFile);
+    if (name !== undefined && /(?:job|worker|queue|export)/iu.test(name)) return true;
+    if (ts.isSourceFile(current)) break;
+    current = current.parent;
+  }
+  return false;
+}
+
+function functionNodeName(node: ts.Node, sourceFile: ts.SourceFile): string | undefined {
+  if (
+    ts.isFunctionDeclaration(node) ||
+    ts.isMethodDeclaration(node) ||
+    ts.isFunctionExpression(node)
+  )
+    return node.name?.getText(sourceFile);
+  if (
+    (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) &&
+    ts.isVariableDeclaration(node.parent) &&
+    ts.isIdentifier(node.parent.name)
+  )
+    return node.parent.name.text;
+  return undefined;
 }
 
 /**

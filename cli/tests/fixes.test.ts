@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
-import { cp, readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { PACKAGE_ROOT } from "../src/constants.js";
 import { runFile } from "../src/utils.js";
-import { withTemporaryProject } from "./helpers.js";
+import { copyFixture, withTemporaryProject } from "./helpers.js";
 
 const cli = join(PACKAGE_ROOT, "build", "cli", "src", "index.js");
 
 test("all safe fixes support dry-run, real writes, complete reporting, and idempotency", async () => {
   await withTemporaryProject("safe-fixes", async (temporary) => {
     const root = join(temporary, "project");
-    await cp(join(PACKAGE_ROOT, "fixtures", "safe-fixes"), root, { recursive: true });
+    await copyFixture(join(PACKAGE_ROOT, "fixtures", "safe-fixes"), root);
     const audit = await runFile(
       process.execPath,
       [cli, "all", "audit", "--root", root, "--json"],
@@ -84,7 +84,7 @@ test("all safe fixes support dry-run, real writes, complete reporting, and idemp
 test("safe fix refuses a file whose post-audit hash changed", async () => {
   await withTemporaryProject("stale-fix", async (temporary) => {
     const root = join(temporary, "project");
-    await cp(join(PACKAGE_ROOT, "fixtures", "safe-fixes"), root, { recursive: true });
+    await copyFixture(join(PACKAGE_ROOT, "fixtures", "safe-fixes"), root);
     const audit = await runFile(
       process.execPath,
       [cli, "frontend", "audit", "--root", root, "--json"],
@@ -115,7 +115,7 @@ test("safe fix refuses a file whose post-audit hash changed", async () => {
 test("risky authorization finding remains blocked in safe fix mode", async () => {
   await withTemporaryProject("risky-fix", async (temporary) => {
     const root = join(temporary, "project");
-    await cp(join(PACKAGE_ROOT, "fixtures", "risky-fixes"), root, { recursive: true });
+    await copyFixture(join(PACKAGE_ROOT, "fixtures", "risky-fixes"), root);
     const audit = await runFile(
       process.execPath,
       [cli, "authorization", "audit", "--root", root, "--json"],
@@ -149,7 +149,7 @@ test("authorized project regression tests are recorded and failures roll fixes b
     await t.test(name, async () => {
       await withTemporaryProject(`fix-regression-${name}`, async (temporary) => {
         const root = join(temporary, "project");
-        await cp(join(PACKAGE_ROOT, "fixtures", "safe-fixes"), root, { recursive: true });
+        await copyFixture(join(PACKAGE_ROOT, "fixtures", "safe-fixes"), root);
         await writeFile(
           join(root, "package.json"),
           `${JSON.stringify(
@@ -199,4 +199,155 @@ test("authorized project regression tests are recorded and failures roll fixes b
       });
     });
   }
+});
+
+test("same-rule safe fixes remain instance-specific within one file", async () => {
+  await withTemporaryProject("instance-safe-fixes", async (root) => {
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({
+        name: "instance-safe-fixes",
+        private: true,
+        dependencies: { react: "0.0.0-fixture" }
+      }),
+      "utf8"
+    );
+    await writeFile(
+      join(root, "Links.tsx"),
+      `export function Links() {
+  return <>
+    <a href="/same" target="_blank">same</a>
+    <a href="/same" target="_blank">same</a>
+  </>;
+}
+`,
+      "utf8"
+    );
+    const audit = await runFile(
+      process.execPath,
+      [cli, "frontend", "audit", "--root", root, "--json"],
+      root
+    );
+    assert.equal(audit.exitCode, 1, audit.stderr);
+    const reportPath = join(root, ".forge", "report.json");
+    const report = JSON.parse(await readFile(reportPath, "utf8")) as {
+      findings: Array<{
+        id: string;
+        instance_id?: string;
+        safe_fix: boolean;
+        status: string;
+        location: Array<{ line?: number }>;
+        fix_attempts?: Array<{ status: string }>;
+      }>;
+    };
+    const links = report.findings.filter((finding) => finding.id === "FF-FRONTEND-BLANK-001");
+    assert.equal(links.length, 2);
+    assert.equal(new Set(links.map((finding) => finding.instance_id)).size, 2);
+    const applied = links.find((finding) => finding.location[0]?.line === 3);
+    const blocked = links.find((finding) => finding.location[0]?.line === 4);
+    assert.ok(blocked?.instance_id !== undefined && applied?.instance_id !== undefined);
+    blocked.safe_fix = false;
+    await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+
+    const fix = await runFile(
+      process.execPath,
+      [cli, "frontend", "fix", "--safe", "--root", root, "--json"],
+      root
+    );
+    assert.equal(fix.exitCode, 2, fix.stderr);
+    const result = JSON.parse(fix.stdout) as {
+      operations: Array<{ instance_id?: string }>;
+      blocked_findings: Array<{ instance_id?: string }>;
+    };
+    assert.deepEqual(
+      result.operations.map((operation) => operation.instance_id),
+      [applied.instance_id]
+    );
+    assert.deepEqual(
+      result.blocked_findings.map((finding) => finding.instance_id),
+      [blocked.instance_id]
+    );
+    const source = await readFile(join(root, "Links.tsx"), "utf8");
+    assert.equal((source.match(/rel="noopener noreferrer"/gu) ?? []).length, 1);
+
+    const after = JSON.parse(await readFile(reportPath, "utf8")) as typeof report;
+    const blockedAfter = after.findings.find(
+      (finding) => finding.instance_id === blocked.instance_id
+    );
+    const appliedAfter = after.findings.find(
+      (finding) => finding.instance_id === applied.instance_id
+    );
+    assert.deepEqual(
+      blockedAfter?.fix_attempts?.map((attempt) => attempt.status),
+      ["BLOCKED"]
+    );
+    assert.deepEqual(
+      appliedAfter?.fix_attempts?.map((attempt) => attempt.status),
+      ["APPLIED"]
+    );
+  });
+});
+
+test("rollback evidence is attached only to the written finding instance", async () => {
+  await withTemporaryProject("instance-rollback", async (root) => {
+    const original = `export function Links() {
+  return <>
+    <a href="/one" target="_blank">one</a>
+    <a href="/two" target="_blank">two</a>
+  </>;
+}
+`;
+    await writeFile(join(root, "Links.tsx"), original, "utf8");
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({
+        name: "instance-rollback",
+        private: true,
+        dependencies: { react: "0.0.0-fixture" },
+        scripts: { test: 'node -e "process.exit(9)"' }
+      }),
+      "utf8"
+    );
+    await runFile(process.execPath, [cli, "frontend", "audit", "--root", root, "--json"], root);
+    const reportPath = join(root, ".forge", "report.json");
+    const report = JSON.parse(await readFile(reportPath, "utf8")) as {
+      findings: Array<{
+        id: string;
+        instance_id?: string;
+        status: string;
+        evidence: string[];
+        location: Array<{ line?: number }>;
+        fix_attempts?: Array<{ status: string }>;
+      }>;
+    };
+    const links = report.findings.filter((finding) => finding.id === "FF-FRONTEND-BLANK-001");
+    assert.equal(links.length, 2);
+    const untouched = links.find((finding) => finding.location[0]?.line === 3);
+    const written = links.find((finding) => finding.location[0]?.line === 4);
+    assert.ok(untouched !== undefined && written !== undefined);
+    untouched.status = "PASS";
+    await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+
+    const fix = await runFile(
+      process.execPath,
+      [cli, "frontend", "fix", "--safe", "--allow-run", "--root", root, "--json"],
+      root
+    );
+    assert.equal(fix.exitCode, 1);
+    assert.equal(await readFile(join(root, "Links.tsx"), "utf8"), original);
+    const after = JSON.parse(await readFile(reportPath, "utf8")) as typeof report;
+    const untouchedAfter = after.findings.find(
+      (finding) => finding.instance_id === untouched.instance_id
+    );
+    const writtenAfter = after.findings.find(
+      (finding) => finding.instance_id === written.instance_id
+    );
+    assert.ok(!untouchedAfter?.evidence.some((item) => item.includes("rolled back")));
+    assert.ok(writtenAfter?.evidence.some((item) => item.includes("rolled back")));
+    assert.deepEqual(untouchedAfter?.fix_attempts, undefined);
+    assert.deepEqual(
+      writtenAfter?.fix_attempts?.map((attempt) => attempt.status),
+      ["ROLLED_BACK"]
+    );
+  });
 });

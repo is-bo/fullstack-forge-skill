@@ -22,7 +22,7 @@ evidence a pass.
 It works as an open-format Agent Skill collection and as a dependency-light TypeScript CLI.
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.3 && npx forge init all
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.4 && npx forge init all
 ```
 
 Codex, Claude Code, Antigravity, Gemini CLI, Cursor, Windsurf, GitHub Copilot, and generic Agent
@@ -67,7 +67,7 @@ npx forge init all
 Until the package is published to npm, install from the repository or a release tarball:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.3
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.4
 ```
 
 The installer writes `.fullstack-forge/install-manifest.json`. It will not overwrite unowned or
@@ -127,9 +127,9 @@ practices” instruction.
 Every finding includes:
 
 ```text
-id · section · title · severity · confidence · status · location · evidence
+id · instance_id · section · title · severity · confidence · status · location · evidence
 impact · recommendation · safe_fix · verification · standards · analyzer_id
-trace · evidence_snapshot · verification_plan
+trace · evidence_snapshot · verification_plan · fix_attempts
 ```
 
 Statuses are `PASS`, `FAIL`, `WARNING`, `NOT_APPLICABLE`, `NOT_VERIFIED`, and `BLOCKED`. Severities
@@ -178,7 +178,9 @@ direct running-application evidence for UI, UX, and accessibility audits. Withou
 reachable URL the tool reports `BLOCKED` and rendered-state criteria stay `NOT_VERIFIED` — visual
 evidence is captured, never fabricated.
 
-See [commands](docs/COMMANDS.md).
+Audit reports also include typed, revision-bound ship-gate evidence and structured analyzer coverage
+for each detected language/framework. See [commands](docs/COMMANDS.md),
+[analyzer support](docs/ANALYZER_SUPPORT.md), and [coverage policy](docs/COVERAGE.md).
 
 ## Platform support
 

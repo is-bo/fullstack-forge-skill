@@ -147,4 +147,41 @@ export function lineNumber(content, index) {
 export function utcNow() {
     return new Date().toISOString();
 }
+/**
+ * Identifies the exact inspected working tree without exposing diff contents. Clean Git trees use
+ * the commit SHA directly; dirty or unversioned trees add a digest of changed/untracked bytes.
+ */
+export async function workingTreeRevision(root) {
+    const head = await runFile("git", ["rev-parse", "HEAD"], root, 10_000);
+    if (head.exitCode === 0) {
+        const commit = head.stdout.trim();
+        const diff = await runFile("git", ["diff", "--binary", "HEAD", "--", "."], root, 30_000);
+        const untracked = await runFile("git", ["ls-files", "--others", "--exclude-standard", "-z"], root, 30_000);
+        const untrackedHashes = [];
+        if (untracked.exitCode === 0) {
+            for (const path of untracked.stdout.split("\0").filter(Boolean).sort()) {
+                try {
+                    assertSafeRelative(path);
+                    untrackedHashes.push(`${toPosix(path)}:${sha256(await readFile(resolveInside(root, path)))}`);
+                }
+                catch {
+                    untrackedHashes.push(`${toPosix(path)}:unreadable`);
+                }
+            }
+        }
+        const state = `${diff.stdout}\u0000${untrackedHashes.join("\n")}`;
+        return state.length === 1 ? `git:${commit}` : `git:${commit}:dirty:${sha256(state)}`;
+    }
+    const files = await walkFiles(root, {
+        exclude: new Set([".forge", ".git", "build", "coverage", "dist", "node_modules"]),
+        maxBytes: 2 * 1024 * 1024,
+        maxFiles: 10_000,
+        maxTotalBytes: 128 * 1024 * 1024,
+        maxDepth: 64
+    });
+    const hashes = await Promise.all(files
+        .sort()
+        .map(async (path) => `${toPosix(relative(root, path))}:${sha256(await readFile(path))}`));
+    return `tree:${sha256(hashes.join("\n"))}`;
+}
 //# sourceMappingURL=utils.js.map

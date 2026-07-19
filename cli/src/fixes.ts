@@ -13,13 +13,15 @@ import {
   resolveInside,
   runFile,
   sha256,
-  utcNow
+  utcNow,
+  workingTreeRevision
 } from "./utils.js";
 
 export type FixRisk = "safe" | "risky";
 
 export type BlockedFix = {
   finding_id: string;
+  instance_id?: string;
   reason: string;
   risk?: FixRisk | "unsupported";
 };
@@ -41,6 +43,7 @@ export type FixRegistryEntry = {
 export type FixOperation = {
   fix_id: string;
   finding_id: string;
+  instance_id?: string;
   section: string;
   risk: FixRisk;
   path: string;
@@ -217,6 +220,7 @@ export async function executeFixes(
       if (risky !== undefined || finding.safe_fix === false) {
         blocked.push({
           finding_id: finding.id,
+          ...instanceReference(finding),
           risk: risky === undefined ? "unsupported" : "risky",
           reason:
             risky?.reason ??
@@ -228,6 +232,7 @@ export async function executeFixes(
     if (!finding.safe_fix) {
       blocked.push({
         finding_id: finding.id,
+        ...instanceReference(finding),
         reason: "The confirmed finding is not marked safe-fix eligible."
       });
       continue;
@@ -235,6 +240,7 @@ export async function executeFixes(
     if (finding.analyzer_id === undefined || finding.evidence_snapshot === undefined) {
       blocked.push({
         finding_id: finding.id,
+        ...instanceReference(finding),
         reason: "The finding lacks a trusted analyzer ID or evidence snapshot."
       });
       continue;
@@ -254,33 +260,41 @@ export async function executeFixes(
       if (sha256(original) !== expectedHash) {
         blocked.push({
           finding_id: finding.id,
+          ...instanceReference(finding),
           reason: `${path} changed after audit; expected ${expectedHash} and refused to overwrite it.`
         });
         continue;
       }
-      const next = definition.plan(finding, path, original);
-      if (next === original) {
+      const previousForPath = [...planned].reverse().find((operation) => operation.path === path);
+      const current = previousForPath?.next ?? original;
+      const next = definition.plan(finding, path, current);
+      if (next === current) {
         blocked.push({
           finding_id: finding.id,
+          ...instanceReference(finding),
           reason: `${path} no longer satisfies the exact fix preconditions.`
         });
         continue;
       }
       const action = finding.verification_plan?.actions.find(
-        (candidate) => candidate.type === "analyzer" && candidate.finding_id === finding.id
+        (candidate) =>
+          candidate.type === "analyzer" &&
+          candidate.finding_id === finding.id &&
+          (candidate.instance_id === undefined || candidate.instance_id === finding.instance_id)
       );
       planned.push({
         fix_id: definition.fix_id,
         finding_id: finding.id,
+        ...instanceReference(finding),
         section: finding.section,
         risk: "safe",
         path,
-        expected_sha256: expectedHash,
+        expected_sha256: sha256(current),
         resulting_sha256: sha256(next),
         description: definition.planned_edits,
         verification: definition.verification,
         rollback: definition.rollback,
-        original,
+        original: current,
         next,
         analyzerId: finding.analyzer_id,
         absenceProvesResolution: action?.type === "analyzer" && action.absence_proves_resolution
@@ -327,13 +341,24 @@ export async function executeFixes(
   if (regressionFailure !== undefined) {
     await rollbackWrites(root, written);
     for (const finding of report.findings) {
-      if (written.some((operation) => operation.finding_id === finding.id))
+      const rolledBack = written.filter((operation) => operationMatchesFinding(operation, finding));
+      if (rolledBack.length > 0) {
+        recordFixAttempt(finding, {
+          ...(rolledBack[0] === undefined ? {} : { fix_id: rolledBack[0].fix_id }),
+          status: "ROLLED_BACK",
+          risk: "safe",
+          reason: `Authorized project regression command exited ${regressionFailure.exitCode}.`,
+          attempted_at: utcNow(),
+          paths: [...new Set(rolledBack.map((operation) => operation.path))].sort()
+        });
         finding.evidence.push(
           `${utcNow()}: automatic fix was rolled back because the authorized project regression command exited ${regressionFailure.exitCode}.`
         );
+      }
     }
     report.execution.push(...execution);
     report.generated_at = utcNow();
+    report.revision = await workingTreeRevision(root);
     report.scope = `${report.scope}; bounded safe fix rolled back`;
     const reportPaths = await writeReport(report);
     return {
@@ -349,6 +374,7 @@ export async function executeFixes(
 
   updateReportAfterFix(report, written, blocked);
   report.execution.push(...execution);
+  report.revision = await workingTreeRevision(root);
   const reportPaths = written.length === 0 && blocked.length === 0 ? [] : await writeReport(report);
   const idempotent =
     written.length === 0 && blocked.length === 0 && hasPreviouslyResolvedSafeFix(report, section);
@@ -519,7 +545,7 @@ async function verifyAppliedFixes(root: string, operations: PlannedWrite[]): Pro
       if (
         run.findings.some(
           (finding) =>
-            finding.id === operation.finding_id &&
+            operationMatchesFinding(operation, finding) &&
             finding.location.some((location) => location.path === operation.path)
         )
       )
@@ -554,12 +580,13 @@ function updateReportAfterFix(
 ): void {
   const byFinding = new Map<string, PlannedWrite[]>();
   for (const operation of operations) {
-    const current = byFinding.get(operation.finding_id) ?? [];
+    const key = operation.instance_id ?? operation.finding_id;
+    const current = byFinding.get(key) ?? [];
     current.push(operation);
-    byFinding.set(operation.finding_id, current);
+    byFinding.set(key, current);
   }
   for (const finding of report.findings) {
-    const applied = byFinding.get(finding.id);
+    const applied = byFinding.get(finding.instance_id ?? finding.id);
     if (applied !== undefined) {
       const directlyProven = applied.every((operation) => operation.absenceProvesResolution);
       finding.status = directlyProven ? "PASS" : "NOT_VERIFIED";
@@ -581,7 +608,7 @@ function updateReportAfterFix(
           "Provider-side rotation or other behavior-level proof remains manual; structural disappearance was not treated as PASS."
         );
     }
-    const refusal = blocked.find((item) => item.finding_id === finding.id);
+    const refusal = blocked.find((item) => blockedFixMatchesFinding(item, finding));
     if (refusal !== undefined) {
       // A refused fix says nothing about whether the defect was proven. The original FAIL or
       // WARNING is preserved; only the fix attempt is recorded as BLOCKED.
@@ -608,6 +635,7 @@ function publicOperation(operation: PlannedWrite): FixOperation {
   return {
     fix_id: operation.fix_id,
     finding_id: operation.finding_id,
+    ...(operation.instance_id === undefined ? {} : { instance_id: operation.instance_id }),
     section: operation.section,
     risk: operation.risk,
     path: operation.path,
@@ -617,6 +645,25 @@ function publicOperation(operation: PlannedWrite): FixOperation {
     verification: operation.verification,
     rollback: operation.rollback
   };
+}
+
+function instanceReference(finding: Finding): { instance_id?: string } {
+  return finding.instance_id === undefined ? {} : { instance_id: finding.instance_id };
+}
+
+function operationMatchesFinding(
+  operation: Pick<FixOperation, "finding_id" | "instance_id">,
+  finding: Finding
+): boolean {
+  if (operation.instance_id !== undefined)
+    return finding.instance_id !== undefined && operation.instance_id === finding.instance_id;
+  return operation.finding_id === finding.id;
+}
+
+function blockedFixMatchesFinding(blocked: BlockedFix, finding: Finding): boolean {
+  if (blocked.instance_id !== undefined)
+    return finding.instance_id !== undefined && blocked.instance_id === finding.instance_id;
+  return blocked.finding_id === finding.id;
 }
 
 function publicRegistryEntry(entry: FixDefinition): FixRegistryEntry {

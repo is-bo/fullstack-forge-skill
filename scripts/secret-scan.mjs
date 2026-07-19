@@ -1,6 +1,6 @@
-import { execFileSync } from "node:child_process";
 import { lstat, readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
+import { listWorktreeFiles } from "./lib/git-files.mjs";
 import { projectRoot } from "./project.mjs";
 
 const binary = new Set([".gif", ".ico", ".jpeg", ".jpg", ".pdf", ".png", ".tgz", ".zip"]);
@@ -15,19 +15,7 @@ const patterns = [
     /\b(?:api[_-]?key|client[_-]?secret|password|passwd|secret|token)\b\s*[:=]\s*["']?([^\s"',;]{12,})/giu
   ]
 ];
-const listed = execFileSync(
-  "git",
-  ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
-  {
-    cwd: projectRoot,
-    encoding: "utf8",
-    windowsHide: true,
-    maxBuffer: 20 * 1024 * 1024
-  }
-)
-  .split("\0")
-  .filter(Boolean)
-  .sort();
+const listed = listWorktreeFiles(projectRoot);
 const findings = [];
 let scanned = 0;
 for (const relative of listed) {

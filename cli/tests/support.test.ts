@@ -1,20 +1,24 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import test from "node:test";
+import { PACKAGE_ROOT } from "../src/constants.js";
 import {
   ANALYZER_SUPPORT,
   describeMissingAdapter,
   findSupport,
-  missingAdapters
+  missingAdapters,
+  renderSupportRegistryMarkdown
 } from "../src/support.js";
 
-test("a language with no analyzer reports the specific missing adapter", () => {
+test("Python without a detected framework reports unknown instead of assuming FastAPI", () => {
   const missing = missingAdapters("authorization", ["Python"]);
   assert.equal(missing.length, 1);
   assert.deepEqual(missing[0], {
     module: "authorization",
     language: "Python",
-    framework: "FastAPI",
-    required_adapter: "fastapi-authorization-boundaries"
+    framework: "unknown",
+    required_adapter: "python-authorization-boundaries"
   });
 });
 
@@ -25,8 +29,18 @@ test("missing-adapter evidence names module, language, framework, and adapter", 
   assert.match(rendered, /^NOT_VERIFIED/u, "a coverage gap is never PASS");
   assert.match(rendered, /module=authorization/u);
   assert.match(rendered, /language=Python/u);
-  assert.match(rendered, /framework=FastAPI/u);
-  assert.match(rendered, /required adapter=fastapi-authorization-boundaries/u);
+  assert.match(rendered, /framework=unknown/u);
+  assert.match(rendered, /required adapter=python-authorization-boundaries/u);
+});
+
+test("a detected FastAPI project resolves the FastAPI-specific adapter", () => {
+  const [missing] = missingAdapters("authorization", ["Python"], ["FastAPI"]);
+  assert.deepEqual(missing, {
+    module: "authorization",
+    language: "Python",
+    framework: "FastAPI",
+    required_adapter: "fastapi-authorization-boundaries"
+  });
 });
 
 test("an unregistered language still yields a named adapter requirement", () => {
@@ -66,4 +80,9 @@ test("every executable registry entry documents its unsupported shapes", () => {
         entry.unsupported_shapes.length > 0,
         `${entry.module}/${entry.language} must not imply whole-program soundness`
       );
+});
+
+test("documentation is byte-synchronized with the runtime support registry", async () => {
+  const documented = await readFile(join(PACKAGE_ROOT, "docs", "ANALYZER_SUPPORT.md"), "utf8");
+  assert.equal(documented.replaceAll("\r\n", "\n"), renderSupportRegistryMarkdown());
 });

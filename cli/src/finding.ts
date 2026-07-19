@@ -155,12 +155,27 @@ function isSafeEvidencePath(value: string): boolean {
 
 function isVerificationAction(value: unknown): boolean {
   if (!isRecord(value) || typeof value.type !== "string") return false;
-  if (value.type === "analyzer")
+  if (value.type === "analyzer") {
+    const instanceValid =
+      !("instance_id" in value) ||
+      (typeof value.instance_id === "string" &&
+        /^FF-[A-Z0-9-]+-[0-9]{3,}:[a-f0-9]{8,}$/u.test(value.instance_id) &&
+        typeof value.finding_id === "string" &&
+        value.instance_id.startsWith(`${value.finding_id}:`));
+    const scopeValid =
+      !("scope_paths" in value) ||
+      (Array.isArray(value.scope_paths) &&
+        value.scope_paths.every(
+          (path): path is string => typeof path === "string" && isSafeEvidencePath(path)
+        ));
     return (
       typeof value.analyzer_id === "string" &&
       typeof value.finding_id === "string" &&
-      typeof value.absence_proves_resolution === "boolean"
+      typeof value.absence_proves_resolution === "boolean" &&
+      instanceValid &&
+      scopeValid
     );
+  }
   if (value.type === "project-command")
     return typeof value.command === "string" && typeof value.required === "boolean";
   if (value.type === "manual") return typeof value.procedure === "string";

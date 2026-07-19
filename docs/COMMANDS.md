@@ -19,8 +19,10 @@ forge <section> <audit|fix|verify|report> [options]
 ```
 
 - `audit` discovers the project, runs bounded analyzers for supported JavaScript, TypeScript, JSON,
-  YAML, HTML, JSX, and configuration shapes, and records direct evidence. Unsupported stacks remain
-  `NOT_VERIFIED`; text matches are discovery signals, not proof of a completed audit.
+  YAML, HTML, JSX, and configuration shapes, and records direct evidence. Every selected module also
+  records structured language/framework analyzer coverage and the exact adapter required for
+  unsupported or partial shapes. Unsupported stacks remain `NOT_VERIFIED`; text matches are
+  discovery signals, not proof of a completed audit.
 - `fix` loads a confirmed finding from the previous report and can apply only a registered,
   structurally validated safe fix whose evidence and file hash are still current.
 - `verify` executes the finding's recorded verification plan. A disappeared pattern remains
@@ -85,13 +87,16 @@ remain unowned, and modified owned files are preserved during update or uninstal
 ## Release gate
 
 `forge ship` evaluates an explicit Forge gate registry: finding/schema validation, skill and
-generated-copy synchronization, secret/dependency/license/archive/package/install/evaluation checks,
-project-native commands, previous findings, and applicable authorization, tenancy, upload,
-migration, and security capabilities. It verifies the report root and current source-evidence hashes
-and preserves the prior audit findings in the ship report. Project scripts supplement the internal
-gates; a project with no recognized commands cannot pass by omission. `forge ship --allow-run` is
-required before invoking project-defined scripts, which run as bounded argument vectors without a
-shell. Remote CI, hosting, registry, provider, and production state still require separate evidence.
+generated-copy synchronization, archive/package/install/evaluation checks, project-native commands,
+previous findings, and applicable authorization, tenancy, upload, migration, and security
+capabilities. Application gates consume only their declared typed evidence—secret scan, dependency
+audit, lockfile inspection, license scan, authorization, tenant, upload, security, migration, test,
+or release artifact—and reject stale revisions. It verifies the report root and current
+source-evidence hashes and preserves prior findings in the ship report. Project scripts supplement
+the internal gates; a project with no recognized commands cannot pass by omission.
+`forge ship --allow-run` is required before invoking project-defined scripts, which run as bounded
+argument vectors without a shell. Remote CI, hosting, registry, provider, and production state still
+require separate evidence.
 
 ## Tool interface
 

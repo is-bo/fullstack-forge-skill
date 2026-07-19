@@ -5,6 +5,62 @@ versioning.
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-07-19
+
+Security-correctness and release-integrity patch. The supplied defects were independently reproduced
+before remediation; fixture dependency pollution, sink-agnostic taint clearing, authorization
+keyword proof, same-file finding collisions, broad ship-gate inference, missing adapter output,
+non-enforced coverage, and mutable release upload behavior were confirmed.
+
+### Fixed
+
+- Replaced global sanitizer clearing with scope-aware taint plus typed, sink-specific protection
+  evidence. Generic parsing, validation, encoding, or escaping no longer makes SQL, shell, SSRF, or
+  another unrelated sink safe.
+- Authorization evidence must now be structurally connected to the released object through an
+  owner/tenant predicate or a dominating subject-and-object guard. Strings, unused imports,
+  post-release calls, and guards for another object do not suppress findings.
+- Finding identity now incorporates path, containing scope, receiver, sink, structural AST shape,
+  and a deterministic same-scope occurrence discriminator. Fix planning, writes, verification,
+  refusals, report updates, and rollback all retain the exact `instance_id`.
+- Ship gates consume typed, revision-bound evidence. Secret, dependency, lockfile, license,
+  authorization, tenant, upload, migration, test, and artifact records cannot satisfy unrelated
+  gates; missing, failed, or stale evidence fails closed.
+- Normal CLI audits now emit structured per-module language/framework coverage and name the exact
+  missing adapter. Unknown Python projects are no longer assumed to use FastAPI.
+- Scanner fixtures use non-installable `package.json.fixture` sentinels and materialize manifests
+  only in disposable tests, removing them as repository dependency roots without changing security
+  cases.
+- The public finding schema now matches runtime instance-specific verification and fix-attempt
+  fields, including safe scoped-action validation.
+
+### Security and release engineering
+
+- Updated checkout, setup-node, and upload-artifact to reviewed major versions pinned to immutable
+  full commit SHAs; added a pinned no-build CodeQL workflow.
+- Coverage is an executable CI gate with committed overall and risk-focused per-file floors.
+- The release workflow refuses an existing release or moved tag, has a concurrency guard, never
+  clobbers an asset, verifies draft downloads byte-for-byte, attaches checksummed final evidence,
+  publishes once, and verifies immutable release and asset attestations.
+- Tagged source contains honest completed local verification with remote steps marked pending; the
+  tag workflow publishes a separate final evidence asset that explicitly was not inside the tag.
+- GitHub immutable releases were enabled directly for future releases; historical tags and releases
+  remain unchanged.
+
+### Additional corrections
+
+- Removed tenant-background false positives caused merely by the `export` keyword.
+- Stopped treating raw SQL `.query` calls as authorization object lookups.
+- Invalidated typed protections after raw reassignment and rejected conditional or non-dominating
+  authorization calls as proof.
+- Kept identical-peer instance IDs stable after a sibling fix; fix and verification now refresh the
+  report revision, preserve typed evidence, and record exact-instance rollback attempts.
+- Made secret scanning tolerate unstaged tracked deletions without dropping untracked files.
+- Made coverage parsing accept native and Windows-rendered Node information prefixes.
+- Added exact release-document validation, deterministic fixture validation, distribution evidence
+  docs, exact draft asset/manifest verification, and coverage for filesystem and archive safety
+  branches.
+
 ## [0.1.3] - 2026-07-19
 
 Corrective correctness release. Thirteen reported problem areas were independently reproduced
@@ -146,7 +202,9 @@ executable evidence rather than documentation.
 - Deterministic ZIP archives, SHA-256 checksums, ownership manifests, clean-install smoke tests,
   fixtures, CI, research attribution, and original branding.
 
-[Unreleased]: https://github.com/thethunderbolt/fullstack-forge-skill/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/thethunderbolt/fullstack-forge-skill/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.4
+[0.1.3]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.3
 [0.1.2]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.2
 [0.1.1]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.1
 [0.1.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.0

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { access, cp, readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { runAnalyzers } from "../src/analyzers.js";
 import { PACKAGE_ROOT } from "../src/constants.js";
-import { withTemporaryProject } from "./helpers.js";
+import { copyFixture, withTemporaryProject } from "./helpers.js";
 const expectedIds = [
     "sql-injection",
     "nosql-injection",
@@ -60,7 +60,7 @@ test("every automated evaluation executes its analyzer against a temporary fixtu
             assert.ok(entry.expected_finding_id, `${entry.id} must declare a stable finding ID`);
             await withTemporaryProject(`eval-${entry.id}`, async (temporary) => {
                 const root = join(temporary, "project");
-                await cp(join(PACKAGE_ROOT, "fixtures", entry.fixture), root, { recursive: true });
+                await copyFixture(join(PACKAGE_ROOT, "fixtures", entry.fixture), root);
                 const runs = await runAnalyzers(entry.section, root);
                 const finding = runs
                     .flatMap((run) => run.findings)

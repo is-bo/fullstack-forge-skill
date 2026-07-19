@@ -2,6 +2,7 @@ import { type ExecutionRecord } from "./report.js";
 export type FixRisk = "safe" | "risky";
 export type BlockedFix = {
     finding_id: string;
+    instance_id?: string;
     reason: string;
     risk?: FixRisk | "unsupported";
 };
@@ -21,6 +22,7 @@ export type FixRegistryEntry = {
 export type FixOperation = {
     fix_id: string;
     finding_id: string;
+    instance_id?: string;
     section: string;
     risk: FixRisk;
     path: string;

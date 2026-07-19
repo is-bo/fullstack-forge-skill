@@ -34,6 +34,17 @@ test("tenancy analyzer detects unscoped background and export queries", async ()
   });
 });
 
+test("an ordinary exported handler is not a background-job signal", async () => {
+  await withTemporaryProject("analyzer-exported-handler", async (root) => {
+    await writeFile(
+      join(root, "api.ts"),
+      "export async function listInvoices() { return db.invoice.findMany({ where: {} }); }\n",
+      "utf8"
+    );
+    assert.ok(!(await findingIds(root, "tenancy")).has("FF-TENANT-BACKGROUND-001"));
+  });
+});
+
 test("upload analyzer detects missing scan, original filename paths, and absent limits", async () => {
   await withTemporaryProject("analyzer-upload", async (root) => {
     await writeFile(
@@ -94,3 +105,126 @@ async function findingIds(root: string, section: string): Promise<Set<string>> {
   assert.ok(findings.every((finding) => finding.trace && finding.trace.length > 0));
   return new Set(findings.map((finding) => finding.id));
 }
+
+async function authorizationIds(name: string, source: string): Promise<Set<string>> {
+  let ids = new Set<string>();
+  await withTemporaryProject(name, async (root) => {
+    await writeFile(join(root, "route.ts"), source, "utf8");
+    ids = await findingIds(root, "authorization");
+  });
+  return ids;
+}
+
+test("authorization ignores unrelated policy strings and unused imports", async () => {
+  for (const [name, prelude] of [
+    ["policy-string", 'const policyName = "owner policy";'],
+    ["unused-import", 'import { canAccess } from "./policy.js";']
+  ]) {
+    const ids = await authorizationIds(
+      `authz-${name}`,
+      `${prelude}
+export function load(req) {
+  return prisma.record.findUnique({ where: { id: req.params.id } });
+}`
+    );
+    assert.ok(ids.has("FF-AUTHZ-OBJECT-001"), name);
+  }
+});
+
+test("authorization after release or for another object does not protect the lookup", async () => {
+  const after = await authorizationIds(
+    "authz-after-release",
+    `export async function load(req, res) {
+  const record = await prisma.record.findUnique({ where: { id: req.params.id } });
+  res.json(record);
+  await authorize(req.user, req.params.id);
+}`
+  );
+  assert.ok(after.has("FF-AUTHZ-OBJECT-001"));
+
+  const different = await authorizationIds(
+    "authz-different-object",
+    `export async function load(req) {
+  await authorize(req.user, req.params.otherId);
+  return prisma.record.findUnique({ where: { id: req.params.id } });
+}`
+  );
+  assert.ok(different.has("FF-AUTHZ-OBJECT-001"));
+});
+
+test("authorization accepts a connected owner predicate and dominating policy guard", async () => {
+  const owner = await authorizationIds(
+    "authz-owner-predicate",
+    `export function load(req) {
+  return prisma.record.findUnique({
+    where: { id: req.params.id, ownerId: req.user.id }
+  });
+}`
+  );
+  assert.ok(!owner.has("FF-AUTHZ-OBJECT-001"));
+
+  const guard = await authorizationIds(
+    "authz-dominating-guard",
+    `export async function load(req) {
+  if (!(await canAccess(req.user, req.params.id))) throw new Error("forbidden");
+  return prisma.record.findUnique({ where: { id: req.params.id } });
+}`
+  );
+  assert.ok(!guard.has("FF-AUTHZ-OBJECT-001"));
+});
+
+test("authorization requires both subject and object connection", async () => {
+  const missingSubject = await authorizationIds(
+    "authz-no-subject",
+    `export async function load(req) {
+  if (!(await canAccess(req.params.id))) throw new Error("forbidden");
+  return prisma.record.findUnique({ where: { id: req.params.id } });
+}`
+  );
+  assert.ok(missingSubject.has("FF-AUTHZ-OBJECT-001"));
+
+  const crossTenant = await authorizationIds(
+    "authz-cross-tenant",
+    `export function load(req) {
+  return prisma.record.findUnique({
+    where: { id: req.params.id, tenantId: req.params.tenantId }
+  });
+}`
+  );
+  assert.ok(crossTenant.has("FF-AUTHZ-OBJECT-001"));
+});
+
+test("conditional or non-dominating authorization calls do not protect a lookup", async () => {
+  const conditionalCall = await authorizationIds(
+    "authz-conditional-call",
+    `export async function load(req) {
+  if (req.query.check) await authorize(req.user, req.params.id);
+  return prisma.record.findUnique({ where: { id: req.params.id } });
+}`
+  );
+  assert.ok(conditionalCall.has("FF-AUTHZ-OBJECT-001"));
+
+  const conditionalExit = await authorizationIds(
+    "authz-conditional-exit",
+    `export async function load(req) {
+  if (!(await canAccess(req.user, req.params.id))) {
+    if (req.query.soft) return null;
+  }
+  return prisma.record.findUnique({ where: { id: req.params.id } });
+}`
+  );
+  assert.ok(conditionalExit.has("FF-AUTHZ-OBJECT-001"));
+});
+
+test("subject-shaped output fields are not query authorization predicates", async () => {
+  const ids = await authorizationIds(
+    "authz-output-owner",
+    `export function load(req) {
+  return prisma.record.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, ownerId: req.user.id }
+  });
+}`
+  );
+  assert.ok(ids.has("FF-AUTHZ-OBJECT-001"));
+});

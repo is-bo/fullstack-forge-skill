@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
-import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { PACKAGE_ROOT } from "../src/constants.js";
 import { runFile } from "../src/utils.js";
-import { withTemporaryProject } from "./helpers.js";
+import { copyFixture, withTemporaryProject } from "./helpers.js";
 const cli = join(PACKAGE_ROOT, "build", "cli", "src", "index.js");
 async function readFindings(root) {
     const report = JSON.parse(await readFile(join(root, ".forge", "report.json"), "utf8"));
     return report.findings;
 }
 async function auditRiskyFixture(root) {
-    await cp(join(PACKAGE_ROOT, "fixtures", "risky-fixes"), root, { recursive: true });
+    await copyFixture(join(PACKAGE_ROOT, "fixtures", "risky-fixes"), root);
     const audit = await runFile(process.execPath, [cli, "all", "audit", "--root", root, "--json"], root);
     assert.equal(audit.exitCode, 1, audit.stderr);
 }
@@ -74,7 +74,7 @@ test("a blocked safe fix preserves an original WARNING defect status", async () 
 test("fix without --safe plans only and mutates nothing", async () => {
     await withTemporaryProject("safe-contract-plan", async (temporary) => {
         const root = join(temporary, "project");
-        await cp(join(PACKAGE_ROOT, "fixtures", "safe-fixes"), root, { recursive: true });
+        await copyFixture(join(PACKAGE_ROOT, "fixtures", "safe-fixes"), root);
         await runFile(process.execPath, [cli, "all", "audit", "--root", root, "--json"], root);
         const targets = [".env.example", "Link.tsx", "vercel.json"].map((name) => join(root, name));
         const before = await Promise.all(targets.map((path) => readFile(path, "utf8")));
@@ -90,7 +90,7 @@ test("fix without --safe plans only and mutates nothing", async () => {
 test("fix --safe differs observably from fix without --safe", async () => {
     await withTemporaryProject("safe-contract-differs", async (temporary) => {
         const root = join(temporary, "project");
-        await cp(join(PACKAGE_ROOT, "fixtures", "safe-fixes"), root, { recursive: true });
+        await copyFixture(join(PACKAGE_ROOT, "fixtures", "safe-fixes"), root);
         await runFile(process.execPath, [cli, "all", "audit", "--root", root, "--json"], root);
         const planOnly = JSON.parse((await runFile(process.execPath, [cli, "all", "fix", "--root", root, "--json"], root)).stdout);
         const executed = JSON.parse((await runFile(process.execPath, [cli, "all", "fix", "--safe", "--root", root, "--json"], root)).stdout);
