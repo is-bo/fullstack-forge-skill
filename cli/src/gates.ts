@@ -1,5 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { validateFinding } from "./finding.js";
+import {
+  decideCommandExecution,
+  ledgerRecord,
+  type CommandLedgerRecord,
+  type PolicyContext
+} from "./offline-policy.js";
 import type { AuditReport, ExecutionRecord } from "./report.js";
 import type {
   CommandDefinition,
@@ -168,6 +174,8 @@ export type ShipGateResult = {
   gates: ShipGate[];
   execution: ExecutionRecord[];
   evidence: GateEvidence[];
+  /** Why every registered command ran, did not run, or was blocked by network policy. */
+  command_ledger: CommandLedgerRecord[];
 };
 
 type CommandResult = { exitCode: number; output: string; started_at: string };
@@ -177,16 +185,26 @@ export async function runShipGates(
   profile: ProjectProfile,
   previous: AuditReport | undefined,
   commands: CommandDefinition[],
-  allowRun: boolean
+  allowRun: boolean,
+  policy: PolicyContext = { offline: false, forgeOwned: false }
 ): Promise<ShipGateResult> {
   const execution: ExecutionRecord[] = [];
+  const ledger: CommandLedgerRecord[] = [];
   const revision = await workingTreeRevision(root);
   const preflight = [schemaGate(root, previous), openFindingsGate(previous)];
   const preflightPassed = evaluateGateOutcome(preflight) === "PASS";
   const commandResults =
     allowRun && preflightPassed
-      ? await runRegisteredCommands(root, commands, execution)
+      ? await runRegisteredCommands(root, commands, execution, ledger, policy)
       : new Map<string, CommandResult>();
+  if (!allowRun || !preflightPassed) {
+    for (const command of registeredCommands(commands)) {
+      ledger.push(
+        ledgerRecord(command, decideCommandExecution(command, policy), "NOT_RUN", policy.offline)
+      );
+    }
+  }
+  const ledgerByName = new Map(ledger.map((record) => [record.name, record] as const));
   const isForgeRepository =
     profile.repository.name === "fullstack-forge-skill" ||
     commands.some((command) => command.name === "check:platforms");
@@ -235,7 +253,16 @@ export async function runShipGates(
     if (definition.command !== undefined) {
       const detected = commands.find((command) => command.name === definition.command);
       const result = commandResults.get(definition.command);
-      gates.push(commandGate(definition, detected, result, allowRun, revision));
+      gates.push(
+        commandGate(
+          definition,
+          detected,
+          result,
+          allowRun,
+          revision,
+          ledgerByName.get(definition.command)
+        )
+      );
       continue;
     }
   }
@@ -257,7 +284,8 @@ export async function runShipGates(
         command,
         result,
         allowRun,
-        revision
+        revision,
+        ledgerByName.get(name)
       )
     ];
   });
@@ -279,7 +307,8 @@ export async function runShipGates(
     status: evaluateGateOutcome(gates),
     gates,
     execution,
-    evidence: gates.flatMap((gate) => gate.evidence_records)
+    evidence: gates.flatMap((gate) => gate.evidence_records),
+    command_ledger: ledger
   };
 }
 
@@ -290,30 +319,61 @@ export function evaluateGateOutcome(gates: ShipGate[]): "PASS" | "FAIL" | "BLOCK
   return "PASS";
 }
 
+const ORDERED_GATE_COMMANDS = [
+  "format:check",
+  "lint",
+  "typecheck",
+  "test",
+  "build",
+  "validate",
+  "check:platforms",
+  "scan:secrets",
+  "audit:dependencies",
+  "check:licenses",
+  "package:platforms",
+  "validate:dist",
+  "smoke:install"
+] as const;
+
+function registeredCommands(commands: CommandDefinition[]): CommandDefinition[] {
+  return ORDERED_GATE_COMMANDS.flatMap((name) => {
+    const command = commands.find((candidate) => candidate.name === name);
+    return command === undefined ? [] : [command];
+  });
+}
+
 async function runRegisteredCommands(
   root: string,
   commands: CommandDefinition[],
-  execution: ExecutionRecord[]
+  execution: ExecutionRecord[],
+  ledger: CommandLedgerRecord[],
+  policy: PolicyContext
 ): Promise<Map<string, CommandResult>> {
   const results = new Map<string, CommandResult>();
-  const ordered = [
-    "format:check",
-    "lint",
-    "typecheck",
-    "test",
-    "build",
-    "validate",
-    "check:platforms",
-    "scan:secrets",
-    "audit:dependencies",
-    "check:licenses",
-    "package:platforms",
-    "validate:dist",
-    "smoke:install"
-  ];
-  for (const name of ordered) {
-    const command = commands.find((candidate) => candidate.name === name);
-    if (command === undefined || results.has(name)) continue;
+  let halted = false;
+  for (const command of registeredCommands(commands)) {
+    const name = command.name;
+    if (results.has(name)) continue;
+    const decision = decideCommandExecution(command, policy);
+    if (halted) {
+      ledger.push(
+        ledgerRecord(
+          command,
+          {
+            ...decision,
+            reason: `A prior required command failed, so '${name}' did not run.`
+          },
+          "NOT_RUN",
+          policy.offline
+        )
+      );
+      continue;
+    }
+    if (!decision.permitted) {
+      // No execution record and no CommandResult: a blocked command cannot become PASS evidence.
+      ledger.push(ledgerRecord(command, decision, "BLOCKED", policy.offline));
+      continue;
+    }
     const started = Date.now();
     const startedAt = utcNow();
     const result = await runFile(command.executable, command.args, root, 15 * 60_000);
@@ -326,7 +386,8 @@ async function runRegisteredCommands(
       duration_ms: Date.now() - started
     });
     results.set(name, { exitCode: result.exitCode, output, started_at: startedAt });
-    if (result.exitCode !== 0) break;
+    ledger.push(ledgerRecord(command, decision, "RAN", policy.offline, result.exitCode));
+    if (result.exitCode !== 0) halted = true;
   }
   return results;
 }
@@ -588,7 +649,8 @@ function commandGate(
   command: CommandDefinition | undefined,
   result: CommandResult | undefined,
   allowRun: boolean,
-  revision: string
+  revision: string,
+  ledger?: CommandLedgerRecord
 ): ShipGate {
   if (command === undefined)
     return gateValue(
@@ -608,13 +670,24 @@ function commandGate(
       [`${command.executable} ${command.args.join(" ")} requires --allow-run.`],
       definition.required
     );
+  if (ledger?.disposition === "BLOCKED")
+    return gateValue(
+      definition.gate_id,
+      definition.name,
+      definition.category,
+      "BLOCKED",
+      [
+        `${command.executable} ${command.args.join(" ")} was blocked by offline network policy (${ledger.network_policy}, sandbox=${ledger.sandbox}): ${ledger.reason}`
+      ],
+      definition.required
+    );
   if (result === undefined)
     return gateValue(
       definition.gate_id,
       definition.name,
       definition.category,
       "BLOCKED",
-      ["A prior required command failed, so this command did not run."],
+      [ledger?.reason ?? "A prior required command failed, so this command did not run."],
       definition.required
     );
   return gateValue(

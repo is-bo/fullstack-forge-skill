@@ -930,14 +930,22 @@ function isConstrainedRedirect(node, file, taint) {
     if (taint.hasProtection(target, "allowlisted", "destination"))
         return true;
     return hasDominatingGuard(node, file.sourceFile, (call) => {
-        const name = callName(call.expression);
-        if (!/(?:allow|trusted|redirect).*(?:has|includes)|(?:has|includes).*redirect/iu.test(name))
+        // The guard must be an actual membership operation on a collection. A receiver named
+        // `allowedRedirects` is a discovery hint; `.has`/`.includes` is the structural evidence.
+        if (!isMembershipCheck(call))
             return undefined;
         const argument = call.arguments[0];
         return argument !== undefined && sameTaintedValue(argument, target, taint)
             ? "deny-when-false"
             : undefined;
     });
+}
+/** `<collection>.has(value)` or `<collection>.includes(value)` — a real membership operation. */
+function isMembershipCheck(call) {
+    const callee = call.expression;
+    if (!ts.isPropertyAccessExpression(callee))
+        return false;
+    return callee.name.text === "has" || callee.name.text === "includes";
 }
 function isNetworkConstrainedTarget(sink, target, file, taint) {
     if (target === undefined)
@@ -947,8 +955,7 @@ function isNetworkConstrainedTarget(sink, target, file, taint) {
         taint.hasProtection(target, "network-constrained", "network"))
         return redirectConstrained;
     const allowlisted = hasDominatingGuard(sink, file.sourceFile, (call) => {
-        const name = callName(call.expression);
-        if (!/(?:allowed|allowlist|trusted).*(?:has|includes)|(?:has|includes).*host/iu.test(name))
+        if (!isMembershipCheck(call))
             return undefined;
         const argument = call.arguments[0];
         return argument !== undefined && sameTaintedValue(argument, target, taint)

@@ -5,6 +5,38 @@ versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- `--offline` is enforced on every command execution path, not only the rendered-UI driver.
+  `forge tool run-project-command` and every `forge ship` gate previously spawned the audited
+  project's own scripts with unrestricted network access while the report recorded `offline: true`.
+  Arbitrary audited-project scripts are now classified `UNKNOWN` from their definition (never their
+  name) and blocked offline. Fullstack Forge implements no operating-system network isolation, so
+  none is claimed: `sandbox` is always reported as `none`. Only two exemptions are provable —
+  Forge's own repository scripts, matched by exact definition and only when the audited root is
+  canonically the Forge package root, and explicitly designed cache-only installation checks that
+  combine an offline package-manager flag with an unreachable registry. Every command now carries a
+  ledger record (`RAN`, `BLOCKED`, `NOT_RUN`) with its reason, and a blocked command produces no
+  execution record and no typed evidence, so it can never satisfy a release gate.
+- Security protections are no longer granted from a function's name. `parse`, `validate`,
+  `assertValid`, `sanitize`, `allowlist`, `assertAllowed`, `requireAllowed`, `allowedValue`,
+  `trusted`, and `safe` are discovery hints only; a no-op function with any of those names now
+  leaves the SQL, shell, SSRF, redirect, mass-assignment, upload, and AI findings reported.
+  Protection is recognized only from bounded structural evidence: supported library APIs with known
+  semantics, schema operations attached to the exact value, dominating guards whose deny branch
+  terminates, specification-defined sink encoding, parameterized database calls, shell argument
+  separation, and same-file helpers whose bodies are actually analyzed.
+- Destination maps require strong proof before they suppress SSRF. A `const` object of URL strings
+  is no longer sufficient: `http://127.0.0.1:3000/` and `http://169.254.169.254/latest/meta-data/`
+  are fixed literals and exactly the destinations an SSRF attack wants. Suppression now requires
+  fixed literal destinations, demonstrable immutability, no property write or delete, no alias
+  escape, no export or return, no pass to an unmodelled function, direct flow to the sink, an
+  explicit redirect constraint, absent credentials, a supported protocol, and classification of
+  literal addresses — loopback, private, link-local, unspecified, multicast, reserved,
+  shared-carrier, and cloud-metadata destinations all fail, including IPv4-mapped IPv6 and
+  trailing-dot `localhost` forms. Hostname destinations are recorded as DNS-dependent rather than
+  implied resolved.
+
 ## [0.1.6] - 2026-07-19
 
 Rendered-UI security milestone. Three defects were independently reproduced against v0.1.5 before
