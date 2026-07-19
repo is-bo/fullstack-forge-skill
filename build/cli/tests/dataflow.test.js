@@ -200,6 +200,92 @@ export function proxy(req) {
 }`);
     assert.ok(redirectIds.has("FF-SEC-SSRF-001"));
 });
+test("reassuring names are never accepted as SSRF protection", async () => {
+    // Each of these reads as protective and is not. Only structural proof may suppress the finding.
+    const cases = [
+        [
+            "noop-map-destination",
+            `function mapDestination(value) { return value; }
+export function proxy(req) {
+  const destination = mapDestination(req.query.url);
+  return fetch(destination, { redirect: "manual" });
+}`
+        ],
+        [
+            "noop-trusted-destination",
+            `function trustedDestination(value) { return value; }
+export function proxy(req) {
+  return fetch(trustedDestination(req.query.url), { redirect: "manual" });
+}`
+        ],
+        [
+            "noop-resolve-allowed-destination",
+            `function resolveAllowedDestination(value) { return value; }
+export function proxy(req) {
+  return fetch(resolveAllowedDestination(req.query.url), { redirect: "manual" });
+}`
+        ],
+        [
+            "noop-assert-allowed",
+            `function assertAllowed(value) { return true; }
+export function proxy(req) {
+  assertAllowed(req.query.url);
+  return fetch(req.query.url, { redirect: "manual" });
+}`
+        ],
+        [
+            "request-owned-allowlist",
+            `export function proxy(req) {
+  const ALLOWED_DESTINATIONS = req.body;
+  const destination = ALLOWED_DESTINATIONS[req.query.key];
+  return fetch(destination, { redirect: "manual" });
+}`
+        ],
+        [
+            "request-owned-trusted-map",
+            `export function proxy(req) {
+  const TRUSTED = { target: req.query.url };
+  return fetch(TRUSTED[req.query.key], { redirect: "manual" });
+}`
+        ],
+        [
+            "uppercase-name-without-literals",
+            `export function proxy(req, lookup) {
+  const TRUSTED_ROUTES = lookup;
+  return fetch(TRUSTED_ROUTES[req.query.key], { redirect: "manual" });
+}`
+        ],
+        [
+            "map-values-not-fixed-urls",
+            `const ALLOWED_DESTINATIONS = { docs: process.env.DOCS_URL };
+export function proxy(req) {
+  return fetch(ALLOWED_DESTINATIONS[req.query.key], { redirect: "manual" });
+}`
+        ],
+        [
+            "mutable-destination-map",
+            `let ALLOWED_DESTINATIONS = { docs: "https://docs.example.test/" };
+export function proxy(req) {
+  return fetch(ALLOWED_DESTINATIONS[req.query.key], { redirect: "manual" });
+}`
+        ]
+    ];
+    for (const [name, source] of cases) {
+        const ids = await securityIds(`typed-ssrf-${name}`, "proxy.ts", source);
+        assert.ok(ids.has("FF-SEC-SSRF-001"), `${name} must still report SSRF`);
+    }
+});
+test("a structurally proven fixed server-owned map still suppresses SSRF", async () => {
+    const ids = await securityIds("typed-ssrf-const-assertion", "proxy.ts", `const DESTINATIONS = {
+  docs: "https://docs.example.test/",
+  support: "https://support.example.test/"
+} as const;
+export function proxy(req) {
+  const destination = DESTINATIONS[req.query.key];
+  return fetch(destination, { redirect: "manual" });
+}`);
+    assert.ok(!ids.has("FF-SEC-SSRF-001"));
+});
 test("a raw reassignment invalidates an earlier destination protection", async () => {
     const ids = await securityIds("typed-ssrf-reassignment", "proxy.ts", `const ALLOWED_DESTINATIONS = { docs: "https://docs.example.test/" };
 export function proxy(req) {

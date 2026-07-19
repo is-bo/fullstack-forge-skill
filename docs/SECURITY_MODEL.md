@@ -31,6 +31,18 @@ Directive-sounding content inside them is data, not authority.
   trees.
 - Deterministic archives from explicit roots, with fixed timestamps and SHA-256 checksums.
 - Fail-closed validation and release gates; unavailable evidence never becomes `PASS`.
+- No audited-project package is imported by default. Browser tooling is resolved from the Fullstack
+  Forge package root first; the audited project's copy requires `--allow-run`, real-path containment
+  inside the audited repository, and is refused entirely under `--offline`. `--dry-run` resolves,
+  imports, and launches nothing.
+- Enforced offline mode: non-loopback destinations are refused before DNS resolution, and every
+  network-dependent check reports `BLOCKED`/`NOT_VERIFIED` rather than `PASS`.
+- Structural-only protection proof. No analyzer protection is granted from an identifier's name. A
+  function called `mapDestination`, `trustedDestination`, or `assertAllowed` may be a no-op, so
+  destination protection requires either a `const` map whose every value is a fixed absolute http(s)
+  URL literal, or a dominating guard applied to the same tainted value as the sink.
+- Rendered evidence is isolated per revision, run, and route; URL credentials are rejected and query
+  values are redacted before reaching any artifact or directory name.
 
 ## Residual risks
 

@@ -16,7 +16,13 @@ import { executeFixes } from "./fixes.js";
 import { runShipGates } from "./gates.js";
 import { install, readInstallManifest, uninstall } from "./installer.js";
 import { inspectSection, isModuleSlug } from "./inspectors.js";
-import { createReport, readReport, renderMarkdown, writeReport } from "./report.js";
+import {
+  captureEnvironment,
+  createReport,
+  readReport,
+  renderMarkdown,
+  writeReport
+} from "./report.js";
 import { analyzeChangedScope, type ChangedScope } from "./scope.js";
 import { coverageForProfile } from "./support.js";
 import type {
@@ -179,7 +185,8 @@ async function runModule(section: ModuleSlug, mode: string, options: CliOptions)
       undefined,
       [],
       [],
-      revision
+      revision,
+      captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION })
     );
     const paths = options.dryRun ? [] : await writeReport(report);
     printValue({ profile, artifacts, report_paths: paths, dry_run: options.dryRun }, options.json);
@@ -248,7 +255,8 @@ async function runModule(section: ModuleSlug, mode: string, options: CliOptions)
     changedScope?.evidence,
     results.flatMap((result) => result.gate_evidence),
     results.flatMap((result) => result.analyzer_coverage),
-    revision
+    revision,
+    captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION })
   );
   const paths = options.dryRun ? [] : await writeReport(report);
   printValue(
@@ -336,7 +344,8 @@ async function ship(options: CliOptions): Promise<number> {
     previous?.scope_evidence,
     [...(previous?.gate_evidence ?? []), ...gateResult.evidence],
     previous?.analyzer_coverage ?? [],
-    revision
+    revision,
+    captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION })
   );
   if (!options.dryRun) await writeReport(report);
   printValue(options.json ? report : renderMarkdown(report), options.json);
@@ -612,7 +621,8 @@ Options:
   --base <ref>    Select the Git base for --scope changed
   --dry-run       Plan writes or removals without changing files
   --json          Emit machine-readable JSON
-  --offline       Do not opt into network-dependent behavior
+  --offline       Refuse non-loopback destinations, remote driver resolution, and any other
+                  network-dependent step; such checks report BLOCKED or NOT_VERIFIED
   --allow-run     Explicitly authorize inspected local project scripts
   --safe          Authorize execution of bounded safe fixes; without it 'fix' only plans
 

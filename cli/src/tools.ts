@@ -7,7 +7,7 @@ import { inspectWithTool } from "./inspectors.js";
 import { inspectRenderedUi } from "./rendered-ui.js";
 import { createReport, writeReport } from "./report.js";
 import type { CliOptions, ProjectProfile } from "./types.js";
-import { canonicalDirectory, resolveInside, runFile } from "./utils.js";
+import { canonicalDirectory, resolveInside, runFile, workingTreeRevision } from "./utils.js";
 
 export type ToolResponse = { value: unknown; exitCode: number };
 
@@ -61,7 +61,7 @@ export async function runTool(
     return { value: { command, ...execution }, exitCode: execution.exitCode };
   }
   if (nameInput === "inspect-rendered-ui") {
-    return inspectRenderedUi(root, args, options);
+    return inspectRenderedUi(root, args, options, await workingTreeRevision(root));
   }
   if (isInspectionTool(nameInput)) {
     const inspection = await inspectWithTool(nameInput, root);

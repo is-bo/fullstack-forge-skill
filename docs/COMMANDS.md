@@ -136,7 +136,9 @@ runtime access, or proof remain `NOT_VERIFIED` or `BLOCKED`.
 - `--global`: use a verified user-level path.
 - `--dry-run`: plan supported mutations without writing or removing files.
 - `--json`: emit machine-readable output.
-- `--offline`: assert offline intent.
+- `--offline`: enforce the offline contract — non-loopback destinations and audited-project driver
+  resolution are refused, and network-dependent checks report `BLOCKED`/`NOT_VERIFIED` rather than
+  `PASS`. See `docs/CLI_REFERENCE.md` for the full contract.
 - `--allow-run`: authorize one detected project script by its allowlisted name.
 - `--safe`: restrict fix planning; it grants no policy or destructive authority.
 - `--base <ref>`: select the Git merge-base reference for a changed-scope audit.

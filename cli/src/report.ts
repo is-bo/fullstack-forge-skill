@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { arch, platform, release } from "node:os";
 import { join } from "node:path";
 import type { ChangedScopeEvidence } from "./scope.js";
 import {
@@ -19,11 +20,28 @@ export type ExecutionRecord = {
   duration_ms?: number;
 };
 
+/**
+ * Reproducibility record for the machine and mode that produced a report.
+ *
+ * Versions are only ever observed, never inferred: anything unavailable is omitted rather than
+ * guessed, so a missing field means "not determined" and never "assumed current".
+ */
+export type ReportEnvironment = {
+  operating_system: string;
+  platform: string;
+  architecture: string;
+  node: string;
+  forge: string;
+  offline: boolean;
+  allow_run: boolean;
+};
+
 export type AuditReport = {
   schema_version: 1;
   generated_at: string;
   root: string;
   revision?: string;
+  environment?: ReportEnvironment;
   scope: string;
   profile: ProjectProfile;
   findings: Finding[];
@@ -101,13 +119,15 @@ export function createReport(
   scopeEvidence?: ChangedScopeEvidence,
   gateEvidence: GateEvidence[] = [],
   analyzerCoverage: AnalyzerCoverage[] = [],
-  revision?: string
+  revision?: string,
+  environment?: ReportEnvironment
 ): AuditReport {
   return {
     schema_version: 1,
     generated_at: utcNow(),
     root,
     scope,
+    ...(environment === undefined ? {} : { environment }),
     profile,
     findings: sortFindings(deduplicateFindings(findings)),
     execution,
@@ -118,6 +138,39 @@ export function createReport(
     analyzer_coverage: structuredClone(analyzerCoverage),
     ...(revision === undefined ? {} : { revision })
   };
+}
+
+/**
+ * Captures only directly observable facts about the current process. `forge` reads the packaged
+ * version; when it cannot be read the field reports `unknown` rather than a plausible value.
+ */
+export function captureEnvironment(options: {
+  offline: boolean;
+  allowRun: boolean;
+  version: string;
+}): ReportEnvironment {
+  return {
+    operating_system: `${platform()} ${release()}`,
+    platform: platform(),
+    architecture: arch(),
+    node: process.versions.node,
+    forge: options.version,
+    offline: options.offline,
+    allow_run: options.allowRun
+  };
+}
+
+/** Legacy reports carry no environment record; that absence is stated, never back-filled. */
+function renderEnvironment(environment: ReportEnvironment | undefined): string {
+  if (environment === undefined) return "- Not recorded (report predates the environment ledger).";
+  return [
+    `- Operating system: ${environment.operating_system}`,
+    `- Platform/architecture: ${environment.platform}/${environment.architecture}`,
+    `- Node: ${environment.node}`,
+    `- Fullstack Forge: ${environment.forge}`,
+    `- Offline mode: ${environment.offline ? "enabled" : "disabled"}`,
+    `- Project-command execution authorized: ${environment.allow_run ? "yes" : "no"}`
+  ].join("\n");
 }
 
 export function renderMarkdown(report: AuditReport): string {
@@ -177,6 +230,10 @@ ${report.scope_evidence.included_files.map((item) => `- \`${item.path}\`: ${item
 - Scope: ${report.scope}
 - Root: \`${report.root}\`
 - Revision: \`${report.revision ?? "legacy/unrecorded"}\`
+
+## Environment
+
+${renderEnvironment(report.environment)}
 
 ## Status summary
 

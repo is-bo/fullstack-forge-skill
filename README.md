@@ -56,18 +56,26 @@ Download the archive for your agent from the
 against `SHA256SUMS.txt`, and extract it at the project root. Archives contain real copies, never
 symlinks.
 
-### With npm
+### With npm, from the Git tag
+
+Fullstack Forge is **not published to the npm registry**. The working npm-based installation
+resolves the package directly from its Git tag:
 
 ```bash
-npm install --save-dev fullstack-forge-skill
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.5
 npx forge init all --dry-run
 npx forge init all
 ```
 
-Until the package is published to npm, install from the repository or a release tarball:
+#### After npm registry publication
+
+Registry publication has not happened yet. Once it does — and not before — the command below will
+work. It does **not** work today, and this section is retained only to document the intended future
+form:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.4
+# NOT YET AVAILABLE — the package is not on the npm registry.
+npm install --save-dev fullstack-forge-skill
 ```
 
 The installer writes `.fullstack-forge/install-manifest.json`. It will not overwrite unowned or

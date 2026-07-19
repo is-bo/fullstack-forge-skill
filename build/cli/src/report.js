@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { arch, platform, release } from "node:os";
 import { join } from "node:path";
 import { GATE_EVIDENCE_TYPES } from "./types.js";
 import { assertFindings } from "./finding.js";
@@ -51,12 +52,13 @@ function isAuditReport(value) {
         (candidate.gate_evidence === undefined || Array.isArray(candidate.gate_evidence)) &&
         (candidate.analyzer_coverage === undefined || Array.isArray(candidate.analyzer_coverage)));
 }
-export function createReport(root, profile, findings, scope, execution = [], assumptions = [], residualRisk = [], scopeEvidence, gateEvidence = [], analyzerCoverage = [], revision) {
+export function createReport(root, profile, findings, scope, execution = [], assumptions = [], residualRisk = [], scopeEvidence, gateEvidence = [], analyzerCoverage = [], revision, environment) {
     return {
         schema_version: 1,
         generated_at: utcNow(),
         root,
         scope,
+        ...(environment === undefined ? {} : { environment }),
         profile,
         findings: sortFindings(deduplicateFindings(findings)),
         execution,
@@ -67,6 +69,34 @@ export function createReport(root, profile, findings, scope, execution = [], ass
         analyzer_coverage: structuredClone(analyzerCoverage),
         ...(revision === undefined ? {} : { revision })
     };
+}
+/**
+ * Captures only directly observable facts about the current process. `forge` reads the packaged
+ * version; when it cannot be read the field reports `unknown` rather than a plausible value.
+ */
+export function captureEnvironment(options) {
+    return {
+        operating_system: `${platform()} ${release()}`,
+        platform: platform(),
+        architecture: arch(),
+        node: process.versions.node,
+        forge: options.version,
+        offline: options.offline,
+        allow_run: options.allowRun
+    };
+}
+/** Legacy reports carry no environment record; that absence is stated, never back-filled. */
+function renderEnvironment(environment) {
+    if (environment === undefined)
+        return "- Not recorded (report predates the environment ledger).";
+    return [
+        `- Operating system: ${environment.operating_system}`,
+        `- Platform/architecture: ${environment.platform}/${environment.architecture}`,
+        `- Node: ${environment.node}`,
+        `- Fullstack Forge: ${environment.forge}`,
+        `- Offline mode: ${environment.offline ? "enabled" : "disabled"}`,
+        `- Project-command execution authorized: ${environment.allow_run ? "yes" : "no"}`
+    ].join("\n");
 }
 export function renderMarkdown(report) {
     const counts = new Map();
@@ -115,6 +145,10 @@ ${report.scope_evidence.included_files.map((item) => `- \`${item.path}\`: ${item
 - Scope: ${report.scope}
 - Root: \`${report.root}\`
 - Revision: \`${report.revision ?? "legacy/unrecorded"}\`
+
+## Environment
+
+${renderEnvironment(report.environment)}
 
 ## Status summary
 
