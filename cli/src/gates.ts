@@ -1,14 +1,21 @@
 import { readFile } from "node:fs/promises";
 import { validateFinding } from "./finding.js";
 import type { AuditReport, ExecutionRecord } from "./report.js";
-import type { CommandDefinition, ProjectProfile, Status } from "./types.js";
+import type {
+  CommandDefinition,
+  GateEvidence,
+  GateEvidenceType,
+  ProjectProfile,
+  Status
+} from "./types.js";
 import {
   assertNoSymlinkPath,
   assertSafeRelative,
   resolveInside,
   runFile,
   sha256,
-  utcNow
+  utcNow,
+  workingTreeRevision
 } from "./utils.js";
 
 export type GateStatus = Extract<
@@ -23,6 +30,7 @@ export type ShipGate = {
   required: boolean;
   status: GateStatus;
   evidence: string[];
+  evidence_records: GateEvidence[];
 };
 
 /**
@@ -43,8 +51,8 @@ export type GateDefinition = {
   applicability: GateApplicability;
   required: boolean;
   command?: string;
-  /** Finding sections that can satisfy this gate from audit evidence when no command exists. */
-  evidence_sections?: string[];
+  /** Exact evidence semantics accepted by this gate. Broad report sections are never used. */
+  evidence_types?: GateEvidenceType[];
 };
 
 export const FORGE_GATE_REGISTRY: readonly GateDefinition[] = [
@@ -89,7 +97,7 @@ export const FORGE_GATE_REGISTRY: readonly GateDefinition[] = [
     "audit-evidence",
     "audited-application",
     "scan:secrets",
-    ["security"]
+    ["secret-scan"]
   ),
   gate(
     "FF-GATE-DEPENDENCIES",
@@ -97,7 +105,7 @@ export const FORGE_GATE_REGISTRY: readonly GateDefinition[] = [
     "audit-evidence",
     "audited-application",
     "audit:dependencies",
-    ["supply-chain"]
+    ["dependency-audit", "lockfile-inspection"]
   ),
   gate(
     "FF-GATE-LICENSES",
@@ -105,22 +113,47 @@ export const FORGE_GATE_REGISTRY: readonly GateDefinition[] = [
     "audit-evidence",
     "audited-application",
     "check:licenses",
-    ["supply-chain", "docs"]
+    ["license-scan"]
   ),
-  gate("FF-GATE-AUTH-EVAL", "Authorization evaluation", "capability", "audited-application"),
-  gate("FF-GATE-TENANT-EVAL", "Tenant-isolation evaluation", "capability", "audited-application"),
-  gate("FF-GATE-UPLOAD-EVAL", "Upload-security evaluation", "capability", "audited-application"),
+  gate(
+    "FF-GATE-AUTH-EVAL",
+    "Authorization evaluation",
+    "capability",
+    "audited-application",
+    undefined,
+    ["authorization-evaluation"]
+  ),
+  gate(
+    "FF-GATE-TENANT-EVAL",
+    "Tenant-isolation evaluation",
+    "capability",
+    "audited-application",
+    undefined,
+    ["tenant-isolation-evaluation"]
+  ),
+  gate(
+    "FF-GATE-UPLOAD-EVAL",
+    "Upload-security evaluation",
+    "capability",
+    "audited-application",
+    undefined,
+    ["upload-security-evaluation"]
+  ),
   gate(
     "FF-GATE-SECURITY-EVAL",
     "Application-security evaluation",
     "capability",
-    "audited-application"
+    "audited-application",
+    undefined,
+    ["application-security-static-analysis"]
   ),
   gate(
     "FF-GATE-MIGRATIONS",
     "Migration and configuration inspection",
     "capability",
-    "audited-application"
+    "audited-application",
+    undefined,
+    ["migration-validation"]
   ),
   gate(
     "FF-GATE-OPEN-FINDINGS",
@@ -134,7 +167,10 @@ export type ShipGateResult = {
   status: "PASS" | "FAIL" | "BLOCKED";
   gates: ShipGate[];
   execution: ExecutionRecord[];
+  evidence: GateEvidence[];
 };
+
+type CommandResult = { exitCode: number; output: string; started_at: string };
 
 export async function runShipGates(
   root: string,
@@ -144,12 +180,13 @@ export async function runShipGates(
   allowRun: boolean
 ): Promise<ShipGateResult> {
   const execution: ExecutionRecord[] = [];
+  const revision = await workingTreeRevision(root);
   const preflight = [schemaGate(root, previous), openFindingsGate(previous)];
   const preflightPassed = evaluateGateOutcome(preflight) === "PASS";
   const commandResults =
     allowRun && preflightPassed
       ? await runRegisteredCommands(root, commands, execution)
-      : new Map<string, { exitCode: number; output: string }>();
+      : new Map<string, CommandResult>();
   const isForgeRepository =
     profile.repository.name === "fullstack-forge-skill" ||
     commands.some((command) => command.name === "check:platforms");
@@ -165,7 +202,7 @@ export async function runShipGates(
     )
       continue;
     if (definition.category === "capability") {
-      gates.push(capabilityGate(definition, profile, previous));
+      gates.push(capabilityGate(definition, profile, previous, revision));
       continue;
     }
     // Forge self-release gates are genuinely inapplicable to an audited application.
@@ -176,20 +213,29 @@ export async function runShipGates(
         category: definition.category,
         required: false,
         status: "NOT_APPLICABLE",
-        evidence: ["This Fullstack Forge self-release check does not apply to the audited project."]
+        evidence: [
+          "This Fullstack Forge self-release check does not apply to the audited project."
+        ],
+        evidence_records: []
       });
+      continue;
+    }
+    if (definition.evidence_types !== undefined) {
+      const commandEvidence =
+        definition.command === undefined
+          ? []
+          : evidenceFromCommand(
+              definition.command,
+              commandResults.get(definition.command),
+              revision
+            );
+      gates.push(evidenceGate(definition, previous, commandEvidence, revision));
       continue;
     }
     if (definition.command !== undefined) {
       const detected = commands.find((command) => command.name === definition.command);
-      // An audited-application gate must not be skipped merely because the project exposes no
-      // matching script. It falls back to recorded audit evidence and stays required.
-      if (detected === undefined && definition.evidence_sections !== undefined) {
-        gates.push(evidenceGate(definition, definition.evidence_sections, previous));
-        continue;
-      }
       const result = commandResults.get(definition.command);
-      gates.push(commandGate(definition, detected, result, allowRun));
+      gates.push(commandGate(definition, detected, result, allowRun, revision));
       continue;
     }
   }
@@ -210,7 +256,8 @@ export async function runShipGates(
         },
         command,
         result,
-        allowRun
+        allowRun,
+        revision
       )
     ];
   });
@@ -224,10 +271,16 @@ export async function runShipGates(
       status: "BLOCKED",
       evidence: [
         "No recognized project-native format, lint, typecheck, test, or build command was detected."
-      ]
+      ],
+      evidence_records: []
     });
   }
-  return { status: evaluateGateOutcome(gates), gates, execution };
+  return {
+    status: evaluateGateOutcome(gates),
+    gates,
+    execution,
+    evidence: gates.flatMap((gate) => gate.evidence_records)
+  };
 }
 
 export function evaluateGateOutcome(gates: ShipGate[]): "PASS" | "FAIL" | "BLOCKED" {
@@ -241,8 +294,8 @@ async function runRegisteredCommands(
   root: string,
   commands: CommandDefinition[],
   execution: ExecutionRecord[]
-): Promise<Map<string, { exitCode: number; output: string }>> {
-  const results = new Map<string, { exitCode: number; output: string }>();
+): Promise<Map<string, CommandResult>> {
+  const results = new Map<string, CommandResult>();
   const ordered = [
     "format:check",
     "lint",
@@ -272,7 +325,7 @@ async function runRegisteredCommands(
       started_at: startedAt,
       duration_ms: Date.now() - started
     });
-    results.set(name, { exitCode: result.exitCode, output });
+    results.set(name, { exitCode: result.exitCode, output, started_at: startedAt });
     if (result.exitCode !== 0) break;
   }
   return results;
@@ -399,99 +452,143 @@ function openFindingsGate(previous: AuditReport | undefined): ShipGate {
   );
 }
 
-/**
- * Satisfies an audited-application gate from recorded audit evidence when the project exposes no
- * corresponding command. Missing evidence is NOT_VERIFIED and still blocks; it is never PASS.
- */
+/** Exact evidence types replace broad section-level inference. */
 function evidenceGate(
   definition: GateDefinition,
-  sections: string[],
-  previous: AuditReport | undefined
+  previous: AuditReport | undefined,
+  currentCommandEvidence: GateEvidence[],
+  revision: string
 ): ShipGate {
-  const evidence = previous?.findings.filter((finding) => sections.includes(finding.section)) ?? [];
-  const failed = evidence.some((finding) => ["FAIL", "WARNING"].includes(finding.status));
-  const proven = evidence.some((finding) => finding.status === "PASS");
-  const unresolved = evidence.some((finding) =>
-    ["BLOCKED", "NOT_VERIFIED"].includes(finding.status)
+  const expected = definition.evidence_types ?? [];
+  const records = [
+    ...(previous?.gate_evidence ?? []).filter((record) => expected.includes(record.evidence_type)),
+    ...currentCommandEvidence.filter((record) => expected.includes(record.evidence_type))
+  ];
+  const fresh = records.filter((record) => evidenceIsFresh(record, revision));
+  const stale = records.filter((record) => !evidenceIsFresh(record, revision));
+  const missing = expected.filter((type) => !fresh.some((record) => record.evidence_type === type));
+  const failed = fresh.filter((record) => record.status === "FAIL");
+  const blocked = fresh.filter((record) => record.status === "BLOCKED");
+  const unproven = expected.filter(
+    (type) =>
+      !fresh.some(
+        (record) =>
+          record.evidence_type === type && record.status === "PASS" && record.absence_proves_success
+      )
   );
+  const status: GateStatus =
+    failed.length > 0
+      ? "FAIL"
+      : stale.length > 0 && fresh.length === 0
+        ? "BLOCKED"
+        : blocked.length > 0
+          ? "BLOCKED"
+          : missing.length > 0 || unproven.length > 0
+            ? "NOT_VERIFIED"
+            : "PASS";
+  const details = [
+    ...fresh.map(
+      (record) =>
+        `${record.evidence_type} from ${record.producer}: ${record.status} at ${record.timestamp}; absence proves success=${record.absence_proves_success}`
+    ),
+    ...stale.map(
+      (record) =>
+        `${record.evidence_type} from ${record.producer} is stale (record ${record.revision}; current ${revision}).`
+    ),
+    ...(missing.length === 0 ? [] : [`Missing evidence types: ${missing.join(", ")}.`]),
+    ...(unproven.length === 0
+      ? []
+      : [`No fresh, success-proving record exists for: ${unproven.join(", ")}.`])
+  ];
   return {
     gate_id: definition.gate_id,
     name: definition.name,
     category: definition.category,
     required: true,
-    status: failed ? "FAIL" : proven && !unresolved ? "PASS" : "NOT_VERIFIED",
-    evidence:
-      evidence.length === 0
-        ? [
-            `No '${definition.command ?? definition.gate_id}' command was detected and no ${sections.join("/")} audit evidence was recorded.`
-          ]
-        : evidence.map((finding) => `${finding.id}: ${finding.status}`)
+    status,
+    evidence: details.length > 0 ? details : ["No exact typed evidence was recorded."],
+    evidence_records: records
   };
 }
 
 function capabilityGate(
   definition: GateDefinition,
   profile: ProjectProfile,
-  previous: AuditReport | undefined
+  previous: AuditReport | undefined,
+  revision: string
 ): ShipGate {
-  const mapping: Record<string, { applicable: boolean; sections: string[] }> = {
-    "FF-GATE-AUTH-EVAL": {
-      applicable: profile.authentication.length > 0 || profile.authorization.length > 0,
-      sections: ["auth", "authorization"]
-    },
-    "FF-GATE-TENANT-EVAL": {
-      applicable: profile.tenant_boundaries.length > 0,
-      sections: ["tenancy"]
-    },
-    "FF-GATE-UPLOAD-EVAL": {
-      applicable: profile.upload_pipelines.length > 0,
-      sections: ["uploads"]
-    },
-    "FF-GATE-SECURITY-EVAL": {
-      applicable: true,
-      sections: ["security"]
-    },
-    "FF-GATE-MIGRATIONS": {
-      applicable: profile.databases.length > 0 || profile.deployment.length > 0,
-      sections: ["database", "deployment"]
-    }
+  const applicable: Record<string, boolean> = {
+    "FF-GATE-AUTH-EVAL": profile.authentication.length > 0 || profile.authorization.length > 0,
+    "FF-GATE-TENANT-EVAL": profile.tenant_boundaries.length > 0,
+    "FF-GATE-UPLOAD-EVAL": profile.upload_pipelines.length > 0,
+    "FF-GATE-SECURITY-EVAL": true,
+    "FF-GATE-MIGRATIONS": profile.databases.length > 0 || profile.deployment.length > 0
   };
-  const config = mapping[definition.gate_id];
-  if (config === undefined || !config.applicable) {
+  if (applicable[definition.gate_id] !== true) {
     return {
       gate_id: definition.gate_id,
       name: definition.name,
       category: definition.category,
       required: false,
       status: "NOT_APPLICABLE",
-      evidence: ["Project discovery found no applicable capability."]
+      evidence: ["Project discovery found no applicable capability."],
+      evidence_records: []
     };
   }
-  const evidence =
-    previous?.findings.filter((finding) => config.sections.includes(finding.section)) ?? [];
-  const failed = evidence.some((finding) => ["FAIL", "WARNING"].includes(finding.status));
-  const unresolved =
-    evidence.length === 0 ||
-    !evidence.some((finding) => finding.status === "PASS") ||
-    evidence.some((finding) => ["BLOCKED", "NOT_VERIFIED"].includes(finding.status));
-  return {
-    gate_id: definition.gate_id,
-    name: definition.name,
-    category: definition.category,
-    required: true,
-    status: failed ? "FAIL" : unresolved ? "NOT_VERIFIED" : "PASS",
-    evidence:
-      evidence.length === 0
-        ? [`No ${config.sections.join("/")} evaluation evidence was recorded.`]
-        : evidence.map((finding) => `${finding.id}: ${finding.status}`)
+  return evidenceGate(definition, previous, [], revision);
+}
+
+function evidenceIsFresh(record: GateEvidence, revision: string): boolean {
+  const timestamp = Date.parse(record.timestamp);
+  const age = Date.now() - timestamp;
+  return (
+    record.revision === revision &&
+    Number.isFinite(timestamp) &&
+    age >= -5 * 60_000 &&
+    age <= 24 * 60 * 60_000
+  );
+}
+
+function evidenceFromCommand(
+  command: string,
+  result: CommandResult | undefined,
+  revision: string
+): GateEvidence[] {
+  if (result === undefined) return [];
+  const mapping: Partial<Record<string, GateEvidenceType>> = {
+    "scan:secrets": "secret-scan",
+    "audit:dependencies": "dependency-audit",
+    "check:licenses": "license-scan",
+    test: "project-test",
+    "validate:dist": "release-artifact-validation",
+    "package:platforms": "release-artifact-validation",
+    "smoke:install": "release-artifact-validation"
   };
+  const evidenceType = mapping[command];
+  if (evidenceType === undefined) return [];
+  return [
+    {
+      evidence_type: evidenceType,
+      producer: `project-command:${command}`,
+      scope: ["repository"],
+      timestamp: result.started_at,
+      revision,
+      status: result.exitCode === 0 ? "PASS" : "FAIL",
+      relevant_instance_ids: [],
+      absence_proves_success: true,
+      limitations: [
+        `The record proves only that the discovered '${command}' command exited ${result.exitCode} for this revision.`
+      ]
+    }
+  ];
 }
 
 function commandGate(
   definition: GateDefinition,
   command: CommandDefinition | undefined,
-  result: { exitCode: number; output: string } | undefined,
-  allowRun: boolean
+  result: CommandResult | undefined,
+  allowRun: boolean,
+  revision: string
 ): ShipGate {
   if (command === undefined)
     return gateValue(
@@ -526,7 +623,8 @@ function commandGate(
     definition.category,
     result.exitCode === 0 ? "PASS" : "FAIL",
     [`${command.executable} ${command.args.join(" ")} exited ${result.exitCode}.`],
-    definition.required
+    definition.required,
+    evidenceFromCommand(definition.command ?? command.name, result, revision)
   );
 }
 
@@ -536,7 +634,7 @@ function gate(
   category: GateDefinition["category"],
   applicability: GateApplicability,
   command?: string,
-  evidenceSections?: string[]
+  evidenceTypes?: GateEvidenceType[]
 ): GateDefinition {
   return {
     gate_id: gateId,
@@ -545,7 +643,7 @@ function gate(
     applicability,
     required: true,
     ...(command === undefined ? {} : { command }),
-    ...(evidenceSections === undefined ? {} : { evidence_sections: evidenceSections })
+    ...(evidenceTypes === undefined ? {} : { evidence_types: evidenceTypes })
   };
 }
 
@@ -555,7 +653,16 @@ function gateValue(
   category: ShipGate["category"],
   status: GateStatus,
   evidence: string[],
-  required = true
+  required = true,
+  evidenceRecords: GateEvidence[] = []
 ): ShipGate {
-  return { gate_id: gateId, name, category, required, status, evidence };
+  return {
+    gate_id: gateId,
+    name,
+    category,
+    required,
+    status,
+    evidence,
+    evidence_records: evidenceRecords
+  };
 }

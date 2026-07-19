@@ -227,13 +227,20 @@ export async function inspectSection(section, root, profile, scope) {
     const specialized = sectionTool(section);
     if (specialized !== undefined) {
         const inventory = await inspectWithTool(specialized, root, scope);
-        return result(`inspect-${section}`, root, [...analyzerObservations, ...inventory.observations], [...analyzerFindings, ...inventory.findings]);
+        return result(`inspect-${section}`, root, [...analyzerObservations, ...inventory.observations], [...analyzerFindings, ...inventory.findings], inventory.gate_evidence);
     }
     const regex = SECTION_KEYWORDS[section];
-    if (regex === undefined)
-        return result(`inspect-${section}`, root, analyzerObservations, analyzerFindings);
+    if (regex === undefined) {
+        const base = result(`inspect-${section}`, root, analyzerObservations, analyzerFindings);
+        return section === "security"
+            ? mergeInspectionResults(base, await scanSecretPatterns(root, scope))
+            : base;
+    }
     const inventory = await scanPatterns(root, `inspect-${section}`, [{ category: section, regex, detail: `${section} implementation signal` }], scope);
-    return result(`inspect-${section}`, root, [...analyzerObservations, ...inventory.observations], [...analyzerFindings, ...inventory.findings]);
+    const base = result(`inspect-${section}`, root, [...analyzerObservations, ...inventory.observations], [...analyzerFindings, ...inventory.findings]);
+    return section === "security"
+        ? mergeInspectionResults(base, await scanSecretPatterns(root, scope))
+        : base;
 }
 async function scanPatterns(root, tool, patterns, scope) {
     const observations = [];
@@ -343,6 +350,12 @@ async function inspectDependencies(root) {
     if (content !== undefined) {
         try {
             const manifest = JSON.parse(content);
+            observations.push({
+                category: "dependency-manifest",
+                path: "package.json",
+                detail: "Root package manifest parsed",
+                confidence: "HIGH"
+            });
             for (const group of [
                 "dependencies",
                 "devDependencies",
@@ -519,8 +532,104 @@ function finding(prefix, number, section, title, severity, confidence, status, p
         standards
     };
 }
-function result(tool, root, observations, findings) {
-    return { tool, root, generated_at: utcNow(), observations, findings };
+function result(tool, root, observations, findings, inheritedEvidence = []) {
+    return {
+        tool,
+        root,
+        generated_at: utcNow(),
+        observations,
+        findings,
+        gate_evidence: [...inheritedEvidence, ...evidenceForResult(tool, observations, findings)],
+        analyzer_coverage: []
+    };
+}
+function mergeInspectionResults(primary, additional) {
+    return {
+        ...primary,
+        observations: [...primary.observations, ...additional.observations],
+        findings: [...primary.findings, ...additional.findings],
+        gate_evidence: [...primary.gate_evidence, ...additional.gate_evidence],
+        analyzer_coverage: [...primary.analyzer_coverage, ...additional.analyzer_coverage]
+    };
+}
+function evidenceForResult(tool, observations, findings) {
+    const types = [];
+    if (tool === "scan-secret-patterns")
+        types.push("secret-scan");
+    if (tool === "inspect-dependencies")
+        types.push("dependency-audit", "lockfile-inspection");
+    if (tool === "inspect-authorization")
+        types.push("authorization-evaluation");
+    if (tool === "inspect-tenancy")
+        types.push("tenant-isolation-evaluation");
+    if (tool === "inspect-uploads")
+        types.push("upload-security-evaluation");
+    if (tool === "inspect-security")
+        types.push("application-security-static-analysis");
+    if (["inspect-database", "inspect-deployment"].includes(tool))
+        types.push("migration-validation");
+    return types.map((evidenceType) => {
+        const relevant = findings.filter((finding) => evidenceMatchesSection(evidenceType, finding));
+        const failed = relevant.some((finding) => ["FAIL", "WARNING"].includes(finding.status));
+        const absenceProvesSuccess = ["secret-scan", "lockfile-inspection"].includes(evidenceType);
+        const hasRequiredInput = evidenceType === "secret-scan"
+            ? true
+            : evidenceType === "lockfile-inspection"
+                ? observations.some((observation) => observation.category === "lockfile")
+                : evidenceType === "dependency-audit"
+                    ? observations.some((observation) => observation.category === "dependency-manifest")
+                    : observations.length > 0 || relevant.length > 0;
+        return {
+            evidence_type: evidenceType,
+            producer: tool,
+            scope: evidenceScope(observations, relevant),
+            timestamp: utcNow(),
+            revision: "working-tree:pending",
+            status: failed ? "FAIL" : absenceProvesSuccess && hasRequiredInput ? "PASS" : "NOT_VERIFIED",
+            relevant_instance_ids: relevant.map((finding) => finding.instance_id ?? finding.id).sort(),
+            absence_proves_success: absenceProvesSuccess,
+            limitations: evidenceLimitations(evidenceType, hasRequiredInput)
+        };
+    });
+}
+function evidenceScope(observations, findings) {
+    const paths = [
+        ...new Set([
+            ...observations.map((observation) => observation.path),
+            ...findings.flatMap((finding) => finding.location.map((location) => location.path))
+        ])
+    ].sort();
+    return paths.length > 0 ? paths : ["repository"];
+}
+function evidenceMatchesSection(type, finding) {
+    const section = {
+        "secret-scan": ["security"],
+        "dependency-audit": ["supply-chain"],
+        "lockfile-inspection": ["supply-chain"],
+        "authorization-evaluation": ["authorization"],
+        "tenant-isolation-evaluation": ["tenancy"],
+        "upload-security-evaluation": ["uploads"],
+        "application-security-static-analysis": ["security"],
+        "migration-validation": ["database", "deployment"]
+    };
+    return section[type]?.includes(finding.section) ?? false;
+}
+function evidenceLimitations(type, hasInput) {
+    if (!hasInput)
+        return [`No applicable input was found for ${type}.`];
+    if (type === "secret-scan")
+        return [
+            "Pattern scanning cannot prove provider-side validity, history cleanup, or runtime rotation."
+        ];
+    if (type === "dependency-audit")
+        return [
+            "Manifest inventory is not a vulnerability-database query; execute the project audit command."
+        ];
+    if (type === "lockfile-inspection")
+        return ["Lockfile presence does not prove dependency safety or reproducible installation."];
+    return [
+        "Bounded static analysis does not prove runtime, cross-file, provider, or operator behavior."
+    ];
 }
 function emptyResult(tool, root) {
     return result(tool, root, [], []);

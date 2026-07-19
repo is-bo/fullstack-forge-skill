@@ -4,54 +4,137 @@ on:
   push:
     tags: ["v*"]
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     permissions:
       contents: write
       id-token: write
       attestations: write
     steps:
       - name: Check out tagged source
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Use Node.js 24
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
+      - name: Resolve the annotated tag commit
+        shell: bash
+        run: |
+          tag_commit="$(git rev-parse "${GITHUB_REF_NAME}^{commit}")"
+          test "$(git rev-parse HEAD)" = "$tag_commit"
+          echo "TAG_COMMIT=$tag_commit" >> "$GITHUB_ENV"
+      - name: Refuse an existing release or mismatched tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release-preflight.mjs --tag "$GITHUB_REF_NAME" --sha "$TAG_COMMIT"
       - name: Install locked development dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Verify tagged source
+      - name: Verify tagged source and honest release evidence
         run: |
           npm run check
+          npm run test:coverage
           git diff --exit-code -- build/
           npm audit --ignore-scripts
-      - name: Package and smoke-install
+          npm run check:release-docs
+      - name: Package and clean-room install
         run: |
           npm run package:platforms
           npm run smoke:install
           npm run offline:install
-      - name: Attest build provenance for release archives
+      - name: Refuse duplicate candidate asset names
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          args=()
+          for asset in dist/*.zip dist/SHA256SUMS.txt dist/manifest.json; do
+            args+=(--asset "$asset")
+          done
+          node scripts/release-preflight.mjs --tag "$GITHUB_REF_NAME" --sha "$TAG_COMMIT" "${args[@]}"
+      - name: Attest build provenance for every release candidate
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
-          subject-path: dist/*.zip
-      - name: Publish GitHub release
+          subject-path: dist/*
+      - name: Create a new draft release without replacement
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes="docs/RELEASE_NOTES_${GITHUB_REF_NAME}.md"
-          if [ ! -f "$notes" ]; then
-            echo "Missing release notes for ${GITHUB_REF_NAME} at ${notes}" >&2
+          gh release create "$GITHUB_REF_NAME" \
+            dist/*.zip dist/SHA256SUMS.txt dist/manifest.json \
+            --draft \
+            --verify-tag \
+            --notes-file "$notes" \
+            --title "Fullstack Forge $GITHUB_REF_NAME"
+      - name: Download and verify draft release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir published
+          gh release download "$GITHUB_REF_NAME" --dir published
+          node scripts/verify-published-assets.mjs dist published
+          mkdir clean-archive
+          unzip -q "published/fullstack-forge-codex-${GITHUB_REF_NAME}.zip" -d clean-archive
+          test -f clean-archive/.agents/skills/fullstack-forge/SKILL.md
+          if find clean-archive -type l -print -quit | grep -q .; then
+            echo "Release archive extracted a symbolic link" >&2
             exit 1
           fi
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt dist/manifest.json --clobber
-          else
-            gh release create "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt dist/manifest.json --verify-tag --notes-file "$notes" --title "Fullstack Forge $GITHUB_REF_NAME"
-          fi
+      - name: Generate checksummed final release evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_url="$(gh release view "$GITHUB_REF_NAME" --json url --jq .url)"
+          mkdir release-evidence
+          node scripts/generate-final-verification.mjs \
+            --tag "$GITHUB_REF_NAME" \
+            --sha "$TAG_COMMIT" \
+            --run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --release-url "$release_url" \
+            --asset-dir published \
+            --output "release-evidence/FINAL_RELEASE_VERIFICATION_${GITHUB_REF_NAME}.md"
+          (
+            cd release-evidence
+            sha256sum "FINAL_RELEASE_VERIFICATION_${GITHUB_REF_NAME}.md" \
+              > "FINAL_RELEASE_VERIFICATION_${GITHUB_REF_NAME}.sha256"
+          )
+      - name: Attest final release evidence
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: release-evidence/*
+      - name: Attach final evidence without clobbering
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" release-evidence/*
+      - name: Publish once and verify immutable release attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+          verified=false
+          for attempt in {1..12}; do
+            if gh release verify "$GITHUB_REF_NAME"; then
+              verified=true
+              break
+            fi
+            sleep 5
+          done
+          test "$verified" = true
+          for asset in dist/*.zip dist/SHA256SUMS.txt dist/manifest.json release-evidence/*; do
+            gh release verify-asset "$GITHUB_REF_NAME" "$asset"
+          done
+          state="$(gh release view "$GITHUB_REF_NAME" --json isDraft,isImmutable --jq '[.isDraft,.isImmutable] | @tsv')"
+          test "$state" = $'false\ttrue'
+          remote_commit="$(git ls-remote origin "refs/tags/${GITHUB_REF_NAME}^{}" | cut -f1)"
+          test "$remote_commit" = "$TAG_COMMIT"

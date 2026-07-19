@@ -5,7 +5,8 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    # Fixture manifests are static scanner inputs with noninstallable sentinel versions.
+    # Scanner fixtures use package.json.fixture and are materialized only in disposable tests.
+    # This exclusion is defense in depth; fixtures must never become dependency roots.
     exclude-paths:
       - "fixtures/**"
     ignore:

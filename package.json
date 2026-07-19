@@ -1,6 +1,6 @@
 {
   "name": "fullstack-forge-skill",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Evidence-driven production audits for full-stack applications and AI coding agents.",
   "type": "module",
   "license": "Apache-2.0",
@@ -56,11 +56,14 @@
   "scripts": {
     "build": "npm run generate && tsc -p tsconfig.json",
     "audit:dependencies": "npm audit --ignore-scripts",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run validate && npm run check:platforms && npm run check:links && npm run check:licenses && npm run check:branding && npm run scan:secrets",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run validate && npm run check:platforms && npm run check:links && npm run check:licenses && npm run check:fixtures && npm run check:workflows && npm run check:release-docs && npm run check:branding && npm run scan:secrets",
     "check:branding": "node scripts/check-branding.mjs",
     "check:licenses": "node scripts/check-licenses.mjs",
+    "check:fixtures": "node scripts/check-fixtures.mjs",
     "check:links": "node scripts/check-links.mjs",
     "check:platforms": "node scripts/check-platform-assets.mjs",
+    "check:release-docs": "node scripts/validate-release-docs.mjs",
+    "check:workflows": "node scripts/check-workflows.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "generate": "node scripts/generate-modules.mjs && node scripts/sync-platform-assets.mjs",
@@ -70,7 +73,7 @@
     "smoke:install": "npm run build && node scripts/smoke-install.mjs",
     "offline:install": "npm run build && node scripts/offline-install.mjs",
     "test": "npm run build && node --test build/cli/tests/**/*.test.js scripts/tests/**/*.test.mjs",
-    "test:coverage": "npm run build && node --test --experimental-test-coverage build/cli/tests/**/*.test.js scripts/tests/**/*.test.mjs",
+    "test:coverage": "npm run build && node scripts/run-coverage.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "validate": "node scripts/validate-skill.mjs",
     "validate:dist": "node scripts/validate-dist.mjs"

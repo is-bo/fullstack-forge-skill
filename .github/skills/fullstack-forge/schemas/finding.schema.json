@@ -21,6 +21,10 @@
   ],
   "properties": {
     "id": { "type": "string", "pattern": "^FF-[A-Z0-9-]+-[0-9]{3,}$" },
+    "instance_id": {
+      "type": "string",
+      "pattern": "^FF-[A-Z0-9-]+-[0-9]{3,}:[a-f0-9]{8,}$"
+    },
     "section": { "type": "string", "minLength": 1 },
     "title": { "type": "string", "minLength": 1 },
     "severity": { "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"] },
@@ -50,6 +54,25 @@
     },
     "standards": { "type": "array", "items": { "type": "string", "minLength": 1 } },
     "analyzer_id": { "type": "string", "minLength": 1 },
+    "fix_attempts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "risk", "reason", "attempted_at"],
+        "properties": {
+          "fix_id": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["PLANNED", "APPLIED", "BLOCKED", "ROLLED_BACK"] },
+          "risk": { "enum": ["safe", "risky", "unsupported"] },
+          "reason": { "type": "string", "minLength": 1 },
+          "attempted_at": { "type": "string", "format": "date-time" },
+          "paths": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
     "trace": {
       "type": "array",
       "items": {
@@ -95,6 +118,14 @@
                   "type": { "const": "analyzer" },
                   "analyzer_id": { "type": "string", "minLength": 1 },
                   "finding_id": { "type": "string", "minLength": 1 },
+                  "instance_id": {
+                    "type": "string",
+                    "pattern": "^FF-[A-Z0-9-]+-[0-9]{3,}:[a-f0-9]{8,}$"
+                  },
+                  "scope_paths": {
+                    "type": "array",
+                    "items": { "type": "string", "minLength": 1 }
+                  },
                   "absence_proves_resolution": { "type": "boolean" }
                 }
               },

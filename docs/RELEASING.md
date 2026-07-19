@@ -13,20 +13,28 @@
    safety, absence of symlinks, and the exact archive set.
 6. Verify the private local specification, research clones, build temporaries, credentials, and
    `node_modules` are ignored, untracked, and absent from all packages.
-7. Run `npm run check` again after the final source edit.
+7. Run `npm run check:release-docs`; the tagged record must say `TAGGED_LOCAL`, record local
+   validation as `PASS`, and keep remote publication `PENDING`.
+8. Run `npm run check` again after the final source edit.
 
 ## GitHub publication
 
-Commit with clear Conventional Commit subjects, push `main`, and wait for Linux, Windows, and macOS
-CI. Release notes must exist at `docs/RELEASE_NOTES_<tag>.md` before tagging; the release workflow
-fails closed when they are missing and attests build provenance for every published archive. Create
-an annotated release tag only from the verified commit. Never move or recreate a public tag. The
-pinned release workflow rebuilds, validates, smoke-installs, and uploads every ZIP plus
-`SHA256SUMS.txt` and `manifest.json`.
+Commit with clear Conventional Commit subjects, merge through a reviewed pull request, and wait for
+Linux, Windows, macOS, dependency-review, and CodeQL results. Release notes and a tagged local
+record must exist at `docs/RELEASE_NOTES_<tag>.md` and `docs/RELEASE_VERIFICATION_<tag>.md` before
+tagging. Create an annotated release tag only from the verified commit. Never move or recreate a
+public tag. The pinned release workflow proves that the tag resolves to the expected commit and that
+no release exists, rebuilds and validates, creates a draft without clobbering, attests every ZIP,
+downloads and compares the draft assets byte-for-byte, adds checksummed final evidence, publishes
+exactly once, and verifies the immutable release and asset attestations.
 
 Release notes must cover purpose, supported agents, installation, commands, evidence and safety
-models, distribution files, known limitations, attribution, and social-preview state. Verify the
-tag, release page, asset downloads, checksums, and remote commit directly before declaring success.
+models, distribution files, known limitations, attribution, and social-preview state. Tagged source
+must not claim remote CI, publication, provenance, or immutability already passed. The tag workflow
+publishes `FINAL_RELEASE_VERIFICATION_<tag>.md` and its checksum as release assets after draft-asset
+verification; that asset explicitly states that it was not present in tagged source. Verify the tag,
+release page, asset downloads, checksums, provenance, immutability, and remote commit directly
+before declaring success.
 
 Do not publish to npm unless name availability, authentication, provenance, package contents, and a
 separate explicit release decision are all verified. GitHub release failure must never be hidden by

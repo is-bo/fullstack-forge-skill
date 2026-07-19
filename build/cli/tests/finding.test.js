@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import test from "node:test";
+import { PACKAGE_ROOT } from "../src/constants.js";
 import { validateFinding } from "../src/finding.js";
 const valid = {
     id: "FF-AUTH-001",
@@ -31,5 +34,55 @@ test("rejects optimistic and malformed evidence records", () => {
     assert.ok(errors.some((error) => error.includes("status")));
     assert.ok(errors.some((error) => error.includes("evidence")));
     assert.ok(errors.some((error) => error.includes("safe_fix")));
+});
+test("instance-specific verification and fix attempts satisfy the runtime contract", () => {
+    assert.deepEqual(validateFinding({
+        ...valid,
+        instance_id: "FF-AUTH-001:12345678",
+        fix_attempts: [
+            {
+                fix_id: "FF-FIX-AUTH-001",
+                status: "BLOCKED",
+                risk: "risky",
+                reason: "Authorization policy requires approval.",
+                attempted_at: "2026-07-19T12:00:00.000Z"
+            }
+        ],
+        verification_plan: {
+            actions: [
+                {
+                    type: "analyzer",
+                    analyzer_id: "js-ts-boundaries",
+                    finding_id: "FF-AUTH-001",
+                    instance_id: "FF-AUTH-001:12345678",
+                    scope_paths: ["src/auth.ts"],
+                    absence_proves_resolution: true
+                }
+            ]
+        }
+    }), []);
+});
+test("malformed instance-specific verification is rejected", () => {
+    const errors = validateFinding({
+        ...valid,
+        verification_plan: {
+            actions: [
+                {
+                    type: "analyzer",
+                    analyzer_id: "js-ts-boundaries",
+                    finding_id: "FF-AUTH-001",
+                    instance_id: "FF-OTHER-001:12345678",
+                    scope_paths: ["../outside.ts"],
+                    absence_proves_resolution: true
+                }
+            ]
+        }
+    });
+    assert.ok(errors.some((error) => error.includes("verification_plan.actions")));
+});
+test("published finding schema exposes instance and fix lifecycle fields", async () => {
+    const schema = JSON.parse(await readFile(join(PACKAGE_ROOT, "src", "fullstack-forge", "schemas", "finding.schema.json"), "utf8"));
+    assert.ok(schema.properties.instance_id);
+    assert.ok(schema.properties.fix_attempts);
 });
 //# sourceMappingURL=finding.test.js.map

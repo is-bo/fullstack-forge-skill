@@ -18,9 +18,16 @@ import { install, readInstallManifest, uninstall } from "./installer.js";
 import { inspectSection, isModuleSlug } from "./inspectors.js";
 import { createReport, readReport, renderMarkdown, writeReport } from "./report.js";
 import { analyzeChangedScope, type ChangedScope } from "./scope.js";
-import type { CliOptions, Finding, InspectionResult, ProjectProfile } from "./types.js";
+import { coverageForProfile } from "./support.js";
+import type {
+  AnalyzerCoverage,
+  CliOptions,
+  Finding,
+  InspectionResult,
+  ProjectProfile
+} from "./types.js";
 import { runTool } from "./tools.js";
-import { canonicalDirectory } from "./utils.js";
+import { canonicalDirectory, workingTreeRevision } from "./utils.js";
 import { verifyFindings } from "./verification.js";
 
 const MODES = new Set(["audit", "fix", "verify", "report"]);
@@ -45,6 +52,21 @@ const HIGH_RISK_MODULES = new Set<ModuleSlug>([
   "supply-chain",
   "ai",
   "payments"
+]);
+const ADAPTER_MODULES = new Set<ModuleSlug>([
+  "accessibility",
+  "ai",
+  "auth",
+  "authorization",
+  "cache",
+  "deployment",
+  "frontend",
+  "integrations",
+  "payments",
+  "queries",
+  "security",
+  "tenancy",
+  "uploads"
 ]);
 
 export async function runCli(argv: string[]): Promise<number> {
@@ -136,6 +158,7 @@ async function runModule(section: ModuleSlug, mode: string, options: CliOptions)
   }
 
   const profile = await discoverProject(root);
+  const revision = await workingTreeRevision(root);
   if (section === "discover") {
     const artifacts = await writeProjectArtifacts(profile, options.dryRun);
     const findings: Finding[] = [
@@ -145,7 +168,19 @@ async function runModule(section: ModuleSlug, mode: string, options: CliOptions)
         "Discovery completed; runtime-only boundaries remain unverified."
       )
     ];
-    const report = createReport(root, profile, findings, "discover");
+    const report = createReport(
+      root,
+      profile,
+      findings,
+      "discover",
+      [],
+      [],
+      [],
+      undefined,
+      [],
+      [],
+      revision
+    );
     const paths = options.dryRun ? [] : await writeReport(report);
     printValue({ profile, artifacts, report_paths: paths, dry_run: options.dryRun }, options.json);
     return 0;
@@ -166,13 +201,31 @@ async function runModule(section: ModuleSlug, mode: string, options: CliOptions)
   const results = await Promise.all(
     selected.map((slug) => inspectSection(slug, root, profile, changedScope?.files))
   );
+  for (const [index, result] of results.entries()) {
+    const selectedModule = selected[index];
+    result.gate_evidence = result.gate_evidence.map((evidence) => ({
+      ...evidence,
+      revision
+    }));
+    result.analyzer_coverage =
+      selectedModule !== undefined && ADAPTER_MODULES.has(selectedModule)
+        ? coverageForProfile(selectedModule, profile)
+        : [];
+  }
   const findings = results.flatMap((result, index) => {
-    if (result.findings.length > 0) return result.findings;
+    const selectedModule = selected[index] ?? section;
+    const adapterFindings = result.analyzer_coverage
+      .filter((coverage) => coverage.status === "NOT_VERIFIED")
+      .map((coverage, coverageIndex) =>
+        adapterCoverageFinding(selectedModule, coverage, coverageIndex)
+      );
+    if (result.findings.length > 0 || adapterFindings.length > 0)
+      return [...result.findings, ...adapterFindings];
     return [
       coverageFinding(
-        selected[index] ?? section,
+        selectedModule,
         result.observations.length,
-        coverageDetail(selected[index] ?? section, profile, result)
+        coverageDetail(selectedModule, result)
       )
     ];
   });
@@ -192,7 +245,10 @@ async function runModule(section: ModuleSlug, mode: string, options: CliOptions)
     [
       "Static inspection does not verify running application, production, provider, database, browser, or operator controls."
     ],
-    changedScope?.evidence
+    changedScope?.evidence,
+    results.flatMap((result) => result.gate_evidence),
+    results.flatMap((result) => result.analyzer_coverage),
+    revision
   );
   const paths = options.dryRun ? [] : await writeReport(report);
   printValue(
@@ -224,6 +280,7 @@ async function ship(options: CliOptions): Promise<number> {
   const root = await canonicalDirectory(options.cwd);
   const commands = await detectProjectCommands(root);
   const profile = await discoverProject(root);
+  const revision = await workingTreeRevision(root);
   let previous: Awaited<ReturnType<typeof readReport>> | undefined;
   try {
     previous = await readReport(root, join(root, ".forge", "report.json"));
@@ -276,7 +333,10 @@ async function ship(options: CliOptions): Promise<number> {
       ...(previous?.residual_risk ?? []),
       "Remote CI, registry, GitHub release, deployment, and production state require separate direct evidence."
     ],
-    previous?.scope_evidence
+    previous?.scope_evidence,
+    [...(previous?.gate_evidence ?? []), ...gateResult.evidence],
+    previous?.analyzer_coverage ?? [],
+    revision
   );
   if (!options.dryRun) await writeReport(report);
   printValue(options.json ? report : renderMarkdown(report), options.json);
@@ -421,39 +481,47 @@ function summarize(results: InspectionResult[]) {
   return results.map((result) => ({
     tool: result.tool,
     observations: result.observations.length,
-    findings: result.findings.length
+    findings: result.findings.length,
+    gate_evidence: result.gate_evidence.length,
+    analyzer_coverage: result.analyzer_coverage.length
   }));
 }
 
-function coverageDetail(
-  section: ModuleSlug,
-  profile: ProjectProfile,
-  result: InspectionResult
-): string {
-  const boundedSections = new Set<ModuleSlug>([
-    "accessibility",
-    "ai",
-    "authorization",
-    "cache",
-    "deployment",
-    "frontend",
-    "integrations",
-    "payments",
-    "queries",
-    "security",
-    "tenancy",
-    "uploads"
-  ]);
-  const supportedLanguage = profile.languages.some((language) =>
-    ["JavaScript", "TypeScript"].includes(language.name)
-  );
+function coverageDetail(section: ModuleSlug, result: InspectionResult): string {
   const analyzerRan = result.observations.some(
     (observation) => observation.category === "bounded-analyzer"
   );
-  if (boundedSections.has(section) && !supportedLanguage && !analyzerRan) {
-    return `No bounded first-party analyzer supports the detected language set (${profile.languages.map((language) => language.name).join(", ") || "unknown"}); keyword inventory is discovery evidence only.`;
-  }
-  return "Bounded static analysis and secondary inventory completed; manual and runtime checks remain NOT_VERIFIED.";
+  return `${analyzerRan ? "A bounded analyzer ran" : `The ${section} inventory ran`}; manual, runtime, cross-file, and provider checks remain NOT_VERIFIED.`;
+}
+
+function adapterCoverageFinding(
+  section: ModuleSlug,
+  coverage: AnalyzerCoverage,
+  index: number
+): Finding {
+  return {
+    id: `FF-${section.toUpperCase()}-${String(801 + index).padStart(3, "0")}`,
+    section,
+    title: `${coverage.language}/${coverage.framework} analyzer coverage is ${coverage.coverage}`,
+    severity: "INFO",
+    confidence: "HIGH",
+    status: "NOT_VERIFIED",
+    location: [{ path: ".forge/project-profile.json" }],
+    evidence: [
+      `module=${coverage.module}; language=${coverage.language}; framework=${coverage.framework}; coverage=${coverage.coverage}; analyzer=${coverage.analyzer_id}; required_adapter=${coverage.required_adapter ?? "none"}; unsupported_shapes=${coverage.unsupported_shapes.join(", ") || "none"}`
+    ],
+    impact:
+      "The selected module cannot claim executable coverage for these detected source shapes.",
+    recommendation:
+      coverage.required_adapter === undefined
+        ? "Complete the listed manual and runtime verification procedures."
+        : `Implement or install the ${coverage.required_adapter} adapter and retain manual verification for unsupported shapes.`,
+    safe_fix: false,
+    verification: [
+      `Provide direct evidence for: ${coverage.unsupported_shapes.join("; ") || "all detected shapes"}`
+    ],
+    standards: ["Fullstack Forge evidence protocol"]
+  };
 }
 
 function parseArguments(argv: string[]): { positionals: string[]; options: CliOptions } {

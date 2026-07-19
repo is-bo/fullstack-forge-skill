@@ -4,216 +4,404 @@ import ts from "typescript";
  *
  * Scope and limits — this is deliberately NOT whole-program sound:
  *  - Analysis is per file. Cross-file flows are not resolved.
- *  - Propagation covers local aliases, reassignment, destructuring, template literals, string
- *    concatenation, and same-file function-parameter summaries.
- *  - Shadowing is approximated: a symbol name is tracked per file, not per lexical scope.
- *  - Fixpoint iteration is capped, so deeply chained propagation may be missed.
+ *  - Propagation covers lexical bindings, local aliases, reassignment, destructuring, template
+ *    literals, string concatenation, and same-file function-parameter summaries.
+ *  - Control-flow joins are conservative and the fixpoint is capped.
+ *  - Protection evidence is typed. Validation never erases request-controlled provenance, and a
+ *    protection is useful only to a sink that explicitly accepts its kind and context.
  *
- * Anything the engine cannot resolve is reported as unresolved by the caller, never as safe.
+ * Anything the engine cannot resolve remains untrusted or unresolved; it is never represented as
+ * universally safe.
  */
-const MAX_ITERATIONS = 6;
+const MAX_ITERATIONS = 8;
 /** Direct request-controlled roots. */
 const REQUEST_ROOT = /^(?:req|request|ctx\.request|event|context\.request)\.(?:body|params|query|headers|file|files|cookies)\b/u;
-/** Validator and sanitizer calls that bind to a specific value. */
-const SANITIZER_CALL = /\b(?:safeParse|parseAsync|parse|validateSync|validate|sanitize|escape|encodeURIComponent|coerce|assertIs|z|yup|joi|ajv)\b/u;
+export const PROTECTION_KINDS = [
+    "validated",
+    "normalized",
+    "encoded",
+    "allowlisted",
+    "parameterized",
+    "shell-separated",
+    "trusted-origin",
+    "network-constrained"
+];
 export function buildTaintModel(sourceFile) {
-    const tainted = new Map();
-    const sanitized = new Set();
-    const parameterTaint = new Map();
-    // Pass 1: collect same-file call sites that pass request data into a declared function, so a
-    // parameter can be treated as tainted inside that function body.
-    collectParameterTaint(sourceFile, parameterTaint);
-    // Fixpoint: repeat until no new symbol becomes tainted, bounded by MAX_ITERATIONS.
+    const index = indexBindings(sourceFile);
+    const states = new Map();
+    const stateFor = (node) => resolveExpression(node, sourceFile, index, states);
     for (let iteration = 0; iteration < MAX_ITERATIONS; iteration += 1) {
-        const before = tainted.size;
+        const before = stateFingerprint(states);
         walk(sourceFile, (node) => {
-            collectDeclarations(node, sourceFile, tainted, sanitized);
-            collectAssignments(node, sourceFile, tainted);
-            collectTaintedParameters(node, sourceFile, tainted, parameterTaint);
+            collectDeclarations(node, sourceFile, index, states);
+            collectAssignments(node, sourceFile, index, states);
+            collectTaintedParameters(node, sourceFile, index, states);
         });
-        if (tainted.size === before)
+        if (stateFingerprint(states) === before)
             break;
     }
-    const resolve = (node) => resolveExpression(node, sourceFile, tainted);
+    const tainted = publicTaintMap(states);
+    const resolve = (node) => stateFor(node).origin;
+    const protections = (node) => stateFor(node).protections;
     return {
         resolve,
-        isSanitized: (name) => sanitized.has(name),
+        protections,
+        hasProtection: (node, kind, context) => protections(node).some((protection) => protection.kind === kind &&
+            (context === undefined || protection.context === context || protection.context === "any")),
         tainted
     };
 }
-/**
- * Resolves an expression to a taint origin. Handles direct request access, tracked identifiers,
- * property access on tracked objects, template literals, and string concatenation.
- */
-function resolveExpression(node, sourceFile, tainted) {
-    const text = node.getText(sourceFile);
-    if (REQUEST_ROOT.test(text))
-        return { source: directSource(text), steps: [] };
-    if (ts.isIdentifier(node))
-        return tainted.get(node.text);
-    if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
-        const root = rootIdentifier(node);
-        if (root !== undefined) {
-            const origin = tainted.get(root);
-            if (origin !== undefined)
-                return { source: origin.source, steps: [...origin.steps, `property access ${text}`] };
-        }
+function resolveExpression(node, sourceFile, index, states) {
+    const expression = unwrap(node);
+    const text = expression.getText(sourceFile);
+    if (REQUEST_ROOT.test(text)) {
+        return { origin: { source: directSource(text), steps: [] }, protections: [] };
     }
-    if (ts.isTemplateExpression(node)) {
-        for (const span of node.templateSpans) {
-            const origin = resolveExpression(span.expression, sourceFile, tainted);
-            if (origin !== undefined)
-                return {
-                    source: origin.source,
-                    steps: [...origin.steps, `interpolated into template literal`]
-                };
-        }
-        return undefined;
+    if (ts.isIdentifier(expression)) {
+        const binding = resolveBinding(expression, index);
+        return binding === undefined ? emptyState() : cloneState(states.get(binding));
     }
-    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
-        for (const side of [node.left, node.right]) {
-            const origin = resolveExpression(side, sourceFile, tainted);
-            if (origin !== undefined)
-                return { source: origin.source, steps: [...origin.steps, "string concatenation"] };
-        }
-        return undefined;
+    if (ts.isPropertyAccessExpression(expression)) {
+        const base = resolveExpression(expression.expression, sourceFile, index, states);
+        return appendStep(base, `property access ${text}`);
     }
-    if (ts.isAwaitExpression(node) || ts.isParenthesizedExpression(node) || ts.isAsExpression(node))
-        return resolveExpression(node.expression, sourceFile, tainted);
-    if (ts.isObjectLiteralExpression(node)) {
-        for (const property of node.properties) {
-            if (ts.isPropertyAssignment(property)) {
-                const origin = resolveExpression(property.initializer, sourceFile, tainted);
-                if (origin !== undefined)
-                    return {
-                        source: origin.source,
-                        steps: [...origin.steps, `object property ${property.name.getText(sourceFile)}`]
-                    };
-            }
-            if (ts.isShorthandPropertyAssignment(property)) {
-                const origin = tainted.get(property.name.text);
-                if (origin !== undefined)
-                    return {
-                        source: origin.source,
-                        steps: [...origin.steps, `object shorthand ${property.name.text}`]
-                    };
-            }
-        }
+    if (ts.isElementAccessExpression(expression)) {
+        const base = resolveExpression(expression.expression, sourceFile, index, states);
+        if (base.origin !== undefined)
+            return appendStep(base, `property access ${text}`);
+        const selector = expression.argumentExpression;
+        const selected = resolveExpression(selector, sourceFile, index, states);
+        if (selected.origin === undefined || !isServerOwnedAllowlist(expression.expression, sourceFile))
+            return emptyState();
+        const producer = expression.expression.getText(sourceFile);
+        return {
+            origin: {
+                source: selected.origin.source,
+                steps: [...selected.origin.steps, `selected server-owned destination from ${producer}`]
+            },
+            protections: mergeProtections(selected.protections, [
+                protection("allowlisted", "destination", producer, text),
+                protection("trusted-origin", "network", producer, text),
+                protection("network-constrained", "network", producer, text)
+            ])
+        };
     }
-    return undefined;
+    if (ts.isTemplateExpression(expression)) {
+        const statesValue = expression.templateSpans.map((span) => resolveExpression(span.expression, sourceFile, index, states));
+        return combineStates(statesValue, "interpolated into template literal");
+    }
+    if (ts.isBinaryExpression(expression) &&
+        expression.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+        return combineStates([
+            resolveExpression(expression.left, sourceFile, index, states),
+            resolveExpression(expression.right, sourceFile, index, states)
+        ], "string concatenation");
+    }
+    if (ts.isConditionalExpression(expression)) {
+        return combineStates([
+            resolveExpression(expression.whenTrue, sourceFile, index, states),
+            resolveExpression(expression.whenFalse, sourceFile, index, states)
+        ], "conditional expression");
+    }
+    if (ts.isCallExpression(expression) || ts.isNewExpression(expression)) {
+        const argumentsValue = expression.arguments ?? ts.factory.createNodeArray();
+        const inputs = argumentsValue.map((argument) => resolveExpression(argument, sourceFile, index, states));
+        const combined = combineStates(inputs, `passed through ${callTarget(expression, sourceFile)}`);
+        if (combined.origin === undefined)
+            return emptyState();
+        return {
+            origin: combined.origin,
+            protections: mergeProtections(combined.protections, classifyProtections(expression, sourceFile))
+        };
+    }
+    if (ts.isObjectLiteralExpression(expression)) {
+        const values = [];
+        for (const property of expression.properties) {
+            if (ts.isPropertyAssignment(property))
+                values.push(resolveExpression(property.initializer, sourceFile, index, states));
+            else if (ts.isShorthandPropertyAssignment(property))
+                values.push(resolveExpression(property.name, sourceFile, index, states));
+            else if (ts.isSpreadAssignment(property))
+                values.push(resolveExpression(property.expression, sourceFile, index, states));
+        }
+        return combineStates(values, "embedded in object literal");
+    }
+    if (ts.isArrayLiteralExpression(expression)) {
+        return combineStates(expression.elements
+            .filter((element) => ts.isExpression(element))
+            .map((element) => resolveExpression(element, sourceFile, index, states)), "embedded in array literal");
+    }
+    return emptyState();
 }
-/** `const id = req.params.id`, `const { target } = req.query`, and sanitizer binding. */
-function collectDeclarations(node, sourceFile, tainted, sanitized) {
+function collectDeclarations(node, sourceFile, index, states) {
     if (!ts.isVariableDeclaration(node) || node.initializer === undefined)
         return;
-    const initializer = node.initializer;
-    const initializerText = initializer.getText(sourceFile);
-    // A sanitizer bound to this declaration cleans only the symbol it produces.
-    const initializerOrigin = resolveExpression(initializer, sourceFile, tainted);
-    const sanitizerApplied = ts.isCallExpression(initializer) &&
-        SANITIZER_CALL.test(callTarget(initializer, sourceFile)) &&
-        initializer.arguments.some((argument) => resolveExpression(argument, sourceFile, tainted) !== undefined);
+    const initializer = resolveExpression(node.initializer, sourceFile, index, states);
+    if (initializer.origin === undefined)
+        return;
     if (ts.isIdentifier(node.name)) {
-        if (sanitizerApplied) {
-            sanitized.add(node.name.text);
-            return;
-        }
-        if (initializerOrigin !== undefined)
-            record(tainted, node.name.text, {
-                source: initializerOrigin.source,
-                steps: [...initializerOrigin.steps, `assigned to ${node.name.text}`]
-            });
+        const binding = bindingForDeclaration(node.name, index);
+        if (binding !== undefined)
+            record(states, binding, appendStep(initializer, `assigned to ${node.name.text}`));
         return;
     }
-    // Destructuring: `const { target } = req.query` / `const [first] = req.body.items`
-    if (ts.isObjectBindingPattern(node.name) || ts.isArrayBindingPattern(node.name)) {
-        if (initializerOrigin === undefined && !REQUEST_ROOT.test(initializerText))
-            return;
-        const origin = initializerOrigin ?? { source: directSource(initializerText), steps: [] };
-        for (const element of node.name.elements) {
-            if (!ts.isBindingElement(element) || !ts.isIdentifier(element.name))
-                continue;
-            if (sanitizerApplied) {
-                sanitized.add(element.name.text);
-                continue;
-            }
-            record(tainted, element.name.text, {
-                source: origin.source,
-                steps: [...origin.steps, `destructured into ${element.name.text}`]
-            });
-        }
+    if (!ts.isObjectBindingPattern(node.name) && !ts.isArrayBindingPattern(node.name))
+        return;
+    for (const element of node.name.elements) {
+        if (!ts.isBindingElement(element) || !ts.isIdentifier(element.name))
+            continue;
+        const binding = bindingForDeclaration(element.name, index);
+        if (binding !== undefined)
+            record(states, binding, appendStep(initializer, `destructured into ${element.name.text}`));
     }
 }
-/** `let command; command = req.body.command;` */
-function collectAssignments(node, sourceFile, tainted) {
+function collectAssignments(node, sourceFile, index, states) {
     if (!ts.isBinaryExpression(node) ||
         node.operatorToken.kind !== ts.SyntaxKind.EqualsToken ||
         !ts.isIdentifier(node.left))
         return;
-    const origin = resolveExpression(node.right, sourceFile, tainted);
-    if (origin !== undefined)
-        record(tainted, node.left.text, {
-            source: origin.source,
-            steps: [...origin.steps, `reassigned to ${node.left.text}`]
-        });
+    const value = resolveExpression(node.right, sourceFile, index, states);
+    if (value.origin === undefined)
+        return;
+    const binding = resolveBinding(node.left, index);
+    if (binding !== undefined)
+        record(states, binding, appendStep(value, `reassigned to ${node.left.text}`));
 }
-/**
- * Same-file function-parameter summary: when `loadUser(req.params.id)` appears anywhere in the
- * file, the corresponding parameter of `loadUser` is treated as request-controlled.
- */
-function collectParameterTaint(sourceFile, parameterTaint) {
+/** Propagates request-controlled arguments into parameters of a uniquely named same-file function. */
+function collectTaintedParameters(node, sourceFile, index, states) {
+    if (!ts.isCallExpression(node) || !ts.isIdentifier(node.expression))
+        return;
+    const callee = node.expression.text;
+    const target = index.functionByName.get(callee);
+    if (target === undefined)
+        return;
+    node.arguments.forEach((argument, position) => {
+        const parameter = target.parameters[position];
+        if (parameter === undefined || !ts.isIdentifier(parameter.name))
+            return;
+        const value = resolveExpression(argument, sourceFile, index, states);
+        if (value.origin === undefined)
+            return;
+        const binding = bindingForDeclaration(parameter.name, index);
+        if (binding !== undefined)
+            record(states, binding, appendStep(value, `passed as argument ${position} to ${callee} and bound to ${parameter.name.text}`));
+    });
+}
+function indexBindings(sourceFile) {
+    const byScope = new Map();
+    const functionByName = new Map();
+    const ambiguousFunctions = new Set();
+    const add = (identifier, scope) => {
+        const values = byScope.get(scope) ?? new Map();
+        if (!values.has(identifier.text))
+            values.set(identifier.text, { name: identifier.text, declaration: identifier, scope });
+        byScope.set(scope, values);
+    };
     walk(sourceFile, (node) => {
-        if (!ts.isCallExpression(node) || !ts.isIdentifier(node.expression))
-            return;
-        const callee = node.expression.text;
-        node.arguments.forEach((argument, index) => {
-            if (!REQUEST_ROOT.test(argument.getText(sourceFile)))
-                return;
-            const positions = parameterTaint.get(callee) ?? new Set();
-            positions.add(index);
-            parameterTaint.set(callee, positions);
-        });
+        if (ts.isVariableDeclaration(node)) {
+            const scope = declarationScope(node);
+            for (const identifier of bindingIdentifiers(node.name))
+                add(identifier, scope);
+            if (ts.isIdentifier(node.name) &&
+                node.initializer !== undefined &&
+                (ts.isArrowFunction(node.initializer) || ts.isFunctionExpression(node.initializer)))
+                registerFunction(node.name.text, node.initializer, functionByName, ambiguousFunctions);
+        }
+        if (ts.isFunctionDeclaration(node) && node.name !== undefined) {
+            add(node.name, declarationScope(node));
+            registerFunction(node.name.text, node, functionByName, ambiguousFunctions);
+        }
+        if (ts.isFunctionLike(node))
+            for (const parameter of node.parameters)
+                for (const identifier of bindingIdentifiers(parameter.name))
+                    add(identifier, node);
+        if (ts.isCatchClause(node) && node.variableDeclaration !== undefined)
+            for (const identifier of bindingIdentifiers(node.variableDeclaration.name))
+                add(identifier, node);
     });
+    for (const name of ambiguousFunctions)
+        functionByName.delete(name);
+    return { byScope, functionByName };
 }
-function collectTaintedParameters(node, sourceFile, tainted, parameterTaint) {
-    const name = functionName(node, sourceFile);
-    if (name === undefined)
-        return;
-    const positions = parameterTaint.get(name);
-    if (positions === undefined)
-        return;
-    const parameters = node.parameters;
-    parameters.forEach((parameter, index) => {
-        if (!positions.has(index) || !ts.isIdentifier(parameter.name))
-            return;
-        record(tainted, parameter.name.text, {
-            source: "request-controlled argument",
-            steps: [`passed as argument ${index} to ${name}`, `bound to parameter ${parameter.name.text}`]
-        });
-    });
+function registerFunction(name, node, functions, ambiguous) {
+    if (functions.has(name))
+        ambiguous.add(name);
+    else
+        functions.set(name, node);
 }
-function functionName(node, sourceFile) {
-    if (ts.isFunctionDeclaration(node) && node.name !== undefined)
-        return node.name.text;
-    if (ts.isVariableDeclaration(node) &&
-        ts.isIdentifier(node.name) &&
-        node.initializer !== undefined &&
-        (ts.isArrowFunction(node.initializer) || ts.isFunctionExpression(node.initializer)))
-        return node.name.text;
-    void sourceFile;
+function bindingIdentifiers(name) {
+    if (ts.isIdentifier(name))
+        return [name];
+    return name.elements.flatMap((element) => ts.isBindingElement(element) ? bindingIdentifiers(element.name) : []);
+}
+function declarationScope(node) {
+    let current = node.parent;
+    while (!ts.isSourceFile(current)) {
+        if (ts.isFunctionLike(current) || ts.isBlock(current))
+            return current;
+        current = current.parent;
+    }
+    return current;
+}
+function resolveBinding(identifier, index) {
+    let current = identifier;
+    for (;;) {
+        if (ts.isFunctionLike(current) || ts.isBlock(current) || ts.isSourceFile(current)) {
+            const binding = index.byScope.get(current)?.get(identifier.text);
+            if (binding !== undefined)
+                return binding;
+        }
+        if (ts.isSourceFile(current))
+            return undefined;
+        current = current.parent;
+    }
+}
+function bindingForDeclaration(identifier, index) {
+    for (const bindings of index.byScope.values()) {
+        const binding = bindings.get(identifier.text);
+        if (binding?.declaration === identifier)
+            return binding;
+    }
     return undefined;
 }
-function record(tainted, name, origin) {
-    // Keep the shortest known path so evidence stays readable and iteration converges.
-    const current = tainted.get(name);
-    if (current === undefined || origin.steps.length < current.steps.length)
-        tainted.set(name, { source: origin.source, steps: origin.steps.slice(0, 8) });
+function classifyProtections(node, sourceFile) {
+    const target = callTarget(node, sourceFile);
+    const expression = node.getText(sourceFile);
+    const values = [];
+    if (/(?:^|\.)(?:safeParse|parseAsync|parse|validateSync|validate|assertIs|assertValid|isUUID|validateUUID|uuid)$/iu.test(target))
+        values.push(protection("validated", "shape", target, expression));
+    if (/(?:^|\.)(?:trim|normalize|coerce|sanitize)$/iu.test(target))
+        values.push(protection("normalized", "text", target, expression));
+    if (/^(?:encodeURIComponent)$/u.test(target))
+        values.push(protection("encoded", "url-component", target, expression));
+    if (/(?:escapeHtml|htmlEscape|encodeHtml)$/iu.test(target))
+        values.push(protection("encoded", "html", target, expression));
+    if (/(?:escapeCsv|escapeFormula|csvEscape)$/iu.test(target))
+        values.push(protection("encoded", "csv", target, expression));
+    if (/(?:allowlist|assertAllowed|requireAllowed|allowedValue|\.enum|oneOf)/iu.test(target))
+        values.push(protection("allowlisted", "value", target, expression));
+    if (/(?:resolveAllowedDestination|allowedDestination|trustedDestination|mapDestination)/iu.test(target)) {
+        values.push(protection("allowlisted", "destination", target, expression));
+        values.push(protection("trusted-origin", "network", target, expression));
+        values.push(protection("network-constrained", "network", target, expression));
+    }
+    return values;
 }
-function rootIdentifier(node) {
+function isServerOwnedAllowlist(node, sourceFile) {
+    const text = node.getText(sourceFile);
+    return (/(?:allowlist|allowed|trusted|destinations?|redirects?|routes?)/iu.test(text) ||
+        /^[A-Z][A-Z0-9_]*$/u.test(text));
+}
+function protection(kind, context, producer, expression) {
+    return { kind, context, producer, expression };
+}
+function record(states, binding, incoming) {
+    if (incoming.origin === undefined)
+        return;
+    const current = states.get(binding);
+    if (current === undefined) {
+        states.set(binding, cloneState(incoming));
+        return;
+    }
+    const origin = incoming.origin.steps.length < (current.origin?.steps.length ?? Number.POSITIVE_INFINITY)
+        ? incoming.origin
+        : current.origin;
+    states.set(binding, {
+        ...(origin === undefined ? {} : { origin }),
+        // A binding can receive multiple values. Retain a protection only when every
+        // request-controlled assignment carries the same typed protection; unioning protections would
+        // let an earlier allowlisted value bless a later raw reassignment.
+        protections: intersectProtections(current.protections, incoming.protections)
+    });
+}
+function combineStates(values, step) {
+    const tainted = values.filter((value) => value.origin !== undefined);
+    if (tainted.length === 0)
+        return emptyState();
+    const shortest = tainted.reduce((best, candidate) => (candidate.origin?.steps.length ?? Number.POSITIVE_INFINITY) <
+        (best.origin?.steps.length ?? Number.POSITIVE_INFINITY)
+        ? candidate
+        : best);
+    return {
+        origin: {
+            source: shortest.origin?.source ?? "request-controlled data",
+            steps: [...(shortest.origin?.steps ?? []), step].slice(0, 12)
+        },
+        protections: mergeProtections(...tainted.map((value) => value.protections))
+    };
+}
+function appendStep(state, step) {
+    if (state.origin === undefined)
+        return cloneState(state);
+    return {
+        origin: { source: state.origin.source, steps: [...state.origin.steps, step].slice(0, 12) },
+        protections: [...state.protections]
+    };
+}
+function mergeProtections(...groups) {
+    const byKey = new Map();
+    for (const value of groups.flat())
+        byKey.set(protectionKey(value), value);
+    return [...byKey.values()];
+}
+function intersectProtections(left, right) {
+    const rightKeys = new Set(right.map(protectionKey));
+    return left.filter((value) => rightKeys.has(protectionKey(value)));
+}
+function protectionKey(value) {
+    return `${value.kind}\u0000${value.context}\u0000${value.producer}`;
+}
+function cloneState(value) {
+    if (value === undefined)
+        return emptyState();
+    return {
+        ...(value.origin === undefined
+            ? {}
+            : { origin: { source: value.origin.source, steps: [...value.origin.steps] } }),
+        protections: [...value.protections]
+    };
+}
+function emptyState() {
+    return { protections: [] };
+}
+function publicTaintMap(states) {
+    const counts = new Map();
+    for (const binding of states.keys())
+        counts.set(binding.name, (counts.get(binding.name) ?? 0) + 1);
+    const result = new Map();
+    for (const [binding, state] of states) {
+        if (state.origin === undefined)
+            continue;
+        const key = counts.get(binding.name) === 1
+            ? binding.name
+            : `${binding.name}@${binding.declaration.getStart(binding.declaration.getSourceFile())}`;
+        result.set(key, state.origin);
+    }
+    return result;
+}
+function stateFingerprint(states) {
+    return [...states.entries()]
+        .map(([binding, state]) => [
+        binding.declaration.pos,
+        state.origin?.source ?? "",
+        state.origin?.steps.join("|") ?? "",
+        state.protections
+            .map((item) => `${item.kind}:${item.context}:${item.producer}`)
+            .sort()
+            .join("|")
+    ].join(":"))
+        .sort()
+        .join("\n");
+}
+function unwrap(node) {
     let current = node;
-    while (ts.isPropertyAccessExpression(current) || ts.isElementAccessExpression(current))
+    while (ts.isAwaitExpression(current) ||
+        ts.isParenthesizedExpression(current) ||
+        ts.isAsExpression(current) ||
+        ts.isTypeAssertionExpression(current) ||
+        ts.isNonNullExpression(current))
         current = current.expression;
-    return ts.isIdentifier(current) ? current.text : undefined;
+    return current;
 }
 function callTarget(node, sourceFile) {
     return node.expression.getText(sourceFile);

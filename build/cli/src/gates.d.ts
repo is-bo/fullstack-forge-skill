@@ -1,5 +1,5 @@
 import type { AuditReport, ExecutionRecord } from "./report.js";
-import type { CommandDefinition, ProjectProfile, Status } from "./types.js";
+import type { CommandDefinition, GateEvidence, GateEvidenceType, ProjectProfile, Status } from "./types.js";
 export type GateStatus = Extract<Status, "PASS" | "FAIL" | "BLOCKED" | "NOT_VERIFIED" | "NOT_APPLICABLE">;
 export type ShipGate = {
     gate_id: string;
@@ -8,6 +8,7 @@ export type ShipGate = {
     required: boolean;
     status: GateStatus;
     evidence: string[];
+    evidence_records: GateEvidence[];
 };
 /**
  * Gate applicability classes.
@@ -26,14 +27,15 @@ export type GateDefinition = {
     applicability: GateApplicability;
     required: boolean;
     command?: string;
-    /** Finding sections that can satisfy this gate from audit evidence when no command exists. */
-    evidence_sections?: string[];
+    /** Exact evidence semantics accepted by this gate. Broad report sections are never used. */
+    evidence_types?: GateEvidenceType[];
 };
 export declare const FORGE_GATE_REGISTRY: readonly GateDefinition[];
 export type ShipGateResult = {
     status: "PASS" | "FAIL" | "BLOCKED";
     gates: ShipGate[];
     execution: ExecutionRecord[];
+    evidence: GateEvidence[];
 };
 export declare function runShipGates(root: string, profile: ProjectProfile, previous: AuditReport | undefined, commands: CommandDefinition[], allowRun: boolean): Promise<ShipGateResult>;
 export declare function evaluateGateOutcome(gates: ShipGate[]): "PASS" | "FAIL" | "BLOCKED";

@@ -36,12 +36,14 @@ forge ship
 forge ship --allow-run
 ```
 
-Both forms evaluate the explicit internal, audit-evidence, capability, and project-native gate
-registry. Without `--allow-run`, an applicable project-defined command is `BLOCKED`; after review,
-the flag executes its bounded argument vector without a shell. A missing recognized command cannot
-produce a pass by omission. The command records exit code, output, and duration and stops after the
-first failure. Remote CI, GitHub release, registry, deployment, and production state still require
-separate direct evidence.
+Both forms evaluate the explicit internal, typed audit-evidence, capability, and project-native gate
+registry. Secret, dependency, lockfile, license, authorization, tenant, upload, migration, test, and
+release-artifact evidence is revision- and timestamp-bound and cannot satisfy another gate by broad
+section membership. Without `--allow-run`, an applicable project-defined command is `BLOCKED`; after
+review, the flag executes its bounded argument vector without a shell. A missing recognized command
+cannot produce a pass by omission. The command records exit code, output, and duration and stops
+after the first failure. Remote CI, GitHub release, registry, deployment, and production state still
+require separate direct evidence.
 
 ## Platform lifecycle
 

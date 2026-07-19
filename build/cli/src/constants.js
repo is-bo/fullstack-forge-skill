@@ -1,6 +1,6 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-export const VERSION = "0.1.3";
+export const VERSION = "0.1.4";
 export const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 export const MODULE_SLUGS = [
     "discover",

@@ -5,8 +5,8 @@ import test from "node:test";
 import { discoverProject } from "../src/discovery.js";
 import { evaluateGateOutcome, runShipGates, type ShipGate } from "../src/gates.js";
 import { createReport } from "../src/report.js";
-import type { CommandDefinition, Finding } from "../src/types.js";
-import { sha256 } from "../src/utils.js";
+import type { CommandDefinition, Finding, GateEvidence, GateEvidenceType } from "../src/types.js";
+import { sha256, workingTreeRevision } from "../src/utils.js";
 import { withTemporaryProject } from "./helpers.js";
 
 test("gate outcome fails closed for required FAIL, BLOCKED, and NOT_VERIFIED states", () => {
@@ -191,6 +191,149 @@ test("each required Forge release command failure maps to a failing explicit gat
   }
 });
 
+test("SQL findings and clean security findings never become secret-scan evidence", async () => {
+  await withTemporaryProject("gate-semantic-secret", async (root) => {
+    await writePackage(root, "ordinary-project");
+    const profile = await discoverProject(root);
+    const sql: Finding = {
+      ...openFinding("HIGH"),
+      id: "FF-SEC-SQL-001",
+      title: "SQL injection",
+      section: "security"
+    };
+    const failed = await runShipGates(
+      root,
+      profile,
+      await typedReport(root, profile, [], [sql]),
+      [],
+      false
+    );
+    assert.equal(gateById(failed.gates, "FF-GATE-SECRETS").status, "NOT_VERIFIED");
+
+    const clean = { ...sql, status: "PASS" as const, severity: "INFO" as const };
+    const cleanResult = await runShipGates(
+      root,
+      profile,
+      await typedReport(root, profile, [], [clean]),
+      [],
+      false
+    );
+    assert.equal(gateById(cleanResult.gates, "FF-GATE-SECRETS").status, "NOT_VERIFIED");
+  });
+});
+
+test("typed secret, dependency, and license evidence satisfy only their own gates", async () => {
+  await withTemporaryProject("gate-semantic-types", async (root) => {
+    await writePackage(root, "ordinary-project");
+    const profile = await discoverProject(root);
+    const revision = await workingTreeRevision(root);
+    const run = async (records: GateEvidence[]) =>
+      runShipGates(
+        root,
+        profile,
+        createReport(root, profile, [], "audit", [], [], [], undefined, records, [], revision),
+        [],
+        false
+      );
+
+    const secret = await run([evidence("secret-scan", revision, "PASS")]);
+    assert.equal(gateById(secret.gates, "FF-GATE-SECRETS").status, "PASS");
+    assert.equal(gateById(secret.gates, "FF-GATE-DEPENDENCIES").status, "NOT_VERIFIED");
+    assert.equal(gateById(secret.gates, "FF-GATE-LICENSES").status, "NOT_VERIFIED");
+
+    const dependencies = await run([
+      evidence("dependency-audit", revision, "PASS"),
+      evidence("lockfile-inspection", revision, "PASS")
+    ]);
+    assert.equal(gateById(dependencies.gates, "FF-GATE-DEPENDENCIES").status, "PASS");
+    assert.equal(gateById(dependencies.gates, "FF-GATE-SECRETS").status, "NOT_VERIFIED");
+    assert.equal(gateById(dependencies.gates, "FF-GATE-LICENSES").status, "NOT_VERIFIED");
+
+    const licenses = await run([evidence("license-scan", revision, "PASS")]);
+    assert.equal(gateById(licenses.gates, "FF-GATE-LICENSES").status, "PASS");
+    assert.equal(gateById(licenses.gates, "FF-GATE-DEPENDENCIES").status, "NOT_VERIFIED");
+  });
+});
+
+test("failed and stale typed evidence fail closed independently", async () => {
+  await withTemporaryProject("gate-semantic-stale", async (root) => {
+    await writePackage(root, "ordinary-project");
+    const profile = await discoverProject(root);
+    const revision = await workingTreeRevision(root);
+    const failed = await runShipGates(
+      root,
+      profile,
+      createReport(
+        root,
+        profile,
+        [],
+        "audit",
+        [],
+        [],
+        [],
+        undefined,
+        [evidence("secret-scan", revision, "FAIL")],
+        [],
+        revision
+      ),
+      [],
+      false
+    );
+    assert.equal(gateById(failed.gates, "FF-GATE-SECRETS").status, "FAIL");
+
+    const stale = evidence("secret-scan", revision, "PASS");
+    stale.timestamp = "2020-01-01T00:00:00.000Z";
+    const staleResult = await runShipGates(
+      root,
+      profile,
+      createReport(root, profile, [], "audit", [], [], [], undefined, [stale], [], revision),
+      [],
+      false
+    );
+    assert.equal(gateById(staleResult.gates, "FF-GATE-SECRETS").status, "BLOCKED");
+  });
+});
+
+async function typedReport(
+  root: string,
+  profile: Awaited<ReturnType<typeof discoverProject>>,
+  records: GateEvidence[],
+  findings: Finding[] = []
+) {
+  const revision = await workingTreeRevision(root);
+  return createReport(
+    root,
+    profile,
+    findings,
+    "audit",
+    [],
+    [],
+    [],
+    undefined,
+    records.map((record) => ({ ...record, revision })),
+    [],
+    revision
+  );
+}
+
+function evidence(
+  evidenceType: GateEvidenceType,
+  revision: string,
+  status: GateEvidence["status"]
+): GateEvidence {
+  return {
+    evidence_type: evidenceType,
+    producer: `test:${evidenceType}`,
+    scope: ["repository"],
+    timestamp: new Date().toISOString(),
+    revision,
+    status,
+    relevant_instance_ids: [],
+    absence_proves_success: true,
+    limitations: ["Synthetic gate-isolation evidence."]
+  };
+}
+
 function syntheticGate(status: ShipGate["status"]): ShipGate {
   return {
     gate_id: "FF-GATE-TEST",
@@ -198,7 +341,8 @@ function syntheticGate(status: ShipGate["status"]): ShipGate {
     category: "internal",
     required: true,
     status,
-    evidence: ["test"]
+    evidence: ["test"],
+    evidence_records: []
   };
 }
 

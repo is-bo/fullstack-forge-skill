@@ -109,6 +109,13 @@ const RULES: Rule[] = [
     capability: "api"
   },
   {
+    category: "framework",
+    name: "Django",
+    confidence: "HIGH",
+    content: /(?:from|import)\s+django|\bDjango\b|["']django["']\s*:/u,
+    capability: "api"
+  },
+  {
     category: "database",
     name: "PostgreSQL",
     confidence: "MEDIUM",
@@ -561,10 +568,15 @@ async function buildStructuredProfile(
     });
   const applications = manifests.map((manifest) => applicationRecord(manifest));
   const languages = languageRecords(root, files);
-  const frameworks = capabilityRecords(capabilities, [
-    ["frontend", "frontend-framework"],
-    ["api", "backend-framework"],
-    ["realtime", "realtime-framework"]
+  const frameworks = await contentRecords(root, files, [
+    ["Next.js", "frontend-framework", /["']next["']\s*:/u],
+    ["React", "frontend-framework", /["']react["']\s*:/u],
+    ["Vue", "frontend-framework", /["']vue["']\s*:/u],
+    ["Svelte", "frontend-framework", /["']svelte["']\s*:/u],
+    ["Express", "backend-framework", /["']express["']\s*:/u],
+    ["FastAPI", "backend-framework", /(?:from|import)\s+fastapi/u],
+    ["Django", "backend-framework", /(?:from|import)\s+django|\bDjango\b|["']django["']\s*:/u],
+    ["WebSocket", "realtime-framework", /\b(?:WebSocket|socket\.io|EventSource)\b/u]
   ]);
   const packageManagers = packageManagerRecords(relativeFiles);
   const databases = capabilityRecords(capabilities, [["database", "database"]]);

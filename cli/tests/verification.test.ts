@@ -5,7 +5,8 @@ import test from "node:test";
 import { runAnalyzers } from "../src/analyzers.js";
 import { discoverProject } from "../src/discovery.js";
 import { createReport, writeReport } from "../src/report.js";
-import type { Finding } from "../src/types.js";
+import type { Finding, GateEvidence } from "../src/types.js";
+import { workingTreeRevision } from "../src/utils.js";
 import { verifyFindings } from "../src/verification.js";
 import { withTemporaryProject } from "./helpers.js";
 
@@ -124,6 +125,59 @@ test("verification detects a regressed finding that was previously marked PASS",
       dryRun: false
     });
     assert.equal(result.report.findings[0]?.status, "FAIL");
+  });
+});
+
+test("verification preserves typed gate evidence and analyzer coverage", async () => {
+  await withTemporaryProject("verify-typed-evidence", async (root) => {
+    await writeFile(join(root, "server.ts"), sqlFixture, "utf8");
+    const finding = await analyzerFinding(root, "security", "FF-SEC-SQL-001");
+    const profile = await discoverProject(root);
+    const revision = await workingTreeRevision(root);
+    const evidence: GateEvidence = {
+      evidence_type: "secret-scan",
+      producer: "test-secret-scan",
+      scope: ["repository"],
+      timestamp: new Date().toISOString(),
+      revision,
+      status: "PASS",
+      relevant_instance_ids: [],
+      absence_proves_success: true,
+      limitations: ["Pattern scan only."]
+    };
+    await writeReport(
+      createReport(
+        root,
+        profile,
+        [finding],
+        "test audit",
+        [],
+        [],
+        [],
+        undefined,
+        [evidence],
+        [
+          {
+            status: "PASS",
+            module: "security",
+            language: "JavaScript/TypeScript",
+            framework: "any",
+            analyzer_id: "js-ts-security",
+            coverage: "executable",
+            supported_shapes: ["local data flow"],
+            unsupported_shapes: ["cross-file data flow"]
+          }
+        ],
+        revision
+      )
+    );
+    const result = await verifyFindings(root, "security", profile, {
+      allowRun: false,
+      dryRun: false
+    });
+    assert.deepEqual(result.report.gate_evidence, [evidence]);
+    assert.equal(result.report.analyzer_coverage[0]?.analyzer_id, "js-ts-security");
+    assert.equal(result.report.revision, revision);
   });
 });
 

@@ -8,6 +8,7 @@
  * When a module has no adapter for a detected language/framework, the audit reports
  * NOT_VERIFIED and names the missing adapter instead of implying executable coverage.
  */
+import type { AnalyzerCoverage, ProjectProfile } from "./types.js";
 export type CoverageLevel = "executable" | "partial" | "none";
 export type AnalyzerSupport = {
     module: string;
@@ -33,6 +34,10 @@ export declare function findSupport(module: string, language: string, framework?
  * Reports the adapters that would be required to give a module executable coverage over the
  * languages a project actually contains.
  */
-export declare function missingAdapters(module: string, languages: string[]): MissingAdapter[];
+export declare function missingAdapters(module: string, languages: string[], frameworks?: string[]): MissingAdapter[];
+export declare function coverageForProfile(module: string, profile: Pick<ProjectProfile, "languages" | "frameworks">): AnalyzerCoverage[];
+export declare function coverageForDetections(module: string, languages: string[], frameworks?: string[]): AnalyzerCoverage[];
 /** Renders the structured NOT_VERIFIED evidence line for a missing adapter. */
 export declare function describeMissingAdapter(missing: MissingAdapter): string;
+/** Exact documentation rendering; a test keeps docs/ANALYZER_SUPPORT.md synchronized. */
+export declare function renderSupportRegistryMarkdown(): string;

@@ -6,7 +6,7 @@ import { PACKAGE_ROOT } from "../src/constants.js";
 import { discoverProject } from "../src/discovery.js";
 import { inspectWithTool } from "../src/inspectors.js";
 import { runFile } from "../src/utils.js";
-import { withTemporaryProject } from "./helpers.js";
+import { copyFixture, withTemporaryProject } from "./helpers.js";
 
 type Expectation = {
   capabilities: string[];
@@ -35,20 +35,23 @@ test("all twelve fixtures produce their declared discovery and tool signals", as
   ]);
   for (const name of fixtureNames) {
     await t.test(name, async () => {
-      const root = join(fixturesRoot, name);
-      const expected = JSON.parse(
-        await readFile(join(root, "expected-findings.json"), "utf8")
-      ) as Expectation;
-      const profile = await discoverProject(root);
-      for (const capability of expected.capabilities)
-        assert.ok(profile.capabilities[capability], `${name} should detect ${capability}`);
-      for (const [tool, minimum] of Object.entries(expected.tools)) {
-        const result = await inspectWithTool(tool as Parameters<typeof inspectWithTool>[0], root);
-        assert.ok(
-          result.observations.length + result.findings.length >= minimum,
-          `${name} ${tool} expected at least ${minimum} signal(s)`
-        );
-      }
+      await withTemporaryProject(`fixture-discovery-${name}`, async (temporary) => {
+        const root = join(temporary, "project");
+        await copyFixture(join(fixturesRoot, name), root);
+        const expected = JSON.parse(
+          await readFile(join(root, "expected-findings.json"), "utf8")
+        ) as Expectation;
+        const profile = await discoverProject(root);
+        for (const capability of expected.capabilities)
+          assert.ok(profile.capabilities[capability], `${name} should detect ${capability}`);
+        for (const [tool, minimum] of Object.entries(expected.tools)) {
+          const result = await inspectWithTool(tool as Parameters<typeof inspectWithTool>[0], root);
+          assert.ok(
+            result.observations.length + result.findings.length >= minimum,
+            `${name} ${tool} expected at least ${minimum} signal(s)`
+          );
+        }
+      });
     });
   }
 });

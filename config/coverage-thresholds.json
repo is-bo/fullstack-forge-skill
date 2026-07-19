@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "tool": "Node.js 24 experimental test coverage",
+  "statements": "not exposed separately by the selected Node.js coverage reporter",
+  "overall": {
+    "lines": 88,
+    "branches": 76,
+    "functions": 87
+  },
+  "files": {
+    "build/cli/src/analyzers.js": {
+      "lines": 94,
+      "branches": 78,
+      "functions": 90
+    },
+    "build/cli/src/dataflow.js": {
+      "lines": 90,
+      "branches": 80,
+      "functions": 92
+    },
+    "build/cli/src/discovery.js": {
+      "lines": 92,
+      "branches": 78,
+      "functions": 88
+    },
+    "build/cli/src/finding.js": {
+      "lines": 92,
+      "branches": 60,
+      "functions": 84
+    },
+    "build/cli/src/fixes.js": {
+      "lines": 93,
+      "branches": 60,
+      "functions": 90
+    },
+    "build/cli/src/gates.js": {
+      "lines": 92,
+      "branches": 75,
+      "functions": 88
+    },
+    "build/cli/src/installer.js": {
+      "lines": 88,
+      "branches": 76,
+      "functions": 80
+    },
+    "build/cli/src/scope.js": {
+      "lines": 94,
+      "branches": 84,
+      "functions": 94
+    },
+    "build/cli/src/verification.js": {
+      "lines": 68,
+      "branches": 54,
+      "functions": 72
+    },
+    "scripts/lib/fixture-manifests.mjs": {
+      "lines": 82,
+      "branches": 65,
+      "functions": 100
+    },
+    "scripts/lib/release-safety.mjs": {
+      "lines": 90,
+      "branches": 55,
+      "functions": 90
+    },
+    "scripts/lib/fs-safety.mjs": {
+      "lines": 98,
+      "branches": 85,
+      "functions": 95
+    },
+    "scripts/lib/zip.mjs": {
+      "lines": 98,
+      "branches": 95,
+      "functions": 85
+    }
+  }
+}

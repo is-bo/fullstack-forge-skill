@@ -5,6 +5,7 @@ The authoritative JSON Schema is `src/fullstack-forge/schemas/finding.schema.jso
 | Field            | Meaning                                                                   |
 | ---------------- | ------------------------------------------------------------------------- |
 | `id`             | Stable `FF-<MODULE>-<NNN>` identifier                                     |
+| `instance_id`    | Stable structural identity for one occurrence of a rule                   |
 | `section`        | Command module that owns the cause                                        |
 | `title`          | Concise, causal summary                                                   |
 | `severity`       | Potential impact: CRITICAL, HIGH, MEDIUM, LOW, INFO                       |
@@ -24,7 +25,12 @@ Analyzer findings may additionally contain:
 - `trace`: source, sink, and trace-quality details used to assign confidence;
 - `evidence_snapshot`: the audited file hash and evidence excerpt used to reject stale fixes; and
 - `verification_plan`: analyzer, structural check, targeted command, fixture regression, or manual
-  actions that must be evaluated independently.
+  actions that must be evaluated independently; and
+- `fix_attempts`: instance-specific planned, applied, blocked, or rolled-back remediation evidence.
+
+Analyzer verification actions carry `instance_id` and repository-relative `scope_paths` when the
+source report provides them. Legacy v0.1.3 reports without those fields remain readable, but new
+reports and every fix/rollback update prefer exact instance identity over the rule-level fallback.
 
 Severity and confidence are independent. A critical low-confidence signal remains critical pending
 triage. Verification appends evidence and preserves the original identifier, observation, and

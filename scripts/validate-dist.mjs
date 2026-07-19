@@ -19,7 +19,17 @@ const expected = [
   "github",
   "windsurf"
 ].map((platform) => `fullstack-forge-${platform}-v${version}.zip`);
-const requiredEntries = ["README.md", "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"];
+const requiredEntries = [
+  "README.md",
+  "LICENSE",
+  "NOTICE",
+  "THIRD_PARTY_NOTICES.md",
+  "docs/ANALYZER_SUPPORT.md",
+  `docs/AUDIT_CLASSIFICATION_v${version}.md`,
+  "docs/COVERAGE.md",
+  `docs/RELEASE_NOTES_v${version}.md`,
+  `docs/RELEASE_VERIFICATION_v${version}.md`
+];
 const forbidden = /(?:^|\/)(?:node_modules|\.git|\.tmp)(?:\/|$)|fullstack[-_]forge[-_]spec/iu;
 
 await assertRegularFile(join(distRoot, "manifest.json"), "distribution manifest");

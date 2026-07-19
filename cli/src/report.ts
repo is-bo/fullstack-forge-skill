@@ -1,7 +1,13 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ChangedScopeEvidence } from "./scope.js";
-import type { Finding, ProjectProfile } from "./types.js";
+import {
+  GATE_EVIDENCE_TYPES,
+  type AnalyzerCoverage,
+  type Finding,
+  type GateEvidence,
+  type ProjectProfile
+} from "./types.js";
 import { assertFindings } from "./finding.js";
 import { assertNoSymlinkPath, utcNow } from "./utils.js";
 
@@ -25,6 +31,8 @@ export type AuditReport = {
   assumptions: string[];
   residual_risk: string[];
   scope_evidence?: ChangedScopeEvidence;
+  gate_evidence: GateEvidence[];
+  analyzer_coverage: AnalyzerCoverage[];
 };
 
 export async function writeReport(
@@ -39,6 +47,8 @@ export async function writeReport(
   const markdownPath = join(directory, "report.md");
   await assertNoSymlinkPath(report.root, jsonPath);
   await assertNoSymlinkPath(report.root, markdownPath);
+  assertGateEvidence(report.gate_evidence);
+  assertAnalyzerCoverage(report.analyzer_coverage);
   await writeFile(jsonPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
   await writeFile(markdownPath, renderMarkdown(report), "utf8");
   return [jsonPath, markdownPath];
@@ -50,8 +60,15 @@ export async function readReport(root: string, path: string): Promise<AuditRepor
   if (!isAuditReport(value)) {
     throw new Error("Unsupported or invalid Fullstack Forge report");
   }
-  assertFindings(value.findings);
-  return value;
+  const migrated: AuditReport = {
+    ...value,
+    gate_evidence: Array.isArray(value.gate_evidence) ? value.gate_evidence : [],
+    analyzer_coverage: Array.isArray(value.analyzer_coverage) ? value.analyzer_coverage : []
+  };
+  assertFindings(migrated.findings);
+  assertGateEvidence(migrated.gate_evidence);
+  assertAnalyzerCoverage(migrated.analyzer_coverage);
+  return migrated;
 }
 
 function isAuditReport(value: unknown): value is AuditReport {
@@ -67,7 +84,9 @@ function isAuditReport(value: unknown): value is AuditReport {
     Array.isArray(candidate.findings) &&
     Array.isArray(candidate.execution) &&
     Array.isArray(candidate.assumptions) &&
-    Array.isArray(candidate.residual_risk)
+    Array.isArray(candidate.residual_risk) &&
+    (candidate.gate_evidence === undefined || Array.isArray(candidate.gate_evidence)) &&
+    (candidate.analyzer_coverage === undefined || Array.isArray(candidate.analyzer_coverage))
   );
 }
 
@@ -79,7 +98,10 @@ export function createReport(
   execution: ExecutionRecord[] = [],
   assumptions: string[] = [],
   residualRisk: string[] = [],
-  scopeEvidence?: ChangedScopeEvidence
+  scopeEvidence?: ChangedScopeEvidence,
+  gateEvidence: GateEvidence[] = [],
+  analyzerCoverage: AnalyzerCoverage[] = [],
+  revision?: string
 ): AuditReport {
   return {
     schema_version: 1,
@@ -91,7 +113,10 @@ export function createReport(
     execution,
     assumptions,
     residual_risk: residualRisk,
-    ...(scopeEvidence === undefined ? {} : { scope_evidence: scopeEvidence })
+    ...(scopeEvidence === undefined ? {} : { scope_evidence: scopeEvidence }),
+    gate_evidence: structuredClone(gateEvidence),
+    analyzer_coverage: structuredClone(analyzerCoverage),
+    ...(revision === undefined ? {} : { revision })
   };
 }
 
@@ -120,16 +145,21 @@ export function renderMarkdown(report: AuditReport): string {
     report.assumptions.map((value) => `- ${value}`).join("\n") || "- None recorded.";
   const residual =
     report.residual_risk.map((value) => `- ${value}`).join("\n") || "- None recorded.";
+  const typedEvidence =
+    report.gate_evidence.map(renderGateEvidence).join("\n") || "- No typed gate evidence recorded.";
+  const analyzerCoverage =
+    report.analyzer_coverage.map(renderAnalyzerCoverage).join("\n") ||
+    "- No analyzer coverage records were applicable.";
   const remediation = report.findings
     .filter((finding) => finding.status === "FAIL" || finding.status === "WARNING")
     .map(
       (finding, index) =>
-        `${index + 1}. **${finding.severity} ${finding.id}** — ${finding.recommendation} (${finding.safe_fix ? "candidate safe fix" : "manual review or approval required"})`
+        `${index + 1}. **${finding.severity} ${finding.instance_id ?? finding.id}** — ${finding.recommendation} (${finding.safe_fix ? "candidate safe fix" : "manual review or approval required"})`
     )
     .join("\n");
   const notRun = report.findings
     .filter((finding) => ["BLOCKED", "NOT_VERIFIED"].includes(finding.status))
-    .map((finding) => `- ${finding.id}: ${finding.verification.join("; ")}`)
+    .map((finding) => `- ${finding.instance_id ?? finding.id}: ${finding.verification.join("; ")}`)
     .join("\n");
   const changedScope =
     report.scope_evidence === undefined
@@ -146,6 +176,7 @@ ${report.scope_evidence.included_files.map((item) => `- \`${item.path}\`: ${item
 - Generated: ${report.generated_at}
 - Scope: ${report.scope}
 - Root: \`${report.root}\`
+- Revision: \`${report.revision ?? "legacy/unrecorded"}\`
 
 ## Status summary
 
@@ -171,6 +202,14 @@ ${remediation || "- No FAIL or WARNING finding requires remediation in this repo
 
 ${execution || "- No project command was executed."}
 
+## Typed gate evidence
+
+${typedEvidence}
+
+## Analyzer coverage and missing adapters
+
+${analyzerCoverage}
+
 ## Checks not run or not verified
 
 ${notRun || "- None recorded."}
@@ -185,6 +224,91 @@ ${residual}
 `;
 }
 
+function renderGateEvidence(evidence: GateEvidence): string {
+  return `- **${evidence.evidence_type} / ${evidence.status}** — producer \`${evidence.producer}\`, revision \`${evidence.revision}\`, scope ${evidence.scope.map((path) => `\`${path}\``).join(", ") || "none"}; absence proves success: ${evidence.absence_proves_success ? "yes" : "no"}; relevant instances: ${evidence.relevant_instance_ids.join(", ") || "none"}; limitations: ${evidence.limitations.join("; ")}`;
+}
+
+function renderAnalyzerCoverage(coverage: AnalyzerCoverage): string {
+  return `- **${coverage.status}** module=${coverage.module}; language=${coverage.language}; framework=${coverage.framework}; coverage=${coverage.coverage}; analyzer=${coverage.analyzer_id}; required adapter=${coverage.required_adapter ?? "none"}; supported shapes=${coverage.supported_shapes.join(", ") || "none"}; unsupported shapes=${coverage.unsupported_shapes.join(", ") || "none"}`;
+}
+
+function assertGateEvidence(values: GateEvidence[]): void {
+  const errors: string[] = [];
+  for (const [index, value] of values.entries()) {
+    if (!GATE_EVIDENCE_TYPES.includes(value.evidence_type))
+      errors.push(`[${index}] invalid evidence_type`);
+    if (
+      typeof value.producer !== "string" ||
+      value.producer.length === 0 ||
+      typeof value.timestamp !== "string" ||
+      value.timestamp.length === 0 ||
+      !Number.isFinite(Date.parse(value.timestamp)) ||
+      typeof value.revision !== "string" ||
+      value.revision.length === 0
+    )
+      errors.push(`[${index}] producer, timestamp, and revision are required`);
+    if (
+      !Array.isArray(value.scope) ||
+      !value.scope.every((path) => typeof path === "string" && isSafeReportPath(path)) ||
+      !Array.isArray(value.relevant_instance_ids) ||
+      !value.relevant_instance_ids.every(
+        (id) => typeof id === "string" && /^FF-[A-Z0-9-]+-[0-9]{3,}(?::[a-f0-9]{8,})?$/u.test(id)
+      )
+    )
+      errors.push(`[${index}] scope and relevant_instance_ids must be arrays`);
+    if (
+      !Array.isArray(value.limitations) ||
+      value.limitations.length === 0 ||
+      !value.limitations.every((item) => typeof item === "string" && item.length > 0)
+    )
+      errors.push(`[${index}] limitations must be a non-empty array`);
+    if (!["PASS", "FAIL", "BLOCKED", "NOT_VERIFIED", "NOT_APPLICABLE"].includes(value.status))
+      errors.push(`[${index}] invalid status`);
+    if (typeof value.absence_proves_success !== "boolean")
+      errors.push(`[${index}] absence_proves_success must be boolean`);
+  }
+  if (errors.length > 0) throw new Error(`Invalid typed gate evidence:\n${errors.join("\n")}`);
+}
+
+function assertAnalyzerCoverage(values: AnalyzerCoverage[]): void {
+  const errors: string[] = [];
+  for (const [index, value] of values.entries()) {
+    if (!["PASS", "NOT_VERIFIED"].includes(value.status))
+      errors.push(`[${index}] invalid analyzer coverage status`);
+    if (!["executable", "partial", "none"].includes(value.coverage))
+      errors.push(`[${index}] invalid analyzer coverage level`);
+    for (const field of ["module", "language", "framework", "analyzer_id"] as const)
+      if (typeof value[field] !== "string" || value[field].length === 0)
+        errors.push(`[${index}] ${field} must be a non-empty string`);
+    for (const field of ["supported_shapes", "unsupported_shapes"] as const)
+      if (
+        !Array.isArray(value[field]) ||
+        !value[field].every((shape) => typeof shape === "string" && shape.length > 0)
+      )
+        errors.push(`[${index}] ${field} must be a string array`);
+    if (
+      value.coverage === "executable"
+        ? value.status !== "PASS" || value.required_adapter !== undefined
+        : value.status !== "NOT_VERIFIED" ||
+          typeof value.required_adapter !== "string" ||
+          value.required_adapter.length === 0
+    )
+      errors.push(`[${index}] analyzer coverage status and required adapter are inconsistent`);
+  }
+  if (errors.length > 0) throw new Error(`Invalid analyzer coverage:\n${errors.join("\n")}`);
+}
+
+function isSafeReportPath(value: string): boolean {
+  return (
+    value.length > 0 &&
+    !value.includes("\0") &&
+    !/^(?:[A-Za-z]:|[\\/]{1,2})/u.test(value) &&
+    !value
+      .split(/[\\/]+/u)
+      .some((part) => part === "" || part === "." || part === ".." || part.includes(":"))
+  );
+}
+
 function renderFinding(finding: Finding): string {
   const locations = finding.location
     .map(
@@ -194,6 +318,7 @@ function renderFinding(finding: Finding): string {
   return `### ${finding.id}: ${finding.title}
 
 - Section: ${finding.section}
+- Rule / instance: ${finding.id} / ${finding.instance_id ?? "legacy report (no instance ID)"}
 - Severity / confidence / status: **${finding.severity} / ${finding.confidence} / ${finding.status}**
 - Location: ${locations || "No code location"}
 - Evidence: ${finding.evidence.join("; ")}

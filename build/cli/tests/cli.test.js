@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { cp, readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { PACKAGE_ROOT, VERSION } from "../src/constants.js";
 import { runFile } from "../src/utils.js";
-import { withTemporaryProject } from "./helpers.js";
+import { copyFixture, withTemporaryProject } from "./helpers.js";
 const cli = join(PACKAGE_ROOT, "build", "cli", "src", "index.js");
 test("compiled CLI exposes version, list, and blocked command execution", async () => {
     const version = await runFile(process.execPath, [cli, "--version"], PACKAGE_ROOT);
@@ -35,7 +35,7 @@ test("unsupported language audit reports a precise NOT_VERIFIED adapter boundary
         assert.ok(finding);
         assert.equal(finding.status, "NOT_VERIFIED");
         assert.ok(finding.evidence.some((item) => item.includes("Python")));
-        assert.ok(finding.evidence.some((item) => item.includes("No bounded first-party analyzer")));
+        assert.ok(finding.evidence.some((item) => item.includes("required_adapter=python-security-boundaries")));
     });
 });
 test("compiled CLI accepts the documented --ai installer form", async () => {
@@ -49,7 +49,7 @@ test("compiled CLI accepts the documented --ai installer form", async () => {
 });
 test("compiled CLI audits and applies all safe fixes with dry-run and idempotency", async () => {
     await withTemporaryProject("cli-safe-fix", async (root) => {
-        await cp(join(PACKAGE_ROOT, "fixtures", "safe-fixes"), root, { recursive: true });
+        await copyFixture(join(PACKAGE_ROOT, "fixtures", "safe-fixes"), root);
         const envPath = join(root, ".env.example");
         const original = await readFile(envPath, "utf8");
         const audit = await runFile(process.execPath, [cli, "all", "audit", "--root", root, "--json"], root);
@@ -114,10 +114,12 @@ test("ship report preserves the prior audit findings", async () => {
         await writeFile(join(root, "app.py"), "print('hello')\n", "utf8");
         const audit = await runFile(process.execPath, [cli, "security", "audit", "--root", root, "--json"], root);
         assert.equal(audit.exitCode, 0, audit.stderr);
+        const priorIds = JSON.parse(audit.stdout).report.findings.map((finding) => finding.id);
         const ship = await runFile(process.execPath, [cli, "ship", "--root", root, "--json"], root);
         assert.equal(ship.exitCode, 2, ship.stderr);
         const ids = JSON.parse(ship.stdout).findings.map((finding) => finding.id);
-        assert.ok(ids.includes("FF-SECURITY-900"));
+        for (const id of priorIds)
+            assert.ok(ids.includes(id), `missing prior finding ${id}`);
         assert.ok(ids.includes("FF-SHIP-001"));
     });
 });

@@ -31,12 +31,20 @@ retrying.
 - `npm run offline:install`: warm runtime dependencies, then install the packed artifact with
   `--offline` (cache-only, no network) and generate every platform root against an unreachable
   registry.
-- `npm run test:coverage`: run the suite with Node's experimental coverage reporter.
+- `npm run test:coverage`: run the suite with Node's experimental coverage reporter and enforce the
+  committed overall and risk-focused non-regression floors in `config/coverage-thresholds.json`.
+- `npm run check:fixtures`: prove scanner fixtures contain no installable dependency roots.
+- `npm run check:workflows`: enforce full Action SHA pins, credential-free checkout, cross-platform
+  CI, dependency review, CodeQL, and non-clobbering immutable-release policy.
+- `npm run check:release-docs`: reject tagged records that claim future remote publication already
+  completed or omit completed local validation.
 - `npm run check`: formatting, lint, type, tests, validation, and synchronization.
 
 CI runs the full verification on Linux, Windows, and macOS, fails on stale committed `build/`
-output, reports coverage, and verifies both smoke and offline installation. The release workflow
-additionally attests build provenance for every published archive.
+output, enforces coverage, and verifies both smoke and offline installation. The release workflow
+creates a new draft only after proving the tag and release preconditions, attests every archive,
+verifies downloaded bytes, attaches checksummed final evidence, publishes once, and verifies GitHub
+release immutability.
 
 ## Adding a module
 

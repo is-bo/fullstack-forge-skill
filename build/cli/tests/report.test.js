@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import test from "node:test";
-import { createReport, renderMarkdown } from "../src/report.js";
+import { createReport, readReport, renderMarkdown } from "../src/report.js";
+import { withTemporaryProject } from "./helpers.js";
 const profile = {
     schema_version: 2,
     root: "/project",
@@ -106,5 +109,68 @@ test("reports preserve changed-scope merge-base and execution timing evidence", 
     assert.match(markdown, /origin\/main/u);
     assert.match(markdown, /bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/u);
     assert.match(markdown, /42 ms/u);
+});
+test("v0.1.3 reports without instance or typed evidence fields remain readable", async () => {
+    await withTemporaryProject("legacy-report-v013", async (root) => {
+        const forge = join(root, ".forge");
+        await mkdir(forge);
+        const legacyProfile = structuredClone(profile);
+        legacyProfile.root = root;
+        const legacy = {
+            schema_version: 1,
+            generated_at: "2026-07-18T00:00:00.000Z",
+            root,
+            scope: "security",
+            profile: legacyProfile,
+            findings: [base],
+            execution: [],
+            assumptions: [],
+            residual_risk: []
+        };
+        const path = join(forge, "report.json");
+        await writeFile(path, JSON.stringify(legacy), "utf8");
+        const migrated = await readReport(root, path);
+        assert.equal(migrated.findings[0]?.instance_id, undefined);
+        assert.deepEqual(migrated.gate_evidence, []);
+        assert.deepEqual(migrated.analyzer_coverage, []);
+    });
+});
+test("malformed typed gate and analyzer coverage records are rejected", async () => {
+    await withTemporaryProject("invalid-typed-report", async (root) => {
+        const forge = join(root, ".forge");
+        await mkdir(forge);
+        const invalidProfile = structuredClone(profile);
+        invalidProfile.root = root;
+        const report = createReport(root, invalidProfile, [base], "security", [], [], [], undefined, [
+            {
+                evidence_type: "secret-scan",
+                producer: "test",
+                scope: ["../outside"],
+                timestamp: "not-a-date",
+                revision: "tree:test",
+                status: "PASS",
+                relevant_instance_ids: [],
+                absence_proves_success: true,
+                limitations: ["bounded"]
+            }
+        ], [
+            {
+                status: "PASS",
+                module: "security",
+                language: "Python",
+                framework: "unknown",
+                analyzer_id: "none",
+                coverage: "none",
+                supported_shapes: [],
+                unsupported_shapes: ["all shapes"]
+            }
+        ]);
+        const path = join(forge, "report.json");
+        await writeFile(path, JSON.stringify(report), "utf8");
+        await assert.rejects(readReport(root, path), /Invalid typed gate evidence/u);
+        report.gate_evidence = [];
+        await writeFile(path, JSON.stringify(report), "utf8");
+        await assert.rejects(readReport(root, path), /Invalid analyzer coverage/u);
+    });
 });
 //# sourceMappingURL=report.test.js.map
