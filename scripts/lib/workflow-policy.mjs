@@ -33,7 +33,11 @@ export function validateWorkflowPolicies(workflows) {
     [/gh release verify/iu, "immutable release verification is missing"],
     [/gh release verify-asset/iu, "asset attestation verification is missing"],
     [/isImmutable/iu, "direct immutable-state verification is missing"],
-    [/subject-path:\s*dist\/\*/iu, "all initial release assets are not attested"]
+    [/subject-path:\s*dist\/\*/iu, "all initial release assets are not attested"],
+    [
+      /\$\{GITHUB_SERVER_URL\}\/\$\{GITHUB_REPOSITORY\}\/releases\/tag\/\$\{GITHUB_REF_NAME\}/u,
+      "final evidence does not use the canonical post-publication release URL"
+    ]
   ])
     if (!pattern.test(release)) errors.push(`release.yml: ${message}`);
   if (/--clobber/iu.test(release)) errors.push("release.yml: asset clobbering is forbidden");
