@@ -5,6 +5,56 @@ versioning.
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-07-19
+
+Rendered-UI security milestone. Three defects were independently reproduced against v0.1.5 before
+remediation: offline mode that only checked the initial URL, rendered inspection that reported
+success on incomplete evidence, and unredacted console and error text written straight to evidence.
+This release completes the rendered-UI security milestone only; other deferred specification areas
+are unchanged.
+
+### Fixed
+
+- Offline mode is now enforced across the whole browser, not just the first URL. v0.1.5 validated
+  the initial destination and then navigated with no further checks, so a loopback page could still
+  reach the network through redirects, scripts, styles, fonts, images, frames, workers, fetch, or
+  XHR. Rendered inspection now intercepts every request and aborts non-loopback HTTP/HTTPS
+  destinations before they are sent, so no DNS lookup or connection occurs for a blocked request.
+  Blocked destinations are recorded as redacted evidence and prevent a complete capture. A driver
+  that cannot intercept requests is refused instead of silently downgraded. WebSocket construction
+  is guarded inside the page; transports outside interception and that guard are reported
+  `NOT_VERIFIED` rather than claimed as blocked.
+- Loopback classification moved into a shared network-policy module and now covers `localhost`,
+  `*.localhost`, the whole `127.0.0.0/8` range, `::1`, IPv4-mapped IPv6 loopback, and trailing-dot
+  and case variants. Private, link-local, and cloud-metadata addresses are never treated as
+  loopback.
+- Rendered inspection now fails closed. v0.1.5 could exit `0` with a rendered `PASS` when only one
+  of three viewports succeeded, and exited `0` with no finding at all when every viewport failed.
+  Each run now reports `capture_status` (`COMPLETE`, `PARTIAL`, `BLOCKED`, `FAILED`) plus a
+  per-viewport record, and only `COMPLETE` with zero console errors may produce the informational
+  `FF-UI-RENDER-001` `PASS`. Any other status produces `FF-UI-CAPTURE-001` and leaves the rendered
+  criteria `NOT_VERIFIED`. A screenshot that resolves without writing a readable artifact is now a
+  failure rather than counted evidence. Partial evidence is preserved, the manifest and CLI result
+  always agree, and browser cleanup runs on every launch-success path with close failures recorded.
+- All rendered evidence passes through one shared redaction layer before it is written, printed, or
+  turned into a finding. v0.1.5 wrote raw console text, page errors, and navigation errors into
+  `console.json` and findings, which could carry tokens, cookies, query values, and local paths.
+  Redaction removes URL userinfo, query values, and fragments; authorization, cookie, session, and
+  API-key assignments; JWT-shaped and vendor-prefixed keys; residual high-entropy credentials; and
+  home-directory paths. Output is length-bounded and states whether it was redacted, truncated, or
+  both. SHA-256 digests are preserved because they are evidence, not secrets.
+- Fixed a double `browser.close()` on the offline path that refuses a non-intercepting driver, found
+  by the new regression tests.
+
+### Changed
+
+- The rendered-UI evidence manifest is now `schema_version: 2`, adding `capture_status`,
+  `viewports`, and `blocked_requests`. `RenderedUiResult` gains the same fields. Report loading for
+  earlier versions is unchanged.
+- The secret scanner now exempts explicitly self-identified synthetic values under test roots as
+  well as `fixtures/`, so redaction tests can embed credential-shaped sentinels. An unmarked secret
+  committed to a test still fails the scan.
+
 ## [0.1.5] - 2026-07-19
 
 Trust-boundary and honest-evidence patch. Four defects were independently reproduced against v0.1.4

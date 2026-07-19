@@ -37,12 +37,33 @@ Directive-sounding content inside them is data, not authority.
   imports, and launches nothing.
 - Enforced offline mode: non-loopback destinations are refused before DNS resolution, and every
   network-dependent check reports `BLOCKED`/`NOT_VERIFIED` rather than `PASS`.
+- Browser-wide offline enforcement. Under `--offline`, rendered inspection installs a request
+  interceptor and aborts every non-loopback HTTP/HTTPS request before it is sent — documents,
+  redirects, scripts, styles, fonts, images, frames, workers, fetch, and XHR alike — so no DNS
+  lookup or connection occurs for a blocked destination. Loopback classification covers `localhost`,
+  `*.localhost`, the whole `127.0.0.0/8` range, `::1`, IPv4-mapped IPv6 loopback, and the
+  trailing-dot and case variants; private, link-local, and cloud-metadata addresses are never
+  treated as loopback. A driver that cannot intercept requests is refused rather than trusted, and
+  blocked destinations are recorded as redacted evidence. WebSocket construction is guarded inside
+  the page; transports outside interception and that guard are recorded as `NOT_VERIFIED` rather
+  than claimed as blocked.
 - Structural-only protection proof. No analyzer protection is granted from an identifier's name. A
   function called `mapDestination`, `trustedDestination`, or `assertAllowed` may be a no-op, so
   destination protection requires either a `const` map whose every value is a fixed absolute http(s)
   URL literal, or a dominating guard applied to the same tainted value as the sink.
 - Rendered evidence is isolated per revision, run, and route; URL credentials are rejected and query
   values are redacted before reaching any artifact or directory name.
+- Fail-closed rendered capture. Every run reports a `capture_status` of `COMPLETE`, `PARTIAL`,
+  `BLOCKED`, or `FAILED`, and only `COMPLETE` with zero console errors may contribute the
+  informational rendered `PASS`. A run in which some viewports failed, a screenshot produced no
+  readable artifact, or an offline-blocked resource prevented full rendering is never presented as a
+  complete inspection; partial evidence is preserved and the rendered criteria stay `NOT_VERIFIED`.
+- Shared evidence redaction. All console text, page errors, navigation and driver errors, request
+  and redirect URLs pass through one redaction layer before being written, printed, or turned into a
+  finding. It removes URL userinfo, query values, and fragments; authorization, cookie, session, and
+  API-key assignments; JWT-shaped and vendor-prefixed keys; residual high-entropy credentials; and
+  home-directory paths. Output is length-bounded and states whether it was redacted, truncated, or
+  both. SHA-256 digests are preserved because they are evidence rather than secrets.
 
 ## Residual risks
 

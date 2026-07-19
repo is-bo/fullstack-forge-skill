@@ -173,3 +173,23 @@ Loopback URLs work by default; any other destination requires explicit `--allow-
 Playwright is absent the tool reports `BLOCKED` and rendered-state criteria stay `NOT_VERIFIED` — it
 never fabricates visual evidence. Console errors on an inspected route produce a failing
 `FF-UI-CONSOLE-001` finding with the captured log as evidence.
+
+Every run reports a `capture_status`:
+
+```text
+COMPLETE  every required viewport captured and hashed, nothing blocked
+PARTIAL   some evidence collected, but a required step failed or was blocked
+BLOCKED   a policy boundary (authorization, offline, no trusted driver) prevented execution
+FAILED    execution was attempted but produced no usable capture
+```
+
+Only `COMPLETE` with zero console errors yields the informational `FF-UI-RENDER-001` `PASS`. Any
+other status produces `FF-UI-CAPTURE-001` and leaves the rendered criteria `NOT_VERIFIED`; partial
+evidence is still written. Exit codes are `0` for a complete capture with no failing finding, `1`
+for a run with a failing finding or a runtime failure, and `2` when evidence is merely absent.
+
+Under `--offline` the tool intercepts every browser request and aborts non-loopback destinations
+before they are sent, including redirects and subresources. Blocked destinations are recorded with
+their URLs redacted, and a blocked resource prevents a `COMPLETE` capture. All console output,
+errors, and URLs in the evidence are redacted before they reach `console.json`, `manifest.json`,
+findings, limitations, or CLI output.
