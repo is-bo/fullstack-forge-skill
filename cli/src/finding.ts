@@ -1,10 +1,4 @@
-import {
-  CONFIDENCES,
-  FIX_ATTEMPT_STATUSES,
-  SEVERITIES,
-  STATUSES,
-  type Finding
-} from "./types.js";
+import { CONFIDENCES, FIX_ATTEMPT_STATUSES, SEVERITIES, STATUSES, type Finding } from "./types.js";
 
 export function validateFinding(value: unknown): string[] {
   const errors: string[] = [];
@@ -64,7 +58,10 @@ export function validateFinding(value: unknown): string[] {
   )
     errors.push("analyzer_id must be a non-empty string");
   if ("instance_id" in value) {
-    if (typeof value.instance_id !== "string" || !/^FF-[A-Z0-9-]+-[0-9]{3,}:[a-f0-9]{8,}$/u.test(value.instance_id))
+    if (
+      typeof value.instance_id !== "string" ||
+      !/^FF-[A-Z0-9-]+-[0-9]{3,}:[a-f0-9]{8,}$/u.test(value.instance_id)
+    )
       errors.push("instance_id must match <rule id>:<hex digest>");
     else if (typeof value.id === "string" && !value.instance_id.startsWith(`${value.id}:`))
       errors.push("instance_id must be prefixed by its rule id");

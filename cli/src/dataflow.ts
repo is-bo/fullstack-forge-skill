@@ -240,7 +240,7 @@ function collectTaintedParameters(
   if (name === undefined) return;
   const positions = parameterTaint.get(name);
   if (positions === undefined) return;
-  const parameters = (node as ts.SignatureDeclaration).parameters ?? [];
+  const parameters = (node as ts.SignatureDeclaration).parameters;
   parameters.forEach((parameter, index) => {
     if (!positions.has(index) || !ts.isIdentifier(parameter.name)) return;
     record(tainted, parameter.name.text, {

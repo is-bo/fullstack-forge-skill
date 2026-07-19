@@ -703,7 +703,8 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
         if (
           isSqlSink(name) &&
           requestControlled &&
-          (hasInterpolation(node.arguments, file.sourceFile) || flowPassedThroughInterpolation(flow))
+          (hasInterpolation(node.arguments, file.sourceFile) ||
+            flowPassedThroughInterpolation(flow))
         ) {
           issues.push(issue(SPECS.sql, file, node, flowSource(flow, argumentText), name));
           if (!sanitized)
@@ -793,15 +794,16 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
         if (isHttpClientSink(name)) {
           const targetNode = node.arguments[0];
           const target = targetNode?.getText(file.sourceFile) ?? "";
-          const targetFlow =
-            targetNode === undefined ? undefined : taint.resolve(targetNode);
+          const targetFlow = targetNode === undefined ? undefined : taint.resolve(targetNode);
           if (
             (targetFlow !== undefined || containsRequestData(target)) &&
             !/allowlist|allowedHosts|allowedDestinations|blockPrivateAddresses/iu.test(
               enclosingText(node, file, functions)
             )
           )
-            issues.push(issue(SPECS.ssrf, file, node, flowSource(targetFlow ?? flow, target), name));
+            issues.push(
+              issue(SPECS.ssrf, file, node, flowSource(targetFlow ?? flow, target), name)
+            );
         }
         if (isDeserializationSink(name) && requestControlled)
           issues.push(issue(SPECS.deserialize, file, node, flowSource(flow, argumentText), name));
@@ -1297,8 +1299,7 @@ function mergeIssues(issues: Issue[]): Finding[] {
       current.evidence_snapshot?.push(snapshot);
   }
   return [...findings.values()].sort(
-    (a, b) =>
-      a.id.localeCompare(b.id) || (a.instance_id ?? "").localeCompare(b.instance_id ?? "")
+    (a, b) => a.id.localeCompare(b.id) || (a.instance_id ?? "").localeCompare(b.instance_id ?? "")
   );
 }
 

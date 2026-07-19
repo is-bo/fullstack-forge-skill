@@ -546,14 +546,18 @@ async function buildStructuredProfile(
       const declaration = declaredWorkspaces.get(manifest.directory);
       // An undeclared nested manifest (a fixture, an example, a vendored sample) is not an
       // active workspace. It is still reported, at reduced confidence, as a candidate only.
-      return record(manifest.name, declaration === undefined ? "nested-package" : "package-workspace", {
-        root: manifest.directory,
-        confidence: declaration === undefined ? "LOW" : "HIGH",
-        evidence:
-          declaration === undefined
-            ? [manifest.path, "not declared by any root workspace configuration"]
-            : [manifest.path, declaration]
-      });
+      return record(
+        manifest.name,
+        declaration === undefined ? "nested-package" : "package-workspace",
+        {
+          root: manifest.directory,
+          confidence: declaration === undefined ? "LOW" : "HIGH",
+          evidence:
+            declaration === undefined
+              ? [manifest.path, "not declared by any root workspace configuration"]
+              : [manifest.path, declaration]
+        }
+      );
     });
   const applications = manifests.map((manifest) => applicationRecord(manifest));
   const languages = languageRecords(root, files);
@@ -718,7 +722,8 @@ async function loadDeclaredWorkspaces(
       ? rootWorkspaces.packages
       : [];
   for (const pattern of rootPatterns)
-    if (typeof pattern === "string") patterns.push({ pattern, evidence: "package.json workspaces" });
+    if (typeof pattern === "string")
+      patterns.push({ pattern, evidence: "package.json workspaces" });
 
   const pnpm = await readTextIfPresent(join(root, "pnpm-workspace.yaml"));
   if (pnpm !== undefined) {
@@ -739,8 +744,9 @@ async function loadDeclaredWorkspaces(
       if (Array.isArray(values))
         for (const value of values)
           if (typeof value === "string") patterns.push({ pattern: value, evidence: file });
-      else if (isRecord(values))
-        for (const value of Object.keys(values)) patterns.push({ pattern: value, evidence: file });
+          else if (isRecord(values))
+            for (const value of Object.keys(values))
+              patterns.push({ pattern: value, evidence: file });
     } catch {
       // A malformed workspace declaration is evidence for other analyzers, not a crash here.
     }
@@ -957,19 +963,142 @@ async function routeRecords(root: string, files: string[]): Promise<RouteRecord[
         /\b(?:requireAuth|authenticate|getServerSession|session\.user|auth\.user)/u.test(context)
       )
         visibility = "authenticated";
-      else if (/\/(?:internal|cron|webhooks?)(?:\/|$)/iu.test(route)) visibility = "internal";
-      else if (/\/(?:health|login|signup|public)(?:\/|$)/iu.test(route)) visibility = "public";
+      // Name-based visibility is an explicit low-confidence heuristic, never proof. A route is
+      // not public merely because its path contains "login", "health", or "public".
+      let nameHeuristic = false;
+      if (visibility === "unknown" && /\/(?:internal|cron|webhooks?)(?:\/|$)/iu.test(route)) {
+        visibility = "internal";
+        nameHeuristic = true;
+      } else if (
+        visibility === "unknown" &&
+        /\/(?:health|login|signup|public)(?:\/|$)/iu.test(route)
+      ) {
+        visibility = "public";
+        nameHeuristic = true;
+      }
       output.push({
         name: `${method} ${route}`,
         type: "http-route",
         location: path,
-        confidence: "HIGH",
-        evidence: [`${path}:${lineForIndex(content, match.index)}`],
+        confidence: nameHeuristic ? "LOW" : "HIGH",
+        evidence: [
+          `${path}:${lineForIndex(content, match.index)}`,
+          "adapter: express-like",
+          ...(nameHeuristic
+            ? ["visibility inferred from the route name only; not proven by a guard"]
+            : [])
+        ],
         visibility
       });
     }
   }
+  output.push(...(await frameworkRouteRecords(root, files)));
   return output;
+}
+
+/**
+ * Bounded route adapters for frameworks whose routes are not literal Express registrations.
+ * Each adapter states which adapter produced the record so coverage is auditable. Middleware
+ * inheritance is not resolved, so visibility stays `unknown` unless a guard is directly visible.
+ */
+async function frameworkRouteRecords(root: string, files: string[]): Promise<RouteRecord[]> {
+  const output: RouteRecord[] = [];
+  const methods = "GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS";
+  for (const file of files.filter((candidate) => /\.(?:[cm]?[jt]sx?)$/iu.test(candidate))) {
+    const content = await readTextIfPresent(file);
+    if (content === undefined) continue;
+    const path = toPosix(relative(root, file));
+
+    // Next.js App Router: app/**/route.ts exporting HTTP method handlers.
+    if (/(?:^|\/)app\/.*\/route\.[cm]?[jt]sx?$/iu.test(path)) {
+      const segment = path
+        .replace(/^.*?(?:^|\/)app\//iu, "/")
+        .replace(/\/route\.[cm]?[jt]sx?$/iu, "")
+        .replace(/\/\((?:[^/]+)\)/gu, "");
+      for (const match of content.matchAll(
+        new RegExp(`export\\s+(?:async\\s+)?function\\s+(${methods})\\b`, "gu")
+      ))
+        output.push(
+          frameworkRoute(
+            `${match[1]} ${segment || "/"}`,
+            path,
+            content,
+            match.index,
+            "nextjs-app-router"
+          )
+        );
+    }
+
+    // Next.js Pages Router: pages/api/**.ts default-exported handler.
+    if (/(?:^|\/)pages\/api\/.*\.[cm]?[jt]sx?$/iu.test(path) && /export\s+default/u.test(content)) {
+      const segment = path
+        .replace(/^.*?(?:^|\/)pages\//iu, "/")
+        .replace(/\.[cm]?[jt]sx?$/iu, "")
+        .replace(/\/index$/u, "");
+      output.push(
+        frameworkRoute(`ROUTE ${segment || "/"}`, path, content, 0, "nextjs-pages-router")
+      );
+    }
+
+    // NestJS controller decorators.
+    const controller = /@Controller\s*\(\s*["'`]([^"'`]*)["'`]/u.exec(content);
+    if (controller !== null) {
+      const base = `/${(controller[1] ?? "").replace(/^\/+|\/+$/gu, "")}`;
+      for (const match of content.matchAll(
+        /@(Get|Post|Put|Patch|Delete|Head|Options)\s*\(\s*(?:["'`]([^"'`]*)["'`])?\s*\)/gu
+      )) {
+        const suffix = (match[2] ?? "").replace(/^\/+/u, "");
+        const route = `${base === "/" ? "" : base}/${suffix}`.replace(/\/+$/u, "") || "/";
+        output.push(
+          frameworkRoute(
+            `${(match[1] ?? "ROUTE").toUpperCase()} ${route}`,
+            path,
+            content,
+            match.index,
+            "nestjs-decorators"
+          )
+        );
+      }
+    }
+
+    // Fastify object-form route registration.
+    for (const match of content.matchAll(
+      /\.route\s*\(\s*\{[^}]*?method\s*:\s*["'`]([A-Za-z]+)["'`][^}]*?url\s*:\s*["'`]([^"'`]+)["'`]/gsu
+    ))
+      output.push(
+        frameworkRoute(
+          `${(match[1] ?? "ROUTE").toUpperCase()} ${match[2] ?? "unknown"}`,
+          path,
+          content,
+          match.index,
+          "fastify-route-object"
+        )
+      );
+  }
+  return output;
+}
+
+function frameworkRoute(
+  name: string,
+  path: string,
+  content: string,
+  index: number,
+  adapter: string
+): RouteRecord {
+  return {
+    name,
+    type: "http-route",
+    location: path,
+    confidence: "HIGH",
+    evidence: [
+      `${path}:${lineForIndex(content, index)}`,
+      `adapter: ${adapter}`,
+      "middleware-inherited visibility is not resolved by this adapter"
+    ],
+    // Visibility is unknown unless a guard is directly observed. Framework middleware and
+    // decorator-level guards applied elsewhere are deliberately not treated as proof.
+    visibility: "unknown"
+  };
 }
 
 function record(

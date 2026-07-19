@@ -27,7 +27,11 @@ async function readFindings(root: string): Promise<ReportFinding[]> {
 
 async function auditRiskyFixture(root: string): Promise<void> {
   await cp(join(PACKAGE_ROOT, "fixtures", "risky-fixes"), root, { recursive: true });
-  const audit = await runFile(process.execPath, [cli, "all", "audit", "--root", root, "--json"], root);
+  const audit = await runFile(
+    process.execPath,
+    [cli, "all", "audit", "--root", root, "--json"],
+    root
+  );
   assert.equal(audit.exitCode, 1, audit.stderr);
 }
 
@@ -154,8 +158,13 @@ test("fix --safe differs observably from fix without --safe", async () => {
       (await runFile(process.execPath, [cli, "all", "fix", "--root", root, "--json"], root)).stdout
     ) as { changed_files: string[]; status: string };
     const executed = JSON.parse(
-      (await runFile(process.execPath, [cli, "all", "fix", "--safe", "--root", root, "--json"], root))
-        .stdout
+      (
+        await runFile(
+          process.execPath,
+          [cli, "all", "fix", "--safe", "--root", root, "--json"],
+          root
+        )
+      ).stdout
     ) as { changed_files: string[]; status: string };
 
     assert.deepEqual(planOnly.changed_files, []);
@@ -203,7 +212,11 @@ test("instance identity is stable when unrelated lines are inserted", async () =
     await runFile(process.execPath, [cli, "security", "audit", "--root", root, "--json"], root);
     const before = (await readFindings(root)).find((finding) => finding.id === "FF-SEC-SQL-001");
 
-    await writeFile(join(root, "alpha.ts"), `// unrelated comment\n// another line\n${body}`, "utf8");
+    await writeFile(
+      join(root, "alpha.ts"),
+      `// unrelated comment\n// another line\n${body}`,
+      "utf8"
+    );
     await runFile(process.execPath, [cli, "security", "audit", "--root", root, "--json"], root);
     const after = (await readFindings(root)).find((finding) => finding.id === "FF-SEC-SQL-001");
 
@@ -229,7 +242,7 @@ test("verifying a resolved instance is not failed by an unrelated instance elsew
     // Resolve only alpha. beta remains vulnerable on purpose.
     await writeFile(
       join(root, "alpha.ts"),
-      "export async function alpha(req, db) {\n  return db.query(\"SELECT * FROM t WHERE id = ?\", [req.params.id]);\n}\n",
+      'export async function alpha(req, db) {\n  return db.query("SELECT * FROM t WHERE id = ?", [req.params.id]);\n}\n',
       "utf8"
     );
     await runFile(process.execPath, [cli, "security", "verify", "--root", root, "--json"], root);
@@ -329,14 +342,16 @@ test("an undeclared nested manifest is not reported as an active workspace", asy
     const declared = parsed.profile.workspaces.find((item) => item.name === "declared-pkg");
     const sample = parsed.profile.workspaces.find((item) => item.name === "sample-pkg");
 
-    assert.equal(declared?.type, "package-workspace");
-    assert.equal(declared?.confidence, "HIGH");
+    assert.ok(declared !== undefined, "the declared workspace must be reported");
+    assert.ok(sample !== undefined, "the undeclared manifest must still be reported");
+    assert.equal(declared.type, "package-workspace");
+    assert.equal(declared.confidence, "HIGH");
     assert.equal(
-      sample?.type,
+      sample.type,
       "nested-package",
       "a manifest no workspace glob declares is not an active workspace"
     );
-    assert.equal(sample?.confidence, "LOW");
+    assert.equal(sample.confidence, "LOW");
   });
 });
 

@@ -123,7 +123,8 @@ function analyzeScripts(files) {
                 const sanitized = argumentSymbolsSanitized(node, file, taint);
                 if (isSqlSink(name) &&
                     requestControlled &&
-                    (hasInterpolation(node.arguments, file.sourceFile) || flowPassedThroughInterpolation(flow))) {
+                    (hasInterpolation(node.arguments, file.sourceFile) ||
+                        flowPassedThroughInterpolation(flow))) {
                     issues.push(issue(SPECS.sql, file, node, flowSource(flow, argumentText), name));
                     if (!sanitized)
                         issues.push(issue(SPECS.validation, file, node, flowSource(flow, argumentText), name));

@@ -206,11 +206,7 @@ async function determineDefaultBase(root: string): Promise<string> {
   if (remoteHead !== undefined)
     return validateBase(remoteHead.trim().replace(/^refs\/remotes\//u, ""));
   for (const candidate of ["origin/main", "origin/master"]) {
-    const exists = await gitOptional(root, [
-      "show-ref",
-      "--verify",
-      `refs/remotes/${candidate}`
-    ]);
+    const exists = await gitOptional(root, ["show-ref", "--verify", `refs/remotes/${candidate}`]);
     if (exists !== undefined) return candidate;
   }
   for (const candidate of ["main", "master"]) {

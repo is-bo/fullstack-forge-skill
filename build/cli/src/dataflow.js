@@ -182,7 +182,7 @@ function collectTaintedParameters(node, sourceFile, tainted, parameterTaint) {
     const positions = parameterTaint.get(name);
     if (positions === undefined)
         return;
-    const parameters = node.parameters ?? [];
+    const parameters = node.parameters;
     parameters.forEach((parameter, index) => {
         if (!positions.has(index) || !ts.isIdentifier(parameter.name))
             return;

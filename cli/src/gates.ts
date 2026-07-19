@@ -65,7 +65,13 @@ export const FORGE_GATE_REGISTRY: readonly GateDefinition[] = [
     "check:platforms"
   ),
   gate("FF-GATE-ARCHIVES", "Archive validation", "internal", "forge-self", "validate:dist"),
-  gate("FF-GATE-PACKAGING", "Packaging completeness", "internal", "forge-self", "package:platforms"),
+  gate(
+    "FF-GATE-PACKAGING",
+    "Packaging completeness",
+    "internal",
+    "forge-self",
+    "package:platforms"
+  ),
   gate("FF-GATE-SMOKE", "Smoke installation", "internal", "forge-self", "smoke:install"),
   gate(
     "FF-GATE-INSTALLER",

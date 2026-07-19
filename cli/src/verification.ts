@@ -48,9 +48,7 @@ export async function verifyFindings(
     }
     const statuses: Status[] = [];
     for (const action of actions) {
-      statuses.push(
-        await executeAction(action, finding, root, commands, options, execution)
-      );
+      statuses.push(await executeAction(action, finding, root, commands, options, execution));
     }
     finding.status = combineStatuses(statuses);
     findings.push(finding);
