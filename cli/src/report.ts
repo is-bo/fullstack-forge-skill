@@ -199,6 +199,14 @@ export function migrateReport(value: unknown): AuditReport {
  *
  * This is stated as an inference in the report text because no release stamped its own version
  * into the schema before the environment record existed.
+ *
+ * The classification is deliberately no more precise than the evidence allows. v0.1.7 changed
+ * offline command policy and analyzer protection, but it did not add, remove, or alter a single
+ * report field, so a v0.1.7 report is byte-indistinguishable from a v0.1.6 report at the schema
+ * level. Reporting such a report as "v0.1.6" would be a fabricated precision, so both releases are
+ * named in one classification rather than guessing between them. The v0.1.7 execution ledger lives
+ * in ship results and tool output, not in `AuditReport`, so it cannot be used as a discriminator
+ * either.
  */
 function classifyLegacyOrigin(source: Record<string, unknown>): string {
   if (source.schema_version === REPORT_SCHEMA_VERSION)
@@ -208,7 +216,7 @@ function classifyLegacyOrigin(source: Record<string, unknown>): string {
     (finding) => finding.instance_id !== undefined || finding.evidence_snapshot !== undefined
   );
   if (source.environment !== undefined || source.revision !== undefined)
-    return "inferred v0.1.6-compatible schema 1 report (carries an environment or revision record)";
+    return "inferred v0.1.6-or-v0.1.7-compatible schema 1 report (carries an environment or revision record; v0.1.7 changed no report field, so the two releases are not distinguishable from a report alone)";
   if (Array.isArray(source.gate_evidence) || Array.isArray(source.analyzer_coverage))
     return "inferred v0.1.5-compatible schema 1 report (carries typed gate evidence or analyzer coverage)";
   if (hasInstanceIdentity)

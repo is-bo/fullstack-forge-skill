@@ -22,7 +22,7 @@
  * A blocked command produces a ledger record, never a command result, so it can never be converted
  * into typed PASS gate evidence.
  */
-import type { CommandDefinition } from "./types.js";
+import type { CommandDefinition, NetworkPolicy } from "./types.js";
 export type CommandNetworkPolicy = "forge-internal-offline-safe" | "cache-only-installation" | "UNKNOWN";
 /** Why a command appears in the ledger. `NOT_RUN` covers ordering and authorization, not policy. */
 export type CommandDisposition = "RAN" | "BLOCKED" | "NOT_RUN";
@@ -59,6 +59,26 @@ export type PolicyContext = {
 export declare function classifyCommandNetworkPolicy(command: CommandDefinition, context: PolicyContext): CommandNetworkPolicy;
 /** Decides whether a detected project command may execute under the active offline state. */
 export declare function decideCommandExecution(command: CommandDefinition, context: PolicyContext): CommandPolicyDecision;
+/**
+ * Projects a command's network policy into the report vocabulary used by `PlannedCheck`.
+ *
+ * Two vocabularies exist for good reasons. `CommandNetworkPolicy` names *why* a command may run,
+ * so it distinguishes the two provable exemptions. `NetworkPolicy` is the coarser report-facing
+ * value. This function is the only sanctioned bridge between them, and it exists so that the
+ * report vocabulary can never be used to launder an unproven claim.
+ *
+ * The mapping is deliberately one-way and lossy in the safe direction:
+ *
+ *  - The two structurally provable exemptions become `OFFLINE_SAFE`, because a proof exists.
+ *  - `UNKNOWN` stays `UNKNOWN`. It never becomes `OFFLINE_SAFE`.
+ *
+ * There is no inverse function and no path that promotes `UNKNOWN`. Absence of network keywords is
+ * not proof of offline safety, so nothing may downgrade an arbitrary audited-project command to
+ * `OFFLINE_SAFE`. Escalation in the other direction — `UNKNOWN` to `NETWORK_REQUIRED` once network
+ * dependence is actually demonstrated — is legitimate and is performed by the caller that holds
+ * that evidence, not here.
+ */
+export declare function plannedCheckNetworkPolicy(policy: CommandNetworkPolicy): NetworkPolicy;
 export declare function ledgerRecord(command: CommandDefinition, decision: CommandPolicyDecision, disposition: CommandDisposition, offline: boolean, exitCode?: number): CommandLedgerRecord;
 /**
  * A registry address that cannot serve packages: an unspecified address, or a loopback address with
