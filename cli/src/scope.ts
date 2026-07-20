@@ -1,6 +1,7 @@
 import { basename, dirname, extname, join, relative } from "node:path";
 import type { ModuleSlug } from "./constants.js";
 import { ALWAYS_APPLICABLE, SECTION_CAPABILITY } from "./constants.js";
+import { CAPABILITY_RULES } from "./discovery-evidence.js";
 import { appendModuleDecision } from "./ledger.js";
 import type { ModuleCapabilityStatus, ModuleDecision, ProjectProfile } from "./types.js";
 import {
@@ -80,6 +81,15 @@ export function capabilityStatusFor(
         `The ${section} module applies to every project; it is not gated on a detected capability.`
       ]
     };
+
+  // v0.1.10 capability assessments are preferred over the legacy presence map when discovery
+  // produced them. The legacy map could only say "this key is present" or "it is not", so a
+  // capability nobody had evidence about was inferred ABSENT from the mere existence of other
+  // keys. An assessment states PRESENT, ABSENT, or UNKNOWN explicitly from classified evidence,
+  // and an UNKNOWN assessment must never be reported as a proven absence.
+  const assessed = assessmentStatusFor(capability, profile);
+  if (assessed !== undefined) return assessed;
+
   const detected = profile.capabilities[capability];
   if (detected !== undefined)
     return {
@@ -101,6 +111,59 @@ export function capabilityStatusFor(
     evidence: [
       `Discovery observed ${observed.length} capabilit(y|ies) and '${capability}' was not among them: ${observed.join(", ")}.`
     ]
+  };
+}
+
+/** Capabilities the v0.1.10 evidence layer actually models. */
+const MODELED_CAPABILITIES: ReadonlySet<string> = new Set(
+  CAPABILITY_RULES.map((rule) => rule.capability)
+);
+
+/**
+ * Projects v0.1.10 capability assessments onto the module-decision capability axis.
+ *
+ * The two vocabularies are deliberately identical (`PRESENT`, `ABSENT`, `UNKNOWN`), so this is a
+ * projection rather than a translation, and nothing is strengthened on the way across. A
+ * capability assessed in several workspaces resolves to the strongest evidence any workspace
+ * produced: PRESENT if any workspace proved it, otherwise ABSENT only if every workspace proved
+ * its absence, otherwise UNKNOWN. Absence in one workspace is not absence in the project.
+ *
+ * Returns undefined when discovery recorded no assessments at all, so the legacy presence map
+ * still applies to profiles written by earlier releases.
+ */
+function assessmentStatusFor(
+  capability: string,
+  profile: ProjectProfile
+): { status: ModuleCapabilityStatus; evidence: string[] } | undefined {
+  const assessments = profile.capability_assessments;
+  if (assessments === undefined || assessments.length === 0) return undefined;
+  // The assessment layer models a subset of the capabilities module decisions are gated on. A
+  // capability it does not model produces no assessment, and reading that silence as evidence
+  // would permanently disable every module gated on it. Those fall through to the legacy map.
+  if (!MODELED_CAPABILITIES.has(capability)) return undefined;
+  const matching = assessments.filter((assessment) => assessment.capability === capability);
+  if (matching.length === 0)
+    return {
+      status: "UNKNOWN",
+      evidence: [
+        `The discovery evidence layer models '${capability}' but recorded no assessment for it, so its absence is unproven.`
+      ]
+    };
+
+  const status: ModuleCapabilityStatus = matching.some(
+    (assessment) => assessment.status === "PRESENT"
+  )
+    ? "PRESENT"
+    : matching.every((assessment) => assessment.status === "ABSENT")
+      ? "ABSENT"
+      : "UNKNOWN";
+
+  return {
+    status,
+    evidence: matching.map(
+      (assessment) =>
+        `Capability '${capability}' assessed ${assessment.status} in workspace '${assessment.workspace}' (activation score ${assessment.score}): ${assessment.reasons.join("; ") || "no reason recorded"}.`
+    )
   };
 }
 

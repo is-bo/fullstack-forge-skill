@@ -9,5 +9,6 @@ node_modules/
 .cursor/
 .gemini/
 .github/skills/
+docs/TRACEABILITY_MATRIX.md
 .windsurf/
 src/fullstack-forge/commands/

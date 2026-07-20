@@ -1,5 +1,6 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join, relative } from "node:path";
+import { assessProjectCapabilities } from "./discovery-evidence.js";
 import { assertNoSymlinkPath, canonicalDirectory, readTextIfPresent, runFile, toPosix, utcNow, walkFiles } from "./utils.js";
 const EXCLUDED = new Set([
     ".git",
@@ -313,12 +314,17 @@ export async function discoverProject(rootInput) {
         };
     }
     const structured = await buildStructuredProfile(root, files, capabilities);
+    // Evidence classification runs over its own walk so fixtures, examples, generated platform
+    // copies, and documentation are visible and can be explicitly neutralized rather than
+    // silently excluded. It never removes a legacy detection; it only adds a weighted decision.
+    const capabilityAssessments = await assessProjectCapabilities(root, structured.workspaces.map((workspace) => workspace.root ?? "."));
     return {
         schema_version: 2,
         root,
         generated_at: utcNow(),
         detections: deduplicateDetections(detections),
         capabilities,
+        capability_assessments: capabilityAssessments,
         ...structured
     };
 }

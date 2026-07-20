@@ -56,7 +56,7 @@
   "scripts": {
     "build": "npm run generate && tsc -p tsconfig.json",
     "audit:dependencies": "npm audit --ignore-scripts",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run validate && npm run check:platforms && npm run check:links && npm run check:licenses && npm run check:fixtures && npm run check:workflows && npm run check:release-docs && npm run check:install-docs && npm run check:branding && npm run scan:secrets",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run validate && npm run check:platforms && npm run check:links && npm run check:licenses && npm run check:fixtures && npm run check:workflows && npm run check:release-docs && npm run check:install-docs && npm run check:traceability && npm run check:branding && npm run scan:secrets",
     "check:branding": "node scripts/check-branding.mjs",
     "check:licenses": "node scripts/check-licenses.mjs",
     "check:fixtures": "node scripts/check-fixtures.mjs",
@@ -64,6 +64,8 @@
     "check:links": "node scripts/check-links.mjs",
     "check:platforms": "node scripts/check-platform-assets.mjs",
     "check:release-docs": "node scripts/validate-release-docs.mjs",
+    "check:traceability": "node scripts/check-traceability.mjs",
+    "generate:traceability": "node scripts/generate-traceability-matrix.mjs",
     "check:workflows": "node scripts/check-workflows.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
