@@ -89,11 +89,24 @@ test("project command execution rejects unknown names and blocks unapproved defi
 test("high-risk all audit and verify route through applicable focused modules", async () => {
     await withTemporaryProject("cli-verify-all", async (root) => {
         await writeFile(join(root, "app.ts"), "export const ready = true;\n", "utf8");
+        // A declared frontend makes the ui capability genuinely PRESENT, so the assertions below
+        // isolate risk exclusion instead of accidentally testing a capability that does not exist.
+        await writeFile(join(root, "package.json"), `${JSON.stringify({ name: "risk-fixture", private: true, dependencies: { react: "19.0.0" } }, null, 2)}\n`, "utf8");
         const audit = await runFile(process.execPath, [cli, "all", "audit", "--risk", "high", "--root", root, "--json"], root);
         assert.equal(audit.exitCode, 0, audit.stderr);
         const audited = JSON.parse(audit.stdout);
         assert.ok(audited.report.findings.some((finding) => finding.section === "security"));
-        assert.ok(!audited.report.findings.some((finding) => finding.section === "ui"));
+        // A risk filter narrows what is audited; it never proves anything about what it skipped.
+        // The ui module must therefore still appear, recorded as excluded by risk and unverified,
+        // rather than disappearing from the report as though it had been considered and cleared.
+        const [uiFinding, ...extraUiFindings] = audited.report.findings.filter((finding) => finding.section === "ui");
+        assert.ok(uiFinding, "a risk-excluded module must still be accounted for");
+        assert.equal(extraUiFindings.length, 0);
+        assert.equal(uiFinding.status, "NOT_VERIFIED");
+        const uiDecision = audited.report.module_decisions.find((decision) => decision.module === "ui");
+        assert.ok(uiDecision);
+        assert.equal(uiDecision.selection_status, "EXCLUDED_BY_RISK");
+        assert.notEqual(uiDecision.capability_status, "ABSENT", "excluding a module by risk must not be recorded as the capability being absent");
         const verify = await runFile(process.execPath, [cli, "all", "verify", "--risk", "high", "--root", root, "--json"], root);
         assert.equal(verify.exitCode, 0, verify.stderr);
         const verified = JSON.parse(verify.stdout);

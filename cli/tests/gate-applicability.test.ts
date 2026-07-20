@@ -162,6 +162,127 @@ test("Forge self-release gates remain applicable to the Forge repository", async
   });
 });
 
+/**
+ * A narrowed audit must never switch off a release gate. If the prior report says the capability
+ * exists but the module was skipped, the gate is unverified — not inapplicable.
+ */
+test("a module left out of changed scope does not make its ship gate inapplicable", async () => {
+  await withTemporaryProject("gate-out-of-scope", async (root) => {
+    await writePackage(root, "ordinary-project");
+    const profile = await discoverProject(root);
+    const previous = createReport(
+      root,
+      profile,
+      [],
+      "changed",
+      [],
+      [],
+      [],
+      undefined,
+      [],
+      [],
+      await workingTreeRevision(root),
+      undefined,
+      {
+        module_decisions: [
+          {
+            module: "uploads",
+            capability_status: "PRESENT",
+            selection_status: "OUT_OF_CHANGED_SCOPE",
+            reasons: ["No changed file reached the upload pipeline."],
+            evidence: ["src/upload.ts"]
+          }
+        ]
+      }
+    );
+    const result = await runShipGates(root, profile, previous, [], false);
+
+    const uploads = gateById(result.gates, "FF-GATE-UPLOAD-EVAL");
+    assert.notEqual(
+      uploads.status,
+      "NOT_APPLICABLE",
+      "an upload pipeline that exists but was not audited cannot disable its gate"
+    );
+    assert.equal(uploads.required, true);
+    assert.equal(uploads.status, "NOT_VERIFIED");
+    assert.equal(result.status, "BLOCKED");
+  });
+});
+
+test("a module whose capability is proven absent keeps its gate inapplicable", async () => {
+  await withTemporaryProject("gate-absent-capability", async (root) => {
+    await writePackage(root, "ordinary-project");
+    const profile = await discoverProject(root);
+    const previous = createReport(
+      root,
+      profile,
+      [],
+      "audit",
+      [],
+      [],
+      [],
+      undefined,
+      [],
+      [],
+      await workingTreeRevision(root),
+      undefined,
+      {
+        module_decisions: [
+          {
+            module: "uploads",
+            capability_status: "ABSENT",
+            selection_status: "NOT_REQUESTED",
+            reasons: ["Discovery proved no upload pipeline exists."],
+            evidence: ["no upload capability among: api, frontend"]
+          }
+        ]
+      }
+    );
+    const result = await runShipGates(root, profile, previous, [], false);
+
+    const uploads = gateById(result.gates, "FF-GATE-UPLOAD-EVAL");
+    assert.equal(uploads.status, "NOT_APPLICABLE");
+    assert.equal(uploads.required, false);
+  });
+});
+
+test("a risk-excluded module keeps its ship gate required", async () => {
+  await withTemporaryProject("gate-risk-excluded", async (root) => {
+    await writePackage(root, "ordinary-project");
+    const profile = await discoverProject(root);
+    const previous = createReport(
+      root,
+      profile,
+      [],
+      "audit",
+      [],
+      [],
+      [],
+      undefined,
+      [],
+      [],
+      await workingTreeRevision(root),
+      undefined,
+      {
+        module_decisions: [
+          {
+            module: "tenancy",
+            capability_status: "UNKNOWN",
+            selection_status: "EXCLUDED_BY_RISK",
+            reasons: ["A risk filter narrowed this run."],
+            evidence: ["discovery recorded no capability signals"]
+          }
+        ]
+      }
+    );
+    const result = await runShipGates(root, profile, previous, [], false);
+
+    const tenancy = gateById(result.gates, "FF-GATE-TENANT-EVAL");
+    assert.notEqual(tenancy.status, "NOT_APPLICABLE");
+    assert.equal(tenancy.required, true);
+  });
+});
+
 test("every registry gate declares an explicit applicability class", () => {
   for (const definition of FORGE_GATE_REGISTRY)
     assert.ok(

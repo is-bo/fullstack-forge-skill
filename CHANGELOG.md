@@ -26,6 +26,160 @@ versioning.
   and `NOT_VERIFIED` entries that do not distinguish an external limit from unfinished local work.
   See [docs/TRACEABILITY.md](docs/TRACEABILITY.md).
 
+## [0.1.9] - 2026-07-20
+
+Audit orchestration and report-output milestone. A normal `forge <section> audit` becomes one
+coherent, explicitly authorized operation whose planned checks, executions, refusals, and runtime
+evidence all reach the report through the v0.1.8 typed ledgers.
+
+### Added
+
+- Audit orchestration. A normal `forge <section> audit` is now one coherent operation: it discovers
+  applicable modules, detects candidate project checks, builds a deterministic planned-check list,
+  executes only what it is explicitly authorized to execute, and records every check it did not run
+  together with the reason. `--json` output gains `planned_checks`, `check_outcomes`,
+  `runtime_evidence`, and `evidence_complete`.
+- New audit options, each of which changes behavior rather than being parsed and ignored:
+  `--check <name>` and `--skip-check <name>` (repeatable, accepting either the full check identifier
+  or the bare name, rejecting unknown values), `--url <url>` to integrate rendered evidence from an
+  application the operator already started, and `--evidence-dir <path>` to relocate collected
+  runtime evidence beneath the audited root.
+- Project-command execution during an audit is restricted to a bounded allowlist of read-only
+  scripts, so an audit can never start an unrecognized project server. Execution requires
+  `--allow-run`. Under `--offline` a project command is refused before the process is spawned unless
+  it is one of the two structurally provable exemptions from v0.1.7; every arbitrary audited-project
+  script is `UNKNOWN` and is blocked. Browser tooling is never installed automatically.
+- Requested evidence fails closed. A rendered capture that is `PARTIAL`, `BLOCKED`, or `FAILED`
+  leaves the rendered criteria `NOT_VERIFIED` and makes the audit exit `2` — nothing failed, but the
+  run did not prove what it was asked to prove.
+- Report-mode output contract. `forge <section> report` renders Markdown to stdout, JSON under
+  `--json`, and writes `report.json` plus `report.md` under `--output <directory>`; adding
+  `--dry-run` prints the planned paths and writes nothing. Report mode never re-runs an audit, so
+  the rendered document preserves the identity, revision, timestamps, and evidence of the run it
+  names.
+- Report output is contained and owned. The directory is resolved beneath the authorized root;
+  traversal, absolute, drive-qualified, UNC, and symlinked destinations are refused. Forge records
+  the digest of each file it writes and refuses to overwrite either an unowned pre-existing file or
+  managed output that was edited after Forge wrote it; identical content is preserved rather than
+  rewritten.
+
+### Changed
+
+- An `AuditLedgerSink` boundary separates orchestration from the report schema. `ReportAuditLedger`
+  is the shipped implementation: it writes the v0.1.8 `planned_checks`, `runtime_evidence`, and
+  `tools` ledgers through the append-only `cli/src/ledger.ts` API, so the ledger itself enforces
+  that an outcome is never rewritten from weaker to stronger.
+- Orchestration records an executed project command as a `project-owned`, `untrusted` tool with an
+  `unknown` version source, because Forge did not author it and cannot attest to what it checked.
+
+### Fixed
+
+- Orchestration can no longer weaken the v0.1.7 offline policy. The planning step previously derived
+  a boolean `network_dependent` flag from keyword scanning alone, so an arbitrary audited-project
+  script containing no recognizable network keyword — `eslint .`, `vitest run`, `tsc -p .` — was
+  treated as safe to execute under `--offline`. Text inspection can prove network dependence but can
+  never prove its absence, and Forge implements no operating-system network isolation, so that
+  inference was unsound. Planned checks now carry a `network_policy` obtained exclusively through
+  `plannedCheckNetworkPolicy`, the single sanctioned bridge into the report vocabulary. Keyword
+  scanning may only escalate `UNKNOWN` to `NETWORK_REQUIRED`; nothing can downgrade a command to
+  `OFFLINE_SAFE`. This is a user-visible change: `forge <section> audit --offline --allow-run` now
+  refuses project commands that earlier builds of this branch would have executed.
+- A planned check that nobody authorized is recorded `NOT_RUN`, never `BLOCKED`. `BLOCKED` feeds the
+  `forge fix` candidate set, and an unauthorized check is not a defect awaiting remediation.
+
+## [0.1.8] - 2026-07-20
+
+Module applicability and report evidence ledger milestone. `NOT_APPLICABLE` now means only that a
+capability provably does not exist, and the report gained typed ledgers for tools, planned checks,
+runtime evidence, and module decisions.
+
+### Added
+
+- Machine-readable module applicability decisions (`module_decisions`) recording capability presence
+  and selection independently, so a module skipped for a scoping reason is no longer
+  indistinguishable from one whose capability does not exist.
+- Report schema version 2 adding `tools`, `planned_checks`, `runtime_evidence`, and
+  `module_decisions` ledgers, documented in [report schema](docs/REPORT_SCHEMA.md). Reports from
+  v0.1.3 through v0.1.7 migrate in memory without rewriting the source file and without fabricating
+  ledgers the writing release never recorded.
+- Append-only ledger APIs in `cli/src/ledger.ts` that validate input, deduplicate stable IDs,
+  preserve deterministic order, and refuse to rewrite a blocked or unverified result as passing.
+- `plannedCheckNetworkPolicy`, the single sanctioned bridge from the v0.1.7 command network policy
+  to the coarser report vocabulary. The mapping is one-way: the two structurally provable exemptions
+  become `OFFLINE_SAFE` and `UNKNOWN` always stays `UNKNOWN`. There is no inverse and no promotion
+  path, so the report vocabulary cannot be used to describe an arbitrary audited-project command as
+  offline-safe.
+
+### Changed
+
+- A module excluded by `--risk high` is now reported instead of omitted. Previously a non-high-risk
+  module vanished from the report entirely, which read as though it had been audited and cleared. It
+  now appears with a `NOT_VERIFIED` status and an `EXCLUDED_BY_RISK` module decision. This is a
+  user-visible change to `forge all audit --risk high` output: reports contain entries for modules
+  that earlier releases silently dropped, and any tooling that treated absence as success must now
+  read `module_decisions`.
+
+### Fixed
+
+- `NOT_APPLICABLE` is now reserved for a capability that provably does not exist. A module left out
+  of the changed scope, excluded by a risk filter, or whose capability could not be determined is
+  reported `NOT_VERIFIED` instead of being labelled inapplicable.
+- Risk-filtered modules previously vanished from the report entirely, leaving no record that they
+  had gone unaudited. They now appear with an `EXCLUDED_BY_RISK` decision.
+- Capability ship gates are no longer dismissed as `NOT_APPLICABLE` when the prior audit shows the
+  module exists but was not audited, so narrowing an audit can no longer switch a release gate off.
+- Report migration no longer claims a v0.1.7 report was written by v0.1.6. v0.1.7 changed no report
+  field, so the two releases are indistinguishable from a report alone; the migration record now
+  names both and states why they cannot be told apart rather than asserting a precision it does not
+  have.
+
+## [0.1.7] - 2026-07-20
+
+Offline command policy and structural security proof milestone. `--offline` now reaches every
+command execution path rather than the rendered-UI driver alone, and analyzer protection is granted
+only from analyzed structure, never from an identifier's name.
+
+### Fixed
+
+- `--offline` is enforced on every command execution path, not only the rendered-UI driver.
+  `forge tool run-project-command` and every `forge ship` gate previously spawned the audited
+  project's own scripts with unrestricted network access while the report recorded `offline: true`.
+  Arbitrary audited-project scripts are now classified `UNKNOWN` from their definition (never their
+  name) and blocked offline. Fullstack Forge implements no operating-system network isolation, so
+  none is claimed: `sandbox` is always reported as `none`. Only two exemptions are provable —
+  Forge's own repository scripts, matched by exact definition and only when the audited root is
+  canonically the Forge package root, and explicitly designed cache-only installation checks that
+  combine an offline package-manager flag with an unreachable registry. Every command now carries a
+  ledger record (`RAN`, `BLOCKED`, `NOT_RUN`) with its reason, and a blocked command produces no
+  execution record and no typed evidence, so it can never satisfy a release gate.
+- Security protections are no longer granted from a function's name. `parse`, `validate`,
+  `assertValid`, `sanitize`, `allowlist`, `assertAllowed`, `requireAllowed`, `allowedValue`,
+  `trusted`, and `safe` are discovery hints only; a no-op function with any of those names now
+  leaves the SQL, shell, SSRF, redirect, mass-assignment, upload, and AI findings reported.
+  Protection is recognized only from bounded structural evidence: supported library APIs with known
+  semantics, schema operations attached to the exact value, dominating guards whose deny branch
+  terminates, specification-defined sink encoding, parameterized database calls, shell argument
+  separation, and same-file helpers whose bodies are actually analyzed.
+- SSRF address guards are no longer credited from their names. `isPrivate`, `isLinkLocal`,
+  `isInternal`, and `privateAddress` were still recognized by name alone, so a no-op guard —
+  `function isPrivate(value) { return false; }` — suppressed the SSRF finding while blocking
+  nothing, contradicting the documented claim that no protection is granted from an identifier's
+  name. A guard is now credited only when a same-file implementation is analyzed: it must accept the
+  value under test, reference it, and decide against concrete loopback, private, or link-local
+  address evidence, and a constant-returning body proves nothing. A guard imported from another
+  module is not modeled, so that mitigation is reported as unverified instead of credited. Genuine
+  structurally proven address guards continue to suppress.
+- Destination maps require strong proof before they suppress SSRF. A `const` object of URL strings
+  is no longer sufficient: `http://127.0.0.1:3000/` and `http://169.254.169.254/latest/meta-data/`
+  are fixed literals and exactly the destinations an SSRF attack wants. Suppression now requires
+  fixed literal destinations, demonstrable immutability, no property write or delete, no alias
+  escape, no export or return, no pass to an unmodelled function, direct flow to the sink, an
+  explicit redirect constraint, absent credentials, a supported protocol, and classification of
+  literal addresses — loopback, private, link-local, unspecified, multicast, reserved,
+  shared-carrier, and cloud-metadata destinations all fail, including IPv4-mapped IPv6 and
+  trailing-dot `localhost` forms. Hostname destinations are recorded as DNS-dependent rather than
+  implied resolved.
+
 ## [0.1.6] - 2026-07-19
 
 Rendered-UI security milestone. Three defects were independently reproduced against v0.1.5 before
@@ -324,7 +478,10 @@ executable evidence rather than documentation.
 - Deterministic ZIP archives, SHA-256 checksums, ownership manifests, clean-install smoke tests,
   fixtures, CI, research attribution, and original branding.
 
-[Unreleased]: https://github.com/thethunderbolt/fullstack-forge-skill/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/thethunderbolt/fullstack-forge-skill/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.7
+[0.1.6]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.6
+[0.1.5]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.5
 [0.1.4]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.4
 [0.1.3]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.3
 [0.1.2]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.2

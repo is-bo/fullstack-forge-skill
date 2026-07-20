@@ -14,8 +14,8 @@ Summaries here are original wording. No authoritative source text is quoted or r
 
 ## Status summary
 
-- **COMPLIANT**: 35
-- **PARTIALLY_COMPLIANT**: 38
+- **COMPLIANT**: 37
+- **PARTIALLY_COMPLIANT**: 36
 - **NOT_VERIFIED**: 2
 
 ## Requirements
@@ -96,13 +96,13 @@ The CLI installs, updates, validates, diagnoses, packages, and uninstalls across
 
 Every focused section supports read-only audit, approval-gated fix, re-checking verify, and structured report modes.
 
-- **Status**: PARTIALLY_COMPLIANT
-- **Implementation**: `cli/src/cli.ts`, `cli/src/fixes.ts`, `cli/src/verification.ts`, `cli/src/report.ts`
-- **Tests**: `cli/tests/cli.test.ts`, `cli/tests/fixes.test.ts`, `cli/tests/report.test.ts`
-- **Documentation**: `docs/COMMANDS.md`, `docs/CLI_REFERENCE.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
-- **Pending integration**: integration:v0.1.9
-- **Limitations**: Report-output improvements are being developed on a parallel branch and are not present here; this entry records the current v0.1.6 report behaviour only.
+- **Status**: COMPLIANT
+- **Implementation**: `cli/src/cli.ts`, `cli/src/fixes.ts`, `cli/src/verification.ts`, `cli/src/report.ts`, `cli/src/report-output.ts`
+- **Tests**: `cli/tests/cli.test.ts`, `cli/tests/fixes.test.ts`, `cli/tests/report.test.ts`, `cli/tests/report-output.test.ts`, `cli/tests/cli-report-mode.test.ts`
+- **Documentation**: `docs/COMMANDS.md`, `docs/CLI_REFERENCE.md`, `docs/REPORT_SCHEMA.md`
+- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.9.md`, `docs/RELEASE_VERIFICATION_v0.1.9.md`, `docs/FINAL_RELEASE_VERIFICATION_v0.1.9.md`
+- **Pending integration**: _none_
+- **Limitations**: _none_
 
 ### FF-CMD-02
 
@@ -337,12 +337,12 @@ Code quality is inspected for type safety, error handling, dead code, leaks, and
 Visual interfaces are inspected in the rendered application, not only in component source, across viewports and interaction states.
 
 - **Status**: PARTIALLY_COMPLIANT
-- **Implementation**: `src/fullstack-forge/commands/forge-ui`, `cli/src/rendered-ui.ts`
-- **Tests**: `cli/tests/rendered-ui.test.ts`, `cli/tests/rendered-ui-capture.test.ts`
-- **Documentation**: `docs/COMMANDS.md`, `docs/SECURITY_MODEL.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
-- **Pending integration**: integration:v0.1.9
-- **Limitations**: Rendered inspection requires an operator-approved runnable application; without one the module reports NOT_VERIFIED. Further rendered-UI work is in progress on a parallel branch and is not present here.
+- **Implementation**: `src/fullstack-forge/commands/forge-ui`, `cli/src/rendered-ui.ts`, `cli/src/audit-orchestration.ts`
+- **Tests**: `cli/tests/rendered-ui.test.ts`, `cli/tests/rendered-ui-capture.test.ts`, `cli/tests/cli-audit-orchestration.test.ts`, `cli/tests/cross-feature-v017-v019.test.ts`
+- **Documentation**: `docs/COMMANDS.md`, `docs/SECURITY_MODEL.md`, `docs/CLI_REFERENCE.md`
+- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.9.md`, `docs/RELEASE_VERIFICATION_v0.1.9.md`, `docs/FINAL_RELEASE_VERIFICATION_v0.1.9.md`
+- **Pending integration**: _none_
+- **Limitations**: Rendered inspection requires an application the operator has already started and an explicitly authorised trusted browser driver. Forge never launches an application and never installs browser tooling, so where no driver is available the rendered criteria remain NOT_VERIFIED and the audit exits 2 rather than reporting a pass.
 
 ### FF-MOD-05
 
@@ -469,12 +469,12 @@ Authorization is audited separately from authentication, requires deny-by-defaul
 General application security is audited across injection, browser controls, secrets, cryptography, abuse cases, and dependency risk.
 
 - **Status**: PARTIALLY_COMPLIANT
-- **Implementation**: `src/fullstack-forge/commands/forge-security`, `cli/src/analyzers.ts`, `cli/src/dataflow.ts`
-- **Tests**: `cli/tests/analyzers.test.ts`, `cli/tests/dataflow.test.ts`
+- **Implementation**: `src/fullstack-forge/commands/forge-security`, `cli/src/analyzers.ts`, `cli/src/dataflow.ts`, `cli/src/destination-policy.ts`
+- **Tests**: `cli/tests/analyzers.test.ts`, `cli/tests/dataflow.test.ts`, `cli/tests/security-proof.test.ts`
 - **Documentation**: `docs/SECURITY_MODEL.md`, `docs/ANALYZER_SUPPORT.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
-- **Pending integration**: integration:v0.1.9
-- **Limitations**: Static analysis covers a declared rule set with declared unsupported shapes. Further static security analyzer work is in progress on a parallel branch and is not present here.
+- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.7.md`, `docs/RELEASE_VERIFICATION_v0.1.7.md`, `docs/FINAL_RELEASE_VERIFICATION_v0.1.7.md`
+- **Pending integration**: _none_
+- **Limitations**: Static analysis covers a declared rule set with declared unsupported shapes, published in docs/ANALYZER_SUPPORT.md. Protection is credited only from analysed structure: a constant-returning address guard, and a guard imported from another module, are recorded as unverified rather than credited, which under-credits genuine mitigations by design.
 
 ### FF-MOD-16
 
@@ -768,13 +768,13 @@ Offline-capable applications are inspected for local persistence, queued writes,
 
 A repository-wide orchestrator runs discovery, selects applicable modules, merges duplicate findings while preserving evidence, ranks remediation, and marks blocked or unverified checks.
 
-- **Status**: PARTIALLY_COMPLIANT
-- **Implementation**: `cli/src/cli.ts`, `cli/src/scope.ts`, `cli/src/report.ts`
-- **Tests**: `cli/tests/cli.test.ts`, `cli/tests/scope.test.ts`, `cli/tests/scope-base.test.ts`
-- **Documentation**: `docs/COMMANDS.md`, `docs/ARCHITECTURE.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
-- **Pending integration**: (integration:v0.1.7) (integration:v0.1.8)
-- **Limitations**: Module applicability currently uses legacy capability presence. The explicit module-decision schema and the reworked audit orchestration and changed-scope handling are being developed on parallel branches and are not present here.
+- **Status**: COMPLIANT
+- **Implementation**: `cli/src/cli.ts`, `cli/src/scope.ts`, `cli/src/report.ts`, `cli/src/audit-orchestration.ts`, `cli/src/ledger.ts`
+- **Tests**: `cli/tests/cli.test.ts`, `cli/tests/scope.test.ts`, `cli/tests/scope-base.test.ts`, `cli/tests/module-decision.test.ts`, `cli/tests/audit-orchestration.test.ts`, `cli/tests/ledger.test.ts`, `cli/tests/cross-feature-v017-v019.test.ts`
+- **Documentation**: `docs/COMMANDS.md`, `docs/ARCHITECTURE.md`, `docs/REPORT_SCHEMA.md`
+- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.8.md`, `docs/FINAL_RELEASE_VERIFICATION_v0.1.8.md`, `docs/AUDIT_CLASSIFICATION_v0.1.9.md`, `docs/FINAL_RELEASE_VERIFICATION_v0.1.9.md`
+- **Pending integration**: _none_
+- **Limitations**: _none_
 
 ### FF-REL-01
 

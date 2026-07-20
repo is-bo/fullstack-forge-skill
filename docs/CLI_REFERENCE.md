@@ -15,7 +15,7 @@ Modes:
   hash, exact preconditions, contained regular-file paths, and a finding-specific verification.
 - `verify`: execute each finding's analyzer, structural assertion, approved command, fixture, or
   manual verification plan while preserving the original evidence.
-- `report`: render `.forge/report.json`.
+- `report`: render `.forge/report.json` to stdout or to a directory. Never re-runs the audit.
 
 Examples:
 
@@ -74,9 +74,111 @@ left in place on uninstall. Modified owned files are preserved and reported.
 - `--safe`: restrict fix planning to safe classifications; never expands mutation authority.
 - `--base <ref>`: validated Git base reference for a changed-scope audit.
 - `--scope`, `--risk`, `--severity`, `--output`: command-specific filters or output location.
+- `--check <name>` / `--skip-check <name>`: repeatable planned-check selectors (see below).
+- `--url <url>`: address of an application you already started, for runtime evidence.
+- `--evidence-dir <dir>`: repository-relative directory for collected runtime evidence.
 
 Unknown flags, platforms, modules, tools, modes, escaping paths, and symlinked destinations fail
 closed.
+
+## Exit codes
+
+| Code | Meaning                                                            |
+| ---- | ------------------------------------------------------------------ |
+| `0`  | The command succeeded and every requested check produced evidence. |
+| `1`  | A `FAIL` finding was recorded, or the command itself errored.      |
+| `2`  | Nothing failed, but requested evidence could not be collected.     |
+
+Exit `2` is the fail-closed code. An audit that was asked for rendered evidence and could not
+produce it exits `2` rather than `0`: the run proved nothing about what it was asked to prove.
+
+## Audit orchestration
+
+A normal audit is one coherent operation. It discovers applicable modules, detects candidate project
+checks, builds a deterministic planned-check list, executes only what it is explicitly authorized to
+execute, and records everything it did not run together with the reason.
+
+```bash
+forge all audit
+forge all audit --allow-run
+forge all audit --allow-run --check lint --check test
+forge all audit --allow-run --skip-check build
+forge all audit --allow-run --url http://127.0.0.1:3000/
+forge all audit --allow-run --url http://127.0.0.1:3000/ --evidence-dir artifacts/ui
+```
+
+Under `--json` the audit emits `planned_checks`, `check_outcomes`, `runtime_evidence`, and
+`evidence_complete` alongside the report.
+
+**Planned checks.** Every check has a stable identifier: `module:<slug>` for static module
+inspection, `command:<script>` for a detected project command, and `runtime:rendered-ui` for
+rendered evidence. `--check` and `--skip-check` accept either the full identifier or the bare name,
+are repeatable, and reject an unknown value rather than silently ignoring it. The planned list is
+ordered deterministically — modules alphabetically, then commands in a fixed order, then runtime
+evidence — so two audits of the same checkout produce identical plans.
+
+**Which commands are candidates.** Only these detected scripts are ever eligible: `format:check`,
+`lint`, `typecheck`, `test`, `build`, `scan:secrets`, `audit:dependencies`, `check:licenses`. This
+is an allowlist, so `start`, `dev`, `serve`, `deploy`, and `publish` are unreachable: an audit never
+starts a project server it does not understand.
+
+**Authorization.** Without `--allow-run` no project command and no runtime capture executes; each is
+recorded as `NOT_RUN` with cause `unauthorized`. With `--allow-run` the command runs as a bounded
+argument vector without a shell, and its exit code, output, timestamp, and duration enter the
+execution ledger. A failing authorized command becomes a `FAIL` finding.
+
+**Offline.** Under `--offline` a candidate project command is refused before the process is spawned
+unless it is one of the two structurally provable exemptions described in
+[the offline command policy](#offline-command-policy), with cause `offline-policy`. Every arbitrary
+audited-project script is `UNKNOWN` and is blocked, including one whose definition contains no
+network keyword at all: inspecting text can prove that a command reaches the network, but it can
+never prove that it does not, and Forge implements no operating-system network isolation. Keyword
+matching — `npm audit`, `npx`, `curl`, `git fetch`, and similar — only escalates `UNKNOWN` to
+`NETWORK_REQUIRED`; nothing downgrades a command to `OFFLINE_SAFE`. The classification reads the
+script body, never its name, and passes through `plannedCheckNetworkPolicy`, the single bridge into
+the report vocabulary.
+
+**Runtime evidence.** `--url` integrates rendered-UI capture into the audit; the application must
+already be running, because Forge never launches one. Browser tooling is never installed
+automatically. Only a `COMPLETE` capture counts: `PARTIAL`, `BLOCKED`, and `FAILED` all leave
+`evidence_complete` false, keep the rendered criteria `NOT_VERIFIED`, and exit `2`.
+
+**Not-run records.** Every planned check reaches exactly one terminal outcome. Checks that did not
+run become `NOT_VERIFIED` findings carrying `check`, `kind`, `cause`, and `reason`. They are
+deliberately not `BLOCKED`: in this schema `BLOCKED` marks an obstructed defect and feeds the fix
+pipeline, and an unauthorized check is missing evidence rather than a defect.
+
+## Report mode
+
+Report mode renders an audit that already ran. It never re-runs one, so the rendered document keeps
+the identity, revision, timestamps, and evidence of the run it names.
+
+```bash
+forge security report                                  # Markdown to stdout
+forge security report --json                           # JSON to stdout
+forge security report --output artifacts               # writes report.json and report.md
+forge security report --output artifacts --dry-run     # prints planned paths, writes nothing
+```
+
+`--json` selects the _format_ of what stdout carries; `--output` selects its _subject_. Without
+`--output`, stdout carries the report itself, exactly as in earlier releases. With `--output` the
+documents go to files and stdout carries the write summary, in JSON when `--json` is also given.
+
+**Ownership policy.** The output directory is resolved beneath the authorized root; traversal,
+absolute, drive-qualified, and UNC paths are rejected by construction, and a destination whose path
+crosses a symlink or reparse point is refused. Forge records the digest of each file it wrote in a
+`.forge-output.json` manifest inside the directory, which yields:
+
+| Directory state                                       | Result                     |
+| ----------------------------------------------------- | -------------------------- |
+| No manifest, no report files                          | Created, Forge owns them   |
+| No manifest, report files already present             | Refused as unowned         |
+| Manifest present, file unchanged since Forge wrote it | Overwritten                |
+| Manifest present, file edited after Forge wrote it    | Refused; the edit survives |
+| Manifest present, new content identical               | Preserved, not rewritten   |
+
+A refusal is an error, not a skip, so `--output` can never appear to succeed while leaving stale
+content behind.
 
 ## The `--offline` contract
 
@@ -88,7 +190,28 @@ closed.
   installation or a registry lookup;
 - reports every network-dependent check as `BLOCKED`, and the criteria it would have covered as
   `NOT_VERIFIED` — never as `PASS`;
-- records `offline: true` in the report environment ledger and in rendered-evidence manifests.
+- records `offline: true` in the report environment ledger and in rendered-evidence manifests;
+- refuses to execute audited-project scripts whose network behavior is `UNKNOWN`, in
+  `forge tool run-project-command` and in every `forge ship` gate alike.
+
+### Offline command policy
+
+Fullstack Forge implements no operating-system network isolation. There is no namespace, seccomp,
+firewall, or container boundary in this tool, so it never claims a script was "sandboxed" and never
+claims an arbitrary project script is offline-safe. Under `--offline` each detected command is
+classified from its **definition**, never its name:
+
+| Policy                        | Meaning                                                                                                                                        | Offline   |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `UNKNOWN`                     | Any arbitrary audited-project script.                                                                                                          | Blocked   |
+| `forge-internal-offline-safe` | A Fullstack Forge repository script matched by exact definition, only when the audited root is canonically the Forge package root.             | Permitted |
+| `cache-only-installation`     | An installation check combining an offline package-manager flag with an unreachable registry, so a remaining network requirement fails loudly. | Permitted |
+
+Every command produces a ledger record — `RAN`, `BLOCKED`, or `NOT_RUN` — with the reason, the
+policy, and `sandbox: none`. A blocked command yields no execution record and no typed gate
+evidence, so `forge ship --offline --allow-run` reports `BLOCKED` (exit code 2) rather than passing
+a gate it never executed. Re-run without `--offline` to execute such a command, and record that the
+result was obtained with network access.
 
 Offline mode remains fully compatible with static analysis, local report generation, local
 verification, installation from bundled assets, and loopback UI inspection when a trusted browser
@@ -113,8 +236,11 @@ repository would run that repository's code inside the auditor's process. Fullst
 Rendered-UI evidence is written per revision, per run, and per route so no capture overwrites
 another:
 
+The base directory defaults to `.forge/evidence/ui` and is relocated by `--evidence-dir`, which is
+resolved beneath the audited root; absolute and traversing values are refused.
+
 ```text
-.forge/evidence/ui/<revision>/<run-id>/<route-id>/
+<evidence-dir>/<revision>/<run-id>/<route-id>/
   desktop-1280x800.png
   tablet-768x1024.png
   mobile-375x812.png

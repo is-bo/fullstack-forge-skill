@@ -1,7 +1,9 @@
 import { basename, dirname, extname, join, relative } from "node:path";
 import type { ModuleSlug } from "./constants.js";
-import { ALWAYS_APPLICABLE } from "./constants.js";
-import type { ProjectProfile } from "./types.js";
+import { ALWAYS_APPLICABLE, SECTION_CAPABILITY } from "./constants.js";
+import { CAPABILITY_RULES } from "./discovery-evidence.js";
+import { appendModuleDecision } from "./ledger.js";
+import type { ModuleCapabilityStatus, ModuleDecision, ProjectProfile } from "./types.js";
 import {
   assertSafeRelative,
   canonicalDirectory,
@@ -57,6 +59,219 @@ export type ChangedScope = {
   files: Set<string>;
   modules: Set<ModuleSlug>;
 };
+
+/**
+ * Determines whether a module's capability exists in the project, independent of whether this run
+ * audits it.
+ *
+ * ABSENT is only returned when discovery actually produced capability signals and this one was
+ * not among them. When discovery recorded nothing at all, absence is unproven, so the result is
+ * UNKNOWN — a module cannot be declared inapplicable on the strength of a discovery pass that
+ * observed nothing.
+ */
+export function capabilityStatusFor(
+  section: ModuleSlug,
+  profile: ProjectProfile
+): { status: ModuleCapabilityStatus; evidence: string[] } {
+  const capability = SECTION_CAPABILITY[section];
+  if (capability === undefined)
+    return {
+      status: "PRESENT",
+      evidence: [
+        `The ${section} module applies to every project; it is not gated on a detected capability.`
+      ]
+    };
+
+  // v0.1.10 capability assessments are preferred over the legacy presence map when discovery
+  // produced them. The legacy map could only say "this key is present" or "it is not", so a
+  // capability nobody had evidence about was inferred ABSENT from the mere existence of other
+  // keys. An assessment states PRESENT, ABSENT, or UNKNOWN explicitly from classified evidence,
+  // and an UNKNOWN assessment must never be reported as a proven absence.
+  const assessed = assessmentStatusFor(capability, profile);
+  if (assessed !== undefined) return assessed;
+
+  const detected = profile.capabilities[capability];
+  if (detected !== undefined)
+    return {
+      status: "PRESENT",
+      evidence: [
+        `Discovery detected capability '${capability}' (${detected.confidence}): ${detected.evidence.join(", ") || "no evidence detail recorded"}.`
+      ]
+    };
+  const observed = Object.keys(profile.capabilities).sort();
+  if (observed.length === 0)
+    return {
+      status: "UNKNOWN",
+      evidence: [
+        `Discovery recorded no capability signals at all, so the absence of '${capability}' is unproven.`
+      ]
+    };
+  return {
+    status: "ABSENT",
+    evidence: [
+      `Discovery observed ${observed.length} capabilit(y|ies) and '${capability}' was not among them: ${observed.join(", ")}.`
+    ]
+  };
+}
+
+/** Capabilities the v0.1.10 evidence layer actually models. */
+const MODELED_CAPABILITIES: ReadonlySet<string> = new Set(
+  CAPABILITY_RULES.map((rule) => rule.capability)
+);
+
+/**
+ * Projects v0.1.10 capability assessments onto the module-decision capability axis.
+ *
+ * The two vocabularies are deliberately identical (`PRESENT`, `ABSENT`, `UNKNOWN`), so this is a
+ * projection rather than a translation, and nothing is strengthened on the way across. A
+ * capability assessed in several workspaces resolves to the strongest evidence any workspace
+ * produced: PRESENT if any workspace proved it, otherwise ABSENT only if every workspace proved
+ * its absence, otherwise UNKNOWN. Absence in one workspace is not absence in the project.
+ *
+ * Returns undefined when discovery recorded no assessments at all, so the legacy presence map
+ * still applies to profiles written by earlier releases.
+ */
+function assessmentStatusFor(
+  capability: string,
+  profile: ProjectProfile
+): { status: ModuleCapabilityStatus; evidence: string[] } | undefined {
+  const assessments = profile.capability_assessments;
+  if (assessments === undefined || assessments.length === 0) return undefined;
+  // The assessment layer models a subset of the capabilities module decisions are gated on. A
+  // capability it does not model produces no assessment, and reading that silence as evidence
+  // would permanently disable every module gated on it. Those fall through to the legacy map.
+  if (!MODELED_CAPABILITIES.has(capability)) return undefined;
+  const matching = assessments.filter((assessment) => assessment.capability === capability);
+  if (matching.length === 0)
+    return {
+      status: "UNKNOWN",
+      evidence: [
+        `The discovery evidence layer models '${capability}' but recorded no assessment for it, so its absence is unproven.`
+      ]
+    };
+
+  const status: ModuleCapabilityStatus = matching.some(
+    (assessment) => assessment.status === "PRESENT"
+  )
+    ? "PRESENT"
+    : matching.every((assessment) => assessment.status === "ABSENT")
+      ? "ABSENT"
+      : "UNKNOWN";
+
+  return {
+    status,
+    evidence: matching.map(
+      (assessment) =>
+        `Capability '${capability}' assessed ${assessment.status} in workspace '${assessment.workspace}' (activation score ${assessment.score}): ${assessment.reasons.join("; ") || "no reason recorded"}.`
+    )
+  };
+}
+
+export type ModuleDecisionInput = {
+  /** Every module the run could have considered, before any filter. */
+  candidates: readonly ModuleSlug[];
+  profile: ProjectProfile;
+  /** True when an operator named a single module directly instead of running `all`. */
+  explicit: boolean;
+  /** Modules permitted by an active `--risk` filter. Undefined means no risk filter was applied. */
+  riskAllowed?: ReadonlySet<ModuleSlug>;
+  riskLabel?: string;
+  /** Modules reachable from the changed set. Undefined means changed scope was not requested. */
+  changedModules?: ReadonlySet<ModuleSlug>;
+};
+
+/**
+ * Produces one machine-readable decision per candidate module.
+ *
+ * The two axes stay independent on purpose. `capability_status` is the only thing that can
+ * justify NOT_APPLICABLE downstream; `selection_status` merely records why this run did or did
+ * not audit the module. A module whose files did not change is OUT_OF_CHANGED_SCOPE with its
+ * capability still PRESENT, so no consumer can mistake "unaudited" for "does not exist".
+ */
+export function decideModules(input: ModuleDecisionInput): ModuleDecision[] {
+  let decisions: ModuleDecision[] = [];
+  for (const section of input.candidates) {
+    const capability = capabilityStatusFor(section, input.profile);
+    const reasons: string[] = [];
+    const always = ALWAYS_APPLICABLE.has(section);
+    if (capability.status === "PRESENT")
+      reasons.push(
+        always
+          ? "The module is always applicable and is never gated on a detected capability."
+          : "Discovery detected the capability this module audits."
+      );
+    else if (capability.status === "UNKNOWN")
+      reasons.push("The capability could not be determined; absence is not proven.");
+    else reasons.push("Discovery proved the capability this module audits does not exist.");
+
+    const riskExcluded =
+      input.riskAllowed !== undefined && !input.riskAllowed.has(section) && !input.explicit;
+    const changedExcluded =
+      input.changedModules !== undefined && !input.changedModules.has(section) && !input.explicit;
+
+    let selection: ModuleDecision["selection_status"];
+    if (input.explicit) {
+      selection = "SELECTED";
+      reasons.push("An operator selected this module explicitly.");
+      if (capability.status !== "PRESENT")
+        reasons.push(
+          "The module was audited on explicit request even though its capability was not confirmed."
+        );
+    } else if (riskExcluded) {
+      selection = "EXCLUDED_BY_RISK";
+      reasons.push(
+        `A risk filter${input.riskLabel === undefined ? "" : ` (--risk ${input.riskLabel})`} narrowed this run and excluded this module. It was not audited and its state is unknown.`
+      );
+    } else if (capability.status === "ABSENT") {
+      selection = "NOT_REQUESTED";
+      reasons.push("The module was not selected because its capability is genuinely absent.");
+    } else if (capability.status === "UNKNOWN") {
+      // Unknown is not absence. The module is left unaudited and reported as unverified, never as
+      // inapplicable, because discovery never proved the capability missing.
+      selection = "NOT_REQUESTED";
+      reasons.push(
+        "The module was not selected because its capability could not be determined. Its state is unknown, not proven inapplicable."
+      );
+    } else if (changedExcluded) {
+      selection = "OUT_OF_CHANGED_SCOPE";
+      reasons.push(
+        "No changed file or impact expansion reached this module. It exists but was not audited in this run."
+      );
+    } else {
+      selection = "SELECTED";
+      reasons.push("The module was selected for this run.");
+    }
+    // Facts are additive: a module can be both risk-excluded and out of changed scope, and both
+    // are recorded even though only one drives the selection status.
+    if (riskExcluded && selection !== "EXCLUDED_BY_RISK")
+      reasons.push("The module was also outside the active risk filter.");
+    if (changedExcluded && selection !== "OUT_OF_CHANGED_SCOPE")
+      reasons.push("No changed file or impact expansion reached this module either.");
+
+    decisions = appendModuleDecision(decisions, {
+      module: section,
+      capability_status: capability.status,
+      selection_status: selection,
+      reasons,
+      evidence: capability.evidence,
+      ...(input.explicit ? { explicitly_selected: true } : {})
+    });
+  }
+  return decisions;
+}
+
+/**
+ * The status a module-level coverage finding may carry.
+ *
+ * NOT_APPLICABLE is reserved for a capability that provably does not exist. Anything unaudited
+ * for a scoping reason is NOT_VERIFIED, because the run produced no evidence either way.
+ */
+export function decisionFindingStatus(
+  decision: ModuleDecision
+): "SELECTED" | "NOT_APPLICABLE" | "NOT_VERIFIED" {
+  if (decision.selection_status === "SELECTED") return "SELECTED";
+  return decision.capability_status === "ABSENT" ? "NOT_APPLICABLE" : "NOT_VERIFIED";
+}
 
 export async function analyzeChangedScope(
   rootInput: string,

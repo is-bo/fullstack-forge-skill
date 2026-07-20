@@ -2,7 +2,6 @@ import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import {
-  ALWAYS_APPLICABLE,
   MODULE_SLUGS,
   PACKAGE_ROOT,
   PLATFORM_ALIASES,
@@ -11,7 +10,14 @@ import {
   VERSION,
   type ModuleSlug
 } from "./constants.js";
+import {
+  ReportAuditLedger,
+  orchestrateAudit,
+  type RuntimeEvidenceRecord
+} from "./audit-orchestration.js";
 import { detectProjectCommands, discoverProject, writeProjectArtifacts } from "./discovery.js";
+import { inspectRenderedUi } from "./rendered-ui.js";
+import { writeReportOutput } from "./report-output.js";
 import { executeFixes } from "./fixes.js";
 import { runShipGates } from "./gates.js";
 import { install, readInstallManifest, uninstall } from "./installer.js";
@@ -23,16 +29,22 @@ import {
   renderMarkdown,
   writeReport
 } from "./report.js";
-import { analyzeChangedScope, type ChangedScope } from "./scope.js";
+import {
+  analyzeChangedScope,
+  decideModules,
+  decisionFindingStatus,
+  type ChangedScope
+} from "./scope.js";
 import { coverageForProfile } from "./support.js";
 import type {
   AnalyzerCoverage,
   CliOptions,
   Finding,
   InspectionResult,
+  ModuleDecision,
   ProjectProfile
 } from "./types.js";
-import { runTool } from "./tools.js";
+import { isForgePackageRoot, runTool } from "./tools.js";
 import { canonicalDirectory, workingTreeRevision } from "./utils.js";
 import { verifyFindings } from "./verification.js";
 
@@ -147,11 +159,7 @@ export async function runCli(argv: string[]): Promise<number> {
 
 async function runModule(section: ModuleSlug, mode: string, options: CliOptions): Promise<number> {
   const root = await canonicalDirectory(options.cwd);
-  if (mode === "report") {
-    const report = await readReport(root, join(root, ".forge", "report.json"));
-    printValue(options.json ? report : renderMarkdown(report), options.json);
-    return report.findings.some((finding) => finding.status === "FAIL") ? 1 : 0;
-  }
+  if (mode === "report") return reportMode(root, options);
   if (mode === "fix") {
     const response = await executeFixes(root, section, {
       dryRun: options.dryRun,
@@ -197,14 +205,48 @@ async function runModule(section: ModuleSlug, mode: string, options: CliOptions)
     return verifySection(section, root, profile, options);
   }
 
-  const selection = selectSections(section, profile, options);
-  let selected = selection.selected;
   let changedScope: ChangedScope | undefined;
-  if (section === "all" && options.scope === "changed") {
+  if (section === "all" && options.scope === "changed")
     changedScope = await analyzeChangedScope(root, profile, options.base);
-    selected = selected.filter((slug) => changedScope?.modules.has(slug));
-  }
+  const decisions = decideModules({
+    candidates: candidateSections(section),
+    profile,
+    explicit: section !== "all",
+    ...(section === "all" && options.risk === "high"
+      ? { riskAllowed: HIGH_RISK_MODULES, riskLabel: "high" }
+      : {}),
+    ...(changedScope === undefined ? {} : { changedModules: changedScope.modules })
+  });
+  let selected = decisions
+    .filter((decision) => decision.selection_status === "SELECTED")
+    .map((decision) => decision.module as ModuleSlug);
   if (!options.dryRun) await writeProjectArtifacts(profile);
+
+  // Orchestration decides what this audit is authorized to do before any of it happens, so the
+  // planned-check ledger is produced even when nothing turns out to be executable.
+  const ledger = new ReportAuditLedger(revision);
+  const orchestration = await orchestrateAudit({
+    root,
+    modules: selected,
+    commands: await detectProjectCommands(root),
+    allowRun: options.allowRun,
+    offline: options.offline,
+    dryRun: options.dryRun,
+    forgeOwned: await isForgePackageRoot(root),
+    ledger,
+    collectRuntimeEvidence: (input) => collectRenderedEvidence(input, options, revision),
+    ...(options.url === undefined ? {} : { url: options.url }),
+    ...(options.evidenceDir === undefined ? {} : { evidenceDir: options.evidenceDir }),
+    ...(options.checks === undefined ? {} : { select: options.checks }),
+    ...(options.skipChecks === undefined ? {} : { skip: options.skipChecks })
+  });
+  // Module inspection runs only for modules orchestration actually planned and did not exclude.
+  const executedModules = new Set(
+    orchestration.outcomes
+      .filter((outcome) => outcome.kind === "module-inspection" && outcome.status === "EXECUTED")
+      .map((outcome) => outcome.id.slice("module:".length))
+  );
+  selected = selected.filter((slug) => executedModules.has(slug));
   const results = await Promise.all(
     selected.map((slug) => inspectSection(slug, root, profile, changedScope?.files))
   );
@@ -237,35 +279,122 @@ async function runModule(section: ModuleSlug, mode: string, options: CliOptions)
     ];
   });
   if (section === "all") {
-    const notApplicable = selection.sections
-      .filter((slug) => !selected.includes(slug))
-      .map((slug) => applicabilityFinding(slug, profile));
-    findings.push(...notApplicable);
+    findings.push(
+      ...decisions
+        .filter((decision) => decision.selection_status !== "SELECTED")
+        .map(moduleDecisionFinding)
+    );
   }
+  findings.push(...ledger.findings());
   const report = createReport(
     root,
     profile,
     findings,
     options.scope ?? (section === "all" ? "applicable" : section),
-    [],
+    orchestration.execution,
     [],
     [
-      "Static inspection does not verify running application, production, provider, database, browser, or operator controls."
+      "Static inspection does not verify running application, production, provider, database, browser, or operator controls.",
+      ...ledger.residualRisk()
     ],
     changedScope?.evidence,
     results.flatMap((result) => result.gate_evidence),
     results.flatMap((result) => result.analyzer_coverage),
     revision,
-    captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION })
+    captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION }),
+    { module_decisions: decisions, ...ledger.ledgers() }
   );
   const paths = options.dryRun ? [] : await writeReport(report);
   printValue(
     options.json
-      ? { report, report_paths: paths, observations: summarize(results), dry_run: options.dryRun }
+      ? {
+          report,
+          report_paths: paths,
+          observations: summarize(results),
+          planned_checks: orchestration.planned,
+          check_outcomes: orchestration.outcomes,
+          runtime_evidence: orchestration.runtime_evidence,
+          evidence_complete: orchestration.evidence_complete,
+          dry_run: options.dryRun
+        }
       : renderMarkdown(report),
     options.json
   );
-  return report.findings.some((finding) => finding.status === "FAIL") ? 1 : 0;
+  // A proven defect outranks missing evidence, so FAIL keeps exit 1. Requested evidence that could
+  // not be collected exits 2: nothing failed, but the run did not prove what it was asked to prove.
+  if (report.findings.some((finding) => finding.status === "FAIL")) return 1;
+  return orchestration.evidence_complete ? 0 : 2;
+}
+
+/**
+ * Adapts the rendered-UI tool to the orchestration ledger.
+ *
+ * Only a `COMPLETE` capture counts as complete evidence; `PARTIAL`, `BLOCKED`, and `FAILED` all fail
+ * closed upstream, which is what keeps a half-captured page from contributing a rendered pass.
+ */
+async function collectRenderedEvidence(
+  input: { root: string; url: string; offline: boolean; allowRun: boolean; evidenceDir?: string },
+  options: CliOptions,
+  revision: string
+): Promise<RuntimeEvidenceRecord> {
+  const response = await inspectRenderedUi(
+    input.root,
+    [input.url],
+    {
+      ...options,
+      offline: input.offline,
+      allowRun: input.allowRun,
+      ...(input.evidenceDir === undefined ? {} : { evidenceDir: input.evidenceDir })
+    },
+    revision
+  );
+  const value = response.value;
+  return {
+    kind: "rendered-ui",
+    status: value.capture_status,
+    ...(value.url === undefined ? {} : { url: value.url }),
+    ...(value.evidence_dir === undefined ? {} : { evidence_dir: value.evidence_dir }),
+    artifacts: value.artifacts,
+    limitations:
+      value.reason === undefined ? value.limitations : [value.reason, ...value.limitations],
+    complete: value.capture_status === "COMPLETE"
+  };
+}
+
+/**
+ * Renders an audit that already ran.
+ *
+ * Report mode reads `.forge/report.json` and never re-audits: the rendered document must describe
+ * the run it names, with the same identity, revision, timestamps, and evidence. Stdout behavior is
+ * unchanged from earlier releases — Markdown by default, JSON under `--json`. `--output` redirects
+ * the documents to files and prints the write summary instead, so the two flags never compete for
+ * stdout: `--json` selects the *format* of what stdout carries, `--output` selects its *subject*.
+ */
+async function reportMode(root: string, options: CliOptions): Promise<number> {
+  const report = await readReport(root, join(root, ".forge", "report.json"));
+  const failing = report.findings.some((finding) => finding.status === "FAIL");
+  if (options.output === undefined) {
+    printValue(options.json ? report : renderMarkdown(report), options.json);
+    return failing ? 1 : 0;
+  }
+  const result = await writeReportOutput(root, options.output, report, options.dryRun);
+  const summary = {
+    operation: "report",
+    output: result.relative_directory,
+    dry_run: result.dry_run,
+    planned_paths: result.files.map((file) => ({ path: file.path, action: file.action })),
+    written: result.written
+  };
+  printValue(
+    options.json
+      ? summary
+      : [
+          `${result.dry_run ? "Planned" : "Wrote"} report output in ${result.relative_directory}:`,
+          ...result.files.map((file) => `- ${file.path} (${file.action})`)
+        ].join("\n"),
+    options.json
+  );
+  return failing ? 1 : 0;
 }
 
 async function verifySection(
@@ -295,8 +424,14 @@ async function ship(options: CliOptions): Promise<number> {
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
-  const gateResult = await runShipGates(root, profile, previous, commands, options.allowRun);
+  const gateResult = await runShipGates(root, profile, previous, commands, options.allowRun, {
+    offline: options.offline,
+    forgeOwned: await isForgePackageRoot(root)
+  });
   const status = gateResult.status;
+  const blockedByPolicy = gateResult.command_ledger.filter(
+    (record) => record.disposition === "BLOCKED"
+  );
   const finding: Finding = {
     id: "FF-SHIP-001",
     section: "ship",
@@ -313,6 +448,10 @@ async function ship(options: CliOptions): Promise<number> {
     evidence: [
       ...gateResult.gates.map(
         (gate) => `${gate.gate_id} ${gate.status}: ${gate.evidence.join("; ")}`
+      ),
+      ...gateResult.command_ledger.map(
+        (record) =>
+          `command-ledger ${record.name} ${record.disposition} (policy=${record.network_policy}, offline=${record.offline}, sandbox=${record.sandbox}): ${record.reason}`
       )
     ],
     impact:
@@ -339,7 +478,12 @@ async function ship(options: CliOptions): Promise<number> {
     previous?.assumptions ?? [],
     [
       ...(previous?.residual_risk ?? []),
-      "Remote CI, registry, GitHub release, deployment, and production state require separate direct evidence."
+      "Remote CI, registry, GitHub release, deployment, and production state require separate direct evidence.",
+      ...(blockedByPolicy.length === 0
+        ? []
+        : [
+            `Offline mode blocked ${blockedByPolicy.length} project command(s) with UNKNOWN network policy (${blockedByPolicy.map((record) => record.name).join(", ")}). Fullstack Forge implements no operating-system network isolation, so those gates remain unproven rather than passed.`
+          ])
     ],
     previous?.scope_evidence,
     [...(previous?.gate_evidence ?? []), ...gateResult.evidence],
@@ -352,21 +496,17 @@ async function ship(options: CliOptions): Promise<number> {
   return status === "FAIL" ? 1 : status === "BLOCKED" ? 2 : 0;
 }
 
-function selectSections(
-  section: ModuleSlug,
-  profile: ProjectProfile,
-  options: CliOptions
-): { sections: ModuleSlug[]; selected: ModuleSlug[] } {
-  let sections =
-    section === "all"
-      ? MODULE_SLUGS.filter((slug) => !["discover", "all", "ship"].includes(slug))
-      : [section];
-  if (section === "all" && options.risk === "high")
-    sections = sections.filter((slug) => HIGH_RISK_MODULES.has(slug));
-  const selected = sections.filter(
-    (slug) => ALWAYS_APPLICABLE.has(slug) || section !== "all" || shouldApply(slug, profile)
-  );
-  return { sections, selected };
+/**
+ * The full candidate set a run considers, before any capability, risk, or changed-scope filter.
+ *
+ * Filters are never applied here: every candidate must reach `decideModules` so that a module
+ * dropped by a filter still produces a decision recording why. Previously, risk-filtered modules
+ * vanished from the report entirely, which left no trace that they had gone unaudited.
+ */
+function candidateSections(section: ModuleSlug): ModuleSlug[] {
+  return section === "all"
+    ? MODULE_SLUGS.filter((slug) => !["discover", "all", "ship"].includes(slug))
+    : [section];
 }
 
 async function doctor(options: CliOptions): Promise<number> {
@@ -409,52 +549,6 @@ async function doctor(options: CliOptions): Promise<number> {
   return checks.some((check) => check.status === "FAIL") ? 1 : 0;
 }
 
-function shouldApply(section: ModuleSlug, profile: ProjectProfile): boolean {
-  const result = inspectCapability(section, profile);
-  return result !== undefined;
-}
-
-function inspectCapability(section: ModuleSlug, profile: ProjectProfile): string | undefined {
-  const map: Partial<Record<ModuleSlug, string>> = {
-    ui: "frontend",
-    ux: "frontend",
-    accessibility: "frontend",
-    i18n: "internationalization",
-    seo: "public-web",
-    frontend: "frontend",
-    api: "api",
-    jobs: "jobs",
-    integrations: "integrations",
-    auth: "authentication",
-    authorization: "authorization",
-    privacy: "personal-data",
-    tenancy: "tenancy",
-    uploads: "uploads",
-    database: "database",
-    queries: "database",
-    cache: "cache",
-    storage: "storage",
-    performance: "runtime",
-    scale: "runtime",
-    observability: "observability",
-    reliability: "runtime",
-    recovery: "database",
-    deployment: "deployment",
-    infrastructure: "infrastructure",
-    cost: "paid-services",
-    analytics: "analytics",
-    notifications: "notifications",
-    ai: "ai",
-    payments: "payments",
-    realtime: "realtime",
-    offline: "offline"
-  };
-  const capability = map[section];
-  return capability === undefined || profile.capabilities[capability] !== undefined
-    ? (capability ?? "always")
-    : undefined;
-}
-
 function coverageFinding(section: ModuleSlug, observations: number, detail: string): Finding {
   return {
     id: `FF-${section.toUpperCase()}-900`,
@@ -473,16 +567,41 @@ function coverageFinding(section: ModuleSlug, observations: number, detail: stri
   };
 }
 
-function applicabilityFinding(section: ModuleSlug, profile: ProjectProfile): Finding {
+/**
+ * Turns an unselected module decision into a finding.
+ *
+ * NOT_APPLICABLE is emitted only when the capability was proven absent. A module skipped because
+ * its files did not change, because a risk filter narrowed the run, or because discovery could
+ * not determine the capability is NOT_VERIFIED: the run produced no evidence about it, and
+ * labelling that as inapplicable would assert a fact nobody established.
+ */
+function moduleDecisionFinding(decision: ModuleDecision): Finding {
+  const section = decision.module as ModuleSlug;
+  const status = decisionFindingStatus(decision);
+  const applicable = status === "NOT_APPLICABLE";
+  const base = coverageFinding(section, 0, decision.reasons.join(" "));
   return {
-    ...coverageFinding(section, 0, "Discovery found no applicable capability evidence."),
+    ...base,
     id: `FF-${section.toUpperCase()}-001`,
-    title: `${section} module is not applicable to detected scope`,
-    status: "NOT_APPLICABLE",
+    title: applicable
+      ? `${section} module is not applicable: the capability does not exist`
+      : `${section} module was not audited in this run`,
+    status: applicable ? "NOT_APPLICABLE" : "NOT_VERIFIED",
+    severity: applicable ? "INFO" : "LOW",
     evidence: [
-      `No matching capability was found among: ${Object.keys(profile.capabilities).sort().join(", ") || "none"}.`
+      `Capability status: ${decision.capability_status}. Selection status: ${decision.selection_status}.`,
+      ...decision.evidence,
+      ...decision.reasons
     ],
-    impact: "No audit impact within the detected repository scope."
+    impact: applicable
+      ? "No audit impact: the capability this module audits does not exist in the project."
+      : "The module exists or may exist but produced no evidence in this run, so its state is unknown.",
+    recommendation: applicable
+      ? `Re-run forge ${section} if the project later gains this capability.`
+      : `Re-run forge ${section} (or widen the scope or risk filter) to obtain evidence for this module.`,
+    verification: applicable
+      ? ["Confirm through discovery that the capability is still absent."]
+      : [`Run forge ${section} audit against the full scope and attach direct evidence.`]
   };
 }
 
@@ -553,7 +672,19 @@ function parseArguments(argv: string[]): { positionals: string[]; options: CliOp
     "--severity": "severity",
     "--ai": "platform",
     "--platform": "platform",
-    "--output": "output"
+    "--output": "output",
+    "--url": "url",
+    "--evidence-dir": "evidenceDir"
+  };
+  // Repeatable flags accumulate instead of overwriting, so `--check lint --check test` selects both
+  // rather than silently discarding the first value.
+  const listFlags: Record<string, "checks" | "skipChecks"> = {
+    "--check": "checks",
+    "--skip-check": "skipChecks"
+  };
+  const appendList = (flag: string, value: string): void => {
+    const key = listFlags[flag] as "checks" | "skipChecks";
+    options[key] = [...(options[key] ?? []), value];
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index] ?? "";
@@ -566,9 +697,18 @@ function parseArguments(argv: string[]): { positionals: string[]; options: CliOp
     else if (arg === "--safe") options.safe = true;
     else if (arg.startsWith("--") && arg.includes("=")) {
       const [flag, ...rest] = arg.split("=");
+      if ((flag ?? "") in listFlags) {
+        appendList(flag ?? "", rest.join("="));
+        continue;
+      }
       const key = valueFlags[flag ?? ""];
       if (key === undefined) throw new Error(`Unknown option '${flag}'`);
       options[key] = rest.join("=") as never;
+    } else if (arg in listFlags) {
+      const value = argv[index + 1];
+      if (value === undefined) throw new Error(`Option '${arg}' requires a value`);
+      appendList(arg, value);
+      index += 1;
     } else if (arg in valueFlags) {
       const key = valueFlags[arg];
       const value = argv[index + 1];
@@ -589,6 +729,21 @@ function parseArguments(argv: string[]): { positionals: string[]; options: CliOp
     !["critical", "high", "medium", "low", "info"].includes(options.severity.toLowerCase())
   )
     throw new Error(`Unknown severity '${options.severity}'.`);
+  // A malformed --url is rejected before any audit work begins, so an operator who mistypes the
+  // address is told immediately instead of receiving a report whose runtime criteria silently
+  // stayed NOT_VERIFIED.
+  if (options.url !== undefined) {
+    let parsed: URL;
+    try {
+      parsed = new URL(options.url);
+    } catch {
+      throw new Error(
+        `Option '--url' requires an absolute http or https URL, got '${options.url}'`
+      );
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+      throw new Error(`Option '--url' supports only http and https, got '${parsed.protocol}'`);
+  }
   return { positionals, options };
 }
 
@@ -609,6 +764,9 @@ function printHelp(): void {
 Usage:
   forge <section> <audit|fix|verify|report> [options]
   forge all audit [--scope full|changed] [--base origin/main] [--risk high]
+  forge all audit --allow-run [--check lint --check test] [--skip-check build]
+  forge all audit --url http://127.0.0.1:3000 --allow-run [--evidence-dir .forge/evidence]
+  forge security report [--json] [--output <directory> [--dry-run]]
   forge ship --allow-run
   forge init <platform|all> | init --ai <platform|all>
   forge update [platform] | uninstall [platform] | doctor | validate | package | list
@@ -625,6 +783,13 @@ Options:
                   network-dependent step; such checks report BLOCKED or NOT_VERIFIED
   --allow-run     Explicitly authorize inspected local project scripts
   --safe          Authorize execution of bounded safe fixes; without it 'fix' only plans
+  --check <name>       Run only the named planned check (repeatable)
+  --skip-check <name>  Never run the named planned check (repeatable)
+  --url <url>          Collect rendered evidence from an application you already started
+  --evidence-dir <dir> Repository-relative directory for collected runtime evidence
+  --output <dir>       Report mode only: write report.json and report.md into <dir>
+
+Exit codes: 0 success; 1 a FAIL finding or an error; 2 requested evidence could not be collected.
 
 Audit never treats missing evidence as PASS. See 'forge list' for modules and tools.`);
 }
