@@ -5,6 +5,12 @@ versioning.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-07-20
+
+Offline command policy and structural security proof milestone. `--offline` now reaches every
+command execution path rather than the rendered-UI driver alone, and analyzer protection is granted
+only from analyzed structure, never from an identifier's name.
+
 ### Fixed
 
 - `--offline` is enforced on every command execution path, not only the rendered-UI driver.
@@ -344,7 +350,10 @@ executable evidence rather than documentation.
 - Deterministic ZIP archives, SHA-256 checksums, ownership manifests, clean-install smoke tests,
   fixtures, CI, research attribution, and original branding.
 
-[Unreleased]: https://github.com/thethunderbolt/fullstack-forge-skill/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/thethunderbolt/fullstack-forge-skill/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.7
+[0.1.6]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.6
+[0.1.5]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.5
 [0.1.4]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.4
 [0.1.3]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.3
 [0.1.2]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.2
