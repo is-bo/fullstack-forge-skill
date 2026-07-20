@@ -1,6 +1,7 @@
 # Finding schema
 
-The authoritative JSON Schema is `src/fullstack-forge/schemas/finding.schema.json`.
+The authoritative JSON Schema is `src/fullstack-forge/schemas/finding.schema.json`. The report that
+contains these findings is described in [report schema](REPORT_SCHEMA.md).
 
 | Field            | Meaning                                                                   |
 | ---------------- | ------------------------------------------------------------------------- |

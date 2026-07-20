@@ -285,26 +285,64 @@ function evidenceGate(definition, previous, currentCommandEvidence, revision) {
         evidence_records: records
     };
 }
-function capabilityGate(definition, profile, previous, revision) {
-    const applicable = {
+/** Modules whose applicability decision governs each capability gate. */
+const GATE_MODULES = {
+    "FF-GATE-AUTH-EVAL": ["auth", "authorization"],
+    "FF-GATE-TENANT-EVAL": ["tenancy"],
+    "FF-GATE-UPLOAD-EVAL": ["uploads"],
+    "FF-GATE-SECURITY-EVAL": ["security"],
+    "FF-GATE-MIGRATIONS": ["database", "deployment"]
+};
+/**
+ * Decides whether a capability gate may be dismissed as NOT_APPLICABLE.
+ *
+ * A gate is only inapplicable when the capability genuinely does not exist. If the prior report
+ * recorded that the module exists (or might exist) but simply was not audited — out of changed
+ * scope, excluded by a risk filter, or capability unknown — the gate stays required and
+ * unverified. Otherwise a narrowed audit would silently switch off release gates, which is the
+ * exact failure this ledger exists to prevent.
+ */
+function capabilityApplicability(gateId, profile, previous) {
+    const discovered = {
         "FF-GATE-AUTH-EVAL": profile.authentication.length > 0 || profile.authorization.length > 0,
         "FF-GATE-TENANT-EVAL": profile.tenant_boundaries.length > 0,
         "FF-GATE-UPLOAD-EVAL": profile.upload_pipelines.length > 0,
         "FF-GATE-SECURITY-EVAL": true,
         "FF-GATE-MIGRATIONS": profile.databases.length > 0 || profile.deployment.length > 0
     };
-    if (applicable[definition.gate_id] !== true) {
+    if (discovered[gateId] === true)
+        return { applicable: true, reasons: ["Project discovery found the capability."] };
+    const decisions = (previous?.module_decisions ?? []).filter((decision) => (GATE_MODULES[gateId] ?? []).includes(decision.module));
+    const unproven = decisions.filter((decision) => decision.capability_status !== "ABSENT");
+    if (unproven.length > 0)
+        return {
+            applicable: true,
+            reasons: unproven.map((decision) => `Module '${decision.module}' was recorded capability ${decision.capability_status} / selection ${decision.selection_status}. It was not audited, which does not make this gate inapplicable.`)
+        };
+    return {
+        applicable: false,
+        reasons: [
+            decisions.length === 0
+                ? "Project discovery found no applicable capability."
+                : `The prior audit proved the capability absent for: ${decisions.map((decision) => decision.module).join(", ")}.`
+        ]
+    };
+}
+function capabilityGate(definition, profile, previous, revision) {
+    const applicability = capabilityApplicability(definition.gate_id, profile, previous);
+    if (!applicability.applicable) {
         return {
             gate_id: definition.gate_id,
             name: definition.name,
             category: definition.category,
             required: false,
             status: "NOT_APPLICABLE",
-            evidence: ["Project discovery found no applicable capability."],
+            evidence: applicability.reasons,
             evidence_records: []
         };
     }
-    return evidenceGate(definition, previous, [], revision);
+    const gate = evidenceGate(definition, previous, [], revision);
+    return { ...gate, evidence: [...applicability.reasons, ...gate.evidence] };
 }
 function evidenceIsFresh(record, revision) {
     const timestamp = Date.parse(record.timestamp);

@@ -7,10 +7,22 @@ import {
   type AnalyzerCoverage,
   type Finding,
   type GateEvidence,
-  type ProjectProfile
+  type ModuleDecision,
+  type PlannedCheck,
+  type ProjectProfile,
+  type RuntimeEvidence,
+  type ToolRecord
 } from "./types.js";
+import {
+  assertModuleDecisions,
+  assertPlannedChecks,
+  assertRuntimeEvidence,
+  assertToolRecords
+} from "./ledger.js";
 import { assertFindings } from "./finding.js";
 import { assertNoSymlinkPath, utcNow } from "./utils.js";
+
+export const REPORT_SCHEMA_VERSION = 2;
 
 export type ExecutionRecord = {
   command: string[];
@@ -36,8 +48,31 @@ export type ReportEnvironment = {
   allow_run: boolean;
 };
 
+/**
+ * Provenance of a report that was read from an older schema.
+ *
+ * The migration only ever states what was absent. It never back-fills a ledger, because a
+ * legacy report that recorded no planned checks is evidence that planning was not tracked, not
+ * evidence that every check ran.
+ */
+export type ReportMigration = {
+  from_schema_version: number;
+  to_schema_version: typeof REPORT_SCHEMA_VERSION;
+  /** Best-effort classification of the writing release, always labelled as an inference. */
+  detected_origin: string;
+  absent_ledgers: string[];
+  notes: string[];
+};
+
+export type ReportLedgers = {
+  tools?: ToolRecord[];
+  planned_checks?: PlannedCheck[];
+  runtime_evidence?: RuntimeEvidence[];
+  module_decisions?: ModuleDecision[];
+};
+
 export type AuditReport = {
-  schema_version: 1;
+  schema_version: typeof REPORT_SCHEMA_VERSION;
   generated_at: string;
   root: string;
   revision?: string;
@@ -51,6 +86,15 @@ export type AuditReport = {
   scope_evidence?: ChangedScopeEvidence;
   gate_evidence: GateEvidence[];
   analyzer_coverage: AnalyzerCoverage[];
+  /** Provenance of every tool whose output this report relies on. */
+  tools: ToolRecord[];
+  /** Checks the run intended to perform, with the outcome of each. */
+  planned_checks: PlannedCheck[];
+  /** Evidence gathered by observing the running system. */
+  runtime_evidence: RuntimeEvidence[];
+  /** Why each module was or was not audited, on independent capability and selection axes. */
+  module_decisions: ModuleDecision[];
+  migration?: ReportMigration;
 };
 
 export async function writeReport(
@@ -65,35 +109,128 @@ export async function writeReport(
   const markdownPath = join(directory, "report.md");
   await assertNoSymlinkPath(report.root, jsonPath);
   await assertNoSymlinkPath(report.root, markdownPath);
-  assertGateEvidence(report.gate_evidence);
-  assertAnalyzerCoverage(report.analyzer_coverage);
+  assertReportLedgers(report);
   await writeFile(jsonPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
   await writeFile(markdownPath, renderMarkdown(report), "utf8");
   return [jsonPath, markdownPath];
 }
 
+/**
+ * Reads a report of any supported schema version and returns it in the current schema.
+ *
+ * Migration happens in memory only. The file on disk is left exactly as written, so reading an
+ * old report can never destroy the original evidence; callers that genuinely want to rewrite it
+ * must pass the migrated value to `writeReport` themselves.
+ */
 export async function readReport(root: string, path: string): Promise<AuditReport> {
   await assertNoSymlinkPath(root, path);
   const value = JSON.parse(await readFile(path, "utf8")) as unknown;
-  if (!isAuditReport(value)) {
-    throw new Error("Unsupported or invalid Fullstack Forge report");
-  }
-  const migrated: AuditReport = {
-    ...value,
-    gate_evidence: Array.isArray(value.gate_evidence) ? value.gate_evidence : [],
-    analyzer_coverage: Array.isArray(value.analyzer_coverage) ? value.analyzer_coverage : []
-  };
+  const migrated = migrateReport(value);
   assertFindings(migrated.findings);
   assertGateEvidence(migrated.gate_evidence);
   assertAnalyzerCoverage(migrated.analyzer_coverage);
+  assertReportLedgers(migrated);
   return migrated;
 }
 
-function isAuditReport(value: unknown): value is AuditReport {
+/**
+ * Upgrades a parsed report to the current schema without inventing data.
+ *
+ * Identity fields (`generated_at`, `root`, `revision`, `scope`) are preserved verbatim so the
+ * migrated report still describes the run that produced it. Every ledger the source lacked is
+ * left empty and named in `migration.absent_ledgers`.
+ */
+export function migrateReport(value: unknown): AuditReport {
+  if (!isMigratableReport(value)) throw new Error("Unsupported or invalid Fullstack Forge report");
+  const source = value as Record<string, unknown>;
+  const from = source.schema_version as number;
+  if (from > REPORT_SCHEMA_VERSION)
+    throw new Error(
+      `Report schema version ${from} is newer than the supported version ${REPORT_SCHEMA_VERSION}.`
+    );
+  const absent: string[] = [];
+  const take = <T>(field: string): T[] => {
+    const current = source[field];
+    if (Array.isArray(current)) return current as T[];
+    absent.push(field);
+    return [];
+  };
+  const gateEvidence = take<GateEvidence>("gate_evidence");
+  const analyzerCoverage = take<AnalyzerCoverage>("analyzer_coverage");
+  const tools = take<ToolRecord>("tools");
+  const plannedChecks = take<PlannedCheck>("planned_checks");
+  const runtimeEvidence = take<RuntimeEvidence>("runtime_evidence");
+  const moduleDecisions = take<ModuleDecision>("module_decisions");
+  const migrated: AuditReport = {
+    ...(source as unknown as AuditReport),
+    schema_version: REPORT_SCHEMA_VERSION,
+    gate_evidence: gateEvidence,
+    analyzer_coverage: analyzerCoverage,
+    tools,
+    planned_checks: plannedChecks,
+    runtime_evidence: runtimeEvidence,
+    module_decisions: moduleDecisions
+  };
+  if (from === REPORT_SCHEMA_VERSION && absent.length === 0) return migrated;
+  migrated.migration = {
+    from_schema_version: from,
+    to_schema_version: REPORT_SCHEMA_VERSION,
+    detected_origin: classifyLegacyOrigin(source),
+    absent_ledgers: absent,
+    notes: [
+      ...(absent.length === 0
+        ? []
+        : [
+            `The source report recorded no ${absent.join(", ")}. These ledgers are empty because the writing release did not track them, which is not evidence that the corresponding checks ran or passed.`
+          ]),
+      ...(moduleDecisions.length === 0
+        ? [
+            "Module applicability cannot be reconstructed from this report: it predates the capability and selection axes, so a module absent from its findings may have been inapplicable, unaudited, or out of scope."
+          ]
+        : []),
+      "Migration was performed in memory; the source file was not modified."
+    ]
+  };
+  return migrated;
+}
+
+/**
+ * Classifies which release most likely wrote a legacy report, from the fields it carries.
+ *
+ * This is stated as an inference in the report text because no release stamped its own version
+ * into the schema before the environment record existed.
+ *
+ * The classification is deliberately no more precise than the evidence allows. v0.1.7 changed
+ * offline command policy and analyzer protection, but it did not add, remove, or alter a single
+ * report field, so a v0.1.7 report is byte-indistinguishable from a v0.1.6 report at the schema
+ * level. Reporting such a report as "v0.1.6" would be a fabricated precision, so both releases are
+ * named in one classification rather than guessing between them. The v0.1.7 execution ledger lives
+ * in ship results and tool output, not in `AuditReport`, so it cannot be used as a discriminator
+ * either.
+ */
+function classifyLegacyOrigin(source: Record<string, unknown>): string {
+  if (source.schema_version === REPORT_SCHEMA_VERSION)
+    return "schema 2 report missing one or more ledgers";
+  const findings = Array.isArray(source.findings) ? (source.findings as Finding[]) : [];
+  const hasInstanceIdentity = findings.some(
+    (finding) => finding.instance_id !== undefined || finding.evidence_snapshot !== undefined
+  );
+  if (source.environment !== undefined || source.revision !== undefined)
+    return "inferred v0.1.6-or-v0.1.7-compatible schema 1 report (carries an environment or revision record; v0.1.7 changed no report field, so the two releases are not distinguishable from a report alone)";
+  if (Array.isArray(source.gate_evidence) || Array.isArray(source.analyzer_coverage))
+    return "inferred v0.1.5-compatible schema 1 report (carries typed gate evidence or analyzer coverage)";
+  if (hasInstanceIdentity)
+    return "inferred v0.1.4-compatible schema 1 report (carries finding instance identity)";
+  return "inferred v0.1.3-compatible schema 1 report (no instance identity, typed evidence, or environment record)";
+}
+
+function isMigratableReport(value: unknown): boolean {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const candidate = value as Record<string, unknown>;
   return (
-    candidate.schema_version === 1 &&
+    typeof candidate.schema_version === "number" &&
+    Number.isInteger(candidate.schema_version) &&
+    candidate.schema_version >= 1 &&
     typeof candidate.generated_at === "string" &&
     typeof candidate.root === "string" &&
     typeof candidate.scope === "string" &&
@@ -104,8 +241,21 @@ function isAuditReport(value: unknown): value is AuditReport {
     Array.isArray(candidate.assumptions) &&
     Array.isArray(candidate.residual_risk) &&
     (candidate.gate_evidence === undefined || Array.isArray(candidate.gate_evidence)) &&
-    (candidate.analyzer_coverage === undefined || Array.isArray(candidate.analyzer_coverage))
+    (candidate.analyzer_coverage === undefined || Array.isArray(candidate.analyzer_coverage)) &&
+    (candidate.tools === undefined || Array.isArray(candidate.tools)) &&
+    (candidate.planned_checks === undefined || Array.isArray(candidate.planned_checks)) &&
+    (candidate.runtime_evidence === undefined || Array.isArray(candidate.runtime_evidence)) &&
+    (candidate.module_decisions === undefined || Array.isArray(candidate.module_decisions))
   );
+}
+
+function assertReportLedgers(report: AuditReport): void {
+  assertGateEvidence(report.gate_evidence);
+  assertAnalyzerCoverage(report.analyzer_coverage);
+  assertToolRecords(report.tools);
+  assertPlannedChecks(report.planned_checks);
+  assertRuntimeEvidence(report.runtime_evidence);
+  assertModuleDecisions(report.module_decisions);
 }
 
 export function createReport(
@@ -120,10 +270,11 @@ export function createReport(
   gateEvidence: GateEvidence[] = [],
   analyzerCoverage: AnalyzerCoverage[] = [],
   revision?: string,
-  environment?: ReportEnvironment
+  environment?: ReportEnvironment,
+  ledgers: ReportLedgers = {}
 ): AuditReport {
   return {
-    schema_version: 1,
+    schema_version: REPORT_SCHEMA_VERSION,
     generated_at: utcNow(),
     root,
     scope,
@@ -136,6 +287,10 @@ export function createReport(
     ...(scopeEvidence === undefined ? {} : { scope_evidence: scopeEvidence }),
     gate_evidence: structuredClone(gateEvidence),
     analyzer_coverage: structuredClone(analyzerCoverage),
+    tools: structuredClone(ledgers.tools ?? []),
+    planned_checks: structuredClone(ledgers.planned_checks ?? []),
+    runtime_evidence: structuredClone(ledgers.runtime_evidence ?? []),
+    module_decisions: structuredClone(ledgers.module_decisions ?? []),
     ...(revision === undefined ? {} : { revision })
   };
 }
@@ -203,6 +358,18 @@ export function renderMarkdown(report: AuditReport): string {
   const analyzerCoverage =
     report.analyzer_coverage.map(renderAnalyzerCoverage).join("\n") ||
     "- No analyzer coverage records were applicable.";
+  const moduleDecisions =
+    report.module_decisions.map(renderModuleDecision).join("\n") ||
+    "- No module decisions were recorded. Module applicability is therefore unstated, not proven.";
+  const plannedChecks =
+    report.planned_checks.map(renderPlannedCheck).join("\n") ||
+    "- No planned checks were recorded. This is not evidence that every check ran.";
+  const runtimeEvidence =
+    report.runtime_evidence.map(renderRuntimeEvidence).join("\n") ||
+    "- No runtime evidence was recorded. Nothing in this report reflects observed runtime behavior.";
+  const tools =
+    report.tools.map(renderToolRecord).join("\n") ||
+    "- No tool provenance was recorded, so the trust and version of the producing tools is unstated.";
   const remediation = report.findings
     .filter((finding) => finding.status === "FAIL" || finding.status === "WARNING")
     .map(
@@ -235,6 +402,10 @@ ${report.scope_evidence.included_files.map((item) => `- \`${item.path}\`: ${item
 
 ${renderEnvironment(report.environment)}
 
+## Schema and migration
+
+${renderMigration(report)}
+
 ## Status summary
 
 ${summary}
@@ -259,6 +430,22 @@ ${remediation || "- No FAIL or WARNING finding requires remediation in this repo
 
 ${execution || "- No project command was executed."}
 
+## Module applicability decisions
+
+${moduleDecisions}
+
+## Planned checks
+
+${plannedChecks}
+
+## Runtime evidence
+
+${runtimeEvidence}
+
+## Tool inventory
+
+${tools}
+
 ## Typed gate evidence
 
 ${typedEvidence}
@@ -279,6 +466,45 @@ ${assumptions}
 
 ${residual}
 `;
+}
+
+function renderMigration(report: AuditReport): string {
+  const header = `- Schema version: ${report.schema_version}`;
+  if (report.migration === undefined)
+    return `${header}\n- Written directly at the current schema version; no migration was applied.`;
+  return [
+    header,
+    `- Migrated from schema version ${report.migration.from_schema_version}`,
+    `- Source classification: ${report.migration.detected_origin}`,
+    `- Ledgers absent from the source: ${report.migration.absent_ledgers.join(", ") || "none"}`,
+    ...report.migration.notes.map((note) => `- ${note}`)
+  ].join("\n");
+}
+
+/**
+ * Renders both axes explicitly. The applicability line is spelled out because "not audited" and
+ * "does not exist" are the two claims a reader is most likely to conflate.
+ */
+function renderModuleDecision(decision: ModuleDecision): string {
+  const applicability =
+    decision.selection_status === "SELECTED"
+      ? "audited in this run"
+      : decision.capability_status === "ABSENT"
+        ? "genuinely not applicable (the capability does not exist)"
+        : "NOT audited in this run — this is not evidence that the module is inapplicable";
+  return `- **${decision.module}** — capability ${decision.capability_status}; selection ${decision.selection_status}${decision.explicitly_selected === true ? " (explicitly selected)" : ""}; ${applicability}. Reasons: ${decision.reasons.join("; ")}. Evidence: ${decision.evidence.join("; ") || "none recorded"}`;
+}
+
+function renderPlannedCheck(check: PlannedCheck): string {
+  return `- **${check.check_id}** (${check.module}) — ${check.status}${check.reason === undefined ? "" : `: ${check.reason}`}; command \`${check.command?.join(" ") ?? "none recorded"}\`; source ${check.source}; authorization required: ${check.requires_authorization ? "yes" : "no"}; network policy ${check.network_policy}`;
+}
+
+function renderRuntimeEvidence(evidence: RuntimeEvidence): string {
+  return `- **${evidence.evidence_id}** (${evidence.evidence_type}) — ${evidence.status} at revision \`${evidence.revision}\`; artifacts: ${evidence.artifact_paths.map((path) => `\`${path}\``).join(", ") || "none captured"}; hashes: ${evidence.hashes.join(", ") || "none recorded"}; limitations: ${evidence.limitations.join("; ") || "none recorded"}`;
+}
+
+function renderToolRecord(tool: ToolRecord): string {
+  return `- **${tool.name}** (\`${tool.tool_id}\`) — ${tool.ownership}, ${tool.trust}; version ${tool.version} (${tool.version_source}); invocation \`${tool.invocation?.join(" ") ?? "not recorded"}\`; limitations: ${tool.limitations.join("; ") || "none recorded"}`;
 }
 
 function renderGateEvidence(evidence: GateEvidence): string {

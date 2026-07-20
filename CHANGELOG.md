@@ -5,6 +5,28 @@ versioning.
 
 ## [Unreleased]
 
+### Added
+
+- Machine-readable module applicability decisions (`module_decisions`) recording capability presence
+  and selection independently, so a module skipped for a scoping reason is no longer
+  indistinguishable from one whose capability does not exist.
+- Report schema version 2 adding `tools`, `planned_checks`, `runtime_evidence`, and
+  `module_decisions` ledgers, documented in [report schema](docs/REPORT_SCHEMA.md). Reports from
+  v0.1.3 through v0.1.6 migrate in memory without rewriting the source file and without fabricating
+  ledgers the writing release never recorded.
+- Append-only ledger APIs in `cli/src/ledger.ts` that validate input, deduplicate stable IDs,
+  preserve deterministic order, and refuse to rewrite a blocked or unverified result as passing.
+
+### Fixed
+
+- `NOT_APPLICABLE` is now reserved for a capability that provably does not exist. A module left out
+  of the changed scope, excluded by a risk filter, or whose capability could not be determined is
+  reported `NOT_VERIFIED` instead of being labelled inapplicable.
+- Risk-filtered modules previously vanished from the report entirely, leaving no record that they
+  had gone unaudited. They now appear with an `EXCLUDED_BY_RISK` decision.
+- Capability ship gates are no longer dismissed as `NOT_APPLICABLE` when the prior audit shows the
+  module exists but was not audited, so narrowing an audit can no longer switch a release gate off.
+
 ## [0.1.7] - 2026-07-20
 
 Offline command policy and structural security proof milestone. `--offline` now reaches every

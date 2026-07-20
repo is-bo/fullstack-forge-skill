@@ -24,7 +24,7 @@
  */
 
 import { classifyHost } from "./net-policy.js";
-import type { CommandDefinition } from "./types.js";
+import type { CommandDefinition, NetworkPolicy } from "./types.js";
 
 export type CommandNetworkPolicy =
   "forge-internal-offline-safe" | "cache-only-installation" | "UNKNOWN";
@@ -141,6 +141,35 @@ export function decideCommandExecution(
     sandbox: "none",
     reason: `'${command.name}' is an arbitrary audited-project script with UNKNOWN network policy. Fullstack Forge implements no operating-system network isolation, so it cannot be executed offline without making an unproven offline-safety claim. Re-run without --offline to execute it, and record that the result was obtained with network access.`
   };
+}
+
+/**
+ * Projects a command's network policy into the report vocabulary used by `PlannedCheck`.
+ *
+ * Two vocabularies exist for good reasons. `CommandNetworkPolicy` names *why* a command may run,
+ * so it distinguishes the two provable exemptions. `NetworkPolicy` is the coarser report-facing
+ * value. This function is the only sanctioned bridge between them, and it exists so that the
+ * report vocabulary can never be used to launder an unproven claim.
+ *
+ * The mapping is deliberately one-way and lossy in the safe direction:
+ *
+ *  - The two structurally provable exemptions become `OFFLINE_SAFE`, because a proof exists.
+ *  - `UNKNOWN` stays `UNKNOWN`. It never becomes `OFFLINE_SAFE`.
+ *
+ * There is no inverse function and no path that promotes `UNKNOWN`. Absence of network keywords is
+ * not proof of offline safety, so nothing may downgrade an arbitrary audited-project command to
+ * `OFFLINE_SAFE`. Escalation in the other direction — `UNKNOWN` to `NETWORK_REQUIRED` once network
+ * dependence is actually demonstrated — is legitimate and is performed by the caller that holds
+ * that evidence, not here.
+ */
+export function plannedCheckNetworkPolicy(policy: CommandNetworkPolicy): NetworkPolicy {
+  switch (policy) {
+    case "forge-internal-offline-safe":
+    case "cache-only-installation":
+      return "OFFLINE_SAFE";
+    case "UNKNOWN":
+      return "UNKNOWN";
+  }
 }
 
 export function ledgerRecord(

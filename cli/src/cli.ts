@@ -2,7 +2,6 @@ import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import {
-  ALWAYS_APPLICABLE,
   MODULE_SLUGS,
   PACKAGE_ROOT,
   PLATFORM_ALIASES,
@@ -23,13 +22,19 @@ import {
   renderMarkdown,
   writeReport
 } from "./report.js";
-import { analyzeChangedScope, type ChangedScope } from "./scope.js";
+import {
+  analyzeChangedScope,
+  decideModules,
+  decisionFindingStatus,
+  type ChangedScope
+} from "./scope.js";
 import { coverageForProfile } from "./support.js";
 import type {
   AnalyzerCoverage,
   CliOptions,
   Finding,
   InspectionResult,
+  ModuleDecision,
   ProjectProfile
 } from "./types.js";
 import { isForgePackageRoot, runTool } from "./tools.js";
@@ -197,13 +202,21 @@ async function runModule(section: ModuleSlug, mode: string, options: CliOptions)
     return verifySection(section, root, profile, options);
   }
 
-  const selection = selectSections(section, profile, options);
-  let selected = selection.selected;
   let changedScope: ChangedScope | undefined;
-  if (section === "all" && options.scope === "changed") {
+  if (section === "all" && options.scope === "changed")
     changedScope = await analyzeChangedScope(root, profile, options.base);
-    selected = selected.filter((slug) => changedScope?.modules.has(slug));
-  }
+  const decisions = decideModules({
+    candidates: candidateSections(section),
+    profile,
+    explicit: section !== "all",
+    ...(section === "all" && options.risk === "high"
+      ? { riskAllowed: HIGH_RISK_MODULES, riskLabel: "high" }
+      : {}),
+    ...(changedScope === undefined ? {} : { changedModules: changedScope.modules })
+  });
+  const selected = decisions
+    .filter((decision) => decision.selection_status === "SELECTED")
+    .map((decision) => decision.module as ModuleSlug);
   if (!options.dryRun) await writeProjectArtifacts(profile);
   const results = await Promise.all(
     selected.map((slug) => inspectSection(slug, root, profile, changedScope?.files))
@@ -237,10 +250,11 @@ async function runModule(section: ModuleSlug, mode: string, options: CliOptions)
     ];
   });
   if (section === "all") {
-    const notApplicable = selection.sections
-      .filter((slug) => !selected.includes(slug))
-      .map((slug) => applicabilityFinding(slug, profile));
-    findings.push(...notApplicable);
+    findings.push(
+      ...decisions
+        .filter((decision) => decision.selection_status !== "SELECTED")
+        .map(moduleDecisionFinding)
+    );
   }
   const report = createReport(
     root,
@@ -256,7 +270,8 @@ async function runModule(section: ModuleSlug, mode: string, options: CliOptions)
     results.flatMap((result) => result.gate_evidence),
     results.flatMap((result) => result.analyzer_coverage),
     revision,
-    captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION })
+    captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION }),
+    { module_decisions: decisions }
   );
   const paths = options.dryRun ? [] : await writeReport(report);
   printValue(
@@ -367,21 +382,17 @@ async function ship(options: CliOptions): Promise<number> {
   return status === "FAIL" ? 1 : status === "BLOCKED" ? 2 : 0;
 }
 
-function selectSections(
-  section: ModuleSlug,
-  profile: ProjectProfile,
-  options: CliOptions
-): { sections: ModuleSlug[]; selected: ModuleSlug[] } {
-  let sections =
-    section === "all"
-      ? MODULE_SLUGS.filter((slug) => !["discover", "all", "ship"].includes(slug))
-      : [section];
-  if (section === "all" && options.risk === "high")
-    sections = sections.filter((slug) => HIGH_RISK_MODULES.has(slug));
-  const selected = sections.filter(
-    (slug) => ALWAYS_APPLICABLE.has(slug) || section !== "all" || shouldApply(slug, profile)
-  );
-  return { sections, selected };
+/**
+ * The full candidate set a run considers, before any capability, risk, or changed-scope filter.
+ *
+ * Filters are never applied here: every candidate must reach `decideModules` so that a module
+ * dropped by a filter still produces a decision recording why. Previously, risk-filtered modules
+ * vanished from the report entirely, which left no trace that they had gone unaudited.
+ */
+function candidateSections(section: ModuleSlug): ModuleSlug[] {
+  return section === "all"
+    ? MODULE_SLUGS.filter((slug) => !["discover", "all", "ship"].includes(slug))
+    : [section];
 }
 
 async function doctor(options: CliOptions): Promise<number> {
@@ -424,52 +435,6 @@ async function doctor(options: CliOptions): Promise<number> {
   return checks.some((check) => check.status === "FAIL") ? 1 : 0;
 }
 
-function shouldApply(section: ModuleSlug, profile: ProjectProfile): boolean {
-  const result = inspectCapability(section, profile);
-  return result !== undefined;
-}
-
-function inspectCapability(section: ModuleSlug, profile: ProjectProfile): string | undefined {
-  const map: Partial<Record<ModuleSlug, string>> = {
-    ui: "frontend",
-    ux: "frontend",
-    accessibility: "frontend",
-    i18n: "internationalization",
-    seo: "public-web",
-    frontend: "frontend",
-    api: "api",
-    jobs: "jobs",
-    integrations: "integrations",
-    auth: "authentication",
-    authorization: "authorization",
-    privacy: "personal-data",
-    tenancy: "tenancy",
-    uploads: "uploads",
-    database: "database",
-    queries: "database",
-    cache: "cache",
-    storage: "storage",
-    performance: "runtime",
-    scale: "runtime",
-    observability: "observability",
-    reliability: "runtime",
-    recovery: "database",
-    deployment: "deployment",
-    infrastructure: "infrastructure",
-    cost: "paid-services",
-    analytics: "analytics",
-    notifications: "notifications",
-    ai: "ai",
-    payments: "payments",
-    realtime: "realtime",
-    offline: "offline"
-  };
-  const capability = map[section];
-  return capability === undefined || profile.capabilities[capability] !== undefined
-    ? (capability ?? "always")
-    : undefined;
-}
-
 function coverageFinding(section: ModuleSlug, observations: number, detail: string): Finding {
   return {
     id: `FF-${section.toUpperCase()}-900`,
@@ -488,16 +453,41 @@ function coverageFinding(section: ModuleSlug, observations: number, detail: stri
   };
 }
 
-function applicabilityFinding(section: ModuleSlug, profile: ProjectProfile): Finding {
+/**
+ * Turns an unselected module decision into a finding.
+ *
+ * NOT_APPLICABLE is emitted only when the capability was proven absent. A module skipped because
+ * its files did not change, because a risk filter narrowed the run, or because discovery could
+ * not determine the capability is NOT_VERIFIED: the run produced no evidence about it, and
+ * labelling that as inapplicable would assert a fact nobody established.
+ */
+function moduleDecisionFinding(decision: ModuleDecision): Finding {
+  const section = decision.module as ModuleSlug;
+  const status = decisionFindingStatus(decision);
+  const applicable = status === "NOT_APPLICABLE";
+  const base = coverageFinding(section, 0, decision.reasons.join(" "));
   return {
-    ...coverageFinding(section, 0, "Discovery found no applicable capability evidence."),
+    ...base,
     id: `FF-${section.toUpperCase()}-001`,
-    title: `${section} module is not applicable to detected scope`,
-    status: "NOT_APPLICABLE",
+    title: applicable
+      ? `${section} module is not applicable: the capability does not exist`
+      : `${section} module was not audited in this run`,
+    status: applicable ? "NOT_APPLICABLE" : "NOT_VERIFIED",
+    severity: applicable ? "INFO" : "LOW",
     evidence: [
-      `No matching capability was found among: ${Object.keys(profile.capabilities).sort().join(", ") || "none"}.`
+      `Capability status: ${decision.capability_status}. Selection status: ${decision.selection_status}.`,
+      ...decision.evidence,
+      ...decision.reasons
     ],
-    impact: "No audit impact within the detected repository scope."
+    impact: applicable
+      ? "No audit impact: the capability this module audits does not exist in the project."
+      : "The module exists or may exist but produced no evidence in this run, so its state is unknown.",
+    recommendation: applicable
+      ? `Re-run forge ${section} if the project later gains this capability.`
+      : `Re-run forge ${section} (or widen the scope or risk filter) to obtain evidence for this module.`,
+    verification: applicable
+      ? ["Confirm through discovery that the capability is still absent."]
+      : [`Run forge ${section} audit against the full scope and attach direct evidence.`]
   };
 }
 
