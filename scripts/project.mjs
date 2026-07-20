@@ -53,6 +53,8 @@ export const expectedSlugs = Object.freeze([
   "ship"
 ]);
 
+export const expectedBuildCommands = Object.freeze(["forge-new", "forge-feature"]);
+
 export const platformTargets = Object.freeze([
   {
     id: "agents",
