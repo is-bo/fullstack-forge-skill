@@ -233,5 +233,5 @@ test("explicit inspection criteria cover every module and render into canonical 
 test("all bundled skills satisfy the structural validator", async () => {
   const result = await validateBundledSkills();
   assert.deepEqual(result.errors, []);
-  assert.equal(result.skills, 43);
+  assert.equal(result.skills, 45);
 });

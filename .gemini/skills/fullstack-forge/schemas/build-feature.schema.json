@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/thethunderbolt/fullstack-forge-skill/schemas/build-feature.schema.json",
+  "title": "Fullstack Forge build feature state",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "slug",
+    "created_at",
+    "updated_at",
+    "phase",
+    "tier",
+    "tier_inputs",
+    "summary",
+    "disciplines",
+    "decisions",
+    "assumptions",
+    "touched_paths",
+    "evidence",
+    "risk_acceptances",
+    "repair_counters",
+    "blockers"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "slug": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "phase": {
+      "enum": ["frame", "plan", "implement", "check", "done", "blocked", "abandoned"]
+    },
+    "tier": { "enum": ["light", "standard", "high"] },
+    "tier_inputs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "tier_override_reason": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string" },
+    "disciplines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slug", "reason"],
+        "properties": {
+          "slug": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "plan_summary": { "type": "string" },
+    "plan_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "decisions": { "type": "array", "items": { "type": "string" } },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "touched_paths": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "criterion",
+          "security_control",
+          "status",
+          "producer",
+          "evidence",
+          "files",
+          "instance_ids",
+          "recorded_at"
+        ],
+        "properties": {
+          "criterion": { "type": "string", "minLength": 1 },
+          "discipline": { "type": "string", "minLength": 1 },
+          "security_control": { "type": "boolean" },
+          "status": { "enum": ["PASS", "FAIL", "NOT_VERIFIED", "NOT_APPLICABLE", "BLOCKED"] },
+          "producer": { "type": "string", "minLength": 1 },
+          "evidence": { "type": "array", "items": { "type": "string" } },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "sha256"],
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+              }
+            }
+          },
+          "instance_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "recorded_at": { "type": "string", "format": "date-time" },
+          "not_applicable_reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "risk_acceptances": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["criterion", "reason", "revision", "timestamp"],
+        "properties": {
+          "criterion": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 },
+          "revision": { "type": "string", "minLength": 1 },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "repair_counters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["criterion", "signature", "count"],
+        "properties": {
+          "criterion": { "type": "string", "minLength": 1 },
+          "signature": { "type": "string", "minLength": 1 },
+          "count": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["criterion", "reason", "timestamp"],
+        "properties": {
+          "criterion": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}
