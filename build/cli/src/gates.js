@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { validateFinding } from "./finding.js";
+import { decideCommandExecution, ledgerRecord } from "./offline-policy.js";
 import { assertNoSymlinkPath, assertSafeRelative, resolveInside, runFile, sha256, utcNow, workingTreeRevision } from "./utils.js";
 export const FORGE_GATE_REGISTRY = [
     gate("FF-GATE-SCHEMA", "Finding-schema validation", "internal", "audited-application"),
@@ -24,14 +25,21 @@ export const FORGE_GATE_REGISTRY = [
     gate("FF-GATE-MIGRATIONS", "Migration and configuration inspection", "capability", "audited-application", undefined, ["migration-validation"]),
     gate("FF-GATE-OPEN-FINDINGS", "Open critical and required high findings", "audit-evidence", "audited-application")
 ];
-export async function runShipGates(root, profile, previous, commands, allowRun) {
+export async function runShipGates(root, profile, previous, commands, allowRun, policy = { offline: false, forgeOwned: false }) {
     const execution = [];
+    const ledger = [];
     const revision = await workingTreeRevision(root);
     const preflight = [schemaGate(root, previous), openFindingsGate(previous)];
     const preflightPassed = evaluateGateOutcome(preflight) === "PASS";
     const commandResults = allowRun && preflightPassed
-        ? await runRegisteredCommands(root, commands, execution)
+        ? await runRegisteredCommands(root, commands, execution, ledger, policy)
         : new Map();
+    if (!allowRun || !preflightPassed) {
+        for (const command of registeredCommands(commands)) {
+            ledger.push(ledgerRecord(command, decideCommandExecution(command, policy), "NOT_RUN", policy.offline));
+        }
+    }
+    const ledgerByName = new Map(ledger.map((record) => [record.name, record]));
     const isForgeRepository = profile.repository.name === "fullstack-forge-skill" ||
         commands.some((command) => command.name === "check:platforms");
     const gates = [];
@@ -69,7 +77,7 @@ export async function runShipGates(root, profile, previous, commands, allowRun) 
         if (definition.command !== undefined) {
             const detected = commands.find((command) => command.name === definition.command);
             const result = commandResults.get(definition.command);
-            gates.push(commandGate(definition, detected, result, allowRun, revision));
+            gates.push(commandGate(definition, detected, result, allowRun, revision, ledgerByName.get(definition.command)));
             continue;
         }
     }
@@ -86,7 +94,7 @@ export async function runShipGates(root, profile, previous, commands, allowRun) 
                 applicability: "project-native",
                 required: true,
                 command: name
-            }, command, result, allowRun, revision)
+            }, command, result, allowRun, revision, ledgerByName.get(name))
         ];
     });
     gates.push(...projectNative);
@@ -107,7 +115,8 @@ export async function runShipGates(root, profile, previous, commands, allowRun) 
         status: evaluateGateOutcome(gates),
         gates,
         execution,
-        evidence: gates.flatMap((gate) => gate.evidence_records)
+        evidence: gates.flatMap((gate) => gate.evidence_records),
+        command_ledger: ledger
     };
 }
 export function evaluateGateOutcome(gates) {
@@ -117,27 +126,47 @@ export function evaluateGateOutcome(gates) {
         return "BLOCKED";
     return "PASS";
 }
-async function runRegisteredCommands(root, commands, execution) {
-    const results = new Map();
-    const ordered = [
-        "format:check",
-        "lint",
-        "typecheck",
-        "test",
-        "build",
-        "validate",
-        "check:platforms",
-        "scan:secrets",
-        "audit:dependencies",
-        "check:licenses",
-        "package:platforms",
-        "validate:dist",
-        "smoke:install"
-    ];
-    for (const name of ordered) {
+const ORDERED_GATE_COMMANDS = [
+    "format:check",
+    "lint",
+    "typecheck",
+    "test",
+    "build",
+    "validate",
+    "check:platforms",
+    "scan:secrets",
+    "audit:dependencies",
+    "check:licenses",
+    "package:platforms",
+    "validate:dist",
+    "smoke:install"
+];
+function registeredCommands(commands) {
+    return ORDERED_GATE_COMMANDS.flatMap((name) => {
         const command = commands.find((candidate) => candidate.name === name);
-        if (command === undefined || results.has(name))
+        return command === undefined ? [] : [command];
+    });
+}
+async function runRegisteredCommands(root, commands, execution, ledger, policy) {
+    const results = new Map();
+    let halted = false;
+    for (const command of registeredCommands(commands)) {
+        const name = command.name;
+        if (results.has(name))
             continue;
+        const decision = decideCommandExecution(command, policy);
+        if (halted) {
+            ledger.push(ledgerRecord(command, {
+                ...decision,
+                reason: `A prior required command failed, so '${name}' did not run.`
+            }, "NOT_RUN", policy.offline));
+            continue;
+        }
+        if (!decision.permitted) {
+            // No execution record and no CommandResult: a blocked command cannot become PASS evidence.
+            ledger.push(ledgerRecord(command, decision, "BLOCKED", policy.offline));
+            continue;
+        }
         const started = Date.now();
         const startedAt = utcNow();
         const result = await runFile(command.executable, command.args, root, 15 * 60_000);
@@ -150,8 +179,9 @@ async function runRegisteredCommands(root, commands, execution) {
             duration_ms: Date.now() - started
         });
         results.set(name, { exitCode: result.exitCode, output, started_at: startedAt });
+        ledger.push(ledgerRecord(command, decision, "RAN", policy.offline, result.exitCode));
         if (result.exitCode !== 0)
-            break;
+            halted = true;
     }
     return results;
 }
@@ -353,13 +383,17 @@ function evidenceFromCommand(command, result, revision) {
         }
     ];
 }
-function commandGate(definition, command, result, allowRun, revision) {
+function commandGate(definition, command, result, allowRun, revision, ledger) {
     if (command === undefined)
         return gateValue(definition.gate_id, definition.name, definition.category, "BLOCKED", [`Required command '${definition.command ?? "unknown"}' was not detected.`], definition.required);
     if (!allowRun)
         return gateValue(definition.gate_id, definition.name, definition.category, "BLOCKED", [`${command.executable} ${command.args.join(" ")} requires --allow-run.`], definition.required);
+    if (ledger?.disposition === "BLOCKED")
+        return gateValue(definition.gate_id, definition.name, definition.category, "BLOCKED", [
+            `${command.executable} ${command.args.join(" ")} was blocked by offline network policy (${ledger.network_policy}, sandbox=${ledger.sandbox}): ${ledger.reason}`
+        ], definition.required);
     if (result === undefined)
-        return gateValue(definition.gate_id, definition.name, definition.category, "BLOCKED", ["A prior required command failed, so this command did not run."], definition.required);
+        return gateValue(definition.gate_id, definition.name, definition.category, "BLOCKED", [ledger?.reason ?? "A prior required command failed, so this command did not run."], definition.required);
     return gateValue(definition.gate_id, definition.name, definition.category, result.exitCode === 0 ? "PASS" : "FAIL", [`${command.executable} ${command.args.join(" ")} exited ${result.exitCode}.`], definition.required, evidenceFromCommand(definition.command ?? command.name, result, revision));
 }
 function gate(gateId, name, category, applicability, command, evidenceTypes) {

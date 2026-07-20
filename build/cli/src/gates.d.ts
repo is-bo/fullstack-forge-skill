@@ -1,3 +1,4 @@
+import { type CommandLedgerRecord, type PolicyContext } from "./offline-policy.js";
 import type { AuditReport, ExecutionRecord } from "./report.js";
 import type { CommandDefinition, GateEvidence, GateEvidenceType, ProjectProfile, Status } from "./types.js";
 export type GateStatus = Extract<Status, "PASS" | "FAIL" | "BLOCKED" | "NOT_VERIFIED" | "NOT_APPLICABLE">;
@@ -36,6 +37,8 @@ export type ShipGateResult = {
     gates: ShipGate[];
     execution: ExecutionRecord[];
     evidence: GateEvidence[];
+    /** Why every registered command ran, did not run, or was blocked by network policy. */
+    command_ledger: CommandLedgerRecord[];
 };
-export declare function runShipGates(root: string, profile: ProjectProfile, previous: AuditReport | undefined, commands: CommandDefinition[], allowRun: boolean): Promise<ShipGateResult>;
+export declare function runShipGates(root: string, profile: ProjectProfile, previous: AuditReport | undefined, commands: CommandDefinition[], allowRun: boolean, policy?: PolicyContext): Promise<ShipGateResult>;
 export declare function evaluateGateOutcome(gates: ShipGate[]): "PASS" | "FAIL" | "BLOCKED";

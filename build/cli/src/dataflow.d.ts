@@ -7,6 +7,8 @@ export type ProtectionEvidence = {
     context: string;
     producer: string;
     expression: string;
+    /** Bounds the claim. Recorded honestly rather than implied away (for example DNS resolution). */
+    limitations?: string[];
 };
 export type TaintOrigin = {
     /** Human-readable source expression, e.g. `req.params.id`. */
@@ -25,3 +27,8 @@ export type TaintModel = {
     tainted: ReadonlyMap<string, TaintOrigin>;
 };
 export declare function buildTaintModel(sourceFile: ts.SourceFile): TaintModel;
+export type DestinationMapProof = {
+    proven: boolean;
+    reason: string;
+    limitations: string[];
+};
