@@ -50,6 +50,13 @@ a shared baseline.
 | `standard` | `check` + evidence for touched disciplines                 | Short plan; selected briefs consulted | Default tier                                                                                                         |
 | `high`     | Briefs mandatory; negative tests required where applicable | Plan required                         | `accept-risk` not permitted for required security controls; a `NOT_VERIFIED` required security control blocks `done` |
 
+The CLI enforces the tier floor: trigger words in a feature's slug, summary, selected disciplines,
+or tier inputs (payments, identity, sessions, secrets, uploads, tenancy, AI, migrations,
+cryptography, SSRF, destructive operations) escalate the feature to `high`, with the detected
+triggers recorded in `tier_inputs`. Passing `--tier <tier> --reason "<why>"` keeps the requested
+tier and records the override instead — a lower tier on a high-risk feature is always a visible,
+recorded decision, never a silent default.
+
 Disciplines whose criterion is a required security control at high tier: `auth`, `authorization`,
 `security`, `privacy`, `tenancy`, `uploads`, `payments`. A `NOT_VERIFIED` result on one of these at
 high tier can never be waived by risk acceptance — it must resolve to `PASS` or a reasoned
