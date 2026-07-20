@@ -132,27 +132,31 @@ function parseBuildArgs(argv: string[]): BuildOptions {
     assumptions: [],
     positionals: []
   };
-  const valueFlags: Record<string, "cwd" | "tier" | "summary" | "reason" | "criterion" | "base" | "name"> =
-    {
-      "--root": "cwd",
-      "--cwd": "cwd",
-      "--tier": "tier",
-      "--summary": "summary",
-      "--reason": "reason",
-      "--criterion": "criterion",
-      "--base": "base",
-      "--name": "name"
-    };
-  const listFlags: Record<string, "disciplines" | "inputs" | "touch" | "stack" | "nonGoals" | "decisions" | "assumptions"> =
-    {
-      "--discipline": "disciplines",
-      "--input": "inputs",
-      "--touch": "touch",
-      "--stack": "stack",
-      "--non-goal": "nonGoals",
-      "--decision": "decisions",
-      "--assumption": "assumptions"
-    };
+  const valueFlags: Record<
+    string,
+    "cwd" | "tier" | "summary" | "reason" | "criterion" | "base" | "name"
+  > = {
+    "--root": "cwd",
+    "--cwd": "cwd",
+    "--tier": "tier",
+    "--summary": "summary",
+    "--reason": "reason",
+    "--criterion": "criterion",
+    "--base": "base",
+    "--name": "name"
+  };
+  const listFlags: Record<
+    string,
+    "disciplines" | "inputs" | "touch" | "stack" | "nonGoals" | "decisions" | "assumptions"
+  > = {
+    "--discipline": "disciplines",
+    "--input": "inputs",
+    "--touch": "touch",
+    "--stack": "stack",
+    "--non-goal": "nonGoals",
+    "--decision": "decisions",
+    "--assumption": "assumptions"
+  };
   const assign = (key: (typeof valueFlags)[string], value: string): void => {
     if (key === "cwd") options.cwd = value;
     else if (key === "tier") options.tier = validateTier(value);
@@ -234,7 +238,12 @@ async function buildNew(root: string, options: BuildOptions): Promise<number> {
   project.non_goals = parseNonGoals(options.nonGoals);
   if (options.name !== undefined) project.product.name = options.name;
   const projectPath = await saveProject(root, project, options.dryRun);
-  const decisionsPath = await writeArtifact(root, "DECISIONS.md", DECISIONS_TEMPLATE, options.dryRun);
+  const decisionsPath = await writeArtifact(
+    root,
+    "DECISIONS.md",
+    DECISIONS_TEMPLATE,
+    options.dryRun
+  );
   const designPath = await writeArtifact(
     root,
     "DESIGN.md",
@@ -257,9 +266,7 @@ async function buildNew(root: string, options: BuildOptions): Promise<number> {
 
 async function buildResume(root: string, options: BuildOptions): Promise<number> {
   const project = await loadProject(root);
-  const unfinished = (project?.features ?? []).filter(
-    (entry) => !TERMINAL_PHASES.has(entry.phase)
-  );
+  const unfinished = (project?.features ?? []).filter((entry) => !TERMINAL_PHASES.has(entry.phase));
   const mostRecent = [...unfinished].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
   return report(options, {
     operation: "resume",
@@ -330,8 +337,7 @@ async function ensureProjectIndex(
   options: BuildOptions
 ): Promise<void> {
   const project =
-    (await loadProject(root)) ??
-    newProject("(created implicitly by forge feature)", undefined);
+    (await loadProject(root)) ?? newProject("(created implicitly by forge feature)", undefined);
   await saveProject(root, upsertFeatureIndex(project, feature), options.dryRun);
 }
 
@@ -339,11 +345,7 @@ async function ensureProjectIndex(
 // feature: start / resume (no sub-verb)
 // ---------------------------------------------------------------------------
 
-async function featureStart(
-  root: string,
-  slug: string,
-  options: BuildOptions
-): Promise<number> {
+async function featureStart(root: string, slug: string, options: BuildOptions): Promise<number> {
   const existing = await loadFeature(root, slug);
   if (existing !== undefined) {
     const { feature, demoted } = await reverifyEvidenceHashes(root, existing);
@@ -389,12 +391,9 @@ function applyFrameInputs(feature: BuildFeature, options: BuildOptions): void {
 // feature frame / plan
 // ---------------------------------------------------------------------------
 
-async function featureFrame(
-  root: string,
-  slug: string,
-  options: BuildOptions
-): Promise<number> {
-  const feature = (await loadFeature(root, slug)) ?? newFeature(slug, options.tier ?? "standard", "");
+async function featureFrame(root: string, slug: string, options: BuildOptions): Promise<number> {
+  const feature =
+    (await loadFeature(root, slug)) ?? newFeature(slug, options.tier ?? "standard", "");
   if (options.tier !== undefined) feature.tier = options.tier;
   applyFrameInputs(feature, options);
   // frame is recorded guidance; it never regresses a feature past its current phase.
@@ -406,21 +405,22 @@ async function featureFrame(
   return renderFeature(options, feature, { operation: "frame", next: nextStepFor(feature) });
 }
 
-async function featurePlan(
-  root: string,
-  slug: string,
-  options: BuildOptions
-): Promise<number> {
+async function featurePlan(root: string, slug: string, options: BuildOptions): Promise<number> {
   const feature = await requireFeature(root, slug);
   if (TERMINAL_PHASES.has(feature.phase))
     throw new Error(`Feature '${slug}' is ${feature.phase}; it cannot be planned.`);
-  if (options.summary !== undefined && feature.summary.length === 0) feature.summary = options.summary;
+  if (options.summary !== undefined && feature.summary.length === 0)
+    feature.summary = options.summary;
   const planSummary = options.summary ?? feature.plan_summary ?? feature.summary;
   feature.plan_summary = planSummary;
   feature.plan_hash = sha256(
-    `${planSummary} ${feature.disciplines.map((d) => d.slug).sort().join(",")}`
+    `${planSummary} ${feature.disciplines
+      .map((d) => d.slug)
+      .sort()
+      .join(",")}`
   );
-  if (options.decisions.length > 0) feature.decisions = [...feature.decisions, ...options.decisions];
+  if (options.decisions.length > 0)
+    feature.decisions = [...feature.decisions, ...options.decisions];
   if (options.disciplines.length > 0) feature.disciplines = parseDisciplines(options.disciplines);
   feature.phase = "plan";
   await saveFeature(root, feature, options.dryRun);
@@ -432,11 +432,7 @@ async function featurePlan(
 // feature check
 // ---------------------------------------------------------------------------
 
-async function featureCheck(
-  root: string,
-  slug: string,
-  options: BuildOptions
-): Promise<number> {
+async function featureCheck(root: string, slug: string, options: BuildOptions): Promise<number> {
   const loaded = await requireFeature(root, slug);
   const { feature } = await reverifyEvidenceHashes(root, loaded);
   if (feature.phase === "done" || feature.phase === "abandoned")
@@ -503,11 +499,7 @@ async function runCheckPass(
 // feature done
 // ---------------------------------------------------------------------------
 
-async function featureDone(
-  root: string,
-  slug: string,
-  options: BuildOptions
-): Promise<number> {
+async function featureDone(root: string, slug: string, options: BuildOptions): Promise<number> {
   const loaded = await requireFeature(root, slug);
   const { feature, demoted } = await reverifyEvidenceHashes(root, loaded);
   if (feature.phase === "done")
@@ -579,11 +571,7 @@ async function featureAcceptRisk(
   });
 }
 
-async function featureAbandon(
-  root: string,
-  slug: string,
-  options: BuildOptions
-): Promise<number> {
+async function featureAbandon(root: string, slug: string, options: BuildOptions): Promise<number> {
   const feature = await requireFeature(root, slug);
   if (feature.phase === "done")
     throw new Error(`Feature '${slug}' is done; it cannot be abandoned.`);
@@ -598,11 +586,7 @@ async function featureAbandon(
   return renderFeature(options, feature, { operation: "abandon", next: "Feature abandoned." });
 }
 
-async function featureStatus(
-  root: string,
-  slug: string,
-  options: BuildOptions
-): Promise<number> {
+async function featureStatus(root: string, slug: string, options: BuildOptions): Promise<number> {
   const loaded = await requireFeature(root, slug);
   const { feature, demoted } = await reverifyEvidenceHashes(root, loaded);
   return renderFeature(options, feature, {
@@ -644,7 +628,10 @@ async function deriveCriteria(
     security_control: false,
     status: "PASS",
     producer: "scope.ts",
-    evidence: [`Scope resolved via ${scope.mode}; ${scope.files.length} file(s) in scope.`, ...scope.reasons.slice(0, 5)],
+    evidence: [
+      `Scope resolved via ${scope.mode}; ${scope.files.length} file(s) in scope.`,
+      ...scope.reasons.slice(0, 5)
+    ],
     files: await hashFiles(root, scope.files),
     instance_ids: [],
     recorded_at: now
@@ -663,7 +650,9 @@ async function deriveCriteria(
       failFindings.length > 0
         ? failFindings
             .slice(0, 10)
-            .map((f) => redactToString(`${f.instance_id ?? f.id}: ${f.title} (${f.location[0]?.path ?? "?"})`))
+            .map((f) =>
+              redactToString(`${f.instance_id ?? f.id}: ${f.title} (${f.location[0]?.path ?? "?"})`)
+            )
         : [
             supported > 0
               ? `Analyzed ${supported} supported source file(s) in scope; no failing pattern was reproduced.`
@@ -707,7 +696,9 @@ async function deriveCommandCriterion(
       security_control: false,
       status: "NOT_VERIFIED",
       producer: `project-command:${name}`,
-      evidence: [`'${name}' was detected but requires explicit --allow-run after review; it did not execute.`],
+      evidence: [
+        `'${name}' was detected but requires explicit --allow-run after review; it did not execute.`
+      ],
       files,
       instance_ids: [],
       recorded_at: now
@@ -731,7 +722,10 @@ async function deriveCommandCriterion(
     security_control: false,
     status: result.exitCode === 0 ? "PASS" : "FAIL",
     producer: `project-command:${name}`,
-    evidence: [`${command.executable} ${command.args.join(" ")} exited ${result.exitCode}.`, output],
+    evidence: [
+      `${command.executable} ${command.args.join(" ")} exited ${result.exitCode}.`,
+      output
+    ],
     files,
     instance_ids: [],
     recorded_at: now
@@ -755,7 +749,9 @@ function deriveDisciplineCriterion(
       security_control: securityControl,
       status: "FAIL",
       producer: "analyzers.ts",
-      evidence: failing.slice(0, 10).map((f) => redactToString(`${f.instance_id ?? f.id}: ${f.title}`)),
+      evidence: failing
+        .slice(0, 10)
+        .map((f) => redactToString(`${f.instance_id ?? f.id}: ${f.title}`)),
       files: [],
       instance_ids: failing.map((f) => f.instance_id ?? f.id).slice(0, 50),
       recorded_at: now
@@ -914,7 +910,10 @@ function failureSignature(record: CriterionEvidence): string {
   const basis =
     record.instance_ids.length > 0
       ? [...record.instance_ids].sort().join("\n")
-      : record.files.map((file) => file.sha256).sort().join("\n");
+      : record.files
+          .map((file) => file.sha256)
+          .sort()
+          .join("\n");
   return sha256(`${record.criterion} ${basis}`);
 }
 
@@ -941,7 +940,9 @@ export function missingForDone(feature: BuildFeature): string[] {
   const byId = new Map(feature.evidence.map((record) => [record.criterion, record]));
   for (const record of feature.evidence)
     if (record.status === "FAIL")
-      missing.push(`${record.criterion}: FAIL must be fixed (${record.evidence[0] ?? "no detail"})`);
+      missing.push(
+        `${record.criterion}: FAIL must be fixed (${record.evidence[0] ?? "no detail"})`
+      );
   const accepted = new Set(feature.risk_acceptances.map((item) => item.criterion));
   for (const criterion of requiredCriteria(feature)) {
     const record = byId.get(criterion);

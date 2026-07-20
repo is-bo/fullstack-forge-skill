@@ -99,7 +99,7 @@
     "fullstack-forge/references/SAFE_FIX_POLICY.md": "afe5950841b2b081e90add157200c7bed2da1db1c0e269b69ca446993f0aa6b1",
     "fullstack-forge/references/STACK_GUIDANCE.md": "76c707d04808048080cc586b7f79487a7fcd03e1f66a55814c9bc40ef106c889",
     "fullstack-forge/schemas/build-feature.schema.json": "c20a158d7c251de9c3f1dbbf9f40c693ec9c937a21cb34f4d21e3ed6c89918ee",
-    "fullstack-forge/schemas/build-project.schema.json": "8e46493af2f8d76a574590818e67326f342d92f7de600a10f407b733963556f3",
+    "fullstack-forge/schemas/build-project.schema.json": "3113550d4481851ed460aa78680e952218774cf8f29ebf41cd807b8d2c0eee57",
     "fullstack-forge/schemas/finding.schema.json": "81166d0a778e9a6c99e02b2187a00b4c0fd14977ca1facb316c72238bfaaf573",
     "fullstack-forge/schemas/project-profile.schema.json": "1e285f4842bf9846f1344bad884d35e6335c6c7e95fe40b4725dc0513890eeb8",
     "fullstack-forge/schemas/skill.schema.json": "0ee543fe2ed0c927869aeb5e8f60a23447d60a49513e9d5996bac4d5121e4cde",

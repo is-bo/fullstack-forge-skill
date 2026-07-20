@@ -1,7 +1,8 @@
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { MODULE_SLUGS, PACKAGE_ROOT, PLATFORM_ALIASES, PLATFORM_CONFIG, TOOL_NAMES, VERSION } from "./constants.js";
+import { BUILD_VERBS, MODULE_SLUGS, PACKAGE_ROOT, PLATFORM_ALIASES, PLATFORM_CONFIG, TOOL_NAMES, VERSION } from "./constants.js";
+import { runBuild } from "./build.js";
 import { ReportAuditLedger, orchestrateAudit } from "./audit-orchestration.js";
 import { detectProjectCommands, discoverProject, writeProjectArtifacts } from "./discovery.js";
 import { inspectRenderedUi } from "./rendered-ui.js";
@@ -55,6 +56,10 @@ const ADAPTER_MODULES = new Set([
     "uploads"
 ]);
 export async function runCli(argv) {
+    // Build-mode verbs are dispatched before any audit argument parsing so that build's distinct flag
+    // surface never has to widen the audit option type, and every existing audit command is untouched.
+    if (argv[0] !== undefined && BUILD_VERBS.includes(argv[0]))
+        return runBuild(argv);
     const parsed = parseArguments(argv);
     const [command, ...positionals] = parsed.positionals;
     const options = parsed.options;
@@ -631,6 +636,17 @@ function printHelp() {
     console.log(`Fullstack Forge ${VERSION}
 
 Usage:
+  Build mode (v0.2.0):
+  forge new [--tier light|standard|high] [--summary <text>] [--stack <name>] [--non-goal <item:reason>]
+  forge feature <slug> [--tier <tier>] [--summary <text>] [--discipline <slug[:reason]>] [--input <trigger>]
+  forge feature <slug> <frame|plan|check|done|accept-risk|abandon|status> [options]
+  forge resume
+  Light tier is a two-invocation flow: 'forge feature <slug> --tier light --allow-run' runs framing
+  and the check pass in one shot; 'forge feature <slug> done' completes it. Standard and high tiers
+  add 'plan' and per-discipline evidence; accept-risk requires --criterion and --reason and is
+  refused for high-tier required security controls.
+
+  Audit mode:
   forge <section> <audit|fix|verify|report> [options]
   forge all audit [--scope full|changed] [--base origin/main] [--risk high]
   forge all audit --allow-run [--check lint --check test] [--skip-check build]

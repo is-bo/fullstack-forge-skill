@@ -1,18 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import {
-  BUILD_SUB_VERBS,
-  MODULE_SLUGS,
-  PLATFORM_ALIASES,
-  PLATFORM_CONFIG
-} from "./constants.js";
+import { BUILD_SUB_VERBS, MODULE_SLUGS, PLATFORM_ALIASES, PLATFORM_CONFIG } from "./constants.js";
 import { redactToString } from "./redaction.js";
-import {
-  assertNoSymlinkPath,
-  readTextIfPresent,
-  resolveInside,
-  sha256,
-  utcNow
-} from "./utils.js";
+import { assertNoSymlinkPath, readTextIfPresent, resolveInside, sha256, utcNow } from "./utils.js";
 
 /**
  * Build-mode persistent state.
@@ -221,8 +210,7 @@ export function assertBuildProject(value: unknown): asserts value is BuildProjec
   if (
     !Array.isArray(value.non_goals) ||
     !value.non_goals.every(
-      (goal) =>
-        isRecord(goal) && typeof goal.item === "string" && typeof goal.reason === "string"
+      (goal) => isRecord(goal) && typeof goal.item === "string" && typeof goal.reason === "string"
     )
   )
     errors.push("non_goals must be an array of {item, reason}");
@@ -276,7 +264,10 @@ export function assertBuildFeature(value: unknown): asserts value is BuildFeatur
     if (!isStringArray(value[field])) errors.push(`${field} must be a string array`);
   if (!Array.isArray(value.evidence) || !value.evidence.every(isValidEvidence))
     errors.push("evidence must be an array of valid criterion records");
-  if (!Array.isArray(value.risk_acceptances) || !value.risk_acceptances.every(isValidRiskAcceptance))
+  if (
+    !Array.isArray(value.risk_acceptances) ||
+    !value.risk_acceptances.every(isValidRiskAcceptance)
+  )
     errors.push("risk_acceptances must be an array of valid records");
   if (!Array.isArray(value.repair_counters) || !value.repair_counters.every(isValidRepairCounter))
     errors.push("repair_counters must be an array of valid records");

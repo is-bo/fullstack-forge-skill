@@ -4,7 +4,15 @@
   "title": "Fullstack Forge build project state",
   "type": "object",
   "additionalProperties": true,
-  "required": ["schema_version", "generated_at", "updated_at", "product", "stack", "non_goals", "features"],
+  "required": [
+    "schema_version",
+    "generated_at",
+    "updated_at",
+    "product",
+    "stack",
+    "non_goals",
+    "features"
+  ],
   "properties": {
     "schema_version": { "const": 1 },
     "generated_at": { "type": "string", "format": "date-time" },

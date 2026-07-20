@@ -2,6 +2,12 @@ export declare const VERSION = "0.1.10";
 export declare const PACKAGE_ROOT: string;
 export declare const MODULE_SLUGS: readonly ["discover", "requirements", "architecture", "code", "ui", "ux", "accessibility", "i18n", "seo", "frontend", "api", "jobs", "integrations", "auth", "authorization", "security", "privacy", "tenancy", "uploads", "database", "queries", "cache", "storage", "testing", "performance", "scale", "observability", "reliability", "recovery", "deployment", "infrastructure", "supply-chain", "cost", "docs", "analytics", "notifications", "ai", "payments", "realtime", "offline", "all", "ship"];
 export type ModuleSlug = (typeof MODULE_SLUGS)[number];
+/**
+ * Build-mode verbs, dispatched before module-slug parsing. `feature` takes a slug and an optional
+ * reserved sub-verb. These names are reserved so a feature slug can never shadow a command.
+ */
+export declare const BUILD_VERBS: readonly ["new", "feature", "resume"];
+export declare const BUILD_SUB_VERBS: readonly ["frame", "plan", "check", "done", "accept-risk", "abandon", "status"];
 export declare const PLATFORM_CONFIG: {
     readonly agents: {
         readonly label: "Codex and generic Agent Skills";

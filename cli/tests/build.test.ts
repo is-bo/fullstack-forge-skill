@@ -72,7 +72,10 @@ test("light tier completes in two invocations (start runs check, then done)", as
     const afterStart = await loadFeature(root, "login");
     assert.ok(afterStart);
     assert.equal(afterStart.phase, "check");
-    assert.equal(afterStart.evidence.find((e) => e.criterion === "static-analysis")?.status, "PASS");
+    assert.equal(
+      afterStart.evidence.find((e) => e.criterion === "static-analysis")?.status,
+      "PASS"
+    );
 
     const done = await captureRun(["feature", "login", "done", "--root", root]);
     assert.equal(done.code, 0);
@@ -240,7 +243,16 @@ test("resume lists unfinished features and points at the most recent", async () 
     await writeFile(join(root, "app.ts"), "export const value = 1;\n", "utf8");
     await captureRun(["feature", "done-one", "--tier", "light", "--allow-run", "--root", root]);
     await captureRun(["feature", "done-one", "done", "--root", root]);
-    await captureRun(["feature", "open-two", "--tier", "standard", "--summary", "s", "--root", root]);
+    await captureRun([
+      "feature",
+      "open-two",
+      "--tier",
+      "standard",
+      "--summary",
+      "s",
+      "--root",
+      root
+    ]);
     const resume = await captureRun(["resume", "--json", "--root", root]);
     assert.equal(resume.code, 0);
     const parsed = JSON.parse(resume.out) as {

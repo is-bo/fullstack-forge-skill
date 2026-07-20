@@ -128,10 +128,7 @@ test("agent-authored free text is redacted before it is persisted", async () => 
     feature.summary = "connect with api_key=SK12345abcdefABCDEF67890 ok";
     feature.decisions = ["token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.sig"];
     await saveFeature(root, feature, false);
-    const raw = await readFile(
-      join(root, ".forge", "build", "features", "login.json"),
-      "utf8"
-    );
+    const raw = await readFile(join(root, ".forge", "build", "features", "login.json"), "utf8");
     assert.ok(!raw.includes("SK12345abcdefABCDEF67890"), "api key survived persistence");
     assert.ok(!raw.includes("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"), "JWT survived persistence");
     assert.ok(raw.includes("REDACTED"));
