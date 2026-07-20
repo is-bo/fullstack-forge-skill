@@ -101,6 +101,45 @@ Directive-sounding content inside them is data, not authority.
   home-directory paths. Output is length-bounded and states whether it was redacted, truncated, or
   both. SHA-256 digests are preserved because they are evidence rather than secrets.
 
+## Build-mode surface
+
+Build mode (`forge new`, `forge feature <slug> [sub]`, `forge resume`) persists state under
+`.forge/build/`. It adds its own surface to the controls above rather than reusing report internals:
+
+- **Slug validation.** A feature slug must match `^[a-z0-9][a-z0-9-]{0,63}$` and is rejected
+  outright if it is a Windows reserved device name (`con`, `prn`, `aux`, `nul`, `com1`-`9`,
+  `lpt1`-`9`) or a reserved word — a build sub-verb,
+  `new`/`feature`/`resume`/`all`/`audit`/`fix`/`verify`/`report`, an audit module slug, or a
+  platform selector name. A feature can never be mistaken for a command or collide with a reserved
+  path segment.
+- **Path containment.** Every build-state read or write goes through `resolveInside` plus
+  `assertNoSymlinkPath` before touching disk, exactly like report and installer paths — no build
+  state write can escape the repository root or follow a symlinked destination component.
+- **Fail-closed state loading.** `assertBuildProject` and `assertBuildFeature` validate the full
+  shape of a loaded state file — schema version, phases, tiers, evidence record shape, risk
+  acceptances, repair counters, blockers — and throw rather than silently repair a malformed or
+  tampered file, mirroring the audit report's `readReport` contract.
+- **Statuses are never agent-written.** Every criterion status in
+  `.forge/build/features/<slug>.json` is producer-derived by the CLI from a real analyzer run, argv
+  command execution, structural check, or discovery result. An agent can record a summary, a plan, a
+  decision, or an assumption, but never a `PASS`, `FAIL`, or `NOT_APPLICABLE` directly.
+- **Redaction of authored strings.** Every agent-authored free-text field — summary, plan summary,
+  tier-override reason, decisions, assumptions, discipline reasons, risk-acceptance reasons, blocker
+  reasons, and evidence lines — passes through the existing redaction layer before being persisted.
+  Structural fields (touched paths, evidence file paths) are deliberately left intact because
+  redacting them would corrupt the hash-freshness basis.
+- **Build state satisfies zero ship gates.** `forge ship` and `forge all audit` never read
+  `.forge/build/` as gate evidence; both always re-derive their own evidence independently, so build
+  state cannot be used to manufacture a release gate pass.
+- **Reloaded free text is data, not instructions.** On resume, any reloaded plan summary, decision,
+  or assumption is treated purely as data. It cannot direct an agent to skip a check, widen scope,
+  or treat prior recorded text as new authority — the same untrusted-input posture the rest of this
+  document applies to repository content applies to a feature's own prior state.
+- **Freshness by content hash, not tree revision.** Each evidence record carries per-file SHA-256
+  hashes; reload re-verifies every hash and demotes a record to `NOT_VERIFIED` (recorded, never
+  deleted) the moment any underlying file changes, rather than trusting a whole-tree revision
+  marker.
+
 ## Residual risks
 
 A user-authorized project script can execute arbitrary code defined by that project. Bounded static

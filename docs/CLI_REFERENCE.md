@@ -29,6 +29,35 @@ forge all audit --scope full --risk high
 forge all fix --safe --dry-run
 ```
 
+## Build commands
+
+```text
+forge new [--tier <light|standard|high>] [--summary <text>] [--name <text>]
+          [--stack <text>]... [--non-goal <item[:reason]>]... [--force]
+forge feature <slug> [options]
+forge feature <slug> frame [--tier <tier>] [--discipline <slug[:reason]>]... [--input <text>]...
+                           [--touch <path>]... [--decision <text>]... [--assumption <text>]...
+forge feature <slug> plan [--summary <text>] [--discipline <slug[:reason]>]... [--decision <text>]...
+forge feature <slug> check [--allow-run] [--base <ref>] [--offline]
+forge feature <slug> done
+forge feature <slug> accept-risk --criterion <id> --reason <text>
+forge feature <slug> abandon [--reason <text>]
+forge feature <slug> status
+forge resume
+```
+
+Build verbs (`new`, `feature`, `resume`) are dispatched before any module-slug parsing, so their
+flags never widen the audit `Options` type. Every verb accepts `--root`/`--cwd`, `--json`, and
+`--dry-run`; `check` additionally accepts `--allow-run`, `--base`, and `--offline` and reuses the
+same execution substrate as `forge <section> audit` — the same argv-array command runner, ledger,
+net/offline policy, redaction, `scope.ts` expansion, analyzers, and verification plans, with no new
+subprocess or network path.
+
+`forge feature <slug> check` and `done` are the enforced half of the lifecycle: their statuses are
+CLI-derived from real executions and are never accepted from agent-authored input. `frame` and
+`plan` only record what is passed to them. See [BUILD_MODE.md](BUILD_MODE.md) for phases, tiers,
+evidence rules, and the loop-prevention and decision rules that govern this surface.
+
 ## Release gate
 
 ```bash

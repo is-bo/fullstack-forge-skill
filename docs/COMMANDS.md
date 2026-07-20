@@ -59,6 +59,45 @@ integrations, and any policy-bearing remediation remain `BLOCKED` pending explic
 
 The 42 valid sections are emitted by `forge list`. Unknown sections and modes fail closed.
 
+## Build modules
+
+```text
+forge new [options]
+forge feature <slug> [frame|plan|check|done|accept-risk|abandon|status] [options]
+forge resume [options]
+```
+
+Build verbs are dispatched before section-slug parsing, so a build option surface never widens the
+audit option type and no existing audit command changes behavior.
+
+- `forge new` runs the new-project foundation workflow once per project and writes
+  `.forge/build/project.json`, `.forge/build/DECISIONS.md`, and `.forge/build/DESIGN.md`. Refuses to
+  reinitialize an existing project unless `--force` is given.
+- `forge feature <slug>` with no sub-verb starts a feature (default tier `standard`) or resumes one
+  that already exists, re-verifying every evidence hash on load.
+- `forge feature <slug> frame` records tier, disciplines, tier inputs, touched paths, decisions, and
+  assumptions. `plan` records a plan summary and hashes it with the sorted discipline list.
+- `forge feature <slug> check` resolves scope (Git merge-base changed-scope, falling back to
+  recorded touched paths or the full worktree), runs analyzers and — with `--allow-run` — detected
+  project commands (`lint`, `typecheck`, `test`, `build`), and derives a status per discipline.
+  Exits 1 if any derived criterion is `FAIL` or the feature is now `blocked`.
+- `forge feature <slug> done` refuses (exit 1) with an actionable missing-items list until every
+  tier-required criterion has `PASS`, a reasoned `NOT_APPLICABLE`, or an eligible risk acceptance.
+- `forge feature <slug> accept-risk --criterion <id> --reason <text>` and
+  `forge feature <slug> abandon [--reason <text>]` are recorded human decisions; see
+  [BUILD_MODE.md](BUILD_MODE.md).
+- `forge feature <slug> status` renders current phase, criteria, risk acceptances, blockers, and the
+  next step without changing state.
+- `forge resume` lists unfinished features and names the most recently updated one.
+
+Build-specific flags: `--tier <light|standard|high>`, `--summary <text>`, `--reason <text>`,
+`--criterion <id>`, `--base <ref>`, `--name <text>`, `--discipline <slug[:reason]>` (repeatable),
+`--input <text>` (repeatable), `--touch <path>` (repeatable), `--stack <text>` (repeatable),
+`--non-goal <item[:reason]>` (repeatable), `--decision <text>` (repeatable), `--assumption <text>`
+(repeatable), plus the shared `--root`/`--cwd`, `--json`, `--dry-run`, `--global`, `--offline`,
+`--allow-run`, and `--force`. A feature slug must match `^[a-z0-9][a-z0-9-]{0,63}$` and cannot equal
+a reserved sub-verb, audit module slug, platform name, or Windows reserved device name.
+
 ## Installation lifecycle
 
 Both documented installer forms are supported:

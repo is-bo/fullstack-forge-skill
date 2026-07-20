@@ -14,12 +14,34 @@ One audit system. Forty-two specialist skills. Evidence before confidence.
 [![Node](https://img.shields.io/badge/node-%3E%3D24-2563EB.svg)](package.json)
 </div>
 
-Fullstack Forge gives AI coding agents a repeatable way to audit, fix, verify, and report on real
-full-stack applications. It discovers the actual stack, selects only applicable modules, gathers
-reproducible evidence, separates safe fixes from risky decisions, and refuses to call missing
-evidence a pass.
+Fullstack Forge gives AI coding agents a repeatable way to build features and to audit, fix, verify,
+and report on real full-stack applications. It discovers the actual stack, selects only applicable
+modules, gathers reproducible evidence, separates safe fixes from risky decisions, and refuses to
+call missing evidence a pass.
 
 It works as an open-format Agent Skill collection and as a dependency-light TypeScript CLI.
+
+## Two modes
+
+**Build mode** — use while starting a project or implementing a feature, so the agent follows a
+production-quality engineering workflow. **Audit mode** — use to inspect, harden, and gate work that
+already exists, including work built in Build mode.
+
+| You want to...                       | Mode  | Entry point                                      |
+| ------------------------------------ | ----- | ------------------------------------------------ |
+| Start a new product or codebase      | Build | `/forge-new` (`forge new`)                       |
+| Build, continue, or ship one feature | Build | `/forge-feature <slug>` (`forge feature <slug>`) |
+| Inspect or harden existing behavior  | Audit | `/forge-<section>` or `/fullstack-forge`         |
+| Gate a release                       | Audit | `forge ship`                                     |
+
+A coherent project journey: `forge new` frames the product once; each feature then runs
+`forge feature <slug>` through frame → plan → implement → check → done; before release, the
+independent backstop runs regardless of how the code was built — `forge all audit` (or
+`--scope changed` for a diff) → `forge all fix --safe` → `forge all verify` → `forge ship`. Build
+mode's `frame` and `plan` are recorded guidance; `check` and `done` are CLI-derived, never
+agent-asserted; and build evidence under `.forge/build/` satisfies zero `forge ship` or
+`forge all audit` gates — both always re-derive their own evidence independently. See
+[docs/BUILD_MODE.md](docs/BUILD_MODE.md) for the complete guide.
 
 ```bash
 npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.10 && npx forge init all
@@ -83,15 +105,28 @@ modified files, follows no destination symlinks, and uninstalls only unchanged f
 
 ## Quick start
 
-Invoke the skill in your agent:
+Build mode, starting a project or a feature:
+
+```text
+/forge-new
+/forge-feature auth-login
+```
+
+```bash
+forge new
+forge feature auth-login --tier standard
+forge feature auth-login plan
+forge feature auth-login check --allow-run
+forge feature auth-login done
+```
+
+Audit mode, inspecting and gating what already exists:
 
 ```text
 $fullstack-forge audit this application before release
 $forge-security audit the changed authentication flow
 /forge-ui audit the running application at mobile and desktop widths
 ```
-
-Or use the CLI:
 
 ```bash
 forge discover audit
@@ -107,7 +142,9 @@ forge ship --allow-run
 ```
 
 Discovery creates ignored local artifacts at `.forge/project-profile.json` and
-`.forge/architecture-map.md`. Audits generate `.forge/report.json` and `.forge/report.md`.
+`.forge/architecture-map.md`. Audits generate `.forge/report.json` and `.forge/report.md`. Build
+mode creates `.forge/build/` (`project.json`, `features/<slug>.json`, `DECISIONS.md`, `DESIGN.md`) —
+agent context only, never a ship-gate input. See [docs/BUILD_MODE.md](docs/BUILD_MODE.md).
 
 ## The 42 skills
 
@@ -129,6 +166,9 @@ discipline-specific inspection steps — `forge-database` reads schema, types, c
 history, while `forge-realtime` traces connect authorization, channel isolation, reconnection, and
 backpressure — so specialized risks remain visible instead of disappearing behind a generic “best
 practices” instruction.
+
+The audit module set stays closed at 42. Build mode ships two additional command skills, `forge-new`
+and `forge-feature`, alongside them — see [Two modes](#two-modes) above.
 
 ## Finding contract
 
@@ -166,12 +206,18 @@ financial, legal, architecture, production, and destructive changes remain appro
 ```text
 forge <section> <audit|fix|verify|report> [options]
 forge all audit --scope changed [--base <ref>]
+forge new [--tier <light|standard|high>] [--stack <name>] [--non-goal <item:reason>]
+forge feature <slug> [frame|plan|check|done|accept-risk|abandon|status]
+forge resume
 forge init <platform|all> [--global] [--dry-run]
 forge update [platform] [--dry-run]
 forge uninstall [platform] [--dry-run]
 forge doctor | validate | package | list
 forge tool <name>
 ```
+
+`forge new` and `forge feature` are Build mode; every other verb above is Audit mode. See
+[docs/BUILD_MODE.md](docs/BUILD_MODE.md) for the full build flag surface.
 
 The CLI includes bounded TypeScript-compiler and structured-config analyzers for supported
 JavaScript/TypeScript security, auth, authorization, tenancy, upload, query, cache, accessibility,
@@ -228,6 +274,11 @@ opinion, accessibility conformance claim, financial audit, or substitute for pro
 Static analyzers are bounded, can produce false positives, and do not imply complete coverage of an
 unsupported stack. Runtime, provider, database, browser, assistive-technology, and operator checks
 stay `NOT_VERIFIED` until actually performed.
+
+Build mode cannot force analysis quality during `frame` or `plan` — the CLI records what an agent
+decides, it does not grade it — and most discipline criteria resolve `NOT_VERIFIED` or
+`NOT_APPLICABLE` without runtime evidence. Build state is agent context only; the independent
+backstop for correctness remains `forge all audit` and `forge ship`.
 
 Read the [security model](docs/SECURITY_MODEL.md) and report vulnerabilities through
 [SECURITY.md](SECURITY.md).
