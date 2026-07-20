@@ -18,6 +18,14 @@ copies; it never depends on symlinks.
 the same project directory but a separate user destination. `forge init all` deduplicates identical
 project destinations while preserving distinct global destinations.
 
+## Build mode command skills
+
+`forge-new` and `forge-feature` are generated and synchronized alongside the 42 audit command
+skills, so they ship to all six platform roots above with the same invocation conventions as
+`fullstack-forge` and every `forge-<section>` skill — for example `/forge-new` and
+`/forge-feature <slug>` on Claude Code, `$forge-new` and `$forge-feature <slug>` on Codex. See
+[BUILD_MODE.md](BUILD_MODE.md).
+
 ## Primary sources
 
 - Agent Skills specification: <https://agentskills.io/specification>

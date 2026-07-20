@@ -1,7 +1,11 @@
 # Adding an audit module
 
-The public `0.1.x` module set is intentionally closed at 42. Adding, removing, or renaming a module
-is a compatibility change and requires a version decision before implementation.
+The public `0.1.x`/`0.2.x` module set is intentionally closed at 42 **audit** modules. Adding,
+removing, or renaming a module is a compatibility change and requires a version decision before
+implementation. Build mode's `forge-new` and `forge-feature` command skills are separate from this
+closed set — they are not audit modules and are never counted toward or against the 42 — but adding
+an audit module now also requires a matching build-guidance brief, since build mode's discipline
+selection and briefs are keyed on the same slug set.
 
 ## Source changes
 
@@ -15,7 +19,26 @@ is a compatibility change and requires a version decision before implementation.
 5. Update discovery applicability in `cli/src/cli.ts` when the module depends on a capability.
 6. Add or extend a bounded inspector only when deterministic evidence is realistic. Otherwise make
    the manual/evaluation requirement explicit.
-7. Run `npm run generate`; never edit generated `forge-*` skills directly.
+7. Add a matching entry to `config/build-guidance.json`, keyed by the new slug (see "Build-guidance
+   brief" below).
+8. Run `npm run generate`; never edit generated `forge-*` skills or `references/build/<slug>.md`
+   briefs directly.
+
+## Build-guidance brief
+
+`config/build-guidance.json` is a hand-authored map from audit-module slug to a build-time brief:
+`title`, `decideBeforeCoding` (decisions to make before writing code for that discipline), and
+`evidenceToProduce` (what to capture while building it). `scripts/generate-build.mjs` renders each
+entry to `src/fullstack-forge/references/build/<slug>.md`, capped at 60 rendered lines — the
+generator throws if a brief would exceed that budget, so keep entries concrete and short rather than
+exhaustive.
+
+`validateGuidanceMap` (in `scripts/lib/build-generator.mjs`) rejects any slug in
+`config/build-guidance.json` that is not a real audit-module slug, and a dedicated test
+(`scripts/tests/build-generator.test.mjs`, "build-guidance coverage: all 42 briefs are present")
+enforces exact slug-set equality against the 42 audit modules — CI fails if the guidance map ever
+regresses to partial coverage or gains an entry the audit catalog does not have. A new audit module
+without a matching brief fails that test, not silently ships with a gap.
 
 ## Evidence and safety review
 
