@@ -1,0 +1,581 @@
+[
+  {
+    "id": "saas-start",
+    "title": "New SaaS product framed from a product brief",
+    "entry_point": "forge new",
+    "feature_slug": "onboarding",
+    "expected_tier": "standard",
+    "prompt": "Build a small SaaS product for freelancers to track clients, invoices, and payment status. It needs multi-user accounts (an owner and invited teammates), a dashboard of outstanding invoices, and email reminders for overdue ones. We expect a few hundred users in year one, not tens of thousands.",
+    "expected_disciplines": [
+      {
+        "slug": "auth",
+        "reason": "the first feature out of the backlog is account creation/sign-in; auth.md requires deciding session lifetime, rotation, and lockout behavior before the login endpoint is reachable"
+      },
+      {
+        "slug": "api",
+        "reason": "invoice and client data is served through application endpoints; api.md-adjacent authorization and pagination requirements apply to this feature's first slice"
+      }
+    ],
+    "references_consulted": ["auth.md", "api.md"],
+    "expected_artifacts": {
+      "state_paths": [
+        ".forge/build/project.json",
+        ".forge/build/DECISIONS.md",
+        ".forge/build/DESIGN.md",
+        ".forge/build/features/onboarding.json"
+      ],
+      "content_classes": [
+        "project.json.product.summary: the one-paragraph product frame (freelancers, invoices, clients)",
+        "project.json.stack: the chosen stack with a stated reason, not a default",
+        "project.json.non_goals: explicit infrastructure the product does NOT need yet (for example no queue, no microservices split) each with a reason",
+        "project.json.features: the onboarding feature indexed after 'forge feature onboarding' runs",
+        "DECISIONS.md: an append-only entry recording the risk-class inputs (money movement via invoices, multi-user tenancy, expected scale) that seed every later feature's tier",
+        "DESIGN.md: tone, density, and reference-product direction recorded before any screen is built"
+      ]
+    },
+    "defects_prevented": [
+      "picking a stack default (framework, database, hosting) without a stated reason tied to team familiarity, deployment target, data shape, or latency need",
+      "skipping explicit non-goals, so infrastructure such as Redis, a queue, or a microservices split gets added later without ever being decided against",
+      "writing the first feature's code before a role list (owner vs invited teammate) and business rules (invoice ownership, uniqueness) exist, so authorization boundaries get invented ad hoc per endpoint",
+      "starting UI work with no design direction recorded, so screens default to whatever an unrelated prior project looked like"
+    ],
+    "honest_completion": {
+      "not_verified_until_evidence": [
+        "the product frame, risk-class inputs, stack rationale, and non-goals are RECORDED guidance only; `forge new` never produces a PASS or FAIL and must never be narrated as having verified anything"
+      ],
+      "never_waivable_at_high_tier": [],
+      "done_refuses_without": [
+        "`forge new` has no `check` or `done` sub-verb, so there is nothing to refuse at the project level; the onboarding feature's own `done` still refuses until its selected disciplines (auth, api) resolve to PASS, a reasoned NOT_APPLICABLE, or an eligible risk acceptance"
+      ]
+    },
+    "verification": {
+      "mode": "deterministic-cli-plus-prompt",
+      "deterministic_summary": "Runs the real `forge new` and `forge feature onboarding` CLI against a temporary project, then asserts project.json/DECISIONS.md/DESIGN.md exist, non_goals and stack are recorded verbatim, the feature index contains 'onboarding', and the onboarding feature's own tier/discipline/done mechanics behave exactly as the generic build-mode enforcement rules require.",
+      "manual_notes": "Whether an agent actually derives 'freelancer invoicing SaaS' into this specific role list, non-goal set, and initial feature backlog from the prompt is a judgment call this harness cannot automate; it is evaluated by giving the prompt to an agent and comparing the resulting DECISIONS.md/DESIGN.md/project.json content against the content classes listed above."
+    }
+  },
+  {
+    "id": "dashboard-no-slop",
+    "title": "Polished analytics dashboard with an intentional design direction",
+    "entry_point": "forge feature dashboard-no-slop",
+    "feature_slug": "dashboard-no-slop",
+    "expected_tier": "standard",
+    "prompt": "Build the main analytics dashboard for the product: a summary of key metrics, a chart of activity over time, and a recent-activity list. It must look and feel deliberately designed, not like a wireframe, and must handle every real-world state a user will actually hit, not just the happy path with sample data loaded.",
+    "expected_disciplines": [
+      {
+        "slug": "ui",
+        "reason": "ui.md requires deciding loading, empty, error, success, permission-denied, and disabled states, plus responsive behavior, before wiring events, and requires rendered evidence for each, not just source-reading"
+      },
+      {
+        "slug": "frontend",
+        "reason": "frontend.md requires deciding server/client render boundaries and out-of-order/canceled network response handling for the chart and activity feed"
+      },
+      {
+        "slug": "accessibility",
+        "reason": "accessibility.md requires accessible names, focus order, and a keyboard-only walkthrough for every interactive dashboard element before it ships"
+      }
+    ],
+    "references_consulted": ["ui.md", "frontend.md", "accessibility.md"],
+    "expected_artifacts": {
+      "state_paths": [".forge/build/features/dashboard-no-slop.json", ".forge/build/DESIGN.md"],
+      "content_classes": [
+        "features/dashboard-no-slop.json.disciplines: [{slug: ui}, {slug: frontend}, {slug: accessibility}] each with a one-line reason",
+        "features/dashboard-no-slop.json.evidence: discipline:ui, discipline:frontend, discipline:accessibility criteria present after `check`",
+        "DESIGN.md: a short note on how this view matches, or deliberately deviates from, the recorded design direction, with the reason"
+      ]
+    },
+    "defects_prevented": [
+      "shipping a dashboard that only renders its happy-path/success state and calling that complete",
+      "claiming loading/empty/error/permission-denied states exist because the component source has conditional branches for them, without ever rendering and observing them",
+      "defaulting to a different visual style than the one already recorded in DESIGN.md without stating a reason for the deviation",
+      "a layout that only reflows awkwardly at narrow width instead of an intentionally designed narrow-viewport layout",
+      "interactive chart or list controls that are reachable by mouse only, with no accessible name or keyboard path"
+    ],
+    "honest_completion": {
+      "not_verified_until_evidence": [
+        "discipline:ui can never be marked PASS from static analysis alone; the CLI has no producer for rendered-state evidence, so it stays NOT_VERIFIED until direct evidence (a rendered screenshot or interaction trace per state) is supplied, or is otherwise resolved"
+      ],
+      "never_waivable_at_high_tier": [],
+      "done_refuses_without": [
+        "scope-resolution and static-analysis both PASS (or no FAIL)",
+        "discipline:ui, discipline:frontend, and discipline:accessibility each resolved to PASS-equivalent evidence, a reasoned NOT_APPLICABLE, or (since none of these are security-control disciplines at this tier) an explicit accept-risk with a non-empty --reason"
+      ]
+    },
+    "verification": {
+      "mode": "deterministic-cli-plus-prompt",
+      "deterministic_summary": "Confirms the ui/frontend/accessibility disciplines are recorded with reasons, that `check` never auto-produces a PASS for them from static analysis, and that `done` refuses until each is resolved by evidence, reasoned NOT_APPLICABLE, or accept-risk (all three permitted here because none of these three disciplines is a security control).",
+      "manual_notes": "Rendering the dashboard and actually observing loading/empty/error/success/permission-denied/disabled states, and matching them against DESIGN.md, is real browser/runtime work this harness does not perform; a reviewer compares the agent's evidence against the defects list above, and treats a bare accept-risk with no rendered evidence as a failure of intent even though the CLI mechanically allows it for a non-security discipline."
+    }
+  },
+  {
+    "id": "registration-rbac",
+    "title": "Registration with role-based access control",
+    "entry_point": "forge feature registration-rbac",
+    "feature_slug": "registration-rbac",
+    "expected_tier": "high",
+    "prompt": "Build account registration and a role system: an owner role and a member role. Owners can invite members, remove members, and change billing; members can only view and edit their own data. Add the server-side checks so a member can never reach an owner-only action, even by calling the API directly.",
+    "expected_disciplines": [
+      {
+        "slug": "auth",
+        "reason": "auth.md requires an established auth library, decided session lifetime/rotation/revocation, and indistinguishable invalid-credential responses before the first sign-in path is written"
+      },
+      {
+        "slug": "authorization",
+        "reason": "authorization.md requires default-deny per role, a shared policy function, and a negative test proving a denied role cannot reach an owner-only action"
+      },
+      {
+        "slug": "security",
+        "reason": "security.md requires new endpoints to start denied by default and validated at the final server-side sink, not only in the UI"
+      }
+    ],
+    "references_consulted": ["auth.md", "authorization.md", "security.md"],
+    "expected_artifacts": {
+      "state_paths": [".forge/build/features/registration-rbac.json", ".forge/build/DECISIONS.md"],
+      "content_classes": [
+        "features/registration-rbac.json.disciplines: auth, authorization, security each with a reason",
+        "features/registration-rbac.json.evidence: discipline:auth and discipline:authorization criteria marked security_control: true",
+        "DECISIONS.md: the role list (owner, member) and the explicit-deny default recorded as a business rule"
+      ]
+    },
+    "defects_prevented": [
+      "a new route or resolver that is open by default and only restricted after the fact",
+      "an authorization check that exists only in the UI (a hidden button or menu item) with no equivalent server-side predicate",
+      "a client-supplied 'role' or 'isAdmin' field trusted during registration or profile update (mass assignment into a privileged field)",
+      "custom password hashing or session/token logic instead of an established auth library",
+      "login responses that let an attacker distinguish a valid username from an invalid one"
+    ],
+    "honest_completion": {
+      "not_verified_until_evidence": [
+        "discipline:auth and discipline:authorization stay NOT_VERIFIED until a negative test proves a denied role or an unauthenticated caller is rejected at the server boundary; writing the happy-path role check is not evidence"
+      ],
+      "never_waivable_at_high_tier": [
+        "discipline:auth",
+        "discipline:authorization",
+        "discipline:security"
+      ],
+      "done_refuses_without": [
+        "scope-resolution PASS and static-analysis with no FAIL",
+        "discipline:auth, discipline:authorization, and discipline:security each PASS or a reasoned NOT_APPLICABLE -- at high tier none of the three can be satisfied by accept-risk, and a NOT_VERIFIED status on any of them blocks `done` permanently until real evidence exists"
+      ]
+    },
+    "verification": {
+      "mode": "deterministic-cli-plus-prompt",
+      "deterministic_summary": "Uses a fixture file that contains real (non-commented) calls matching the discovery capability signatures for authentication and authorization, so the CLI assesses both capabilities PRESENT instead of auto-resolving them NOT_APPLICABLE. Proves: (1) `check` leaves discipline:auth/authorization/security NOT_VERIFIED, never an unearned PASS; (2) `accept-risk` is rejected for discipline:auth and discipline:authorization with the exact 'required security control at high tier' message; (3) `done` exits 1 and lists them as never-waivable while they remain NOT_VERIFIED.",
+      "manual_notes": "Whether the agent actually writes the negative RBAC test (member calling an owner-only endpoint and being denied) and cites the file:line where the predicate runs at the final server boundary is not mechanically checkable here; it is judged against the authorization.md brief's evidence-to-produce list."
+    }
+  },
+  {
+    "id": "secure-upload",
+    "title": "Upload pipeline with quarantine, fail-closed scanning, and private-by-default storage",
+    "entry_point": "forge feature secure-upload",
+    "feature_slug": "secure-upload",
+    "expected_tier": "high",
+    "prompt": "Let users attach files (documents, images) to a record. Files must be scanned for malware before anyone can access them, stored so a guessed URL cannot reach them, and rejected if they are the wrong type, too large, or a disguised archive bomb.",
+    "expected_disciplines": [
+      {
+        "slug": "uploads",
+        "reason": "uploads.md requires fail-closed quarantine, magic-byte validation over client-supplied extension/MIME, server-generated storage keys, and enforced size/count/decompressed-size limits"
+      },
+      {
+        "slug": "storage",
+        "reason": "storage.md requires private-by-default objects with authorization checked before any signed URL, and a bounded expiry/scope on that URL"
+      },
+      {
+        "slug": "security",
+        "reason": "security.md requires every input validated at the final server-side sink, which for an upload path is the parser and storage write, not the client"
+      }
+    ],
+    "references_consulted": ["uploads.md", "storage.md", "security.md"],
+    "expected_artifacts": {
+      "state_paths": [".forge/build/features/secure-upload.json"],
+      "content_classes": [
+        "features/secure-upload.json.disciplines: uploads, storage, security each with a reason",
+        "features/secure-upload.json.evidence: discipline:uploads marked security_control: true"
+      ]
+    },
+    "defects_prevented": [
+      "file-type validation performed only in client-side JavaScript, with the server trusting the client's verdict",
+      "trusting a client-supplied file extension or MIME header as proof of file type instead of decoded content and magic bytes",
+      "writing untrusted bytes to a public path before malware scanning completes",
+      "a scanner timeout or error path that releases the file instead of keeping it quarantined (fail-open)",
+      "no bound on archive entry count, nesting depth, compression ratio, or decompressed size (zip-bomb exposure)",
+      "storage keys built from the original client-supplied filename instead of a server-generated, unguessable key"
+    ],
+    "honest_completion": {
+      "not_verified_until_evidence": [
+        "discipline:uploads stays NOT_VERIFIED until a hostile-file fixture suite (oversized, wrong-signature, archive bomb, polyglot, malformed) is run through the real pipeline and shown rejected or quarantined"
+      ],
+      "never_waivable_at_high_tier": ["discipline:uploads", "discipline:security"],
+      "done_refuses_without": [
+        "scope-resolution PASS and static-analysis with no FAIL",
+        "discipline:uploads and discipline:security each PASS or a reasoned NOT_APPLICABLE -- neither can be waived by accept-risk at high tier while NOT_VERIFIED",
+        "discipline:storage resolved (PASS, reasoned NOT_APPLICABLE, or accept-risk, since storage alone is not a required security control in this tier's lock set)"
+      ]
+    },
+    "verification": {
+      "mode": "deterministic-cli-plus-prompt",
+      "deterministic_summary": "Uses a fixture file with a real (non-commented) call matching the uploads capability signature (a bare multer(...) invocation) so discovery assesses uploads PRESENT rather than ABSENT. Proves discipline:uploads and discipline:security stay NOT_VERIFIED after `check`, that accept-risk is rejected for both at high tier, and that `done` refuses with both listed as never-waivable.",
+      "manual_notes": "The hostile-file fixture suite itself (oversized, wrong-signature, archive-bomb, polyglot, malformed) and the scanner fail-closed test are real pipeline exercises this harness does not run; they are judged against the uploads.md evidence-to-produce list."
+    }
+  },
+  {
+    "id": "search-at-scale",
+    "title": "Product search built for large data volume",
+    "entry_point": "forge feature search-at-scale",
+    "feature_slug": "search-at-scale",
+    "expected_tier": "standard",
+    "prompt": "Build product search with filters and sorting. The catalog will grow past a million rows, and results need to stay fast, complete, and stable as it grows -- no missing or duplicated rows when a user pages through results while data is being written concurrently.",
+    "expected_disciplines": [
+      {
+        "slug": "queries",
+        "reason": "queries.md requires deciding N+1 avoidance, pagination plus a deterministic tie-broken sort key, and the real access pattern that justifies an index, before writing the query"
+      },
+      {
+        "slug": "database",
+        "reason": "database.md requires the applied schema to show the indexes and constraints actually exist, not just an ORM-level assumption"
+      },
+      {
+        "slug": "performance",
+        "reason": "performance.md requires a stated representative workload and measured percentile target before claiming this path is fast enough"
+      }
+    ],
+    "references_consulted": ["queries.md", "database.md", "performance.md"],
+    "expected_artifacts": {
+      "state_paths": [".forge/build/features/search-at-scale.json"],
+      "content_classes": [
+        "features/search-at-scale.json.disciplines: queries, database, performance each with a reason",
+        "features/search-at-scale.json.evidence: discipline:queries, discipline:database, discipline:performance criteria, none marked security_control"
+      ]
+    },
+    "defects_prevented": [
+      "an N+1 query pattern hidden inside a per-row loop in the results renderer",
+      "a list endpoint with no pagination, or pagination with non-deterministic ordering that skips or duplicates rows under concurrent writes",
+      "adding or skipping an index by guesswork instead of the feature's actual filter/sort/join shape",
+      "a multi-step write that can partially commit under load without a bounded transaction"
+    ],
+    "honest_completion": {
+      "not_verified_until_evidence": [
+        "discipline:queries and discipline:database stay NOT_VERIFIED until a query-count trace and a query-plan/index citation are produced; passing static analysis alone never satisfies them"
+      ],
+      "never_waivable_at_high_tier": [],
+      "done_refuses_without": [
+        "scope-resolution PASS and static-analysis with no FAIL",
+        "discipline:queries, discipline:database, and discipline:performance each resolved by evidence, reasoned NOT_APPLICABLE, or accept-risk with a --reason -- all three are permitted to be risk-accepted at this (non-high, non-security-control) tier and discipline mix, and a risk acceptance is never rendered as PASS"
+      ]
+    },
+    "verification": {
+      "mode": "deterministic-cli-plus-prompt",
+      "deterministic_summary": "Confirms none of queries/database/performance is a security-control discipline, so at standard tier each NOT_VERIFIED criterion can be resolved with an explicit accept-risk (never silently) and `done` then succeeds -- contrasted with the high-tier security-control scenarios where the same accept-risk call is refused.",
+      "manual_notes": "The actual query-count trace, index citation tied to a real access pattern, and a concurrent-pagination stability test are real measurements this harness does not perform; they are judged against the queries.md evidence-to-produce list, and a bare accept-risk with a vague reason ('will fix later') should be flagged by a reviewer even though the CLI accepts it mechanically."
+    }
+  },
+  {
+    "id": "cache-justification",
+    "title": "Deciding whether a cache (Redis) is justified at all",
+    "entry_point": "forge feature cache-justification",
+    "feature_slug": "cache-justification",
+    "expected_tier": "standard",
+    "prompt": "The team suggested adding Redis in front of the dashboard summary query because 'it might get slow later.' Evaluate whether caching is actually justified for this feature right now, and either add it correctly (keyed, invalidated, scoped) or reject it with a recorded reason.",
+    "expected_disciplines": [
+      {
+        "slug": "cache",
+        "reason": "cache.md states that concluding 'no cache and no Redis needed here' is a correct, complete answer when there is no measured latency or cost problem, and must be recorded as a non-goal with the reason rather than silently skipped"
+      },
+      {
+        "slug": "scale",
+        "reason": "scale.md applies the same discipline to infrastructure in general: 'no microservices, queue, Kubernetes, or second database needed here' is correct when growth is not demonstrated, and must be recorded, not assumed"
+      }
+    ],
+    "references_consulted": ["cache.md", "scale.md"],
+    "expected_artifacts": {
+      "state_paths": [
+        ".forge/build/features/cache-justification.json",
+        ".forge/build/DECISIONS.md"
+      ],
+      "content_classes": [
+        "features/cache-justification.json.evidence: discipline:cache resolved either NOT_APPLICABLE (discovery proved the capability absent) or by an explicit accept-risk/PASS carrying the measured reason",
+        "DECISIONS.md or project.json.non_goals: the recorded 'no Redis' conclusion with its measured reason, if the feature genuinely does not need one"
+      ]
+    },
+    "defects_prevented": [
+      "adding Redis or another cache layer without a named, measured latency or cost problem it solves",
+      "a cache key that omits tenant/user scope, letting one caller's data leak into another caller's cache read",
+      "declaring a cache 'invalidated' because a TTL exists, with no write-path invalidation actually wired",
+      "silently skipping the cache decision instead of recording 'no cache needed' as an explicit, reasoned non-goal or NOT_APPLICABLE"
+    ],
+    "honest_completion": {
+      "not_verified_until_evidence": [
+        "discipline:cache is never a bare PASS from static analysis; it is legitimately satisfied either by discovery proving the cache capability absent (auto NOT_APPLICABLE) or by a recorded reason (accept-risk or direct evidence) -- never by silence"
+      ],
+      "never_waivable_at_high_tier": [],
+      "done_refuses_without": [
+        "scope-resolution PASS and static-analysis with no FAIL",
+        "discipline:cache resolved: on a codebase with no cache/Redis signal, the CLI auto-derives NOT_APPLICABLE with the reason 'discovery proved the cache capability is absent', which alone satisfies `done` -- this IS the PASS outcome for rejecting unnecessary Redis, not a workaround"
+      ]
+    },
+    "verification": {
+      "mode": "deterministic-cli-plus-prompt",
+      "deterministic_summary": "Runs `check` against a fixture with no cache/Redis signal and asserts discipline:cache resolves to NOT_APPLICABLE with a not_applicable_reason mentioning the capability is absent, and that `done` succeeds immediately without any accept-risk call -- proving the CLI treats 'no cache needed' as a complete, non-waived answer rather than a gap that must be talked around.",
+      "manual_notes": "Whether the agent's conclusion is actually well-reasoned (versus reflexively skipping the discipline) is not mechanically distinguishable from a codebase that legitimately has no cache; a reviewer checks that the recorded reason in DECISIONS.md/non_goals names the measured problem (or its absence), not just 'not needed'."
+    }
+  },
+  {
+    "id": "multi-tenant-resource",
+    "title": "Tenant-scoped resource with cross-tenant negative tests",
+    "entry_point": "forge feature multi-tenant-resource",
+    "feature_slug": "multi-tenant-resource",
+    "expected_tier": "high",
+    "prompt": "Add a shared 'projects' resource that every customer organization (tenant) can create and view. Two different organizations must never be able to see or modify each other's projects, even if they guess or increment another organization's project id.",
+    "expected_disciplines": [
+      {
+        "slug": "tenancy",
+        "reason": "tenancy.md requires a trusted tenant-context source, tenant scope enforced on every query/cache key/job, and a negative test proving another tenant's identical request is denied"
+      },
+      {
+        "slug": "authorization",
+        "reason": "authorization.md requires the object-level predicate (this tenant owns this project id) to run at the final server boundary, not just the route"
+      },
+      {
+        "slug": "database",
+        "reason": "database.md requires the tenant-scoping column and its inclusion in relevant uniqueness constraints to exist before the table does"
+      }
+    ],
+    "references_consulted": ["tenancy.md", "authorization.md", "database.md"],
+    "expected_artifacts": {
+      "state_paths": [".forge/build/features/multi-tenant-resource.json"],
+      "content_classes": [
+        "features/multi-tenant-resource.json.disciplines: tenancy, authorization, database each with a reason",
+        "features/multi-tenant-resource.json.evidence: discipline:tenancy and discipline:authorization marked security_control: true"
+      ]
+    },
+    "defects_prevented": [
+      "a query missing a tenant predicate that returns another tenant's row for the same-shaped identifier",
+      "a cache key, storage path, or background job that drops tenant scope once outside the original request context",
+      "trusting a client-supplied tenant id instead of deriving tenant context from the authenticated session or token",
+      "defaulting to the first or a broad tenant match when tenant context is missing or forged, instead of rejecting the request"
+    ],
+    "honest_completion": {
+      "not_verified_until_evidence": [
+        "discipline:tenancy stays NOT_VERIFIED until a cross-tenant negative test (organization B requesting organization A's project id gets denied or not-found) is produced with a file:line trace to the actual query"
+      ],
+      "never_waivable_at_high_tier": ["discipline:tenancy", "discipline:authorization"],
+      "done_refuses_without": [
+        "scope-resolution PASS and static-analysis with no FAIL",
+        "discipline:tenancy and discipline:authorization each PASS or a reasoned NOT_APPLICABLE -- neither can be waived by accept-risk at high tier while NOT_VERIFIED",
+        "discipline:database resolved (PASS, reasoned NOT_APPLICABLE, or accept-risk)"
+      ]
+    },
+    "verification": {
+      "mode": "deterministic-cli-plus-prompt",
+      "deterministic_summary": "Uses a fixture file with a real reference to a tenant-scoping identifier (tripping the tenancy capability signature) and an authorization-style role check, so both capabilities assess PRESENT rather than auto-resolving NOT_APPLICABLE. Proves discipline:tenancy and discipline:authorization stay NOT_VERIFIED, that accept-risk is refused for both at high tier, and that `done` lists both as never-waivable.",
+      "manual_notes": "The actual cross-tenant negative test (organization B denied organization A's resource) and the file:line trace showing the tenant filter reaches the real query are real test-writing work this harness does not perform; they are judged against the tenancy.md evidence-to-produce list."
+    }
+  },
+  {
+    "id": "payment-webhooks",
+    "title": "Payment provider webhooks: signatures, idempotency, reconciliation",
+    "entry_point": "forge feature payment-webhooks",
+    "feature_slug": "payment-webhooks",
+    "expected_tier": "high",
+    "prompt": "Handle incoming webhook events from our payment provider (charge succeeded, refund issued, subscription updated) to update the customer's entitlement. Providers redeliver events and can deliver them out of order, so the same event must never be applied twice.",
+    "expected_disciplines": [
+      {
+        "slug": "payments",
+        "reason": "payments.md requires signature verification over the raw body, an idempotency key so a redelivered event cannot duplicate an effect, and reconciliation between the provider, the ledger, and the granted entitlement"
+      },
+      {
+        "slug": "integrations",
+        "reason": "integrations.md requires deciding how duplicate and out-of-order webhook events are handled, since providers redeliver and do not guarantee ordering"
+      },
+      {
+        "slug": "security",
+        "reason": "security.md requires the signature/parameterization decision to be made and enforced at the final server-side sink before any handler trusts the payload"
+      }
+    ],
+    "references_consulted": ["payments.md", "integrations.md", "security.md"],
+    "expected_artifacts": {
+      "state_paths": [".forge/build/features/payment-webhooks.json"],
+      "content_classes": [
+        "features/payment-webhooks.json.disciplines: payments, integrations, security each with a reason",
+        "features/payment-webhooks.json.evidence: discipline:payments marked security_control: true"
+      ]
+    },
+    "defects_prevented": [
+      "a webhook handler that trusts the payload before verifying the provider's signature over the raw body",
+      "a client-supplied charge or refund amount trusted instead of a server-calculated one",
+      "a redelivered or replayed webhook event producing a second charge, refund, or entitlement grant",
+      "no reconciliation between the provider's record, the internal ledger, and the granted entitlement",
+      "test and live payment credentials or data able to cross into each other's path"
+    ],
+    "honest_completion": {
+      "not_verified_until_evidence": [
+        "discipline:payments stays NOT_VERIFIED until a test replaying the same webhook event proves exactly one effect, and a test with a tampered signature proves rejection"
+      ],
+      "never_waivable_at_high_tier": ["discipline:payments", "discipline:security"],
+      "done_refuses_without": [
+        "scope-resolution PASS and static-analysis with no FAIL",
+        "discipline:payments and discipline:security each PASS or a reasoned NOT_APPLICABLE -- neither can be waived by accept-risk at high tier while NOT_VERIFIED",
+        "discipline:integrations resolved (PASS, reasoned NOT_APPLICABLE, or accept-risk)"
+      ]
+    },
+    "verification": {
+      "mode": "deterministic-cli-plus-prompt",
+      "deterministic_summary": "Uses a fixture file with a real call matching the payments capability signature (stripe.webhooks.constructEvent(...), which is literally the safe signature-verification call) so discovery assesses payments PRESENT. Proves discipline:payments and discipline:security stay NOT_VERIFIED after `check`, that accept-risk is refused for both at high tier, and that `done` refuses listing both as never-waivable.",
+      "manual_notes": "The actual replay test (duplicate event, single effect), the tampered-signature rejection test, and the reconciliation run comparing provider/ledger/entitlement are real work this harness does not perform; they are judged against the payments.md evidence-to-produce list."
+    }
+  },
+  {
+    "id": "ai-invoice-hostile",
+    "title": "AI invoice extraction against hostile document content",
+    "entry_point": "forge feature ai-invoice-hostile",
+    "feature_slug": "ai-invoice-hostile",
+    "expected_tier": "high",
+    "prompt": "Add a feature that reads an uploaded vendor invoice (PDF or image), extracts the vendor, line items, and total, and updates our accounts-payable record and stock counts. Vendors are external parties we do not control, so treat the document content as untrusted -- assume some invoices will contain hidden text designed to manipulate the extraction.",
+    "expected_disciplines": [
+      {
+        "slug": "ai",
+        "reason": "ai.md requires treating document content strictly as data (never instructions), a validated structured output schema, and an independent non-model check on extracted totals before anything acts on them"
+      },
+      {
+        "slug": "authorization",
+        "reason": "ai.md requires explicit human confirmation before an irreversible action (here, a stock or accounts-payable change); authorization.md treats that confirmation as a step-up/reauthentication decision, not something model output can grant itself"
+      },
+      {
+        "slug": "security",
+        "reason": "security.md's default-deny and validated-at-the-sink rules apply to the extraction endpoint and the downstream write it triggers"
+      }
+    ],
+    "references_consulted": ["ai.md", "authorization.md", "security.md"],
+    "expected_artifacts": {
+      "state_paths": [".forge/build/features/ai-invoice-hostile.json"],
+      "content_classes": [
+        "features/ai-invoice-hostile.json.disciplines: ai, authorization, security each with a reason",
+        "features/ai-invoice-hostile.json.evidence: discipline:authorization and discipline:security marked security_control: true"
+      ]
+    },
+    "defects_prevented": [
+      "instructions embedded inside the invoice document (or retrieved text) changing the model's tool calls or system behavior",
+      "free-text model output parsed directly into a financial or inventory decision instead of a validated structured schema",
+      "a model-extracted total, vendor id, or line-item amount acted on without an independent, non-model check",
+      "an irreversible action (stock adjustment, accounts-payable write, permission change) triggered by model output alone, without explicit human confirmation",
+      "no token, cost, or rate bound on the extraction feature before it is reachable by real traffic"
+    ],
+    "honest_completion": {
+      "not_verified_until_evidence": [
+        "discipline:ai stays NOT_VERIFIED until an adversarial test shows injected instructions inside the document do not change the feature's tool calls or output, and a test shows out-of-schema model output is rejected rather than coerced",
+        "discipline:authorization stays NOT_VERIFIED until a test shows the irreversible stock/accounts-payable write requires explicit human confirmation and cannot be triggered by model output alone"
+      ],
+      "never_waivable_at_high_tier": ["discipline:authorization", "discipline:security"],
+      "done_refuses_without": [
+        "scope-resolution PASS and static-analysis with no FAIL",
+        "discipline:authorization and discipline:security each PASS or a reasoned NOT_APPLICABLE -- neither can be waived by accept-risk at high tier while NOT_VERIFIED",
+        "discipline:ai resolved (PASS, reasoned NOT_APPLICABLE, or accept-risk -- 'ai' itself is not in the CLI's fixed security-control set, so the irreversible-action guarantee here is carried by discipline:authorization, not discipline:ai)"
+      ]
+    },
+    "verification": {
+      "mode": "deterministic-cli-plus-prompt",
+      "deterministic_summary": "Uses a fixture file with a real authorization-capability call so discipline:authorization assesses PRESENT and stays NOT_VERIFIED rather than auto-NOT_APPLICABLE. Proves accept-risk is refused for discipline:authorization and discipline:security at high tier, that discipline:ai (not itself a locked security-control slug) can legitimately be risk-accepted, and that `done` still refuses overall because the authorization/security lock remains unresolved -- an explicit, load-bearing distinction: prevention of the irreversible-action defect rides on the authorization discipline, not the ai discipline alone.",
+      "manual_notes": "The adversarial injection test, the out-of-schema rejection test, and the independent-check-before-acting evidence are real red-team-style work this harness does not perform; they are judged against the ai.md evidence-to-produce list. A reviewer should treat 'discipline:ai was risk-accepted' alone, with authorization still failing, as correctly blocked by the CLI -- not as a gap in the scenario."
+    }
+  },
+  {
+    "id": "idempotent-background-job",
+    "title": "Background job with retries and idempotency",
+    "entry_point": "forge feature idempotent-background-job",
+    "feature_slug": "idempotent-background-job",
+    "expected_tier": "standard",
+    "prompt": "Add a background job that sends a batch export email once a report finishes generating. The job queue can redeliver a job (at-least-once delivery) and the worker can crash mid-run, so the same report must never be emailed twice.",
+    "expected_disciplines": [
+      {
+        "slug": "jobs",
+        "reason": "jobs.md requires an idempotency key or check before the handler is written, a bounded retry policy with a dead-letter path, and the enqueue only happening after the triggering write commits"
+      },
+      {
+        "slug": "reliability",
+        "reason": "reliability.md requires deciding whether the job's operations are safe to run twice given the retries just decided, and how it behaves if interrupted mid-run"
+      }
+    ],
+    "references_consulted": ["jobs.md", "reliability.md"],
+    "expected_artifacts": {
+      "state_paths": [".forge/build/features/idempotent-background-job.json"],
+      "content_classes": [
+        "features/idempotent-background-job.json.disciplines: jobs, reliability each with a reason",
+        "features/idempotent-background-job.json.evidence: discipline:jobs, discipline:reliability criteria, neither marked security_control"
+      ]
+    },
+    "defects_prevented": [
+      "a redelivered or retried job payload sending the export email twice instead of once",
+      "unbounded retries with no dead-letter or alerting path once attempts are exhausted",
+      "a job enqueued for a write that never committed (or a committed write whose job never enqueued)",
+      "a poison message retried forever, or silently dropped, instead of being detected and quarantined"
+    ],
+    "honest_completion": {
+      "not_verified_until_evidence": [
+        "discipline:jobs stays NOT_VERIFIED until a test delivering the same job payload twice proves exactly one email is sent, and a forced-failure test proves the dead-letter path is reached"
+      ],
+      "never_waivable_at_high_tier": [],
+      "done_refuses_without": [
+        "scope-resolution PASS and static-analysis with no FAIL",
+        "discipline:jobs and discipline:reliability each resolved by evidence, reasoned NOT_APPLICABLE, or accept-risk with a --reason -- neither is a security-control discipline at any tier in this CLI, so both are legitimately waivable, and the risk acceptance is recorded and never rendered as PASS"
+      ]
+    },
+    "verification": {
+      "mode": "deterministic-cli-plus-prompt",
+      "deterministic_summary": "Confirms jobs/reliability are outside the CLI's fixed security-control set, so a NOT_VERIFIED discipline:jobs can be resolved with an explicit accept-risk and `done` then succeeds -- and separately confirms the risk_acceptances record is never rendered as a PASS status on the evidence itself.",
+      "manual_notes": "The actual duplicate-delivery test, the forced-failure/dead-letter test, and the enqueue-after-commit trace are real work this harness does not perform; they are judged against the jobs.md evidence-to-produce list, and a bare accept-risk with no such test should be flagged by a reviewer as an unearned resolution even though the CLI permits it."
+    }
+  },
+  {
+    "id": "offline-workflow",
+    "title": "Offline-capable workflow with sync and conflict handling",
+    "entry_point": "forge feature offline-workflow",
+    "feature_slug": "offline-workflow",
+    "expected_tier": "high",
+    "prompt": "Let a field technician fill out an inspection form while offline (no signal) and have it sync automatically once the device reconnects. Two technicians might edit the same inspection while both are offline. The app runs on shared tablets, so a technician who logs out must not leave the next person able to see their cached data.",
+    "expected_disciplines": [
+      {
+        "slug": "offline",
+        "reason": "offline.md requires a decided conflict-resolution rule before two offline edits can collide, and an idempotency key so replaying the sync queue after reconnect does not duplicate an effect"
+      },
+      {
+        "slug": "privacy",
+        "reason": "offline.md and privacy.md both require locally cached private data to be cleared on logout, revocation, or an account switch on a shared device"
+      },
+      {
+        "slug": "auth",
+        "reason": "offline.md requires a long-offline or stale client's cached authorization to be re-verified on reconnect rather than trusted as-is"
+      }
+    ],
+    "references_consulted": ["offline.md", "privacy.md", "auth.md"],
+    "expected_artifacts": {
+      "state_paths": [".forge/build/features/offline-workflow.json"],
+      "content_classes": [
+        "features/offline-workflow.json.disciplines: offline, privacy, auth each with a reason",
+        "features/offline-workflow.json.evidence: discipline:privacy and discipline:auth marked security_control: true"
+      ]
+    },
+    "defects_prevented": [
+      "two offline edits to the same inspection colliding with no decided conflict-resolution rule",
+      "a queued offline sync action replayed twice after reconnect, duplicating its effect",
+      "locally cached private inspection data surviving logout, revocation, or an account switch on a shared tablet",
+      "a long-offline client's cached authorization trusted as-is on reconnect instead of being re-verified"
+    ],
+    "honest_completion": {
+      "not_verified_until_evidence": [
+        "discipline:privacy stays NOT_VERIFIED until a test shows logout or account switch clears this feature's locally cached private data on the shared device",
+        "discipline:auth stays NOT_VERIFIED until a test shows a long-offline client has its authorization re-verified on reconnect"
+      ],
+      "never_waivable_at_high_tier": ["discipline:privacy", "discipline:auth"],
+      "done_refuses_without": [
+        "scope-resolution PASS and static-analysis with no FAIL",
+        "discipline:privacy and discipline:auth each PASS or a reasoned NOT_APPLICABLE -- neither can be waived by accept-risk at high tier while NOT_VERIFIED",
+        "discipline:offline resolved (PASS, reasoned NOT_APPLICABLE, or accept-risk, since offline itself is not in the CLI's fixed security-control set)"
+      ]
+    },
+    "verification": {
+      "mode": "deterministic-cli-plus-prompt",
+      "deterministic_summary": "Uses a fixture file with real references matching the personal-data and authentication capability signatures, so discipline:privacy and discipline:auth assess PRESENT rather than auto-NOT_APPLICABLE. Proves both stay NOT_VERIFIED after `check`, that accept-risk is refused for both at high tier, that discipline:offline (not itself locked) can legitimately be risk-accepted, and that `done` still refuses overall because the privacy/auth lock remains unresolved.",
+      "manual_notes": "The actual sync-conflict test, the replayed-queue idempotency test, the logout-clears-cache test, and the stale-client reauthorization test are real work this harness does not perform; they are judged against the offline.md and privacy.md evidence-to-produce lists."
+    }
+  }
+]
