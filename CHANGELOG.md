@@ -5,6 +5,12 @@ versioning.
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-07-20
+
+Module applicability and report evidence ledger milestone. `NOT_APPLICABLE` now means only that a
+capability provably does not exist, and the report gained typed ledgers for tools, planned checks,
+runtime evidence, and module decisions.
+
 ### Added
 
 - Machine-readable module applicability decisions (`module_decisions`) recording capability presence
@@ -12,10 +18,24 @@ versioning.
   indistinguishable from one whose capability does not exist.
 - Report schema version 2 adding `tools`, `planned_checks`, `runtime_evidence`, and
   `module_decisions` ledgers, documented in [report schema](docs/REPORT_SCHEMA.md). Reports from
-  v0.1.3 through v0.1.6 migrate in memory without rewriting the source file and without fabricating
+  v0.1.3 through v0.1.7 migrate in memory without rewriting the source file and without fabricating
   ledgers the writing release never recorded.
 - Append-only ledger APIs in `cli/src/ledger.ts` that validate input, deduplicate stable IDs,
   preserve deterministic order, and refuse to rewrite a blocked or unverified result as passing.
+- `plannedCheckNetworkPolicy`, the single sanctioned bridge from the v0.1.7 command network policy
+  to the coarser report vocabulary. The mapping is one-way: the two structurally provable exemptions
+  become `OFFLINE_SAFE` and `UNKNOWN` always stays `UNKNOWN`. There is no inverse and no promotion
+  path, so the report vocabulary cannot be used to describe an arbitrary audited-project command as
+  offline-safe.
+
+### Changed
+
+- A module excluded by `--risk high` is now reported instead of omitted. Previously a non-high-risk
+  module vanished from the report entirely, which read as though it had been audited and cleared. It
+  now appears with a `NOT_VERIFIED` status and an `EXCLUDED_BY_RISK` module decision. This is a
+  user-visible change to `forge all audit --risk high` output: reports contain entries for modules
+  that earlier releases silently dropped, and any tooling that treated absence as success must now
+  read `module_decisions`.
 
 ### Fixed
 
@@ -26,6 +46,10 @@ versioning.
   had gone unaudited. They now appear with an `EXCLUDED_BY_RISK` decision.
 - Capability ship gates are no longer dismissed as `NOT_APPLICABLE` when the prior audit shows the
   module exists but was not audited, so narrowing an audit can no longer switch a release gate off.
+- Report migration no longer claims a v0.1.7 report was written by v0.1.6. v0.1.7 changed no report
+  field, so the two releases are indistinguishable from a report alone; the migration record now
+  names both and states why they cannot be told apart rather than asserting a precision it does not
+  have.
 
 ## [0.1.7] - 2026-07-20
 
