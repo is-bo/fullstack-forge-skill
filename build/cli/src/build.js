@@ -282,7 +282,12 @@ async function featureStart(root, slug, options) {
     const tier = options.tier ?? "standard";
     const feature = newFeature(slug, tier, options.summary ?? "");
     applyFrameInputs(feature, options);
-    if (tier === "light") {
+    const tierNotes = [];
+    applyTierPolicy(feature, tierNotes);
+    if (feature.tier === "light") {
+        if (!options.json)
+            for (const note of tierNotes)
+                print(`Note: ${note}`);
         // Light tier is a one-shot flow: creating the feature immediately runs the check pass so the
         // whole lifecycle is `forge feature <slug> --tier light [--allow-run]` then `forge feature
         // <slug> done` — two CLI invocations, exactly as the design requires.
@@ -293,8 +298,47 @@ async function featureStart(root, slug, options) {
     await ensureProjectIndex(root, feature, options);
     return renderFeature(options, feature, {
         operation: "start",
+        notes: tierNotes,
         next: nextStepFor(feature)
     });
+}
+/**
+ * A feature whose slug, summary, tier inputs, or selected disciplines signal a high-risk class
+ * (money movement, identity, tenancy, uploads, AI, migrations, secrets, sessions, cryptography,
+ * SSRF, destructive data operations) must not silently run below high tier. The escalation is
+ * overridable, but only with a recorded reason.
+ */
+const HIGH_TIER_TRIGGER = new RegExp("\\b(payments?|billing|checkout|refunds?|authn?|authz|authorization|login|sessions?|" +
+    "passwords?|credentials?|secrets?|tokens?|oauth|sso|uploads?|tenants?|tenancy|" +
+    "ai|llm|prompts?|migrations?|destructive|cryptography|encryption|webhooks?|pii|" +
+    "privacy|gdpr|ssrf)\\b", "giu");
+function highTierTriggers(feature) {
+    const sources = [
+        feature.slug,
+        feature.summary,
+        ...feature.disciplines.map((selection) => selection.slug),
+        ...feature.tier_inputs
+    ];
+    const found = new Set();
+    for (const source of sources)
+        for (const match of source.toLowerCase().matchAll(HIGH_TIER_TRIGGER))
+            found.add(match[0]);
+    return [...found].sort();
+}
+function applyTierPolicy(feature, notes) {
+    if (feature.tier === "high")
+        return;
+    const triggers = highTierTriggers(feature);
+    if (triggers.length === 0)
+        return;
+    const recorded = `high-tier triggers: ${triggers.join(", ")}`;
+    feature.tier_inputs = [...new Set([...feature.tier_inputs, recorded])];
+    if (feature.tier_override_reason !== undefined) {
+        notes.push(`Tier kept at ${feature.tier} despite ${recorded}; override reason is recorded.`);
+        return;
+    }
+    feature.tier = "high";
+    notes.push(`Tier escalated to high (${recorded}). Override with --tier <tier> --reason "<why>".`);
 }
 function applyFrameInputs(feature, options) {
     if (options.summary !== undefined)
@@ -320,6 +364,8 @@ async function featureFrame(root, slug, options) {
     if (options.tier !== undefined)
         feature.tier = options.tier;
     applyFrameInputs(feature, options);
+    const tierNotes = [];
+    applyTierPolicy(feature, tierNotes);
     // frame is recorded guidance; it never regresses a feature past its current phase.
     if (feature.phase === "abandoned" || feature.phase === "done")
         throw new Error(`Feature '${slug}' is ${feature.phase} and cannot be reframed.`);
@@ -327,7 +373,11 @@ async function featureFrame(root, slug, options) {
         feature.phase = "frame";
     await saveFeature(root, feature, options.dryRun);
     await ensureProjectIndex(root, feature, options);
-    return renderFeature(options, feature, { operation: "frame", next: nextStepFor(feature) });
+    return renderFeature(options, feature, {
+        operation: "frame",
+        notes: tierNotes,
+        next: nextStepFor(feature)
+    });
 }
 async function featurePlan(root, slug, options) {
     const feature = await requireFeature(root, slug);
@@ -337,7 +387,7 @@ async function featurePlan(root, slug, options) {
         feature.summary = options.summary;
     const planSummary = options.summary ?? feature.plan_summary ?? feature.summary;
     feature.plan_summary = planSummary;
-    feature.plan_hash = sha256(`${planSummary} ${feature.disciplines
+    feature.plan_hash = sha256(`${planSummary}\u0000${feature.disciplines
         .map((d) => d.slug)
         .sort()
         .join(",")}`);
@@ -756,7 +806,7 @@ function failureSignature(record) {
             .map((file) => file.sha256)
             .sort()
             .join("\n");
-    return sha256(`${record.criterion} ${basis}`);
+    return sha256(`${record.criterion}\u0000${basis}`);
 }
 /** The criteria that must be satisfied for `done`, by tier. */
 function requiredCriteria(feature) {
@@ -869,6 +919,10 @@ function renderFeature(options, feature, extra, exitCode = 0) {
         for (const item of missing)
             lines.push(`  - ${item}`);
     }
+    const notes = extra.notes;
+    if (notes !== undefined)
+        for (const note of notes)
+            lines.push(`Note: ${note}`);
     if (extra.next !== undefined)
         lines.push(`Next: ${extra.next}`);
     print(lines.join("\n"));

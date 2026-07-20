@@ -3,7 +3,15 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["build/**", "dist/**", "fixtures/**", "node_modules/**", "platforms/**", ".tmp/**"]
+    ignores: [
+      "build/**",
+      "dist/**",
+      "fixtures/**",
+      "node_modules/**",
+      "platforms/**",
+      ".tmp/**",
+      ".claude/**"
+    ]
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,

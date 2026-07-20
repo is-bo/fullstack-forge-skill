@@ -59,17 +59,17 @@ test("light tier completes in two invocations (start runs check, then done)", as
     await writeFile(join(root, "app.ts"), "export const value = 1;\n", "utf8");
     const start = await captureRun([
       "feature",
-      "login",
+      "copy-tweak",
       "--tier",
       "light",
       "--summary",
-      "login",
+      "copy-tweak",
       "--allow-run",
       "--root",
       root
     ]);
     assert.equal(start.code, 0);
-    const afterStart = await loadFeature(root, "login");
+    const afterStart = await loadFeature(root, "copy-tweak");
     assert.ok(afterStart);
     assert.equal(afterStart.phase, "check");
     assert.equal(
@@ -77,9 +77,9 @@ test("light tier completes in two invocations (start runs check, then done)", as
       "PASS"
     );
 
-    const done = await captureRun(["feature", "login", "done", "--root", root]);
+    const done = await captureRun(["feature", "copy-tweak", "done", "--root", root]);
     assert.equal(done.code, 0);
-    assert.equal((await loadFeature(root, "login"))?.phase, "done");
+    assert.equal((await loadFeature(root, "copy-tweak"))?.phase, "done");
   });
 });
 
@@ -282,4 +282,44 @@ test("missingForDone is a pure function of tier and evidence", () => {
   const failing = base();
   failing.evidence.push(evidence("project:test", "FAIL"));
   assert.ok(missingForDone(failing).some((item) => item.includes("FAIL")));
+});
+
+test("high-risk trigger words escalate the tier unless an override reason is recorded", async () => {
+  await withTemporaryProject("build-escalate", async (root) => {
+    // A payments feature requested at standard silently escalates to high, with the
+    // triggers recorded in tier_inputs.
+    await captureRun([
+      "feature",
+      "payment-webhooks",
+      "--tier",
+      "standard",
+      "--summary",
+      "Stripe webhook handling",
+      "--root",
+      root
+    ]);
+    const escalated = await loadFeature(root, "payment-webhooks");
+    assert.ok(escalated);
+    assert.equal(escalated.tier, "high");
+    assert.ok(escalated.tier_inputs.some((input) => input.includes("high-tier triggers")));
+
+    // An explicit override reason keeps the requested tier but still records the triggers.
+    await captureRun([
+      "feature",
+      "login-copy",
+      "--tier",
+      "light",
+      "--summary",
+      "adjust login button copy",
+      "--reason",
+      "text-only change to an existing screen",
+      "--root",
+      root
+    ]);
+    const overridden = await loadFeature(root, "login-copy");
+    assert.ok(overridden);
+    assert.equal(overridden.tier, "light");
+    assert.equal(overridden.tier_override_reason, "text-only change to an existing screen");
+    assert.ok(overridden.tier_inputs.some((input) => input.includes("high-tier triggers")));
+  });
 });
