@@ -1,4 +1,616 @@
 {
+  "discover": {
+    "title": "Project discovery",
+    "decideBeforeCoding": [
+      "Profile the project before writing a line: languages, frameworks, package manager, data stores, auth provider, and existing conventions, so new code matches what already exists instead of introducing a second pattern.",
+      "Identify the nearest existing example of the thing you are about to build (a similar route, component, job, or migration) and follow its shape unless there is a recorded reason to diverge.",
+      "Decide which boundaries this feature touches (public, private, admin, tenant, upload, payment, AI) using file evidence, not assumption, before scoping the plan.",
+      "If a monorepo or multi-app layout exists, decide which app or package owns this change and respect its own tooling rather than the repository root's.",
+      "Record any detected convention you are deliberately not following, and why, so reviewers do not mistake divergence for oversight."
+    ],
+    "evidenceToProduce": [
+      "A short list of the conventions actually followed (naming, error handling, folder placement, test style) with file references.",
+      "A note on which boundaries the feature touches, grounded in the files that prove each one.",
+      "Confirmation that no parallel pattern was introduced where an established one already covers the same need.",
+      "Any recorded non-goal or deliberate deviation from existing convention, with the reason."
+    ]
+  },
+  "requirements": {
+    "title": "Requirements and domain logic",
+    "decideBeforeCoding": [
+      "Write down the acceptance criteria for success, empty, error, retry, cancellation, and partial-failure paths before coding any of them; an untested path is an unwritten requirement.",
+      "Resolve contradictory or ambiguous business rules with an accountable owner before encoding a guess as behavior.",
+      "Decide the exact rule for money, dates, time zones, and rounding used in this feature, not just the general convention, when the domain touches any of them.",
+      "Decide who owns a record or action and what happens to dependents when ownership changes or the owner is removed.",
+      "Decide the behavior for duplicate submission, retry after timeout, and resuming a partially completed operation."
+    ],
+    "evidenceToProduce": [
+      "A test per stated business rule, including the adverse and recovery paths, not only the happy path.",
+      "A file:line trace from each acceptance criterion to the code that enforces it.",
+      "Evidence that a duplicate or retried request produces one durable outcome, not a duplicated one.",
+      "A note on any requirement that stayed ambiguous, and who was asked, rather than silently assumed."
+    ]
+  },
+  "architecture": {
+    "title": "Architecture",
+    "decideBeforeCoding": [
+      "Decide the module or service boundary for this feature and the direction dependencies must flow before writing code that crosses it either way.",
+      "Decide whether this feature needs a new service, queue, or data store at all: naming the specific failure the current topology cannot handle. Concluding 'no new service, queue, or database needed' is a correct, complete answer when growth is not demonstrated.",
+      "Identify the one critical request path this change sits on and decide how it behaves end to end, including what happens when a downstream step fails.",
+      "Decide where domain logic lives (not scattered across UI, route handler, and job) so the same rule cannot drift into two different answers.",
+      "Flag any place this change would introduce a cycle, shared mutable state, or a new single point of failure, and decide how to avoid it instead of accepting it."
+    ],
+    "evidenceToProduce": [
+      "A short trace of the critical path this feature sits on, from entry point to durable effect, with file references.",
+      "The specific measured or stated requirement that justified any new service, queue, cache, or store, or the recorded reason none was needed.",
+      "Confirmation that domain logic lives in one place, not duplicated across layers.",
+      "A note identifying any accepted complexity (a cycle, a shared singleton, a sync call that should be async) with the reason it was accepted."
+    ]
+  },
+  "code": {
+    "title": "Code quality",
+    "decideBeforeCoding": [
+      "Decide the error-handling shape for this code before writing the happy path: what is caught, what propagates, and what the caller sees on failure.",
+      "Decide ownership and cleanup for every resource opened (connections, streams, listeners, timers) at the point it is opened, not as an afterthought.",
+      "Decide whether existing types and interfaces already model this data before introducing a parallel shape or an unsafe cast to force a fit.",
+      "Decide what this change replaces or removes; do not leave the old path reachable dead code alongside the new one.",
+      "Follow the newest established local precedent for structure and naming rather than an older pattern still present elsewhere in the codebase."
+    ],
+    "evidenceToProduce": [
+      "A passing run of the project's own format, lint, type-check, and unit-test commands after the final edit, with failures shown, not hidden.",
+      "A file:line note on where an added resource is released or a promise is awaited, for anything non-obvious.",
+      "Confirmation that removed or replaced code paths are actually unreachable, not still called from somewhere unexamined.",
+      "A short note comparing the change to the nearest existing precedent it follows or deliberately departs from."
+    ]
+  },
+  "ux": {
+    "title": "User experience",
+    "decideBeforeCoding": [
+      "Enumerate every state this flow needs before coding it: loading, empty, error, success, and permission-denied, not only the happy path.",
+      "Decide how a user recovers from each error state: what they are told, what they can retry, and what happens to the data they already entered.",
+      "Decide that destructive or irreversible actions require an explicit confirmation step naming the consequence, before wiring the action handler.",
+      "Decide what happens to user-entered input across a validation error, a network failure, and a session expiration; losing it is a decision, not an accident.",
+      "Walk the adverse path (wrong input, cancel, back button, duplicate submit) as deliberately as the primary path before considering the flow designed."
+    ],
+    "evidenceToProduce": [
+      "A trace or recorded interaction for loading, empty, error, success, and permission-denied on this flow, not just the success case.",
+      "Confirmation that a destructive action requires explicit confirmation and states what will be lost.",
+      "A test showing user-entered data survives a validation error or a failed submit instead of being cleared.",
+      "A repeat of the primary journey after refresh, retry, and duplicate submission, confirming one durable outcome."
+    ]
+  },
+  "accessibility": {
+    "title": "Accessibility",
+    "decideBeforeCoding": [
+      "Decide the accessible name, role, and keyboard interaction for every custom interactive element before wiring events, using a native HTML control instead when one already does the job.",
+      "Decide the focus behavior for this flow: initial focus, order, visible focus style, and where focus goes after a dialog closes or content changes.",
+      "Decide how errors and dynamic status changes are announced to assistive technology, not only shown visually.",
+      "Check color and state are never the only signal (contrast, icon-only actions, error highlighting) before finalizing the visual design.",
+      "Treat an automated accessibility scan as a floor, not the audit: decide which keyboard and screen-reader walkthroughs this flow still needs."
+    ],
+    "evidenceToProduce": [
+      "A keyboard-only walkthrough of the complete flow, confirming every interactive element is reachable and operable.",
+      "Confirmation that dynamic errors and status updates are exposed to assistive technology, with the mechanism named.",
+      "An automated scan result plus the manual checks it cannot cover (focus order, reading order, meaningful announcements).",
+      "A contrast and target-size check for new or changed interactive elements, mapped to the specific WCAG 2.2 AA success criterion."
+    ]
+  },
+  "i18n": {
+    "title": "Internationalization",
+    "decideBeforeCoding": [
+      "Decide that all user-facing strings route through the existing translation mechanism before writing a single hard-coded string.",
+      "Decide the locale-aware handling for dates, times, numbers, and currency in this feature; never format them with ad hoc string concatenation.",
+      "Decide how missing translations fall back (to what locale, visibly or silently) before the catalog for this feature is incomplete.",
+      "If the product supports right-to-left locales, decide how this layout mirrors and where it must not (numerals, logos, embedded media).",
+      "Decide the expansion budget for translated text in constrained UI (buttons, labels, badges) so a longer language does not break layout."
+    ],
+    "evidenceToProduce": [
+      "Confirmation that no new user-facing string is hard-coded outside the translation catalog.",
+      "A rendered check of this feature in at least one right-to-left or long-string locale, showing layout holds.",
+      "A test or trace showing date, number, and currency formatting uses the locale utility, not manual formatting.",
+      "Confirmation of the fallback behavior when a translation key is missing for the active locale."
+    ]
+  },
+  "seo": {
+    "title": "Search discoverability",
+    "decideBeforeCoding": [
+      "Decide whether this route is meant to be publicly indexable at all before writing metadata for it; private or tenant content must never become indexable by default.",
+      "Decide the canonical URL, title, and description for each new public route before it ships, rather than leaving framework defaults in place.",
+      "Decide whether this content needs structured data, and which schema type actually matches it, instead of adding structured data generically.",
+      "Decide how this route behaves for a crawler that cannot execute client-side rendering, if that is a risk for the chosen rendering strategy.",
+      "Decide the redirect and duplicate-URL handling for this route (trailing slash, casing, query parameters) so one page does not fragment into several indexable URLs."
+    ],
+    "evidenceToProduce": [
+      "A recorded NOT_APPLICABLE with the reason for any route intentionally excluded from indexing.",
+      "The rendered HTML (not just source) showing title, canonical, and metadata for each new public route.",
+      "Validated structured data output for any route that declares it.",
+      "Confirmation that no private or tenant-scoped route is reachable by a crawler or listed in a sitemap."
+    ]
+  },
+  "frontend": {
+    "title": "Frontend engineering",
+    "decideBeforeCoding": [
+      "Decide which parts of this feature render on the server and which on the client, and what crosses that boundary, before writing components that assume the wrong one.",
+      "Decide the loading, cancellation, and stale-response behavior for every new network call, including what happens when a faster later request returns before an earlier one.",
+      "Decide whether any user-controlled content is rendered as HTML; if so, decide the sanitization boundary before it reaches the DOM.",
+      "Decide what happens on hydration mismatch, chunk-load failure, and browsers with lazily loaded code disabled or blocked.",
+      "Decide what must never reach client-side code (secrets, internal identifiers, unredacted internal errors) before wiring the data down to the browser."
+    ],
+    "evidenceToProduce": [
+      "A test or trace showing an out-of-order or canceled network response does not overwrite newer state.",
+      "Confirmation that user-controlled content rendered as HTML passes through the sanitization boundary, with the file:line reference.",
+      "A production build exercised for this feature, not only a development server, confirming code-split boundaries and error boundaries behave.",
+      "Confirmation that no secret or unredacted internal detail is present in client-shipped code or network payloads."
+    ]
+  },
+  "api": {
+    "title": "API design and implementation",
+    "decideBeforeCoding": [
+      "Decide the request and response schema, status codes, and error envelope for this endpoint before implementing the handler, and validate both directions against it.",
+      "Decide the object-level authorization check for this endpoint: which caller may act on which specific resource, not only that the caller is authenticated.",
+      "Decide pagination, filtering limits, and maximum payload size for any endpoint returning or accepting a list, before it can be asked to return everything at once.",
+      "Decide whether this operation must be idempotent (retryable without a duplicate effect) and design the key or check for that before the write path exists.",
+      "Decide what happens to this contract when a future change is needed: is this a breaking change, and if so, what is the versioning or deprecation path."
+    ],
+    "evidenceToProduce": [
+      "A negative test showing invalid input and unauthorized object access are both rejected with the intended status code.",
+      "A test replaying the same idempotent request twice, confirming exactly one durable effect.",
+      "Confirmation that response payloads expose only intended fields, not full internal records.",
+      "A trace showing pagination and size limits are enforced at the actual handler, not assumed from the client."
+    ]
+  },
+  "jobs": {
+    "title": "Background jobs",
+    "decideBeforeCoding": [
+      "Decide the idempotency key or check for this job before writing the handler, so redelivery produces one durable effect, not several.",
+      "Decide the retry policy: bounded attempts, backoff, and where the job ends up (dead-letter, alert, discard) after retries are exhausted.",
+      "Decide the transaction boundary between the triggering write and the enqueue, so a job is never enqueued for a write that did not commit, or vice versa.",
+      "Decide what a poison message looks like for this job and how it is detected and quarantined instead of retried forever or silently dropped.",
+      "Decide how this job behaves during a deploy: safe to run mid-shutdown, safe with an older or newer payload shape in flight."
+    ],
+    "evidenceToProduce": [
+      "A test delivering the same job payload twice, confirming one durable outcome, not duplicated side effects.",
+      "A forced-failure test showing the job reaches its dead-letter or alerting path after exhausting retries, rather than retrying indefinitely.",
+      "Confirmation that the enqueue only happens after (or atomically with) the triggering write commits.",
+      "A trace or log showing job outcome, attempt count, and identifying payload version are observable after the fact."
+    ]
+  },
+  "integrations": {
+    "title": "External integrations",
+    "decideBeforeCoding": [
+      "Decide the timeout, bounded retry, and fallback behavior for this integration before the happy-path call is wired, since the provider will fail eventually.",
+      "Decide how an inbound webhook's signature is verified against the raw request body, and reject anything that fails, before trusting its payload.",
+      "Decide how duplicate and out-of-order webhook events are handled, since providers redeliver and do not guarantee ordering.",
+      "Decide what credential scope this integration actually needs, and use the narrowest one available rather than a broad default.",
+      "Decide what happens to the user-facing flow when this provider is down or rate-limited, rather than letting the failure surface as an unhandled error."
+    ],
+    "evidenceToProduce": [
+      "A test showing a tampered or unsigned webhook payload is rejected, and a validly signed one is accepted.",
+      "A test replaying the same webhook event twice, confirming one durable effect.",
+      "A trace showing the integration's timeout and retry behavior under a simulated slow or failing provider.",
+      "Confirmation that credentials for this integration are scoped to only what this feature needs and are not logged."
+    ]
+  },
+  "auth": {
+    "title": "Authentication",
+    "decideBeforeCoding": [
+      "Decide to use an established authentication library or provider for credentials, sessions, and tokens; never write custom password hashing, token signing, or session logic.",
+      "Decide session lifetime, rotation, and revocation behavior (including logout, password change, and forced sign-out) before sessions are issued.",
+      "Decide cookie flags (HttpOnly, Secure, SameSite) and storage location for any session or token before the first sign-in path is written.",
+      "Decide the response behavior for invalid credentials, unknown accounts, and locked accounts so none of them lets an attacker distinguish valid from invalid usernames.",
+      "Decide the rate limit or lockout behavior for authentication attempts before the login endpoint is reachable."
+    ],
+    "evidenceToProduce": [
+      "Confirmation that password, token, and session handling comes from a maintained library or provider, not custom cryptography.",
+      "A test showing logout or revocation actually invalidates the session server-side, not just client-side.",
+      "A test showing invalid-credential and unknown-account responses are indistinguishable (no username enumeration).",
+      "A test showing repeated failed login attempts are rate-limited or locked out.",
+      "Confirmation that session cookies carry the intended HttpOnly, Secure, and SameSite flags in the actual response."
+    ]
+  },
+  "security": {
+    "title": "Application security",
+    "decideBeforeCoding": [
+      "Decide that every input is validated at the final server-side sink, not only in the UI; client-side validation is a convenience, never the control.",
+      "Decide the parameterization or escaping mechanism for any interpolated query, command, template, or path before writing the interpolation.",
+      "Decide the output-encoding context (HTML, attribute, URL, JSON) for any value rendered back to a user or another system, matched to where it actually lands.",
+      "Decide new endpoints and resources start denied by default and are explicitly opened, rather than open by default and restricted later.",
+      "Decide where secrets and credentials for this feature are stored (a secret manager or environment configuration), and confirm none are written into source, logs, or client-shipped code."
+    ],
+    "evidenceToProduce": [
+      "A negative test showing an injection attempt (SQL, command, template, or path) is neutralized at the final sink, not just filtered upstream.",
+      "Confirmation that user-controlled output is encoded for the context it is rendered into, with the file:line reference.",
+      "A test showing a request to a newly added endpoint is denied without an explicit grant.",
+      "Confirmation that no secret or credential for this feature appears in source control, logs, or client-visible output."
+    ]
+  },
+  "privacy": {
+    "title": "Privacy",
+    "decideBeforeCoding": [
+      "Decide the specific purpose for every new personal-data field before collecting it; if there is no stated purpose, do not collect it.",
+      "Decide the retention period and deletion path for this data now, including what happens to it on account or tenant deletion.",
+      "Decide which fields are sensitive enough to exclude from logs, analytics, and error reporting before instrumentation is added.",
+      "Decide the legal basis or consent requirement for this data before it is collected, for anything beyond what is strictly necessary to operate the feature.",
+      "Decide how this data is included (or explicitly excluded) from data export and deletion requests before those code paths are written."
+    ],
+    "evidenceToProduce": [
+      "A short data-inventory note: field, purpose, retention, and deletion path for any new personal data.",
+      "Confirmation that sensitive fields are absent from logs, analytics events, and error reports for this feature.",
+      "A test showing account or tenant deletion removes or anonymizes this data as decided.",
+      "Confirmation that export and deletion requests correctly include this new data."
+    ]
+  },
+  "tenancy": {
+    "title": "Multi-tenancy",
+    "decideBeforeCoding": [
+      "Decide the trusted source of tenant context for this feature (session, verified token, never a client-supplied field alone) before writing the first query.",
+      "Decide that every query, cache key, file or object path, and background job carries and enforces tenant scope; a shared helper that cannot be bypassed by a raw query is preferred over per-call discipline.",
+      "Decide what happens when tenant context is missing, forged, or stale: reject, never default to a broad or first-match tenant.",
+      "Decide how tenant scope survives into asynchronous work (jobs, scheduled tasks, webhooks) where the original request context no longer exists.",
+      "Decide the negative test for this feature now: what does another tenant's identical request return, and it must not be another tenant's data."
+    ],
+    "evidenceToProduce": [
+      "A cross-tenant negative test for every new endpoint or resource, confirming another tenant's request is denied or not-found, never leaked.",
+      "A file:line trace showing the tenant filter reaches the actual query, cache key, or storage path, not just the route handler.",
+      "A test showing a background job or scheduled task re-establishes trusted tenant context rather than inheriting an ambient one.",
+      "Confirmation that missing or forged tenant context is rejected, not defaulted."
+    ]
+  },
+  "uploads": {
+    "title": "File uploads",
+    "decideBeforeCoding": [
+      "Decide the fail-closed behavior for malware scanning and quarantine before any accepted file is stored or served: an unscanned or scan-failed file stays quarantined, never released.",
+      "Decide that uploaded objects are stored private-by-default with server-generated keys; the original filename and client-supplied path are never trusted as a storage location.",
+      "Decide validation happens on magic bytes and streamed content, not the client-supplied extension or MIME type, before any file reaches a parser or storage.",
+      "Decide explicit size limits, file-count limits, and decompressed-size limits for this upload path before it accepts its first file, to block archive and decompression bombs.",
+      "Decide how a rejected or quarantined file is surfaced to the user and cleaned up, so it never becomes an orphaned or silently-served object."
+    ],
+    "evidenceToProduce": [
+      "A hostile-file fixture suite (oversized, wrong-signature, archive bomb, polyglot, malformed) run through the real pipeline, confirming each is rejected or quarantined.",
+      "A test showing a scanner failure or timeout keeps the file quarantined rather than defaulting to available.",
+      "Confirmation that stored object keys are server-generated and unguessable, with the original filename never used as a path.",
+      "A test showing enforced size, count, and decompressed-size limits reject an oversized or bomb-shaped upload before it is fully processed.",
+      "Confirmation that rejected and quarantined files are neither publicly reachable nor left as orphaned storage."
+    ]
+  },
+  "database": {
+    "title": "Database design",
+    "decideBeforeCoding": [
+      "Decide the constraints this schema enforces at the database level (primary key, foreign key, unique, not-null, check) before relying on application code alone to keep data valid.",
+      "Decide the concrete type for money and dates now (a precise decimal type and an explicit time-zone-aware type), never a floating-point number or a naive local timestamp.",
+      "Decide whether a new migration is expand-contract-compatible with the currently running code, so deploy order does not require simultaneous application and schema changes.",
+      "Decide the tenant-scoping column and its inclusion in relevant uniqueness constraints before the table exists, if this data is tenant-owned.",
+      "Decide the rollback or forward-fix plan for this migration before applying it to any shared environment, including its behavior on a large existing table."
+    ],
+    "evidenceToProduce": [
+      "The applied schema showing the declared constraints (not just ORM-level validation) actually exist in the database.",
+      "A test confirming money and date columns use the decided precise, time-zone-aware types, not floating-point or naive values.",
+      "A migration run against both an empty database and a representative populated one, showing it applies safely.",
+      "Confirmation of the rollback or forward-fix path exercised for this migration, not merely described."
+    ]
+  },
+  "queries": {
+    "title": "Query behavior",
+    "decideBeforeCoding": [
+      "Decide how this feature avoids N+1 queries before writing the loop that would trigger one (batch load, join, or explicit prefetch).",
+      "Decide that every list endpoint has both pagination and a deterministic ordering (a tie-broken sort key), so results are stable and bounded from the first version, not retrofitted later.",
+      "Decide indexes from the actual access pattern this feature introduces, not a guess; check the real query shape (filters, sort, joins) before adding or skipping an index.",
+      "Decide the transaction boundary for any multi-step write so it is bounded, does not hold locks across an external call, and leaves data consistent on partial failure.",
+      "Decide that all user-controlled values reach the query through parameterization, never string-built into the query text."
+    ],
+    "evidenceToProduce": [
+      "A query-count trace or test showing this feature does not issue an N+1 pattern under representative data.",
+      "A test showing paginated results are stable and complete (no skipped or duplicated rows) under concurrent writes.",
+      "The specific access pattern (filter, sort, join) that justified a new index, or a note that existing indexes already cover it.",
+      "A test showing a multi-step write either fully commits or fully rolls back on failure."
+    ]
+  },
+  "storage": {
+    "title": "Object and file storage",
+    "decideBeforeCoding": [
+      "Decide objects are private-by-default with authorization checked before any signed URL is issued, rather than relying on an unguessable name for protection.",
+      "Decide the object naming and tenant-prefix scheme before the first object is written, so isolation does not depend on remembering to filter later.",
+      "Decide the scope, method, and expiry bound on any signed URL this feature issues, treating it as a scoped credential rather than a permanent link.",
+      "Decide the lifecycle for this object: when it is deleted, replaced, or expires, and what cleans up the object when the owning record is deleted.",
+      "Decide the content-type and content-disposition headers served with this object so it cannot be rendered or executed in a way that harms the viewer."
+    ],
+    "evidenceToProduce": [
+      "A test showing an unauthorized or cross-tenant request for an object is denied, not just unlisted.",
+      "Confirmation that issued signed URLs are scoped to one object, one method, and a bounded expiry.",
+      "A test or trace showing object deletion actually removes the object (or schedules it), leaving no orphan.",
+      "Confirmation of the served content-type and content-disposition for this object type."
+    ]
+  },
+  "testing": {
+    "title": "Testing strategy",
+    "decideBeforeCoding": [
+      "Decide the tests for this feature while writing it, not after; a feature without its own tests is not complete regardless of how it looks running.",
+      "Decide adequacy by risk, not line count: authorization, tenant-isolation, and failure-path tests matter more here than covering every trivial branch.",
+      "Decide what a test in this feature would need to break to catch the defect it claims to detect, before writing an assertion that would pass regardless.",
+      "Decide the boundary each test actually exercises; do not mock the exact behavior under test into a tautology.",
+      "Decide which adverse and recovery paths (timeout, duplicate, cancellation, partial failure) get a test alongside the happy path."
+    ],
+    "evidenceToProduce": [
+      "Tests committed alongside the feature they cover, not deferred to a later pass.",
+      "At least one authorization, tenant-isolation, or failure-path test for any feature touching those risks.",
+      "A demonstration that a targeted test fails when the behavior it claims to protect is broken, and passes when fixed.",
+      "A clean run of the full relevant suite after the final edit, with no hidden or skipped failures."
+    ]
+  },
+  "performance": {
+    "title": "Performance",
+    "decideBeforeCoding": [
+      "Decide whether this feature has a performance requirement worth measuring at all before optimizing anything; no stated requirement means no performance work is owed yet.",
+      "If there is a requirement, decide the representative workload, data size, and target percentile before writing code aimed at meeting it.",
+      "Decide where the dominant cost is likely to be (network, database, rendering, computation) before changing code, rather than guessing and tuning the wrong layer.",
+      "Decide what 'good enough' means in a measurable number for this path, so later changes can be checked against it instead of debated.",
+      "Decide whether an optimization changes observable behavior (approximation, caching, denormalization); if so, treat it as a behavior decision, not a free win."
+    ],
+    "evidenceToProduce": [
+      "The stated performance requirement (or the recorded absence of one) this feature is measured against.",
+      "A measurement of the actual bottleneck before the optimization, not an assumption.",
+      "A repeated measurement after the change, under the same representative workload, showing the target is met.",
+      "Confirmation that correctness and tail latency did not regress alongside the improved metric."
+    ]
+  },
+  "scale": {
+    "title": "Scalability",
+    "decideBeforeCoding": [
+      "Decide the actual growth scenario (users, data, tenants, load concentration) this feature must survive before adding capacity for one that is not demonstrated.",
+      "Decide against unneeded complexity by default: concluding 'no microservices, queue, Kubernetes, or second database needed here' is a correct, complete answer when growth is not shown, and must be recorded as such.",
+      "Also check the opposite failure: decide whether an existing bottleneck (a hot row, unbounded fan-out, single connection pool) this feature adds load to actually needs addressing now.",
+      "Decide the partition or scoping key (tenant, user, shard) this feature's data uses, so a hot key or hot tenant does not degrade every other tenant.",
+      "Decide what happens under load beyond capacity: shed load, queue it with a bound, or degrade a specific feature, rather than leaving it undefined."
+    ],
+    "evidenceToProduce": [
+      "The specific growth number or scenario that justified any new infrastructure, or the recorded non-goal explaining why none was needed.",
+      "A note identifying the partition or scoping key used to avoid a hot row or hot tenant, where relevant.",
+      "A test or trace showing behavior at or beyond the stated capacity target (rate limit engaged, queue bounded, load shed), not just at normal load.",
+      "Confirmation that one tenant's load cannot starve another's on a shared resource this feature touches."
+    ]
+  },
+  "observability": {
+    "title": "Observability",
+    "decideBeforeCoding": [
+      "Decide what operational question this feature must be able to answer after shipping (is it failing, for whom, how slow) before deciding what to log.",
+      "Decide the correlation identifier that ties this feature's request, job, and downstream calls together in telemetry before writing the first log line.",
+      "Decide which fields must never appear in logs or metrics for this feature (secrets, personal data, high-cardinality free text) before instrumentation is added.",
+      "Decide whether a failure in this feature needs an alert, and what the alert's actionable next step is, rather than adding a metric no one is paged on.",
+      "Decide the log level and event name convention this feature follows, matching what already exists rather than inventing a new taxonomy."
+    ],
+    "evidenceToProduce": [
+      "A generated success and a generated failure for this feature, both locatable in logs, metrics, or traces by the same correlation identifier.",
+      "Confirmation that no secret or personal-data field appears in this feature's telemetry.",
+      "The alert (if any) tied to this feature's critical failure mode, with its actionable runbook reference.",
+      "Confirmation that new log or metric names follow the project's existing naming and level conventions."
+    ]
+  },
+  "reliability": {
+    "title": "Reliability",
+    "decideBeforeCoding": [
+      "Decide the timeout for every external or downstream call this feature makes before the call is written; an unbounded call is an outage waiting to happen.",
+      "Decide the retry policy (bounded attempts, backoff, jitter) and which failures are worth retrying versus failing fast.",
+      "Decide the user-visible or system behavior when a dependency this feature relies on is unavailable: degrade, queue, or fail clearly, not hang.",
+      "Decide whether this feature's operations are safe to run twice (idempotent) given the retries and timeouts just decided.",
+      "Decide how this feature behaves during a deploy or restart mid-operation: safe to interrupt, safe to resume."
+    ],
+    "evidenceToProduce": [
+      "A test injecting a dependency timeout or failure, confirming this feature degrades or fails clearly instead of hanging.",
+      "A test showing a retried operation produces one durable outcome, not a duplicated effect.",
+      "Confirmation of the bounded timeout and retry configuration actually applied at the call site, with a file:line reference.",
+      "A test showing recovery after an interrupted operation leaves no partial or duplicated state."
+    ]
+  },
+  "recovery": {
+    "title": "Backup and recovery",
+    "decideBeforeCoding": [
+      "Decide which new durable data this feature introduces and confirm it falls under an existing backup scope before assuming it is covered.",
+      "Decide the recovery point and recovery time this feature's data can tolerate before assuming the default backup schedule is adequate for it.",
+      "Decide how this feature's data would be restored in isolation (without also restoring unrelated data) if only it needed to be recovered.",
+      "Decide what happens to related state (queued jobs, cache entries, external references) if this feature's primary data is restored from an earlier point in time.",
+      "Never claim a backup exists as recovery evidence without a tested restore; treat an untested backup as NOT_VERIFIED recovery capability."
+    ],
+    "evidenceToProduce": [
+      "Confirmation that this feature's new durable data is included in an existing, named backup scope.",
+      "A restore of this feature's data performed in an isolated environment, with the recovery point and elapsed time recorded.",
+      "A note on how dependent state (cache, queued jobs, external references) is reconciled after a restore.",
+      "Explicit NOT_VERIFIED status for any recovery claim that has not been exercised, rather than an assumed PASS."
+    ]
+  },
+  "deployment": {
+    "title": "Deployment",
+    "decideBeforeCoding": [
+      "Decide the migration-to-code deploy ordering for this change (expand-contract) before assuming old and new code never coexist during rollout.",
+      "Decide the health check or readiness signal this feature affects, and confirm rollout will not mark the service healthy before this feature is actually ready.",
+      "Decide the rollback path for this change: what a rollback of the code without a schema rollback looks like, if a migration is involved.",
+      "Decide which configuration or secrets this feature needs in each environment before deploying it anywhere, rather than discovering a missing value in production.",
+      "Decide the smoke check that proves this feature actually works post-deploy, not just that the build succeeded."
+    ],
+    "evidenceToProduce": [
+      "Confirmation that the migration for this change is compatible with the previous code version during a rolling deploy.",
+      "A rollback or forward-fix exercised in an isolated environment for this change.",
+      "The post-deploy smoke check result specific to this feature, not just a generic health endpoint.",
+      "Confirmation that required configuration and secrets are present in every target environment before deploy."
+    ]
+  },
+  "infrastructure": {
+    "title": "Infrastructure",
+    "decideBeforeCoding": [
+      "Decide the least-privilege identity or role this feature's infrastructure needs before granting a broader existing role out of convenience.",
+      "Decide what network exposure this feature actually requires (public, internal-only, none) before defaulting to open.",
+      "Decide how secrets this feature needs reach the running service (secret manager, injected at deploy) before writing them into a config file or image.",
+      "Decide resource limits (memory, CPU, connection counts) for anything new this feature runs, so it cannot silently consume unbounded capacity.",
+      "Decide whether this infrastructure change is reversible through code (declarative, re-appliable) before making it by hand against a live environment."
+    ],
+    "evidenceToProduce": [
+      "The specific role or policy granted to this feature's infrastructure, showing it is scoped to what the feature needs.",
+      "Confirmation that no new public network exposure was introduced without an explicit decision to do so.",
+      "Confirmation that secrets reach the running service through the secret-management mechanism, not a committed file.",
+      "The plan or validate output for this infrastructure change, run before any apply to a shared environment."
+    ]
+  },
+  "supply-chain": {
+    "title": "Software supply chain",
+    "decideBeforeCoding": [
+      "Decide whether a new dependency is actually needed before adding one; check for an existing dependency or a small amount of own code that already covers it.",
+      "Decide the version-pinning approach for any new dependency or CI action, so a build does not silently pick up an unreviewed update.",
+      "Decide who reviews a new dependency's install scripts, maintenance status, and transitive footprint before it is added to the lockfile.",
+      "Decide how a discovered vulnerability in a dependency this feature uses will be triaged for actual reachability, not resolved by version number alone.",
+      "Decide whether this feature's build or release step introduces any new untrusted input into the CI pipeline, and how that input is constrained."
+    ],
+    "evidenceToProduce": [
+      "The specific justification for any new dependency, including why an existing one did not suffice.",
+      "A lockfile update showing the new dependency pinned, with its install scripts reviewed or disabled where possible.",
+      "Confirmation that a rebuild from a clean checkout with the lockfile reproduces the same dependency tree.",
+      "A vulnerability-scan result for the updated dependency set, with any findings triaged for reachability."
+    ]
+  },
+  "cost": {
+    "title": "Cost efficiency",
+    "decideBeforeCoding": [
+      "Decide the cost driver this feature introduces (compute, storage, egress, a paid API, log volume) before it ships, so it has a named owner and expected magnitude.",
+      "Decide the unit economics this feature's cost should be measured against (per user, per tenant, per request) if it scales with usage.",
+      "Decide a budget or alert threshold for this feature's cost driver before it can grow unnoticed, especially for anything metered per call (AI, third-party APIs, egress).",
+      "Decide against retry or fan-out patterns that would multiply cost on failure before they are the default behavior for this feature's calls to paid services.",
+      "Decide the retention period for anything this feature logs or stores that carries an ongoing storage cost."
+    ],
+    "evidenceToProduce": [
+      "The named cost driver this feature introduces, with its expected per-unit magnitude.",
+      "A budget or anomaly alert configured for any new metered or paid usage this feature introduces.",
+      "Confirmation that failure-path retries on paid calls are bounded, not capable of unbounded cost amplification.",
+      "A stated retention period for any new stored or logged data with an ongoing cost."
+    ]
+  },
+  "docs": {
+    "title": "Documentation",
+    "decideBeforeCoding": [
+      "Decide which existing documentation (README, API reference, runbook) this feature will require updating before it ships stale.",
+      "Decide the setup or configuration step a new contributor or operator needs to use this feature, and confirm it does not exist only in chat or memory.",
+      "Decide whether this feature changes a documented command, endpoint, or diagram, and treat that update as part of the feature, not a follow-up.",
+      "Decide what limitation or manual step this feature has that must be stated plainly rather than implied.",
+      "Decide any example or sample value used in documentation for this feature is free of real secrets or personal data."
+    ],
+    "evidenceToProduce": [
+      "The specific documentation files updated alongside this feature, matched to what actually changed.",
+      "A followed quick-start or setup step from a clean context, confirming it still works after this change.",
+      "Confirmation that any new or changed command, endpoint, or diagram in the docs matches current code.",
+      "Confirmation that documentation examples contain no real secrets or personal data."
+    ]
+  },
+  "analytics": {
+    "title": "Analytics",
+    "decideBeforeCoding": [
+      "Decide the specific decision each new analytics event is meant to inform before adding it; an event with no owner or decision behind it is noise.",
+      "Decide the event schema and identity model (anonymous versus authenticated, tenant property) before instrumentation is scattered across call sites.",
+      "Decide which fields are excluded from this event because they are personal or sensitive, before the first event is sent.",
+      "Decide how this event behaves under consent-denied, offline, and retry conditions, so it does not silently fire when it should not, or duplicate when retried.",
+      "Decide the owner and destination for this event so it is not added speculatively with no consumer."
+    ],
+    "evidenceToProduce": [
+      "The decision or dashboard this new event is meant to inform, named explicitly.",
+      "A trace of one triggered action producing exactly the expected event, with no duplicate or missing fire.",
+      "Confirmation that no personal or sensitive field reaches this event's payload.",
+      "A test showing the event respects a denied consent state and does not duplicate on retry."
+    ]
+  },
+  "notifications": {
+    "title": "Notifications",
+    "decideBeforeCoding": [
+      "Decide the authorization check confirming the recipient is entitled to receive this notification before the send path is wired.",
+      "Decide the deduplication or idempotency key for this notification so a retry or duplicate trigger does not send it twice.",
+      "Decide how this notification respects user preferences and required opt-outs, and which notifications (if any) are mandatory regardless of preference.",
+      "Decide the sensitive-content boundary for what appears in a preview, push payload, or subject line versus what requires opening the app to see.",
+      "Decide the retry and expiry behavior for this notification so a stale send is not delivered long after it stopped being relevant."
+    ],
+    "evidenceToProduce": [
+      "A test confirming the recipient's authorization and current preference are checked before send.",
+      "A test showing a duplicate trigger for the same event produces exactly one delivered notification.",
+      "Confirmation that sensitive content is excluded from preview or push payloads where it should be.",
+      "A test showing an expired or superseded notification is not delivered late."
+    ]
+  },
+  "ai": {
+    "title": "AI-enabled features",
+    "decideBeforeCoding": [
+      "Decide that all document, user-supplied, and web-retrieved content this feature processes is treated strictly as data to reason about, never as instructions to follow, before any prompt is assembled.",
+      "Decide the structured output schema for the model's response and validate it strictly; do not parse free text for anything that drives a decision or an action.",
+      "Decide the independent, non-model check for anything the model computes or extracts (totals, identifiers, amounts); the model's own confidence is not verification.",
+      "Decide which actions this feature can take are irreversible (payment, deletion, permission change, external send) and require explicit human confirmation before execution, regardless of model confidence.",
+      "Decide the token, cost, and rate bound for this feature's model usage before it is reachable by real traffic, including behavior when the bound is hit."
+    ],
+    "evidenceToProduce": [
+      "An adversarial test showing injected instructions inside document, user, or retrieved content do not change the feature's tool calls or output.",
+      "A test showing malformed or out-of-schema model output is rejected, not silently coerced into the expected shape.",
+      "Confirmation that model-extracted totals, identifiers, or claims are checked against an independent source before being acted on.",
+      "A test showing an irreversible action requires explicit human confirmation and cannot be triggered by model output alone.",
+      "Confirmation of the enforced token, cost, or rate bound for this feature, with the behavior when it is reached."
+    ]
+  },
+  "payments": {
+    "title": "Payments",
+    "decideBeforeCoding": [
+      "Decide that the amount charged, refunded, or credited is always calculated and verified server-side; a client-supplied amount is never trusted, even as a default.",
+      "Decide the webhook signature verification against the raw request body for every provider event before any handler trusts its payload.",
+      "Decide the idempotency key for payment-affecting operations so a retried request or redelivered webhook cannot duplicate a charge, refund, or entitlement grant.",
+      "Decide the reconciliation check between the provider's record, the internal ledger, and the granted entitlement, so a mismatch is detectable rather than silent.",
+      "Decide the strict separation between test and live credentials, data, and webhooks before any payment code can run against a live account."
+    ],
+    "evidenceToProduce": [
+      "A test showing a client-supplied amount is ignored or rejected in favor of the server-calculated one.",
+      "A test showing a tampered or unsigned webhook payload is rejected, and a validly signed one is processed exactly once.",
+      "A test replaying the same webhook event or retried request, confirming no duplicate charge, refund, or entitlement.",
+      "A reconciliation run comparing provider, ledger, and entitlement state for a representative sample.",
+      "Confirmation that test and live credentials and data cannot cross into each other's paths."
+    ]
+  },
+  "realtime": {
+    "title": "Realtime communication",
+    "decideBeforeCoding": [
+      "Decide the authorization check for every subscribe, publish, and channel action, not only at initial connection; a valid connection is not a blanket grant.",
+      "Decide how an expired or revoked credential terminates or blocks an already-open connection, not only new ones.",
+      "Decide the message schema and size bound for this channel before accepting arbitrary payloads from a connected client.",
+      "Decide the tenant or scope namespace for channels so one tenant's messages cannot reach another's connection.",
+      "Decide the reconnect and resume behavior (ordering, deduplication, cursor) so a dropped connection does not lose or duplicate messages on resume."
+    ],
+    "evidenceToProduce": [
+      "A test showing a subscribe or publish attempt without the required authorization is rejected, even on an open connection.",
+      "A test showing a revoked or expired credential causes an already-open connection to be terminated or blocked.",
+      "Confirmation that channels are namespaced by tenant, with a cross-tenant subscribe attempt rejected.",
+      "A test covering abrupt disconnect and reconnect, confirming no duplicated or lost messages on resume."
+    ]
+  },
+  "offline": {
+    "title": "Offline behavior",
+    "decideBeforeCoding": [
+      "Decide what this feature stores locally, for how long, and whether it is encrypted, before writing anything to a local store or cache.",
+      "Decide the conflict-resolution rule for this feature's data before two offline edits can collide, rather than discovering the collision behavior by accident.",
+      "Decide the idempotency key for queued offline actions so replaying a queue after reconnect does not duplicate the effect.",
+      "Decide what happens to locally cached private data when the user logs out, is revoked, or switches accounts on a shared device.",
+      "Decide how a long-offline or stale client is treated on reconnect: whether its cached authorization is still trusted, or must be re-verified."
+    ],
+    "evidenceToProduce": [
+      "A test exercising a sync conflict (two offline edits to the same record), confirming the decided resolution rule applies.",
+      "A test replaying a queued offline action twice, confirming one durable effect.",
+      "Confirmation that logout or revocation clears this feature's locally cached private data.",
+      "A test showing a stale or long-offline client has its authorization re-verified on reconnect rather than trusted as-is."
+    ]
+  },
+  "ui": {
+    "title": "UI",
+    "decideBeforeCoding": [
+      "Read DESIGN.md's direction before choosing layout, density, and component patterns; do not default to whatever the last feature looked like without checking it still applies.",
+      "Decide every state this view needs: loading, empty, error, success, permission-denied, and disabled, not only the happy path.",
+      "Decide the responsive behavior: what changes at narrow, medium, and wide viewports, not just that content shrinks.",
+      "Decide what feedback the user gets for every action that takes time or can fail.",
+      "Decide the accessible name, focus order, and keyboard path for every interactive element before wiring events."
+    ],
+    "evidenceToProduce": [
+      "A rendered screenshot or interaction trace for each of loading, empty, error, success, permission-denied, and disabled — reading the component source is never proof of visual quality, only of intent.",
+      "A rendered check at narrow and wide viewports showing the layout adapts, not just reflows awkwardly.",
+      "Confirmation every interactive element is reachable and operable by keyboard alone.",
+      "A short note on how this view matches, or deliberately deviates from, DESIGN.md, with the reason."
+    ]
+  },
   "authorization": {
     "title": "Authorization",
     "decideBeforeCoding": [
@@ -35,20 +647,36 @@
       "Confirmation that no sensitive or authorization-relevant data is served from cache without the same access check applied on read."
     ]
   },
-  "ui": {
-    "title": "UI",
+  "all": {
+    "title": "Orchestrated audit",
     "decideBeforeCoding": [
-      "Read DESIGN.md's direction before choosing layout, density, and component patterns; do not default to whatever the last feature looked like without checking it still applies.",
-      "Decide every state this view needs: loading, empty, error, success, permission-denied, and disabled, not only the happy path.",
-      "Decide the responsive behavior: what changes at narrow, medium, and wide viewports, not just that content shrinks.",
-      "Decide what feedback the user gets for every action that takes time or can fail.",
-      "Decide the accessible name, focus order, and keyboard path for every interactive element before wiring events."
+      "Decide when a full cross-discipline audit belongs in this project's flow: at explicit checkpoints (before a release, after a risk tier change, on operator request), never after every small feature as a routine step.",
+      "Decide the scope for a given audit (changed files versus full repository) before running it, based on what actually changed and its risk.",
+      "Decide that build-time evidence from individual features does not substitute for this audit; it re-derives its own evidence independently.",
+      "Decide who reviews and prioritizes the merged findings before any risky fix is applied from them.",
+      "Decide which findings are acceptable to leave open with a recorded reason versus which block moving forward."
     ],
     "evidenceToProduce": [
-      "A rendered screenshot or interaction trace for each of loading, empty, error, success, permission-denied, and disabled — reading the component source is never proof of visual quality, only of intent.",
-      "A rendered check at narrow and wide viewports showing the layout adapts, not just reflows awkwardly.",
-      "Confirmation every interactive element is reachable and operable by keyboard alone.",
-      "A short note on how this view matches, or deliberately deviates from, DESIGN.md, with the reason."
+      "A recorded trigger explaining why this audit ran now (checkpoint, risk change, explicit request), not as a default step after routine feature work.",
+      "The scope decision (changed versus full) with its reasoning.",
+      "A merged, deduplicated finding set ranked by severity, confidence, impact, and effort, with raw per-module evidence preserved.",
+      "Explicit NOT_VERIFIED or blocked markers for any check that could not run, rather than an assumed pass."
+    ]
+  },
+  "ship": {
+    "title": "Release readiness",
+    "decideBeforeCoding": [
+      "Decide this gate runs before an actual release candidate, not after every merged feature; treat it as a checkpoint, not routine CI noise.",
+      "Decide the fail-closed rule up front: any open critical finding, required high-severity finding, failed required check, or required high-risk NOT_VERIFIED status blocks shipping, with no implicit override.",
+      "Decide that this gate re-runs the real checks (format, lint, type, tests, build, security, migrations) itself rather than trusting a feature's own recorded build-time evidence.",
+      "Decide what residual risk, if any, is acceptable to ship with, and require an explicit, recorded acceptance for it rather than a silent gap.",
+      "Decide the rollback or forward-fix plan exists and is understood before this release goes out, not improvised after an incident."
+    ],
+    "evidenceToProduce": [
+      "A full gate run immediately before this release candidate, with every check's actual pass/fail status, not inherited from earlier build-time state.",
+      "Confirmation that no open critical or required high-severity finding remains, or an explicit recorded risk acceptance for each exception.",
+      "A clean install and smoke test of the packaged release artifact in an isolated environment.",
+      "The rollback or forward-fix plan for this release, confirmed before publication."
     ]
   }
 }
