@@ -351,6 +351,7 @@ function sanitizeFeature(feature: BuildFeature): BuildFeature {
   if (clone.plan_summary !== undefined) clone.plan_summary = redactToString(clone.plan_summary);
   clone.decisions = clone.decisions.map((item) => redactToString(item));
   clone.assumptions = clone.assumptions.map((item) => redactToString(item));
+  clone.tier_inputs = clone.tier_inputs.map((item) => redactToString(item));
   clone.disciplines = clone.disciplines.map((item) => ({
     slug: item.slug,
     reason: redactToString(item.reason)
@@ -479,6 +480,17 @@ export async function reverifyEvidenceHashes(
   const clone = structuredClone(feature);
   const demoted: string[] = [];
   for (const record of clone.evidence) {
+    // The check deriver never produces PASS for a discipline criterion (only FAIL,
+    // NOT_APPLICABLE, or NOT_VERIFIED), so a reloaded discipline PASS can only be a
+    // hand-edited state file. Demote it instead of trusting it.
+    if (record.status === "PASS" && record.criterion.startsWith("discipline:")) {
+      record.status = "NOT_VERIFIED";
+      record.evidence.push(
+        "demoted on reload: a discipline criterion can never legitimately hold PASS"
+      );
+      demoted.push(record.criterion);
+      continue;
+    }
     if (record.status === "NOT_VERIFIED" || record.files.length === 0) continue;
     let stale = false;
     for (const file of record.files) {

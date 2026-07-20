@@ -134,3 +134,39 @@ test("agent-authored free text is redacted before it is persisted", async () => 
     assert.ok(raw.includes("REDACTED"));
   });
 });
+
+test("a reloaded discipline PASS is demoted because the deriver cannot produce one", async () => {
+  await withTemporaryProject("build-forged-pass", async (root) => {
+    const feature = newFeature("checkout-flow", "high", "forged status test");
+    feature.disciplines = [{ slug: "payments", reason: "money movement" }];
+    feature.evidence = [
+      {
+        criterion: "discipline:payments",
+        discipline: "payments",
+        security_control: true,
+        status: "PASS",
+        producer: "hand-edited",
+        evidence: ["forged"],
+        files: [],
+        instance_ids: [],
+        recorded_at: new Date().toISOString()
+      }
+    ];
+    await saveFeature(root, feature, false);
+    const loaded = await loadFeature(root, "checkout-flow");
+    assert.ok(loaded);
+    const { feature: reverified, demoted } = await reverifyEvidenceHashes(root, loaded);
+    assert.deepEqual(demoted, ["discipline:payments"]);
+    assert.equal(reverified.evidence[0]?.status, "NOT_VERIFIED");
+  });
+});
+
+test("tier inputs are redacted before persistence", async () => {
+  await withTemporaryProject("build-redact-inputs", async (root) => {
+    const feature = newFeature("widget", "standard", "");
+    feature.tier_inputs = ["public exposure api_key=SKfaketest99887766554433 recorded"];
+    await saveFeature(root, feature, false);
+    const raw = await readFile(join(root, ".forge", "build", "features", "widget.json"), "utf8");
+    assert.ok(!raw.includes("SKfaketest99887766554433"), "tier input secret survived persistence");
+  });
+});

@@ -119,13 +119,19 @@ Build mode (`forge new`, `forge feature <slug> [sub]`, `forge resume`) persists 
   shape of a loaded state file — schema version, phases, tiers, evidence record shape, risk
   acceptances, repair counters, blockers — and throw rather than silently repair a malformed or
   tampered file, mirroring the audit report's `readReport` contract.
-- **Statuses are never agent-written.** Every criterion status in
-  `.forge/build/features/<slug>.json` is producer-derived by the CLI from a real analyzer run, argv
-  command execution, structural check, or discovery result. An agent can record a summary, a plan, a
-  decision, or an assumption, but never a `PASS`, `FAIL`, or `NOT_APPLICABLE` directly.
+- **Statuses are never agent-written in normal operation.** Every criterion status the CLI records
+  in `.forge/build/features/<slug>.json` is producer-derived from a real analyzer run, argv command
+  execution, structural check, or discovery result. The state file itself is local and writable, so
+  a hand-edited status remains possible; the defenses are layered rather than absolute: a reloaded
+  `PASS` on a `discipline:*` criterion is demoted to `NOT_VERIFIED` (the deriver never produces
+  one), file-bound evidence is re-verified by hash on every reload, the tier floor is re-applied at
+  `plan`, `check`, and `done`, and — decisively — build state satisfies zero ship or audit gates,
+  so a forged build status can misrepresent only build-mode's own bookkeeping, never a release
+  decision.
 - **Redaction of authored strings.** Every agent-authored free-text field — summary, plan summary,
-  tier-override reason, decisions, assumptions, discipline reasons, risk-acceptance reasons, blocker
-  reasons, and evidence lines — passes through the existing redaction layer before being persisted.
+  tier-override reason, tier inputs, decisions, assumptions, discipline reasons, risk-acceptance
+  reasons, blocker reasons, and evidence lines — passes through the existing redaction layer before
+  being persisted.
   Structural fields (touched paths, evidence file paths) are deliberately left intact because
   redacting them would corrupt the hash-freshness basis.
 - **Build state satisfies zero ship gates.** `forge ship` and `forge all audit` never read

@@ -23,7 +23,9 @@ frame → plan → implement → check → done
 ```
 
 Terminal states: `done`, `blocked` (a recorded repair-cap blocker), `abandoned`. Human-decision
-edges out of the normal flow: `accept-risk` (bounded, see below) and `abandon`.
+edges out of the normal flow: `accept-risk` (bounded, see below) and `abandon`. `implement` is the
+agent's working stage between `plan` and `check`, not a stored phase value — `status` reports
+`plan` while code is being written and moves to `check` after the first check pass.
 
 **Enforcement honesty** — skill text and this document never claim more than the CLI does:
 
@@ -163,7 +165,7 @@ to that feature's recorded touched paths, and an audit never reads or writes `.f
 Build mode is additive. There is no audit-side behavior change: module set, finding schema, gate
 registry, and CLI verbs from v0.1.x are unchanged. `forge update <platform>` refreshes installed
 skills to pick up the two new command skills (`forge-new`, `forge-feature`); `forge update` and
-`forge init` print a one-time "New in 0.2.0: build mode" notice. No existing `.forge/` artifact is
+`forge init` print a "Build mode (new in 0.2.0)" pointer after installing. No existing `.forge/` artifact is
 read, migrated, or invalidated by installing this release.
 
 ## Limitations

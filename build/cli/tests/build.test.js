@@ -277,4 +277,34 @@ test("high-risk trigger words escalate the tier unless an override reason is rec
         assert.ok(overridden.tier_inputs.some((input) => input.includes("high-tier triggers")));
     });
 });
+test("adding a high-risk discipline at plan time re-applies the tier floor", async () => {
+    await withTemporaryProject("build-plan-escalate", async (root) => {
+        await captureRun([
+            "feature",
+            "totals-view",
+            "--tier",
+            "standard",
+            "--summary",
+            "sum view",
+            "--root",
+            root
+        ]);
+        assert.equal((await loadFeature(root, "totals-view"))?.tier, "standard");
+        await captureRun([
+            "feature",
+            "totals-view",
+            "plan",
+            "--summary",
+            "the plan",
+            "--discipline",
+            "payments:invoice totals move money",
+            "--root",
+            root
+        ]);
+        const planned = await loadFeature(root, "totals-view");
+        assert.ok(planned);
+        assert.equal(planned.tier, "high");
+        assert.ok(planned.tier_inputs.some((input) => input.includes("high-tier triggers")));
+    });
+});
 //# sourceMappingURL=build.test.js.map

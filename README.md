@@ -114,7 +114,7 @@ Build mode, starting a project or a feature:
 
 ```bash
 forge new
-forge feature auth-login --tier standard
+forge feature auth-login   # identity triggers escalate this feature to high tier, recorded
 forge feature auth-login plan
 forge feature auth-login check --allow-run
 forge feature auth-login done

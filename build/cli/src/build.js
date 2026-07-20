@@ -395,10 +395,18 @@ async function featurePlan(root, slug, options) {
         feature.decisions = [...feature.decisions, ...options.decisions];
     if (options.disciplines.length > 0)
         feature.disciplines = parseDisciplines(options.disciplines);
+    // Disciplines added at plan time can introduce high-risk classes, so the tier floor is
+    // re-evaluated here, not only at frame.
+    const tierNotes = [];
+    applyTierPolicy(feature, tierNotes);
     feature.phase = "plan";
     await saveFeature(root, feature, options.dryRun);
     await ensureProjectIndex(root, feature, options);
-    return renderFeature(options, feature, { operation: "plan", next: nextStepFor(feature) });
+    return renderFeature(options, feature, {
+        operation: "plan",
+        notes: tierNotes,
+        next: nextStepFor(feature)
+    });
 }
 // ---------------------------------------------------------------------------
 // feature check
@@ -406,6 +414,7 @@ async function featurePlan(root, slug, options) {
 async function featureCheck(root, slug, options) {
     const loaded = await requireFeature(root, slug);
     const { feature } = await reverifyEvidenceHashes(root, loaded);
+    applyTierPolicy(feature, []);
     if (feature.phase === "done" || feature.phase === "abandoned")
         throw new Error(`Feature '${slug}' is ${feature.phase}; it cannot be re-checked.`);
     if (feature.phase === "blocked") {
@@ -461,6 +470,8 @@ async function runCheckPass(root, feature, options, operation) {
 async function featureDone(root, slug, options) {
     const loaded = await requireFeature(root, slug);
     const { feature, demoted } = await reverifyEvidenceHashes(root, loaded);
+    if (feature.phase !== "done")
+        applyTierPolicy(feature, []);
     if (feature.phase === "done")
         return renderFeature(options, feature, { operation: "done", next: "Already done." });
     if (feature.phase === "abandoned" || feature.phase === "blocked")

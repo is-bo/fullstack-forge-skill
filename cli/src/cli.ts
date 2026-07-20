@@ -125,6 +125,11 @@ export async function runCli(argv: string[]): Promise<number> {
       dryRun: options.dryRun
     });
     printValue({ operation: command, selector, dry_run: options.dryRun, actions }, options.json);
+    if (!options.json)
+      console.log(
+        "Build mode (new in 0.2.0): start work with `forge new` or `forge feature <slug>`. " +
+          "See docs/BUILD_MODE.md in the repository."
+      );
     return 0;
   }
   if (command === "uninstall") {

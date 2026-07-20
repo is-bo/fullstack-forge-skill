@@ -1,6 +1,7 @@
 # Commands
 
-The 42 command skills share one evidence protocol and collectively enumerate 957 explicit inspection
+The 42 audit command skills (plus the two build-mode command skills, `forge-new` and
+`forge-feature`) share one evidence protocol; the audit set collectively enumerates 957 explicit inspection
 criteria in `config/module-criteria.json`. Generation and validation require every criterion to
 appear in its canonical and platform-specific skill; a checklist item is routing context and never
 counts as evidence by itself.

@@ -15,7 +15,7 @@ Use when asked to build, continue, or ship a specific feature, or when the user 
 
 ## Enforcement honesty
 
-`frame` and `plan` are RECORDED guidance — the CLI stores them; it cannot force analysis quality. `check` and `done` are ENFORCED: their statuses are derived by the CLI from real executions (analyzers, argv command runs, structural checks) and are never written by the agent. `done` exits 1 with an actionable missing-items list when tier-required criteria lack evidence. Never narrate a status the CLI did not produce, and never describe a `frame` or `plan` as having been verified.
+`frame` and `plan` are RECORDED guidance — the CLI stores them; it cannot force analysis quality. `check` and `done` are ENFORCED: their statuses are derived by the CLI from real executions (analyzers, argv command runs, structural checks), never written by the agent, and re-verified on reload — a discipline `PASS` that the deriver could not have produced is demoted to `NOT_VERIFIED`. `done` exits 1 with an actionable missing-items list when tier-required criteria lack evidence. The independent backstop is `forge all audit` and `forge ship`, which read no build state. Never narrate a status the CLI did not produce, never edit state files to change a status, and never describe a `frame` or `plan` as having been verified.
 
 ## Workflow
 
