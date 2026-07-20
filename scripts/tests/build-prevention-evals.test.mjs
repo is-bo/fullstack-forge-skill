@@ -105,6 +105,10 @@ async function captureRun(runBuild, argv) {
 const TRIVIAL_SOURCE = "export const value = 1;\n";
 
 const FIXTURE_SOURCE = {
+  "saas-start": `export function createAccount(req: { user?: { email: string } }): void {
+  requireAuth(req);
+}
+`,
   "registration-rbac": `export function registerUser(req: { user?: { role: string } }): void {
   requireAuth(req);
   requireRole(req.user, "admin");

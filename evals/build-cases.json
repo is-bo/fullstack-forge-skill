@@ -4,7 +4,7 @@
     "title": "New SaaS product framed from a product brief",
     "entry_point": "forge new",
     "feature_slug": "onboarding",
-    "expected_tier": "standard",
+    "expected_tier": "high",
     "prompt": "Build a small SaaS product for freelancers to track clients, invoices, and payment status. It needs multi-user accounts (an owner and invited teammates), a dashboard of outstanding invoices, and email reminders for overdue ones. We expect a few hundred users in year one, not tens of thousands.",
     "expected_disciplines": [
       {
@@ -43,9 +43,10 @@
       "not_verified_until_evidence": [
         "the product frame, risk-class inputs, stack rationale, and non-goals are RECORDED guidance only; `forge new` never produces a PASS or FAIL and must never be narrated as having verified anything"
       ],
-      "never_waivable_at_high_tier": [],
+      "never_waivable_at_high_tier": ["discipline:auth"],
       "done_refuses_without": [
-        "`forge new` has no `check` or `done` sub-verb, so there is nothing to refuse at the project level; the onboarding feature's own `done` still refuses until its selected disciplines (auth, api) resolve to PASS, a reasoned NOT_APPLICABLE, or an eligible risk acceptance"
+        "`forge new` has no `check` or `done` sub-verb, so there is nothing to refuse at the project level; the onboarding feature's own `done` still refuses until its selected disciplines (auth, api) resolve to PASS, a reasoned NOT_APPLICABLE, or an eligible risk acceptance",
+        "the auth discipline is a required security control: the account-creation feature escalates to high tier (identity triggers are recorded in tier_inputs), so discipline:auth can never be waived by risk acceptance — it must resolve to PASS or a reasoned NOT_APPLICABLE"
       ]
     },
     "verification": {
