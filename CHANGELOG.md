@@ -3,9 +3,9 @@
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic
 versioning.
 
-## [Unreleased]
+## [0.2.0] - 2026-07-20
 
-### Added (v0.2.0 — Build mode)
+### Added — Build mode
 
 Build mode: a second, additive mode for starting a project or implementing a feature with a
 production-quality engineering workflow, alongside the existing audit/fix/verify/ship system.
@@ -34,6 +34,15 @@ guidance; `check` and `done` are CLI-enforced from real evidence, never agent-as
 state under `.forge/build/` satisfies zero `forge ship` or `forge all audit` gates — both always
 re-derive their own evidence independently. `forge update <platform>` refreshes installed skills to
 pick up the two new command skills.
+
+### Fixed
+
+- README install commands now pin the released tag, and `check:install-docs` fails whenever a
+  non-historical document pins a tag other than the package version.
+- Independent pre-release review hardening: a reloaded `PASS` on a `discipline:*` criterion is
+  demoted to `NOT_VERIFIED` (the check deriver never produces one), `tier_inputs` pass redaction
+  before persistence, and the high-risk tier floor is re-applied at `plan`, `check`, and `done`
+  rather than only at `frame`.
 
 ## [0.1.10] - 2026-07-20
 

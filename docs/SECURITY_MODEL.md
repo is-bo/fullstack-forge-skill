@@ -125,15 +125,14 @@ Build mode (`forge new`, `forge feature <slug> [sub]`, `forge resume`) persists 
   a hand-edited status remains possible; the defenses are layered rather than absolute: a reloaded
   `PASS` on a `discipline:*` criterion is demoted to `NOT_VERIFIED` (the deriver never produces
   one), file-bound evidence is re-verified by hash on every reload, the tier floor is re-applied at
-  `plan`, `check`, and `done`, and — decisively — build state satisfies zero ship or audit gates,
-  so a forged build status can misrepresent only build-mode's own bookkeeping, never a release
+  `plan`, `check`, and `done`, and — decisively — build state satisfies zero ship or audit gates, so
+  a forged build status can misrepresent only build-mode's own bookkeeping, never a release
   decision.
 - **Redaction of authored strings.** Every agent-authored free-text field — summary, plan summary,
   tier-override reason, tier inputs, decisions, assumptions, discipline reasons, risk-acceptance
   reasons, blocker reasons, and evidence lines — passes through the existing redaction layer before
-  being persisted.
-  Structural fields (touched paths, evidence file paths) are deliberately left intact because
-  redacting them would corrupt the hash-freshness basis.
+  being persisted. Structural fields (touched paths, evidence file paths) are deliberately left
+  intact because redacting them would corrupt the hash-freshness basis.
 - **Build state satisfies zero ship gates.** `forge ship` and `forge all audit` never read
   `.forge/build/` as gate evidence; both always re-derive their own evidence independently, so build
   state cannot be used to manufacture a release gate pass.

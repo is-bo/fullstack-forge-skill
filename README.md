@@ -44,7 +44,7 @@ agent-asserted; and build evidence under `.forge/build/` satisfies zero `forge s
 [docs/BUILD_MODE.md](docs/BUILD_MODE.md) for the complete guide.
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.10 && npx forge init all
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.2.0 && npx forge init all
 ```
 
 Codex, Claude Code, Antigravity, Gemini CLI, Cursor, Windsurf, GitHub Copilot, and generic Agent
@@ -84,7 +84,7 @@ Fullstack Forge is **not published to the npm registry**. The working npm-based 
 resolves the package directly from its Git tag:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.10
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.2.0
 npx forge init all --dry-run
 npx forge init all
 ```
