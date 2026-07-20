@@ -1,7 +1,13 @@
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { assertNoSymlinkPath } from "./lib/fs-safety.mjs";
-import { commandRoot, expectedSlugs, projectRoot, readCatalog } from "./project.mjs";
+import {
+  commandRoot,
+  expectedBuildCommands,
+  expectedSlugs,
+  projectRoot,
+  readCatalog
+} from "./project.mjs";
 
 const catalog = await readCatalog();
 const criteriaBySlug = JSON.parse(
@@ -21,7 +27,10 @@ validateProcedures(proceduresBySlug);
 await assertNoSymlinkPath(projectRoot, commandRoot);
 await mkdir(commandRoot, { recursive: true });
 const existing = await readdir(commandRoot, { withFileTypes: true });
-const expectedNames = new Set(expectedSlugs.map((slug) => `forge-${slug}`));
+const expectedNames = new Set([
+  ...expectedSlugs.map((slug) => `forge-${slug}`),
+  ...expectedBuildCommands
+]);
 const unknown = existing.map((entry) => entry.name).filter((name) => !expectedNames.has(name));
 if (unknown.length > 0) {
   throw new Error(`Refusing to touch unknown command entries: ${unknown.join(", ")}`);

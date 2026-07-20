@@ -3,7 +3,46 @@
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic
 versioning.
 
-## [Unreleased]
+## [0.2.0] - 2026-07-20
+
+### Added — Build mode
+
+Build mode: a second, additive mode for starting a project or implementing a feature with a
+production-quality engineering workflow, alongside the existing audit/fix/verify/ship system.
+
+- Two new CLI verbs, dispatched before module-slug parsing: `forge new` (new-project foundation —
+  product frame, users/roles, business rules, risk-class inputs, stack decision with rationale,
+  non-goals, design direction, initial feature list) and `forge feature <slug> [sub]` (full feature
+  lifecycle: `frame`, `plan`, `check`, `done`, `accept-risk`, `abandon`, `status`, or no sub-verb to
+  resume). `forge resume` lists unfinished features or resumes the most recent.
+- Two new command skills, `forge-new` and `forge-feature`, generated and synchronized to all six
+  platform roots alongside the 42 audit command skills, plus a compact two-mode router at the top of
+  the master `fullstack-forge` skill.
+- Three risk tiers (`light`, `standard`, `high`) computed from recorded product- and feature-level
+  inputs, each with its own gate and plan/design requirement.
+- Persistent build state under `.forge/build/` (`project.json`, `features/<slug>.json`,
+  `DECISIONS.md`, `DESIGN.md`), validated fail-closed on every load, with per-file SHA-256 evidence
+  freshness, redaction of agent-authored free text, and a criterion-scoped repair-cycle cap of 2.
+- 42 hand-authored build-discipline briefs (`config/build-guidance.json`, rendered to
+  `references/build/<slug>.md`), one per audit-module slug, with CI-enforced exact slug-set
+  coverage.
+- `docs/BUILD_MODE.md`: the complete build-mode guide.
+
+Additive and non-breaking: no audit-side behavior changed. The 42-module audit catalog, finding
+schema, gate registry, and every existing CLI verb are unchanged. `frame` and `plan` are recorded
+guidance; `check` and `done` are CLI-enforced from real evidence, never agent-asserted; and build
+state under `.forge/build/` satisfies zero `forge ship` or `forge all audit` gates — both always
+re-derive their own evidence independently. `forge update <platform>` refreshes installed skills to
+pick up the two new command skills.
+
+### Fixed
+
+- README install commands now pin the released tag, and `check:install-docs` fails whenever a
+  non-historical document pins a tag other than the package version.
+- Independent pre-release review hardening: a reloaded `PASS` on a `discipline:*` criterion is
+  demoted to `NOT_VERIFIED` (the check deriver never produces one), `tier_inputs` pass redaction
+  before persistence, and the high-risk tier floor is re-applied at `plan`, `check`, and `done`
+  rather than only at `frame`.
 
 ## [0.1.10] - 2026-07-20
 

@@ -4,6 +4,7 @@ import { assertNoSymlinkPath, assertSafeRelativePath } from "./lib/fs-safety.mjs
 import {
   canonicalRoot,
   commandRoot,
+  expectedBuildCommands,
   expectedSlugs,
   manifestName,
   platformTargets,
@@ -25,6 +26,10 @@ async function collectCanonicalFiles() {
   for (const slug of expectedSlugs) {
     const source = join(commandRoot, `forge-${slug}`, "SKILL.md");
     files.set(`forge-${slug}/SKILL.md`, await readFile(source));
+  }
+  for (const name of expectedBuildCommands) {
+    const source = join(commandRoot, name, "SKILL.md");
+    files.set(`${name}/SKILL.md`, await readFile(source));
   }
   return files;
 }

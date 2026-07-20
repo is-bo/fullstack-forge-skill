@@ -32,6 +32,24 @@ fixes from risky decisions, and reports what passed, failed, was blocked, or cou
 Read [references/PROTOCOL.md](references/PROTOCOL.md) for the evidence and status protocol and
 [references/SAFE_FIX_POLICY.md](references/SAFE_FIX_POLICY.md) before any change.
 
+## Two modes
+
+Fullstack Forge is Build mode plus Audit mode. Pick by intent, not habit:
+
+| You want to...                       | Mode  | Entry point                                      |
+| ------------------------------------ | ----- | ------------------------------------------------ |
+| Start a new product or codebase      | Build | `/forge-new` (`forge new`)                       |
+| Build, continue, or ship one feature | Build | `/forge-feature <slug>` (`forge feature <slug>`) |
+| Inspect or harden existing behavior  | Audit | `/forge-<section>` or `/fullstack-forge` (below) |
+| Gate a release                       | Audit | `forge ship`                                     |
+
+Build mode's `frame` and `plan` are RECORDED guidance; `check` and `done` are ENFORCED from
+CLI-derived evidence, never agent-asserted. Build state under `.forge/build/` satisfies zero
+`forge ship` or `forge all audit` gates — both always re-derive their own evidence independently.
+Decision rule: building a feature → `forge feature <slug> check`; reviewing an arbitrary diff →
+`forge all audit --scope changed`. The rest of this file, and every `/forge-<section>` skill below,
+is Audit mode.
+
 ## Choose the workflow
 
 | Request                     | Workflow                                                        |

@@ -4,17 +4,26 @@
 
 `config/modules.json` is the ordered semantic catalog for 42 command modules, and
 `config/module-criteria.json` is the matching explicit inspection-criteria catalog.
-`src/fullstack-forge/` is the canonical Agent Skill. The generator renders
-`src/fullstack-forge/commands/forge-*/SKILL.md`, then copies the master and command skills into each
-verified platform root.
+`config/build-guidance.json` is the matching hand-authored per-module build-discipline brief catalog
+(decide-before-coding prompts plus evidence-to-produce), and `config/build-commands.json` holds the
+metadata for the two build command skills. `src/fullstack-forge/` is the canonical Agent Skill. The
+generator renders `src/fullstack-forge/commands/forge-*/SKILL.md` and
+`src/fullstack-forge/references/build/<slug>.md`, then copies the master and command skills into
+each verified platform root.
 
 ```mermaid
 flowchart TD
   C["config/modules.json"] --> G["generate-modules.mjs"]
   R["config/module-criteria.json"] --> G
   G --> K["Canonical command SKILL.md files"]
+  CB["config/build-commands.json"] --> GB["generate-build.mjs"]
+  BG["config/build-guidance.json"] --> GB
+  GB --> KB["forge-new / forge-feature SKILL.md"]
+  GB --> RB["references/build/&lt;slug&gt;.md briefs"]
   M["Canonical master + references + schemas"] --> S["sync-platform-assets.mjs"]
   K --> S
+  KB --> S
+  RB --> S
   S --> A[".agents/skills"]
   S --> CL[".claude/skills"]
   S --> CU[".cursor/skills"]
@@ -28,6 +37,14 @@ Generated roots carry `.fullstack-forge-generated.json`, which records every own
 hash. Synchronization may update an unchanged owned file, but refuses an unowned collision or a
 manual edit. Consumer installation uses a separate `.fullstack-forge/install-manifest.json` with the
 same principle.
+
+`generate-build.mjs` is a separate generator from `generate-modules.mjs`'s audit-module contract; it
+is wired into `npm run generate` alongside it. It validates `config/build-commands.json` against the
+authoritative `expectedBuildCommands` set (`forge-new`, `forge-feature`) and
+`config/build-guidance.json` against `expectedSlugs` (every brief slug must be a real audit-module
+slug; no unknown slug is accepted), then renders each command skill and each ≤60-line discipline
+brief. A dedicated test enforces exact slug-set equality between the guidance map and the 42 audit
+modules, so audit modules and build briefs cannot silently drift apart.
 
 ## CLI layers
 
@@ -54,7 +71,18 @@ flowchart TD
 - `report.ts` deduplicates, ranks, and renders JSON/Markdown evidence.
 - `installer.ts` performs path-contained, symlink-refusing, manifest-owned copies and removals.
 - `tools.ts` exposes the executable tool catalog.
-- `cli.ts` parses commands, selects modules, gates subprocesses, and orchestrates reports.
+- `build.ts` implements the `new` / `feature` / `resume` verbs: argument parsing, phase transitions,
+  scope resolution and criteria derivation for `check` (reusing `analyzers.ts`, `discovery.ts`,
+  `scope.ts`, and `offline-policy.ts` rather than a second execution path), repair-counter
+  advancement, and the `done` missing-items computation.
+- `build-state.ts` defines the `.forge/build/project.json` and `.forge/build/features/<slug>.json`
+  shapes, validates them fail-closed on every load (mirroring `readReport`), sanitizes
+  agent-authored free text through the redaction layer before persisting, and re-verifies per-file
+  evidence hashes on load, demoting anything stale to `NOT_VERIFIED`.
+- `src/fullstack-forge/schemas/build-project.schema.json` and `build-feature.schema.json` are the
+  published schemas for the same two state shapes.
+- `cli.ts` parses commands, selects modules, gates subprocesses, orchestrates reports, and
+  dispatches build verbs (`new`, `feature`, `resume`) to `build.ts` before any module-slug parsing.
 
 The runtime uses Node.js built-ins plus the bundled TypeScript compiler API for supported AST
 analysis. Development dependencies provide formatting and linting; release consumers receive the

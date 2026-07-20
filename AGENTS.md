@@ -1,5 +1,8 @@
 # Contributor instructions
 
+Codex and other `.agents/skills` consumers: the installed Fullstack Forge skills live under
+`.agents/skills/`; invoke them as `$fullstack-forge` or `$forge-<section>`.
+
 Fullstack Forge uses `src/fullstack-forge/` as the only canonical skill source. Never hand-edit
 generated platform copies under `.agents/`, `.claude/`, `.cursor/`, `.gemini/`, `.github/skills/`,
 or `.windsurf/`; run `npm run generate` and commit canonical plus generated changes together.

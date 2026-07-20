@@ -1,6 +1,8 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { expectedSlugs, platformTargets, projectRoot } from "./project.mjs";
+import { buildRequiredHeadings } from "./lib/build-generator.mjs";
+import { collectSkillErrors } from "./lib/skill-validation.mjs";
+import { expectedBuildCommands, expectedSlugs, platformTargets, projectRoot } from "./project.mjs";
 
 const errors = [];
 const requiredHeadings = [
@@ -67,6 +69,15 @@ for (const slug of expectedSlugs) {
     criteria
   );
 }
+for (const name of expectedBuildCommands) {
+  await validateSkill(
+    join(projectRoot, "src", "fullstack-forge", "commands", name, "SKILL.md"),
+    name,
+    true,
+    [],
+    buildRequiredHeadings
+  );
+}
 for (const path of [
   "skill.json",
   "src/fullstack-forge/schemas/finding.schema.json",
@@ -101,7 +112,11 @@ for (const platform of platformTargets) {
     )
     .map((entry) => entry.name)
     .sort();
-  const expected = ["fullstack-forge", ...expectedSlugs.map((slug) => `forge-${slug}`)].sort();
+  const expected = [
+    "fullstack-forge",
+    ...expectedSlugs.map((slug) => `forge-${slug}`),
+    ...expectedBuildCommands
+  ].sort();
   if (JSON.stringify(skills) !== JSON.stringify(expected))
     errors.push(`${platform.id}: generated skill directory set is incomplete or has extras`);
 }
@@ -140,11 +155,17 @@ if (errors.length > 0) {
   process.exitCode = 1;
 } else {
   console.log(
-    `Validated 43 canonical skills, 6 generated platform roots, schemas, and interface metadata.`
+    `Validated 45 canonical skills, 6 generated platform roots, schemas, and interface metadata.`
   );
 }
 
-async function validateSkill(path, expectedName, command, criteria = []) {
+async function validateSkill(
+  path,
+  expectedName,
+  command,
+  criteria = [],
+  headings = requiredHeadings
+) {
   let content;
   try {
     content = await readFile(path, "utf8");
@@ -152,47 +173,5 @@ async function validateSkill(path, expectedName, command, criteria = []) {
     errors.push(`${path}: missing (${error.message})`);
     return;
   }
-  const lines = content.split(/\r?\n/u);
-  if (lines.length > 500)
-    errors.push(`${path}: ${lines.length} lines exceeds the 500-line guidance`);
-  const frontmatter = parseSkillFrontmatter(content);
-  if (frontmatter === null)
-    errors.push(`${path}: frontmatter must contain only ordered name and description fields`);
-  else {
-    if (frontmatter.name !== expectedName) errors.push(`${path}: expected name ${expectedName}`);
-    if (frontmatter.description.length === 0 || frontmatter.description.length > 1024)
-      errors.push(`${path}: description must be 1-1024 characters`);
-  }
-  if (/\[TODO\]|(?:^|\n)\s*(?:[-*]\s*)?TODO(?:\s*:|\s*$)/iu.test(content))
-    errors.push(`${path}: unresolved TODO placeholder`);
-  if (!content.includes("Never hide failed checks or claim that an operation ran when it did not."))
-    errors.push(`${path}: missing completion contract`);
-  if (command)
-    for (const heading of requiredHeadings)
-      if (!content.includes(heading)) errors.push(`${path}: missing ${heading}`);
-  if (command)
-    for (const criterion of criteria)
-      if (!content.includes(`- ${criterion}`))
-        errors.push(`${path}: missing inspection criterion ${criterion}`);
-}
-
-function parseSkillFrontmatter(content) {
-  const block = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/u.exec(content)?.[1];
-  if (block === undefined) return null;
-  const lines = block.split(/\r?\n/u);
-  const name = /^name:\s*(\S.*)$/u.exec(lines[0] ?? "")?.[1]?.trim();
-  const descriptionStart = /^description:\s*(.*)$/u.exec(lines[1] ?? "")?.[1] ?? null;
-  const continuation = lines.slice(2);
-  if (
-    name === undefined ||
-    descriptionStart === null ||
-    continuation.some((line) => line.length > 0 && !/^\s+/u.test(line))
-  )
-    return null;
-  const description = [descriptionStart, ...continuation.map((line) => line.trim())]
-    .filter(Boolean)
-    .join(" ")
-    .replace(/^(?:"([\s\S]*)"|'([\s\S]*)')$/u, "$1$2")
-    .trim();
-  return { name, description };
+  errors.push(...collectSkillErrors(path, content, { expectedName, command, criteria, headings }));
 }

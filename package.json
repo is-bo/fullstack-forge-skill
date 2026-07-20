@@ -1,6 +1,6 @@
 {
   "name": "fullstack-forge-skill",
-  "version": "0.1.10",
+  "version": "0.2.0",
   "description": "Evidence-driven production audits for full-stack applications and AI coding agents.",
   "type": "module",
   "license": "Apache-2.0",
@@ -69,7 +69,7 @@
     "check:workflows": "node scripts/check-workflows.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "generate": "node scripts/generate-modules.mjs && node scripts/sync-platform-assets.mjs",
+    "generate": "node scripts/generate-modules.mjs && node scripts/generate-build.mjs && node scripts/sync-platform-assets.mjs",
     "lint": "eslint .",
     "package:platforms": "npm run build && node scripts/package-platforms.mjs && node scripts/validate-dist.mjs",
     "scan:secrets": "node scripts/secret-scan.mjs",

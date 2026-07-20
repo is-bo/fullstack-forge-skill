@@ -2,6 +2,7 @@ import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import {
+  BUILD_VERBS,
   MODULE_SLUGS,
   PACKAGE_ROOT,
   PLATFORM_ALIASES,
@@ -10,6 +11,7 @@ import {
   VERSION,
   type ModuleSlug
 } from "./constants.js";
+import { runBuild } from "./build.js";
 import {
   ReportAuditLedger,
   orchestrateAudit,
@@ -88,6 +90,10 @@ const ADAPTER_MODULES = new Set<ModuleSlug>([
 ]);
 
 export async function runCli(argv: string[]): Promise<number> {
+  // Build-mode verbs are dispatched before any audit argument parsing so that build's distinct flag
+  // surface never has to widen the audit option type, and every existing audit command is untouched.
+  if (argv[0] !== undefined && (BUILD_VERBS as readonly string[]).includes(argv[0]))
+    return runBuild(argv);
   const parsed = parseArguments(argv);
   const [command, ...positionals] = parsed.positionals;
   const options = parsed.options;
@@ -119,6 +125,11 @@ export async function runCli(argv: string[]): Promise<number> {
       dryRun: options.dryRun
     });
     printValue({ operation: command, selector, dry_run: options.dryRun, actions }, options.json);
+    if (!options.json)
+      console.log(
+        "Build mode (new in 0.2.0): start work with `forge new` or `forge feature <slug>`. " +
+          "See docs/BUILD_MODE.md in the repository."
+      );
     return 0;
   }
   if (command === "uninstall") {
@@ -762,6 +773,17 @@ function printHelp(): void {
   console.log(`Fullstack Forge ${VERSION}
 
 Usage:
+  Build mode (v0.2.0):
+  forge new [--tier light|standard|high] [--summary <text>] [--stack <name>] [--non-goal <item:reason>]
+  forge feature <slug> [--tier <tier>] [--summary <text>] [--discipline <slug[:reason]>] [--input <trigger>]
+  forge feature <slug> <frame|plan|check|done|accept-risk|abandon|status> [options]
+  forge resume
+  Light tier is a two-invocation flow: 'forge feature <slug> --tier light --allow-run' runs framing
+  and the check pass in one shot; 'forge feature <slug> done' completes it. Standard and high tiers
+  add 'plan' and per-discipline evidence; accept-risk requires --criterion and --reason and is
+  refused for high-tier required security controls.
+
+  Audit mode:
   forge <section> <audit|fix|verify|report> [options]
   forge all audit [--scope full|changed] [--base origin/main] [--risk high]
   forge all audit --allow-run [--check lint --check test] [--skip-check build]
