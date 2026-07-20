@@ -7,7 +7,7 @@ import { PACKAGE_ROOT } from "./constants.js";
 import { decideRequest, isLoopbackHost, websocketGuardScript } from "./net-policy.js";
 import { redactError, redactToString, redactUrl } from "./redaction.js";
 import type { CliOptions, Finding } from "./types.js";
-import { assertNoSymlinkPath, isInside, sha256, toPosix, utcNow } from "./utils.js";
+import { assertNoSymlinkPath, isInside, resolveInside, sha256, toPosix, utcNow } from "./utils.js";
 
 const VIEWPORTS = [
   { name: "desktop", width: 1280, height: 800 },
@@ -418,14 +418,24 @@ export async function inspectRenderedUi(
 
   const runId = `${utcNow().replace(/[:.]/gu, "-")}-${randomUUID().slice(0, 8)}`;
   const routeId = routeIdentity(parsed);
-  const relativeEvidenceDir = join(
-    ".forge",
-    "evidence",
-    "ui",
-    revisionSlug(revision),
-    runId,
-    routeId
-  );
+  // `--evidence-dir` relocates the run-scoped evidence tree but never escapes the audited root:
+  // `resolveInside` rejects absolute, drive-qualified, UNC, and `..` forms outright. The default is
+  // unchanged, so existing evidence layouts and consumers keep working.
+  let evidenceBase: string;
+  if (options.evidenceDir === undefined) {
+    evidenceBase = join(".forge", "evidence", "ui");
+  } else {
+    try {
+      resolveInside(root, options.evidenceDir);
+    } catch (error) {
+      return blocked(
+        offline,
+        `Unsafe --evidence-dir '${options.evidenceDir}': ${redactError(error)}`
+      );
+    }
+    evidenceBase = options.evidenceDir;
+  }
+  const relativeEvidenceDir = join(evidenceBase, revisionSlug(revision), runId, routeId);
   const plannedArtifacts = [
     ...VIEWPORTS.map((viewport) =>
       toPosix(

@@ -171,6 +171,14 @@ export type CliOptions = {
   severity?: string;
   platform?: string;
   output?: string;
+  /** `--url`: address of an already-running application to collect runtime evidence from. */
+  url?: string;
+  /** `--evidence-dir`: repository-relative directory for collected runtime evidence. */
+  evidenceDir?: string;
+  /** `--check`: repeatable planned-check selector. Empty means "every applicable check". */
+  checks?: string[];
+  /** `--skip-check`: repeatable planned-check exclusion. */
+  skipChecks?: string[];
 };
 
 export const GATE_EVIDENCE_TYPES = [
