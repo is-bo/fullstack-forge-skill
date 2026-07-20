@@ -177,7 +177,11 @@
       ],
       "tests": ["cli/tests/discovery.test.ts", "cli/tests/discovery-evidence.test.ts"],
       "documentation": ["docs/ARCHITECTURE.md", "docs/COMMANDS.md"],
-      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.1.6.md"],
+      "release_verification": [
+        "docs/AUDIT_CLASSIFICATION_v0.1.6.md",
+        "docs/AUDIT_CLASSIFICATION_v0.1.10.md",
+        "docs/RELEASE_VERIFICATION_v0.1.10.md"
+      ],
       "status": "COMPLIANT",
       "limitations": [
         "Runtime topology and middleware-inherited route visibility remain unproven by static discovery and are reported as unknown rather than assumed."

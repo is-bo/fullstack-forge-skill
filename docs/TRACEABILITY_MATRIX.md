@@ -124,7 +124,7 @@ Discovery profiles the audited project — languages, frameworks, workspaces, ap
 - **Implementation**: `cli/src/discovery.ts`, `cli/src/discovery-evidence.ts`, `src/fullstack-forge/schemas/project-profile.schema.json`
 - **Tests**: `cli/tests/discovery.test.ts`, `cli/tests/discovery-evidence.test.ts`
 - **Documentation**: `docs/ARCHITECTURE.md`, `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`, `docs/AUDIT_CLASSIFICATION_v0.1.10.md`, `docs/RELEASE_VERIFICATION_v0.1.10.md`
 - **Pending integration**: _none_
 - **Limitations**: Runtime topology and middleware-inherited route visibility remain unproven by static discovery and are reported as unknown rather than assumed.
 

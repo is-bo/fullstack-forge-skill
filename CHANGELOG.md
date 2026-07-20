@@ -5,6 +5,12 @@ versioning.
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-07-20
+
+Discovery evidence classification and specification traceability milestone. Discovery now records
+what kind of evidence each signal is, so weak signals stop activating production capabilities, and
+every authoritative requirement carries published, machine-checked traceability evidence.
+
 ### Added
 
 - Discovery now classifies every signal it observes. Each detection records an evidence class
@@ -25,6 +31,28 @@ versioning.
   missing repository paths, unevidenced `COMPLIANT` entries, unexplained `NON_COMPLIANT` entries,
   and `NOT_VERIFIED` entries that do not distinguish an external limit from unfinished local work.
   See [docs/TRACEABILITY.md](docs/TRACEABILITY.md).
+
+### Changed
+
+- Module applicability now prefers a capability assessment over the legacy capability presence map.
+  `capabilityStatusFor` projects a `CapabilityAssessment` onto the v0.1.8 module-decision capability
+  axis, and `decisionFindingStatus` remains the canonical mapping to `NOT_APPLICABLE` and
+  `NOT_VERIFIED`. The projection never strengthens a claim: `UNKNOWN` stays `UNKNOWN` and is never
+  reported as a proven absence. Across a monorepo, `PRESENT` in any workspace wins, `ABSENT`
+  requires every workspace to prove absence, and anything else is `UNKNOWN`.
+- The evidence layer models sixteen capabilities while module decisions are gated on twenty-four. A
+  capability the layer does not model produces no assessment, and that silence is not read as
+  evidence; those capabilities continue to use the legacy presence map rather than being reported
+  `UNKNOWN` forever.
+
+### Fixed
+
+- The specification traceability matrix no longer carries integration placeholders. All four
+  placeholder entries are replaced with the exact merged files, tests, documentation, and release
+  evidence, and `integration_placeholders` is now empty. Two attributions were wrong and were
+  corrected: the static security analyzer (`FF-MOD-15`) belongs to v0.1.7, not v0.1.9, and the
+  repository-wide orchestrator (`FF-ORCH-01`) belongs to v0.1.8 and v0.1.9, not v0.1.7. Every
+  remaining attribution was re-checked against the commit that introduced each referenced file.
 
 ## [0.1.9] - 2026-07-20
 
