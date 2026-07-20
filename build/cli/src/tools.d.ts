@@ -4,6 +4,13 @@ export type ToolResponse = {
     exitCode: number;
 };
 export declare function runTool(nameInput: string, args: string[], options: CliOptions): Promise<ToolResponse>;
+/**
+ * True only when the audited root really is the Fullstack Forge package root.
+ *
+ * Both paths are canonicalized before comparison, so a project cannot claim the Forge-internal
+ * exemption by naming a directory or a script the same way.
+ */
+export declare function isForgePackageRoot(root: string): Promise<boolean>;
 export declare function validateBundledSkills(): Promise<{
     valid: boolean;
     skills: number;

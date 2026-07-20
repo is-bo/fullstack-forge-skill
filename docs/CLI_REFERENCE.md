@@ -88,7 +88,28 @@ closed.
   installation or a registry lookup;
 - reports every network-dependent check as `BLOCKED`, and the criteria it would have covered as
   `NOT_VERIFIED` — never as `PASS`;
-- records `offline: true` in the report environment ledger and in rendered-evidence manifests.
+- records `offline: true` in the report environment ledger and in rendered-evidence manifests;
+- refuses to execute audited-project scripts whose network behavior is `UNKNOWN`, in
+  `forge tool run-project-command` and in every `forge ship` gate alike.
+
+### Offline command policy
+
+Fullstack Forge implements no operating-system network isolation. There is no namespace, seccomp,
+firewall, or container boundary in this tool, so it never claims a script was "sandboxed" and never
+claims an arbitrary project script is offline-safe. Under `--offline` each detected command is
+classified from its **definition**, never its name:
+
+| Policy                        | Meaning                                                                                                                                        | Offline   |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `UNKNOWN`                     | Any arbitrary audited-project script.                                                                                                          | Blocked   |
+| `forge-internal-offline-safe` | A Fullstack Forge repository script matched by exact definition, only when the audited root is canonically the Forge package root.             | Permitted |
+| `cache-only-installation`     | An installation check combining an offline package-manager flag with an unreachable registry, so a remaining network requirement fails loudly. | Permitted |
+
+Every command produces a ledger record — `RAN`, `BLOCKED`, or `NOT_RUN` — with the reason, the
+policy, and `sandbox: none`. A blocked command yields no execution record and no typed gate
+evidence, so `forge ship --offline --allow-run` reports `BLOCKED` (exit code 2) rather than passing
+a gate it never executed. Re-run without `--offline` to execute such a command, and record that the
+result was obtained with network access.
 
 Offline mode remains fully compatible with static analysis, local report generation, local
 verification, installation from bundled assets, and loopback UI inspection when a trusted browser

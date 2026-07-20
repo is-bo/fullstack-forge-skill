@@ -10,7 +10,7 @@ import { inspectSection, isModuleSlug } from "./inspectors.js";
 import { captureEnvironment, createReport, readReport, renderMarkdown, writeReport } from "./report.js";
 import { analyzeChangedScope } from "./scope.js";
 import { coverageForProfile } from "./support.js";
-import { runTool } from "./tools.js";
+import { isForgePackageRoot, runTool } from "./tools.js";
 import { canonicalDirectory, workingTreeRevision } from "./utils.js";
 import { verifyFindings } from "./verification.js";
 const MODES = new Set(["audit", "fix", "verify", "report"]);
@@ -224,8 +224,12 @@ async function ship(options) {
         if (error.code !== "ENOENT")
             throw error;
     }
-    const gateResult = await runShipGates(root, profile, previous, commands, options.allowRun);
+    const gateResult = await runShipGates(root, profile, previous, commands, options.allowRun, {
+        offline: options.offline,
+        forgeOwned: await isForgePackageRoot(root)
+    });
     const status = gateResult.status;
+    const blockedByPolicy = gateResult.command_ledger.filter((record) => record.disposition === "BLOCKED");
     const finding = {
         id: "FF-SHIP-001",
         section: "ship",
@@ -239,7 +243,8 @@ async function ship(options) {
         status,
         location: [{ path: "package.json" }],
         evidence: [
-            ...gateResult.gates.map((gate) => `${gate.gate_id} ${gate.status}: ${gate.evidence.join("; ")}`)
+            ...gateResult.gates.map((gate) => `${gate.gate_id} ${gate.status}: ${gate.evidence.join("; ")}`),
+            ...gateResult.command_ledger.map((record) => `command-ledger ${record.name} ${record.disposition} (policy=${record.network_policy}, offline=${record.offline}, sandbox=${record.sandbox}): ${record.reason}`)
         ],
         impact: status === "PASS"
             ? "The recorded local gates and prior audit support release readiness for this checkout."
@@ -256,7 +261,12 @@ async function ship(options) {
     };
     const report = createReport(root, profile, [...(previous?.findings.filter((candidate) => candidate.section !== "ship") ?? []), finding], "ship", gateResult.execution, previous?.assumptions ?? [], [
         ...(previous?.residual_risk ?? []),
-        "Remote CI, registry, GitHub release, deployment, and production state require separate direct evidence."
+        "Remote CI, registry, GitHub release, deployment, and production state require separate direct evidence.",
+        ...(blockedByPolicy.length === 0
+            ? []
+            : [
+                `Offline mode blocked ${blockedByPolicy.length} project command(s) with UNKNOWN network policy (${blockedByPolicy.map((record) => record.name).join(", ")}). Fullstack Forge implements no operating-system network isolation, so those gates remain unproven rather than passed.`
+            ])
     ], previous?.scope_evidence, [...(previous?.gate_evidence ?? []), ...gateResult.evidence], previous?.analyzer_coverage ?? [], revision, captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION }));
     if (!options.dryRun)
         await writeReport(report);
