@@ -99,16 +99,11 @@ test("the real config/build-guidance.json validates cleanly for the entries it h
   assert.doesNotThrow(() => validateGuidanceMap(guidance, expectedSlugs));
 });
 
-test("build-guidance coverage: TODO(WS-B2) — 39 of 42 briefs are still pending", async () => {
-  // This test is EXPECTED TO FAIL until WS-B2 finishes authoring the remaining briefs. It exists so
-  // partial coverage fails CI by default (per design-final.md section 6/9) instead of silently
-  // shipping an incomplete config/build-guidance.json. WS-B1 authored exactly 3 exemplar entries:
-  // authorization, cache, ui. WS-B2 must add hand-authored briefs for the remaining 39 slugs below,
-  // then this test starts passing on its own (no code change required):
-  //   discover, requirements, architecture, code, ux, accessibility, i18n, seo, frontend, api, jobs,
-  //   integrations, auth, security, privacy, tenancy, uploads, database, queries, storage, testing,
-  //   performance, scale, observability, reliability, recovery, deployment, infrastructure,
-  //   supply-chain, cost, docs, analytics, notifications, ai, payments, realtime, offline, all, ship
+test("build-guidance coverage: all 42 briefs are present", async () => {
+  // WS-B2 authored hand-written briefs for the 39 slugs beyond WS-B1's 3 exemplars (authorization,
+  // cache, ui), completing full coverage. This test fails CI by default whenever
+  // config/build-guidance.json regresses to partial coverage (per design-final.md section 6/9)
+  // instead of silently shipping an incomplete file.
   const guidance = JSON.parse(
     await readFile(join(projectRoot, "config", "build-guidance.json"), "utf8")
   );
