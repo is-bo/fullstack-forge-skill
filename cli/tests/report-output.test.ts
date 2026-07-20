@@ -6,6 +6,7 @@ import { createReport, type AuditReport } from "../src/report.js";
 import { planReportOutput, writeReportOutput } from "../src/report-output.js";
 import type { Finding, ProjectProfile } from "../src/types.js";
 import { withTemporaryProject } from "./helpers.js";
+import { REPORT_SCHEMA_VERSION } from "../src/report.js";
 
 function profile(root: string): ProjectProfile {
   return {
@@ -81,7 +82,7 @@ test("report output writes report.json and report.md into the selected directory
     const json = JSON.parse(
       await readFile(join(root, "out", "report.json"), "utf8")
     ) as AuditReport;
-    assert.equal(json.schema_version, 1);
+    assert.equal(json.schema_version, REPORT_SCHEMA_VERSION);
     assert.equal(json.findings[0]?.id, "FF-SECURITY-900");
     const markdown = await readFile(join(root, "out", "report.md"), "utf8");
     assert.ok(markdown.startsWith("# Fullstack Forge report"));

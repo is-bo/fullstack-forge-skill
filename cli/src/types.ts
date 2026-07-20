@@ -213,6 +213,98 @@ export type GateEvidence = {
   limitations: string[];
 };
 
+/**
+ * Module applicability is deliberately expressed as two independent axes.
+ *
+ * `capability_status` answers "does this capability exist in the project at all?" and is the ONLY
+ * axis that may justify NOT_APPLICABLE. `selection_status` answers "did this run audit it?" and
+ * never proves absence: a module skipped because its files did not change, or because a risk
+ * filter narrowed the run, is unaudited — not inapplicable.
+ */
+export const MODULE_CAPABILITY_STATUSES = ["PRESENT", "ABSENT", "UNKNOWN"] as const;
+export type ModuleCapabilityStatus = (typeof MODULE_CAPABILITY_STATUSES)[number];
+
+export const MODULE_SELECTION_STATUSES = [
+  "SELECTED",
+  "OUT_OF_CHANGED_SCOPE",
+  "EXCLUDED_BY_RISK",
+  "NOT_REQUESTED"
+] as const;
+export type ModuleSelectionStatus = (typeof MODULE_SELECTION_STATUSES)[number];
+
+export type ModuleDecision = {
+  module: string;
+  capability_status: ModuleCapabilityStatus;
+  selection_status: ModuleSelectionStatus;
+  reasons: string[];
+  evidence: string[];
+  /** True only when an operator named this module directly rather than through `all`. */
+  explicitly_selected?: boolean;
+};
+
+export const PLANNED_CHECK_STATUSES = ["RUN", "NOT_RUN", "BLOCKED", "NOT_APPLICABLE"] as const;
+export type PlannedCheckStatus = (typeof PLANNED_CHECK_STATUSES)[number];
+
+export const NETWORK_POLICIES = ["OFFLINE_SAFE", "NETWORK_REQUIRED", "UNKNOWN"] as const;
+export type NetworkPolicy = (typeof NETWORK_POLICIES)[number];
+
+/**
+ * A check that the audit intended to perform. Planning is recorded before execution so that a
+ * check which never ran is visible as a gap instead of silently missing from the report.
+ */
+export type PlannedCheck = {
+  check_id: string;
+  module: string;
+  command?: string[];
+  source: string;
+  status: PlannedCheckStatus;
+  reason?: string;
+  requires_authorization: boolean;
+  network_policy: NetworkPolicy;
+};
+
+export const RUNTIME_EVIDENCE_STATUSES = ["PASS", "FAIL", "BLOCKED", "NOT_VERIFIED"] as const;
+export type RuntimeEvidenceStatus = (typeof RUNTIME_EVIDENCE_STATUSES)[number];
+
+/**
+ * Evidence produced by observing the running system. `limitations` is mandatory for any
+ * non-PASS status so that partial captures can never be read as a clean result.
+ */
+export type RuntimeEvidence = {
+  evidence_id: string;
+  evidence_type: string;
+  status: RuntimeEvidenceStatus;
+  revision: string;
+  artifact_paths: string[];
+  hashes: string[];
+  limitations: string[];
+};
+
+export const TOOL_OWNERSHIPS = ["forge-owned", "project-owned", "external"] as const;
+export type ToolOwnership = (typeof TOOL_OWNERSHIPS)[number];
+
+export const TOOL_TRUST_LEVELS = ["trusted", "untrusted", "unknown"] as const;
+export type ToolTrustLevel = (typeof TOOL_TRUST_LEVELS)[number];
+
+export const TOOL_VERSION_SOURCES = ["observed", "declared", "unknown"] as const;
+export type ToolVersionSource = (typeof TOOL_VERSION_SOURCES)[number];
+
+/**
+ * Provenance of a tool whose output the report relies on. An unknown version is recorded as
+ * `version_source: "unknown"` rather than guessed, because an unverifiable version cannot support
+ * a claim about what the tool checked.
+ */
+export type ToolRecord = {
+  tool_id: string;
+  name: string;
+  ownership: ToolOwnership;
+  trust: ToolTrustLevel;
+  version: string;
+  version_source: ToolVersionSource;
+  invocation?: string[];
+  limitations: string[];
+};
+
 export type AnalyzerCoverage = {
   status: "PASS" | "NOT_VERIFIED";
   module: string;

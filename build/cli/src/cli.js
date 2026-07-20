@@ -1,8 +1,8 @@
 import { access } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { ALWAYS_APPLICABLE, MODULE_SLUGS, PACKAGE_ROOT, PLATFORM_ALIASES, PLATFORM_CONFIG, TOOL_NAMES, VERSION } from "./constants.js";
-import { DefaultAuditLedger, orchestrateAudit } from "./audit-orchestration.js";
+import { MODULE_SLUGS, PACKAGE_ROOT, PLATFORM_ALIASES, PLATFORM_CONFIG, TOOL_NAMES, VERSION } from "./constants.js";
+import { ReportAuditLedger, orchestrateAudit } from "./audit-orchestration.js";
 import { detectProjectCommands, discoverProject, writeProjectArtifacts } from "./discovery.js";
 import { inspectRenderedUi } from "./rendered-ui.js";
 import { writeReportOutput } from "./report-output.js";
@@ -11,9 +11,9 @@ import { runShipGates } from "./gates.js";
 import { install, readInstallManifest, uninstall } from "./installer.js";
 import { inspectSection, isModuleSlug } from "./inspectors.js";
 import { captureEnvironment, createReport, readReport, renderMarkdown, writeReport } from "./report.js";
-import { analyzeChangedScope } from "./scope.js";
+import { analyzeChangedScope, decideModules, decisionFindingStatus } from "./scope.js";
 import { coverageForProfile } from "./support.js";
-import { runTool } from "./tools.js";
+import { isForgePackageRoot, runTool } from "./tools.js";
 import { canonicalDirectory, workingTreeRevision } from "./utils.js";
 import { verifyFindings } from "./verification.js";
 const MODES = new Set(["audit", "fix", "verify", "report"]);
@@ -152,18 +152,26 @@ async function runModule(section, mode, options) {
     if (mode === "verify") {
         return verifySection(section, root, profile, options);
     }
-    const selection = selectSections(section, profile, options);
-    let selected = selection.selected;
     let changedScope;
-    if (section === "all" && options.scope === "changed") {
+    if (section === "all" && options.scope === "changed")
         changedScope = await analyzeChangedScope(root, profile, options.base);
-        selected = selected.filter((slug) => changedScope?.modules.has(slug));
-    }
+    const decisions = decideModules({
+        candidates: candidateSections(section),
+        profile,
+        explicit: section !== "all",
+        ...(section === "all" && options.risk === "high"
+            ? { riskAllowed: HIGH_RISK_MODULES, riskLabel: "high" }
+            : {}),
+        ...(changedScope === undefined ? {} : { changedModules: changedScope.modules })
+    });
+    let selected = decisions
+        .filter((decision) => decision.selection_status === "SELECTED")
+        .map((decision) => decision.module);
     if (!options.dryRun)
         await writeProjectArtifacts(profile);
     // Orchestration decides what this audit is authorized to do before any of it happens, so the
     // planned-check ledger is produced even when nothing turns out to be executable.
-    const ledger = new DefaultAuditLedger();
+    const ledger = new ReportAuditLedger(revision);
     const orchestration = await orchestrateAudit({
         root,
         modules: selected,
@@ -171,6 +179,7 @@ async function runModule(section, mode, options) {
         allowRun: options.allowRun,
         offline: options.offline,
         dryRun: options.dryRun,
+        forgeOwned: await isForgePackageRoot(root),
         ledger,
         collectRuntimeEvidence: (input) => collectRenderedEvidence(input, options, revision),
         ...(options.url === undefined ? {} : { url: options.url }),
@@ -207,16 +216,15 @@ async function runModule(section, mode, options) {
         ];
     });
     if (section === "all") {
-        const notApplicable = selection.sections
-            .filter((slug) => !selected.includes(slug))
-            .map((slug) => applicabilityFinding(slug, profile));
-        findings.push(...notApplicable);
+        findings.push(...decisions
+            .filter((decision) => decision.selection_status !== "SELECTED")
+            .map(moduleDecisionFinding));
     }
     findings.push(...ledger.findings());
     const report = createReport(root, profile, findings, options.scope ?? (section === "all" ? "applicable" : section), orchestration.execution, [], [
         "Static inspection does not verify running application, production, provider, database, browser, or operator controls.",
         ...ledger.residualRisk()
-    ], changedScope?.evidence, results.flatMap((result) => result.gate_evidence), results.flatMap((result) => result.analyzer_coverage), revision, captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION }));
+    ], changedScope?.evidence, results.flatMap((result) => result.gate_evidence), results.flatMap((result) => result.analyzer_coverage), revision, captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION }), { module_decisions: decisions, ...ledger.ledgers() });
     const paths = options.dryRun ? [] : await writeReport(report);
     printValue(options.json
         ? {
@@ -317,8 +325,12 @@ async function ship(options) {
         if (error.code !== "ENOENT")
             throw error;
     }
-    const gateResult = await runShipGates(root, profile, previous, commands, options.allowRun);
+    const gateResult = await runShipGates(root, profile, previous, commands, options.allowRun, {
+        offline: options.offline,
+        forgeOwned: await isForgePackageRoot(root)
+    });
     const status = gateResult.status;
+    const blockedByPolicy = gateResult.command_ledger.filter((record) => record.disposition === "BLOCKED");
     const finding = {
         id: "FF-SHIP-001",
         section: "ship",
@@ -332,7 +344,8 @@ async function ship(options) {
         status,
         location: [{ path: "package.json" }],
         evidence: [
-            ...gateResult.gates.map((gate) => `${gate.gate_id} ${gate.status}: ${gate.evidence.join("; ")}`)
+            ...gateResult.gates.map((gate) => `${gate.gate_id} ${gate.status}: ${gate.evidence.join("; ")}`),
+            ...gateResult.command_ledger.map((record) => `command-ledger ${record.name} ${record.disposition} (policy=${record.network_policy}, offline=${record.offline}, sandbox=${record.sandbox}): ${record.reason}`)
         ],
         impact: status === "PASS"
             ? "The recorded local gates and prior audit support release readiness for this checkout."
@@ -349,21 +362,29 @@ async function ship(options) {
     };
     const report = createReport(root, profile, [...(previous?.findings.filter((candidate) => candidate.section !== "ship") ?? []), finding], "ship", gateResult.execution, previous?.assumptions ?? [], [
         ...(previous?.residual_risk ?? []),
-        "Remote CI, registry, GitHub release, deployment, and production state require separate direct evidence."
+        "Remote CI, registry, GitHub release, deployment, and production state require separate direct evidence.",
+        ...(blockedByPolicy.length === 0
+            ? []
+            : [
+                `Offline mode blocked ${blockedByPolicy.length} project command(s) with UNKNOWN network policy (${blockedByPolicy.map((record) => record.name).join(", ")}). Fullstack Forge implements no operating-system network isolation, so those gates remain unproven rather than passed.`
+            ])
     ], previous?.scope_evidence, [...(previous?.gate_evidence ?? []), ...gateResult.evidence], previous?.analyzer_coverage ?? [], revision, captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION }));
     if (!options.dryRun)
         await writeReport(report);
     printValue(options.json ? report : renderMarkdown(report), options.json);
     return status === "FAIL" ? 1 : status === "BLOCKED" ? 2 : 0;
 }
-function selectSections(section, profile, options) {
-    let sections = section === "all"
+/**
+ * The full candidate set a run considers, before any capability, risk, or changed-scope filter.
+ *
+ * Filters are never applied here: every candidate must reach `decideModules` so that a module
+ * dropped by a filter still produces a decision recording why. Previously, risk-filtered modules
+ * vanished from the report entirely, which left no trace that they had gone unaudited.
+ */
+function candidateSections(section) {
+    return section === "all"
         ? MODULE_SLUGS.filter((slug) => !["discover", "all", "ship"].includes(slug))
         : [section];
-    if (section === "all" && options.risk === "high")
-        sections = sections.filter((slug) => HIGH_RISK_MODULES.has(slug));
-    const selected = sections.filter((slug) => ALWAYS_APPLICABLE.has(slug) || section !== "all" || shouldApply(slug, profile));
-    return { sections, selected };
 }
 async function doctor(options) {
     const root = await canonicalDirectory(options.cwd);
@@ -400,50 +421,6 @@ async function doctor(options) {
     printValue({ root, package_root: PACKAGE_ROOT, checks }, options.json);
     return checks.some((check) => check.status === "FAIL") ? 1 : 0;
 }
-function shouldApply(section, profile) {
-    const result = inspectCapability(section, profile);
-    return result !== undefined;
-}
-function inspectCapability(section, profile) {
-    const map = {
-        ui: "frontend",
-        ux: "frontend",
-        accessibility: "frontend",
-        i18n: "internationalization",
-        seo: "public-web",
-        frontend: "frontend",
-        api: "api",
-        jobs: "jobs",
-        integrations: "integrations",
-        auth: "authentication",
-        authorization: "authorization",
-        privacy: "personal-data",
-        tenancy: "tenancy",
-        uploads: "uploads",
-        database: "database",
-        queries: "database",
-        cache: "cache",
-        storage: "storage",
-        performance: "runtime",
-        scale: "runtime",
-        observability: "observability",
-        reliability: "runtime",
-        recovery: "database",
-        deployment: "deployment",
-        infrastructure: "infrastructure",
-        cost: "paid-services",
-        analytics: "analytics",
-        notifications: "notifications",
-        ai: "ai",
-        payments: "payments",
-        realtime: "realtime",
-        offline: "offline"
-    };
-    const capability = map[section];
-    return capability === undefined || profile.capabilities[capability] !== undefined
-        ? (capability ?? "always")
-        : undefined;
-}
 function coverageFinding(section, observations, detail) {
     return {
         id: `FF-${section.toUpperCase()}-900`,
@@ -461,16 +438,41 @@ function coverageFinding(section, observations, detail) {
         standards: ["Fullstack Forge evidence protocol"]
     };
 }
-function applicabilityFinding(section, profile) {
+/**
+ * Turns an unselected module decision into a finding.
+ *
+ * NOT_APPLICABLE is emitted only when the capability was proven absent. A module skipped because
+ * its files did not change, because a risk filter narrowed the run, or because discovery could
+ * not determine the capability is NOT_VERIFIED: the run produced no evidence about it, and
+ * labelling that as inapplicable would assert a fact nobody established.
+ */
+function moduleDecisionFinding(decision) {
+    const section = decision.module;
+    const status = decisionFindingStatus(decision);
+    const applicable = status === "NOT_APPLICABLE";
+    const base = coverageFinding(section, 0, decision.reasons.join(" "));
     return {
-        ...coverageFinding(section, 0, "Discovery found no applicable capability evidence."),
+        ...base,
         id: `FF-${section.toUpperCase()}-001`,
-        title: `${section} module is not applicable to detected scope`,
-        status: "NOT_APPLICABLE",
+        title: applicable
+            ? `${section} module is not applicable: the capability does not exist`
+            : `${section} module was not audited in this run`,
+        status: applicable ? "NOT_APPLICABLE" : "NOT_VERIFIED",
+        severity: applicable ? "INFO" : "LOW",
         evidence: [
-            `No matching capability was found among: ${Object.keys(profile.capabilities).sort().join(", ") || "none"}.`
+            `Capability status: ${decision.capability_status}. Selection status: ${decision.selection_status}.`,
+            ...decision.evidence,
+            ...decision.reasons
         ],
-        impact: "No audit impact within the detected repository scope."
+        impact: applicable
+            ? "No audit impact: the capability this module audits does not exist in the project."
+            : "The module exists or may exist but produced no evidence in this run, so its state is unknown.",
+        recommendation: applicable
+            ? `Re-run forge ${section} if the project later gains this capability.`
+            : `Re-run forge ${section} (or widen the scope or risk filter) to obtain evidence for this module.`,
+        verification: applicable
+            ? ["Confirm through discovery that the capability is still absent."]
+            : [`Run forge ${section} audit against the full scope and attach direct evidence.`]
     };
 }
 function summarize(results) {

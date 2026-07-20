@@ -4,6 +4,7 @@ import { MODULE_SLUGS, PACKAGE_ROOT, TOOL_NAMES } from "./constants.js";
 import { detectProjectCommands, discoverProject, writeProjectArtifacts } from "./discovery.js";
 import { assertFindings, validateFinding } from "./finding.js";
 import { inspectWithTool } from "./inspectors.js";
+import { decideCommandExecution, ledgerRecord } from "./offline-policy.js";
 import { inspectRenderedUi } from "./rendered-ui.js";
 import { createReport, writeReport } from "./report.js";
 import { canonicalDirectory, resolveInside, runFile, workingTreeRevision } from "./utils.js";
@@ -38,18 +39,41 @@ export async function runTool(nameInput, args, options) {
         const command = commands.find((candidate) => candidate.name === commandName);
         if (command === undefined)
             throw new Error(`'${commandName}' is not a detected project command`);
+        const context = { offline: options.offline, forgeOwned: await isForgePackageRoot(root) };
+        const decision = decideCommandExecution(command, context);
         if (!options.allowRun) {
             return {
                 value: {
                     status: "BLOCKED",
                     reason: "Execution requires explicit --allow-run after reviewing the local script definition.",
-                    command
+                    command,
+                    ledger: [ledgerRecord(command, decision, "NOT_RUN", options.offline)]
+                },
+                exitCode: 2
+            };
+        }
+        if (!decision.permitted) {
+            // A blocked command is never executed and never produces an execution record, so it can
+            // never be promoted into typed PASS evidence downstream.
+            return {
+                value: {
+                    status: "BLOCKED",
+                    reason: decision.reason,
+                    command,
+                    ledger: [ledgerRecord(command, decision, "BLOCKED", options.offline)]
                 },
                 exitCode: 2
             };
         }
         const execution = await runFile(command.executable, command.args, root);
-        return { value: { command, ...execution }, exitCode: execution.exitCode };
+        return {
+            value: {
+                command,
+                ...execution,
+                ledger: [ledgerRecord(command, decision, "RAN", options.offline, execution.exitCode)]
+            },
+            exitCode: execution.exitCode
+        };
     }
     if (nameInput === "inspect-rendered-ui") {
         return inspectRenderedUi(root, args, options, await workingTreeRevision(root));
@@ -107,6 +131,20 @@ export async function runTool(nameInput, args, options) {
         return { value: { tool: nameInput, ...execution }, exitCode: execution.exitCode };
     }
     throw new Error(`Internal dispatch invariant failed for tool '${nameInput}'`);
+}
+/**
+ * True only when the audited root really is the Fullstack Forge package root.
+ *
+ * Both paths are canonicalized before comparison, so a project cannot claim the Forge-internal
+ * exemption by naming a directory or a script the same way.
+ */
+export async function isForgePackageRoot(root) {
+    try {
+        return (await canonicalDirectory(root)) === (await canonicalDirectory(PACKAGE_ROOT));
+    }
+    catch {
+        return false;
+    }
 }
 export async function validateBundledSkills() {
     const errors = [];

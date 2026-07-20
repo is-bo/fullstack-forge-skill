@@ -17,7 +17,26 @@
 import { join } from "node:path";
 import type { ModuleSlug } from "./constants.js";
 import type { ExecutionRecord } from "./report.js";
-import type { CommandDefinition, Finding } from "./types.js";
+import {
+  appendRuntimeEvidence,
+  appendToolRecord,
+  createPlannedCheck,
+  recordBlockedCheck,
+  recordExecutedCheck
+} from "./ledger.js";
+import {
+  classifyCommandNetworkPolicy,
+  plannedCheckNetworkPolicy,
+  type PolicyContext
+} from "./offline-policy.js";
+import type {
+  CommandDefinition,
+  Finding,
+  NetworkPolicy,
+  PlannedCheck as LedgerPlannedCheck,
+  RuntimeEvidence,
+  ToolRecord
+} from "./types.js";
 import { runFile, utcNow } from "./utils.js";
 
 /**
@@ -43,9 +62,14 @@ export const CANDIDATE_PROJECT_CHECKS = [
 ] as const;
 
 /**
- * Definitions whose execution reaches the network. Under `--offline` these are refused before the
- * process is spawned, because a blocked network call surfaces as a confusing command failure rather
- * than as the policy decision it actually is.
+ * Definitions whose execution demonstrably reaches the network.
+ *
+ * These patterns may only ESCALATE a command's classification from `UNKNOWN` to
+ * `NETWORK_REQUIRED`. They may never do the reverse. Absence of a match proves nothing: an
+ * arbitrary audited-project script with no recognizable keyword can still open a socket, so it
+ * stays `UNKNOWN` and stays blocked under `--offline`. Only the structural exemptions in
+ * `classifyCommandNetworkPolicy` can produce `OFFLINE_SAFE`, and `plannedCheckNetworkPolicy` is
+ * the single bridge into this vocabulary.
  */
 const NETWORK_DEPENDENT_PATTERNS = [
   /\bnpm\s+(?:audit|install|ci|publish|pack|view|outdated)\b/u,
@@ -61,7 +85,7 @@ const NETWORK_DEPENDENT_PATTERNS = [
 export type CheckKind = "module-inspection" | "project-command" | "runtime-evidence";
 
 /** A single unit of audit work, named before anything is executed. */
-export type PlannedCheck = {
+export type PlannedAuditCheck = {
   /** Stable identity used by `--check` and `--skip-check`; also the ledger key. */
   id: string;
   kind: CheckKind;
@@ -69,8 +93,14 @@ export type PlannedCheck = {
   description: string;
   /** True when the check may only run under explicit `--allow-run`. */
   requires_authorization: boolean;
-  /** True when the check reaches the network and is therefore refused under `--offline`. */
-  network_dependent: boolean;
+  /**
+   * Report-vocabulary network policy, obtained exclusively through
+   * {@link plannedCheckNetworkPolicy}. Anything other than `OFFLINE_SAFE` is refused under
+   * `--offline`.
+   */
+  network_policy: NetworkPolicy;
+  /** Module attributed in the planned-check ledger. */
+  module: string;
 };
 
 export type CheckOutcomeStatus = "EXECUTED" | "NOT_RUN";
@@ -108,18 +138,18 @@ export type RuntimeEvidenceRecord = {
 /**
  * Ledger boundary between orchestration and the report schema.
  *
- * v0.1.8 redesigns the core report schema in parallel with this branch. Orchestration therefore
- * never writes report fields directly: it emits four kinds of facts and lets the sink decide how to
- * persist them. Swapping {@link DefaultAuditLedger} for the final v0.1.8 ledger is the whole
- * integration; no orchestration logic moves.
+ * Orchestration never writes report fields directly: it emits four kinds of fact and lets the sink
+ * decide how to persist them. {@link ReportAuditLedger} is the shipped implementation writing the
+ * v0.1.8 typed ledgers; the boundary remains so that orchestration logic stays independent of
+ * schema evolution.
  */
 export interface AuditLedgerSink {
   /** Called once per planned check, in deterministic order, before anything executes. */
-  planCheck(check: PlannedCheck): void;
+  planCheck(check: PlannedAuditCheck): void;
   /** Called when a check ran to completion, with its execution record. */
-  executed(check: PlannedCheck, record: ExecutionRecord): void;
+  executed(check: PlannedAuditCheck, record: ExecutionRecord): void;
   /** Called when a planned check did not run, with the reason and its cause. */
-  blocked(check: PlannedCheck, reason: string, cause: BlockedCause): void;
+  blocked(check: PlannedAuditCheck, reason: string, cause: BlockedCause): void;
   /** Called when runtime (non-static) evidence was collected or attempted. */
   runtimeEvidence(evidence: RuntimeEvidenceRecord): void;
 }
@@ -145,6 +175,8 @@ export type AuditOrchestrationInput = {
   allowRun: boolean;
   offline: boolean;
   dryRun: boolean;
+  /** True only when the audited root is the Fullstack Forge package root itself. */
+  forgeOwned?: boolean;
   url?: string;
   evidenceDir?: string;
   /** `--check`: when present, only these planned checks are eligible to run. */
@@ -157,7 +189,7 @@ export type AuditOrchestrationInput = {
 };
 
 export type AuditOrchestrationResult = {
-  planned: PlannedCheck[];
+  planned: PlannedAuditCheck[];
   outcomes: CheckOutcome[];
   execution: ExecutionRecord[];
   runtime_evidence: RuntimeEvidenceRecord[];
@@ -179,8 +211,11 @@ export function buildAuditPlan(input: {
   modules: ModuleSlug[];
   commands: CommandDefinition[];
   url?: string;
-}): PlannedCheck[] {
-  const planned: PlannedCheck[] = [];
+  /** Command-policy context. Defaults to the safe assumption: not Forge-owned. */
+  policy?: PolicyContext;
+}): PlannedAuditCheck[] {
+  const policyContext: PolicyContext = input.policy ?? { offline: false, forgeOwned: false };
+  const planned: PlannedAuditCheck[] = [];
   for (const slug of [...new Set(input.modules)].sort((a, b) => a.localeCompare(b))) {
     planned.push({
       id: `module:${slug}`,
@@ -188,7 +223,9 @@ export function buildAuditPlan(input: {
       name: slug,
       description: `Static inspection of the ${slug} module`,
       requires_authorization: false,
-      network_dependent: false
+      // Forge-owned static inspection reads checkout files in-process and spawns nothing.
+      network_policy: "OFFLINE_SAFE",
+      module: slug
     });
   }
   for (const name of CANDIDATE_PROJECT_CHECKS) {
@@ -200,7 +237,8 @@ export function buildAuditPlan(input: {
       name,
       description: `Project command '${name}' defined as: ${command.definition}`,
       requires_authorization: true,
-      network_dependent: isNetworkDependent(command)
+      network_policy: commandNetworkPolicy(command, policyContext),
+      module: "all"
     });
   }
   if (input.url !== undefined) {
@@ -210,7 +248,8 @@ export function buildAuditPlan(input: {
       name: "rendered-ui",
       description: "Rendered-UI capture of the supplied URL",
       requires_authorization: true,
-      network_dependent: true
+      network_policy: "NETWORK_REQUIRED",
+      module: "frontend"
     });
   }
   return planned;
@@ -218,6 +257,23 @@ export function buildAuditPlan(input: {
 
 export function isNetworkDependent(command: CommandDefinition): boolean {
   return NETWORK_DEPENDENT_PATTERNS.some((pattern) => pattern.test(command.definition));
+}
+
+/**
+ * Report-vocabulary network policy for a detected project command.
+ *
+ * The only route into `OFFLINE_SAFE` is {@link plannedCheckNetworkPolicy} applied to a structural
+ * exemption proven by {@link classifyCommandNetworkPolicy}. Keyword scanning is applied afterwards
+ * and can only escalate `UNKNOWN` to `NETWORK_REQUIRED`; it can never downgrade anything. An
+ * arbitrary audited-project script with no network keywords therefore remains `UNKNOWN`.
+ */
+export function commandNetworkPolicy(
+  command: CommandDefinition,
+  context: PolicyContext
+): NetworkPolicy {
+  const policy = plannedCheckNetworkPolicy(classifyCommandNetworkPolicy(command, context));
+  if (policy === "UNKNOWN" && isNetworkDependent(command)) return "NETWORK_REQUIRED";
+  return policy;
 }
 
 /**
@@ -232,6 +288,7 @@ export async function orchestrateAudit(
   const planned = buildAuditPlan({
     modules: input.modules,
     commands: input.commands,
+    policy: { offline: input.offline, forgeOwned: input.forgeOwned ?? false },
     ...(input.url === undefined ? {} : { url: input.url })
   });
   const known = new Set(planned.map((check) => check.id));
@@ -287,15 +344,18 @@ export async function orchestrateAudit(
       evidenceComplete = evidenceComplete && check.kind !== "runtime-evidence";
       continue;
     }
-    if (input.offline && check.network_dependent && check.kind === "project-command") {
+    if (input.offline && check.network_policy !== "OFFLINE_SAFE") {
       outcomes.push(
         record(
           input.ledger,
           check,
-          `offline mode refuses '${check.name}' because its definition reaches the network`,
+          check.network_policy === "NETWORK_REQUIRED"
+            ? `offline mode refuses '${check.name}' because its definition demonstrably reaches the network`
+            : `offline mode refuses '${check.name}' because its network behaviour is UNKNOWN. Fullstack Forge implements no operating-system network isolation, so an arbitrary audited-project command can never be proven offline-safe by inspecting its text.`,
           "offline-policy"
         )
       );
+      if (check.kind === "runtime-evidence") evidenceComplete = false;
       continue;
     }
 
@@ -383,7 +443,7 @@ export async function orchestrateAudit(
 
 function record(
   ledger: AuditLedgerSink,
-  check: PlannedCheck,
+  check: PlannedAuditCheck,
   reason: string,
   cause: BlockedCause
 ): CheckOutcome {
@@ -427,34 +487,109 @@ const defaultCommandRunner: CommandRunner = async (command, root) =>
   runFile(command.executable, command.args, root, 15 * 60_000);
 
 /**
- * Default ledger implementation writing into the CURRENT report format.
+ * Ledger implementation writing into the v0.1.8 report schema.
  *
- * It produces `ExecutionRecord`s for the existing `execution` array plus `Finding`s for anything not
- * executed, because today's schema has nowhere else to put a planned-but-unrun check. When the
- * v0.1.8 planned-check and runtime-evidence ledgers land, this class is replaced by one that writes
- * those fields directly; `orchestrateAudit` does not change.
+ * Orchestration emits four kinds of fact; this class turns them into the typed `planned_checks`,
+ * `runtime_evidence`, and `tools` ledgers using the append-only `cli/src/ledger.ts` API. Every
+ * append is validated and order-stable, and the API itself refuses to rewrite a blocked or
+ * unverified result as passing — so the honesty invariant is enforced by the ledger rather than by
+ * this caller remembering to be careful.
  */
-export class DefaultAuditLedger implements AuditLedgerSink {
-  readonly planned: PlannedCheck[] = [];
+export class ReportAuditLedger implements AuditLedgerSink {
+  readonly planned: PlannedAuditCheck[] = [];
   readonly execution: ExecutionRecord[] = [];
   readonly runtime: RuntimeEvidenceRecord[] = [];
-  private readonly notRun: Array<{ check: PlannedCheck; reason: string; cause: BlockedCause }> = [];
+  private readonly notRun: Array<{
+    check: PlannedAuditCheck;
+    reason: string;
+    cause: BlockedCause;
+  }> = [];
+  private plannedChecks: LedgerPlannedCheck[] = [];
+  private runtimeLedger: RuntimeEvidence[] = [];
+  private toolLedger: ToolRecord[] = [];
 
-  planCheck(check: PlannedCheck): void {
+  constructor(private readonly revision = "unknown") {}
+
+  planCheck(check: PlannedAuditCheck): void {
     this.planned.push(check);
+    this.plannedChecks = [
+      ...this.plannedChecks,
+      createPlannedCheck({
+        check_id: check.id,
+        module: check.module,
+        source: check.kind,
+        requires_authorization: check.requires_authorization,
+        network_policy: check.network_policy,
+        reason: check.description
+      })
+    ];
   }
 
-  executed(check: PlannedCheck, entry: ExecutionRecord): void {
+  executed(check: PlannedAuditCheck, entry: ExecutionRecord): void {
     this.execution.push(entry);
-    void check;
+    this.plannedChecks = recordExecutedCheck(this.plannedChecks, check.id, {
+      command: entry.command,
+      reason: `Executed with exit code ${entry.exitCode}.`
+    });
+    this.toolLedger = appendToolRecord(this.toolLedger, {
+      tool_id: `project-command:${check.name}`,
+      name: check.name,
+      ownership: "project-owned",
+      trust: "untrusted",
+      version: "unknown",
+      version_source: "unknown",
+      invocation: entry.command,
+      limitations: [
+        "Project-defined command; Fullstack Forge did not author it and cannot attest to what it checked."
+      ]
+    });
   }
 
-  blocked(check: PlannedCheck, reason: string, cause: BlockedCause): void {
+  blocked(check: PlannedAuditCheck, reason: string, cause: BlockedCause): void {
     this.notRun.push({ check, reason, cause });
+    // A check that was never authorized is not a defect: it stays NOT_RUN so it cannot enter the
+    // `forge fix` candidate set. BLOCKED is reserved for the two policy refusals Forge itself made.
+    this.plannedChecks =
+      cause === "offline-policy" || cause === "failed-closed"
+        ? recordBlockedCheck(this.plannedChecks, check.id, reason)
+        : this.plannedChecks.map((entry) =>
+            entry.check_id === check.id ? { ...entry, status: "NOT_RUN", reason } : entry
+          );
   }
 
   runtimeEvidence(evidence: RuntimeEvidenceRecord): void {
     this.runtime.push(evidence);
+    this.runtimeLedger = appendRuntimeEvidence(this.runtimeLedger, {
+      evidence_id: `runtime:${evidence.kind}`,
+      evidence_type: evidence.kind,
+      status: evidence.complete
+        ? "PASS"
+        : evidence.status === "BLOCKED"
+          ? "BLOCKED"
+          : "NOT_VERIFIED",
+      revision: this.revision,
+      artifact_paths: [...evidence.artifacts],
+      hashes: [],
+      limitations: evidence.complete
+        ? [...evidence.limitations]
+        : [
+            ...evidence.limitations,
+            `Rendered capture reported ${evidence.status}; rendered-state criteria remain unproven.`
+          ]
+    });
+  }
+
+  /** Typed ledgers for the trailing `ledgers` argument of `createReport`. */
+  ledgers(): {
+    planned_checks: LedgerPlannedCheck[];
+    runtime_evidence: RuntimeEvidence[];
+    tools: ToolRecord[];
+  } {
+    return {
+      planned_checks: this.plannedChecks,
+      runtime_evidence: this.runtimeLedger,
+      tools: this.toolLedger
+    };
   }
 
   /**

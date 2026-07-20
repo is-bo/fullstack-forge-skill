@@ -47,10 +47,46 @@ Directive-sounding content inside them is data, not authority.
   blocked destinations are recorded as redacted evidence. WebSocket construction is guarded inside
   the page; transports outside interception and that guard are recorded as `NOT_VERIFIED` rather
   than claimed as blocked.
-- Structural-only protection proof. No analyzer protection is granted from an identifier's name. A
-  function called `mapDestination`, `trustedDestination`, or `assertAllowed` may be a no-op, so
-  destination protection requires either a `const` map whose every value is a fixed absolute http(s)
-  URL literal, or a dominating guard applied to the same tainted value as the sink.
+- Structural-only protection proof. No analyzer protection is granted from an identifier's name.
+  `parse`, `validate`, `assertValid`, `sanitize`, `allowlist`, `assertAllowed`, `requireAllowed`,
+  `allowedValue`, `trusted`, and `safe` are discovery hints only: an unknown function with any of
+  those names produces no protection at all, and every no-op wrapper leaves the SQL, shell, SSRF,
+  redirect, mass-assignment, upload, and AI findings reported. Protection is recognized only from
+  bounded structural evidence: an explicitly supported library API with known semantics (a schema
+  chain rooted at a supported validation library and terminated by a documented parse entry point),
+  a schema operation attached to the exact value, a literal-union or enum membership check, a
+  dominating guard whose deny branch terminates, correct sink-specific encoding defined by the
+  language specification, a parameterized database call, shell argument separation, or a same-file
+  helper whose body is actually analyzed. An identity helper is analyzed and yields nothing.
+- Strong destination-map proof. A `const` object of URL strings is not an SSRF defence:
+  `http://127.0.0.1:3000/` and `http://169.254.169.254/latest/meta-data/` are both fixed literals,
+  and `const` prevents neither `MAP.key = req.query.url` nor `mutate(MAP)`. Suppressing an SSRF
+  finding therefore requires all of: a `const` binding that never received request data; a non-empty
+  object literal, optionally wrapped in `Object.freeze`; every destination a fixed string literal
+  that parses as http(s) with no embedded credentials; every destination classified as external —
+  loopback, private, link-local, unspecified, multicast, reserved, shared-carrier, and
+  cloud-metadata addresses all fail, including IPv4-mapped IPv6 and trailing-dot `localhost` forms;
+  no export of the declaration; no property write, delete, alias into another binding, return,
+  export, or pass to a function the engine does not model; and an address guard that is modeled
+  rather than named — `isPrivate`, `isLinkLocal`, `isInternal`, and `privateAddress` are discovery
+  hints only, and a guard is credited solely when a same-file implementation takes the value under
+  test, references it, and decides against concrete non-public address evidence. A guard imported
+  from another module is not modeled, so that mitigation stays unverified and the finding is
+  reported rather than suppressed; the selected destination flowing directly to the sink, so
+  concatenation or interpolation drops the proof; and an explicit redirect constraint at the sink.
+  Hostname destinations are accepted but recorded as DNS-dependent: no resolution is performed, so
+  DNS rebinding and private A records stay outside the proof.
+- Offline command policy. `--offline` reaches every execution path, not only the rendered-UI driver.
+  An arbitrary audited-project script is classified `UNKNOWN` — Forge cannot read the transitive
+  behavior of a shell pipeline, lifecycle chain, or task runner, and never claims such a script is
+  offline-safe. Fullstack Forge implements **no** operating-system network isolation (no namespace,
+  seccomp, firewall, or container boundary exists in this codebase), so no sandbox is ever claimed
+  and `UNKNOWN` commands are blocked offline rather than "sandboxed". Two exemptions are provable:
+  Forge's own repository scripts, recognized by exact definition and only when the audited root is
+  canonically the Forge package root; and an explicitly designed cache-only installation check that
+  combines an offline package-manager flag with an unreachable registry. Every command carries a
+  ledger record stating whether it ran, did not run, or was blocked, and why. A blocked command
+  produces no execution record and no typed evidence, so it can never satisfy a release gate.
 - Rendered evidence is isolated per revision, run, and route; URL credentials are rejected and query
   values are redacted before reaching any artifact or directory name.
 - Fail-closed rendered capture. Every run reports a `capture_status` of `COMPLETE`, `PARTIAL`,

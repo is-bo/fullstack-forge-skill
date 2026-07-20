@@ -5,6 +5,7 @@ import test from "node:test";
 import { PACKAGE_ROOT } from "../src/constants.js";
 import { runFile } from "../src/utils.js";
 import { withTemporaryProject } from "./helpers.js";
+import { REPORT_SCHEMA_VERSION } from "../src/report.js";
 
 const cli = join(PACKAGE_ROOT, "build", "cli", "src", "index.js");
 
@@ -53,7 +54,7 @@ test("report mode emits JSON to stdout under --json", async () => {
     );
     assert.equal(result.exitCode, 0, result.stderr);
     const parsed = JSON.parse(result.stdout) as { schema_version: number; generated_at: string };
-    assert.equal(parsed.schema_version, 1);
+    assert.equal(parsed.schema_version, REPORT_SCHEMA_VERSION);
     assert.equal(parsed.generated_at, stored.generated_at);
   });
 });

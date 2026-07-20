@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   CANDIDATE_PROJECT_CHECKS,
-  DefaultAuditLedger,
+  ReportAuditLedger,
   buildAuditPlan,
+  commandNetworkPolicy,
   isNetworkDependent,
   orchestrateAudit,
   type AuditOrchestrationInput,
   type CommandRunner,
-  type PlannedCheck,
+  type PlannedAuditCheck,
   type RuntimeEvidenceCollector
 } from "../src/audit-orchestration.js";
 import type { ModuleSlug } from "../src/constants.js";
@@ -37,18 +38,18 @@ function baseInput(overrides: Partial<AuditOrchestrationInput> = {}): AuditOrche
     allowRun: false,
     offline: false,
     dryRun: false,
-    ledger: new DefaultAuditLedger(),
+    ledger: new ReportAuditLedger(),
     runCommand: succeedingRunner,
     ...overrides
   };
 }
 
-function ids(checks: PlannedCheck[]): string[] {
+function ids(checks: PlannedAuditCheck[]): string[] {
   return checks.map((check) => check.id);
 }
 
 test("a static-only security audit plans modules and never executes a command", async () => {
-  const ledger = new DefaultAuditLedger();
+  const ledger = new ReportAuditLedger();
   const result = await orchestrateAudit(baseInput({ ledger }));
   assert.deepEqual(
     ids(result.planned).filter((id) => id.startsWith("module:")),
@@ -92,7 +93,7 @@ test("planned-check order is deterministic regardless of input ordering", () => 
 });
 
 test("authorized command execution is recorded in the execution ledger", async () => {
-  const ledger = new DefaultAuditLedger();
+  const ledger = new ReportAuditLedger();
   const executed: string[] = [];
   const result = await orchestrateAudit(
     baseInput({
@@ -112,7 +113,7 @@ test("authorized command execution is recorded in the execution ledger", async (
 });
 
 test("an unauthorized command is recorded as not run with its reason", async () => {
-  const ledger = new DefaultAuditLedger();
+  const ledger = new ReportAuditLedger();
   await orchestrateAudit(baseInput({ ledger }));
   const findings = ledger.findings();
   const blocked = findings.find((finding) => finding.title.includes("command:lint"));
@@ -125,7 +126,7 @@ test("an unauthorized command is recorded as not run with its reason", async () 
 });
 
 test("offline refuses an authorized network-dependent command before spawning it", async () => {
-  const ledger = new DefaultAuditLedger();
+  const ledger = new ReportAuditLedger();
   const executed: string[] = [];
   const result = await orchestrateAudit(
     baseInput({
@@ -138,11 +139,66 @@ test("offline refuses an authorized network-dependent command before spawning it
       }
     })
   );
-  assert.equal(executed.includes("audit:dependencies"), false);
-  assert.deepEqual(executed, ["lint", "test"]);
-  const outcome = result.outcomes.find((entry) => entry.id === "command:audit:dependencies");
-  assert.equal(outcome?.status, "NOT_RUN");
+  // Nothing arbitrary runs offline. `audit:dependencies` is provably network-dependent, and
+  // `lint`/`test` are arbitrary project scripts whose network behaviour is UNKNOWN. Forge
+  // implements no OS-level network isolation, so none of the three may execute under --offline.
+  assert.deepEqual(executed, []);
+  const escalated = result.outcomes.find((entry) => entry.id === "command:audit:dependencies");
+  assert.ok(escalated);
+  assert.equal(escalated.status, "NOT_RUN");
+  assert.equal(escalated.cause, "offline-policy");
+  for (const id of ["command:lint", "command:test"]) {
+    const outcome = result.outcomes.find((entry) => entry.id === id);
+    assert.ok(outcome, `${id} must be planned`);
+    assert.equal(outcome.status, "NOT_RUN", `${id} must not execute under --offline`);
+    assert.equal(outcome.cause, "offline-policy");
+    assert.match(String(outcome.reason), /UNKNOWN/u);
+  }
+});
+
+test("a keyword-free arbitrary project script stays UNKNOWN and is still blocked offline", async () => {
+  // Cross-branch regression guarding the v0.1.7 offline policy against the v0.1.9 orchestrator.
+  // The definition contains no network keyword whatsoever. Absence of keywords is not proof of
+  // offline safety, so the planned check must remain UNKNOWN and must never execute offline.
+  const quiet = command("test", "node ./scripts/whatever.js");
+  assert.equal(isNetworkDependent(quiet), false);
+  assert.equal(commandNetworkPolicy(quiet, { offline: true, forgeOwned: false }), "UNKNOWN");
+
+  const executed: string[] = [];
+  const result = await orchestrateAudit(
+    baseInput({
+      allowRun: true,
+      offline: true,
+      commands: [quiet],
+      runCommand: (definition) => {
+        executed.push(definition.name);
+        return Promise.resolve({ exitCode: 0, stdout: "", stderr: "" });
+      }
+    })
+  );
+  assert.deepEqual(executed, []);
+  const outcome = result.outcomes.find((entry) => entry.id === "command:test");
+  assert.ok(outcome);
+  assert.equal(outcome.status, "NOT_RUN");
   assert.equal(outcome.cause, "offline-policy");
+});
+
+test("no arbitrary project command can reach OFFLINE_SAFE, and a blocked check never passes", async () => {
+  for (const definition of ["eslint .", "tsc --noEmit", "node build/index.js", "echo ok"]) {
+    assert.notEqual(
+      commandNetworkPolicy(command("check", definition), { offline: true, forgeOwned: false }),
+      "OFFLINE_SAFE",
+      `'${definition}' must never be classified offline-safe`
+    );
+  }
+  const ledger = new ReportAuditLedger();
+  await orchestrateAudit(
+    baseInput({ allowRun: true, offline: true, ledger, commands: [command("lint", "eslint .")] })
+  );
+  const check = ledger.ledgers().planned_checks.find((entry) => entry.check_id === "command:lint");
+  assert.ok(check);
+  assert.equal(check.status, "BLOCKED");
+  assert.equal(check.network_policy, "UNKNOWN");
 });
 
 test("network-dependent detection reads the script definition, not its name", () => {
@@ -215,7 +271,7 @@ test("a dry run plans every executable check without running any of it", async (
 });
 
 test("a supplied URL collects rendered evidence and records it", async () => {
-  const ledger = new DefaultAuditLedger();
+  const ledger = new ReportAuditLedger();
   const collector: RuntimeEvidenceCollector = (input) =>
     Promise.resolve({
       kind: "rendered-ui",
@@ -298,7 +354,7 @@ test("requested rendered evidence without authorization fails closed", async () 
 });
 
 test("a failing authorized command produces a FAIL finding", async () => {
-  const ledger = new DefaultAuditLedger();
+  const ledger = new ReportAuditLedger();
   await orchestrateAudit(
     baseInput({
       allowRun: true,
@@ -337,7 +393,7 @@ test("a changed-scope audit plans only the modules the scope selected", async ()
 });
 
 test("every planned check reaches exactly one terminal outcome", async () => {
-  const ledger = new DefaultAuditLedger();
+  const ledger = new ReportAuditLedger();
   const result = await orchestrateAudit(
     baseInput({
       allowRun: true,
@@ -359,13 +415,13 @@ test("every planned check reaches exactly one terminal outcome", async () => {
 });
 
 test("the default ledger records residual risk about what was not executed", async () => {
-  const ledger = new DefaultAuditLedger();
+  const ledger = new ReportAuditLedger();
   await orchestrateAudit(baseInput({ ledger }));
   assert.ok(ledger.residualRisk().some((line) => line.includes("No project command was executed")));
 });
 
 test("deselected checks are summarized in a single scope finding", async () => {
-  const ledger = new DefaultAuditLedger();
+  const ledger = new ReportAuditLedger();
   await orchestrateAudit(baseInput({ allowRun: true, ledger, skip: ["lint", "test"] }));
   const scope = ledger.findings().filter((finding) => finding.id === "FF-AUDIT-SCOPE-001");
   assert.equal(scope.length, 1);

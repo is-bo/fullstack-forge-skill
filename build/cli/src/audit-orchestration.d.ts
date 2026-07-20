@@ -1,6 +1,7 @@
 import type { ModuleSlug } from "./constants.js";
 import type { ExecutionRecord } from "./report.js";
-import type { CommandDefinition, Finding } from "./types.js";
+import { type PolicyContext } from "./offline-policy.js";
+import type { CommandDefinition, Finding, NetworkPolicy, PlannedCheck as LedgerPlannedCheck, RuntimeEvidence, ToolRecord } from "./types.js";
 /**
  * Project scripts an audit may execute under `--allow-run`.
  *
@@ -15,7 +16,7 @@ import type { CommandDefinition, Finding } from "./types.js";
 export declare const CANDIDATE_PROJECT_CHECKS: readonly ["format:check", "lint", "typecheck", "test", "build", "scan:secrets", "audit:dependencies", "check:licenses"];
 export type CheckKind = "module-inspection" | "project-command" | "runtime-evidence";
 /** A single unit of audit work, named before anything is executed. */
-export type PlannedCheck = {
+export type PlannedAuditCheck = {
     /** Stable identity used by `--check` and `--skip-check`; also the ledger key. */
     id: string;
     kind: CheckKind;
@@ -23,8 +24,14 @@ export type PlannedCheck = {
     description: string;
     /** True when the check may only run under explicit `--allow-run`. */
     requires_authorization: boolean;
-    /** True when the check reaches the network and is therefore refused under `--offline`. */
-    network_dependent: boolean;
+    /**
+     * Report-vocabulary network policy, obtained exclusively through
+     * {@link plannedCheckNetworkPolicy}. Anything other than `OFFLINE_SAFE` is refused under
+     * `--offline`.
+     */
+    network_policy: NetworkPolicy;
+    /** Module attributed in the planned-check ledger. */
+    module: string;
 };
 export type CheckOutcomeStatus = "EXECUTED" | "NOT_RUN";
 export type CheckOutcome = {
@@ -56,18 +63,18 @@ export type RuntimeEvidenceRecord = {
 /**
  * Ledger boundary between orchestration and the report schema.
  *
- * v0.1.8 redesigns the core report schema in parallel with this branch. Orchestration therefore
- * never writes report fields directly: it emits four kinds of facts and lets the sink decide how to
- * persist them. Swapping {@link DefaultAuditLedger} for the final v0.1.8 ledger is the whole
- * integration; no orchestration logic moves.
+ * Orchestration never writes report fields directly: it emits four kinds of fact and lets the sink
+ * decide how to persist them. {@link ReportAuditLedger} is the shipped implementation writing the
+ * v0.1.8 typed ledgers; the boundary remains so that orchestration logic stays independent of
+ * schema evolution.
  */
 export interface AuditLedgerSink {
     /** Called once per planned check, in deterministic order, before anything executes. */
-    planCheck(check: PlannedCheck): void;
+    planCheck(check: PlannedAuditCheck): void;
     /** Called when a check ran to completion, with its execution record. */
-    executed(check: PlannedCheck, record: ExecutionRecord): void;
+    executed(check: PlannedAuditCheck, record: ExecutionRecord): void;
     /** Called when a planned check did not run, with the reason and its cause. */
-    blocked(check: PlannedCheck, reason: string, cause: BlockedCause): void;
+    blocked(check: PlannedAuditCheck, reason: string, cause: BlockedCause): void;
     /** Called when runtime (non-static) evidence was collected or attempted. */
     runtimeEvidence(evidence: RuntimeEvidenceRecord): void;
 }
@@ -91,6 +98,8 @@ export type AuditOrchestrationInput = {
     allowRun: boolean;
     offline: boolean;
     dryRun: boolean;
+    /** True only when the audited root is the Fullstack Forge package root itself. */
+    forgeOwned?: boolean;
     url?: string;
     evidenceDir?: string;
     /** `--check`: when present, only these planned checks are eligible to run. */
@@ -102,7 +111,7 @@ export type AuditOrchestrationInput = {
     collectRuntimeEvidence?: RuntimeEvidenceCollector;
 };
 export type AuditOrchestrationResult = {
-    planned: PlannedCheck[];
+    planned: PlannedAuditCheck[];
     outcomes: CheckOutcome[];
     execution: ExecutionRecord[];
     runtime_evidence: RuntimeEvidenceRecord[];
@@ -123,8 +132,19 @@ export declare function buildAuditPlan(input: {
     modules: ModuleSlug[];
     commands: CommandDefinition[];
     url?: string;
-}): PlannedCheck[];
+    /** Command-policy context. Defaults to the safe assumption: not Forge-owned. */
+    policy?: PolicyContext;
+}): PlannedAuditCheck[];
 export declare function isNetworkDependent(command: CommandDefinition): boolean;
+/**
+ * Report-vocabulary network policy for a detected project command.
+ *
+ * The only route into `OFFLINE_SAFE` is {@link plannedCheckNetworkPolicy} applied to a structural
+ * exemption proven by {@link classifyCommandNetworkPolicy}. Keyword scanning is applied afterwards
+ * and can only escalate `UNKNOWN` to `NETWORK_REQUIRED`; it can never downgrade anything. An
+ * arbitrary audited-project script with no network keywords therefore remains `UNKNOWN`.
+ */
+export declare function commandNetworkPolicy(command: CommandDefinition, context: PolicyContext): NetworkPolicy;
 /**
  * Runs the audit lifecycle: plan, authorize, execute, record.
  *
@@ -133,22 +153,34 @@ export declare function isNetworkDependent(command: CommandDefinition): boolean;
  */
 export declare function orchestrateAudit(input: AuditOrchestrationInput): Promise<AuditOrchestrationResult>;
 /**
- * Default ledger implementation writing into the CURRENT report format.
+ * Ledger implementation writing into the v0.1.8 report schema.
  *
- * It produces `ExecutionRecord`s for the existing `execution` array plus `Finding`s for anything not
- * executed, because today's schema has nowhere else to put a planned-but-unrun check. When the
- * v0.1.8 planned-check and runtime-evidence ledgers land, this class is replaced by one that writes
- * those fields directly; `orchestrateAudit` does not change.
+ * Orchestration emits four kinds of fact; this class turns them into the typed `planned_checks`,
+ * `runtime_evidence`, and `tools` ledgers using the append-only `cli/src/ledger.ts` API. Every
+ * append is validated and order-stable, and the API itself refuses to rewrite a blocked or
+ * unverified result as passing — so the honesty invariant is enforced by the ledger rather than by
+ * this caller remembering to be careful.
  */
-export declare class DefaultAuditLedger implements AuditLedgerSink {
-    readonly planned: PlannedCheck[];
+export declare class ReportAuditLedger implements AuditLedgerSink {
+    private readonly revision;
+    readonly planned: PlannedAuditCheck[];
     readonly execution: ExecutionRecord[];
     readonly runtime: RuntimeEvidenceRecord[];
     private readonly notRun;
-    planCheck(check: PlannedCheck): void;
-    executed(check: PlannedCheck, entry: ExecutionRecord): void;
-    blocked(check: PlannedCheck, reason: string, cause: BlockedCause): void;
+    private plannedChecks;
+    private runtimeLedger;
+    private toolLedger;
+    constructor(revision?: string);
+    planCheck(check: PlannedAuditCheck): void;
+    executed(check: PlannedAuditCheck, entry: ExecutionRecord): void;
+    blocked(check: PlannedAuditCheck, reason: string, cause: BlockedCause): void;
     runtimeEvidence(evidence: RuntimeEvidenceRecord): void;
+    /** Typed ledgers for the trailing `ledgers` argument of `createReport`. */
+    ledgers(): {
+        planned_checks: LedgerPlannedCheck[];
+        runtime_evidence: RuntimeEvidence[];
+        tools: ToolRecord[];
+    };
     /**
      * Renders the ledger as findings for the current schema.
      *
