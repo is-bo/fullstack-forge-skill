@@ -1,7 +1,7 @@
 {
   "$schema": "./src/fullstack-forge/schemas/skill.schema.json",
   "name": "fullstack-forge",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "license": "Apache-2.0",
   "description": "Evidence-driven production audits for full-stack applications.",
   "entrypoint": "src/fullstack-forge/SKILL.md",
