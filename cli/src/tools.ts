@@ -195,6 +195,11 @@ export async function validateBundledSkills(): Promise<{
         join(PACKAGE_ROOT, "src", "fullstack-forge", "commands", `forge-${slug}`, "SKILL.md")
       );
   }
+  // Build-mode command skills carry the generic contract checks but have no
+  // per-slug inspection criteria, so they are appended after the audit set.
+  for (const buildCommand of ["forge-new", "forge-feature"]) {
+    paths.push(join(PACKAGE_ROOT, "src", "fullstack-forge", "commands", buildCommand, "SKILL.md"));
+  }
   for (const [index, path] of paths.entries()) {
     let content: string;
     try {
@@ -215,7 +220,7 @@ export async function validateBundledSkills(): Promise<{
     ) {
       errors.push(`${path}: missing completion contract`);
     }
-    if (index > 0) {
+    if (index > 0 && index - 1 < slugs.length) {
       const slug = slugs[index - 1];
       const criteria = typeof slug === "string" ? criteriaBySlug[slug] : undefined;
       if (

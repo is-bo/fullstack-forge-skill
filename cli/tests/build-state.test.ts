@@ -125,11 +125,11 @@ test("evidence stale by file hash is demoted to NOT_VERIFIED, not deleted", asyn
 test("agent-authored free text is redacted before it is persisted", async () => {
   await withTemporaryProject("build-redact", async (root) => {
     const feature: BuildFeature = newFeature("login", "standard", "");
-    feature.summary = "connect with api_key=SK12345abcdefABCDEF67890 ok";
-    feature.decisions = ["token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.sig"];
+    feature.summary = "connect with api_key=SKfaketest12345abcdefABCDEF ok";
+    feature.decisions = ["token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.faketestpayload.sig"];
     await saveFeature(root, feature, false);
     const raw = await readFile(join(root, ".forge", "build", "features", "login.json"), "utf8");
-    assert.ok(!raw.includes("SK12345abcdefABCDEF67890"), "api key survived persistence");
+    assert.ok(!raw.includes("SKfaketest12345abcdefABCDEF"), "api key survived persistence");
     assert.ok(!raw.includes("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"), "JWT survived persistence");
     assert.ok(raw.includes("REDACTED"));
   });
