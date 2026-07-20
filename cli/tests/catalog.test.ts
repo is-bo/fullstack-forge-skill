@@ -172,13 +172,23 @@ test("canonical catalog and generated command directories match", async () => {
   const entries = await readdir(join(PACKAGE_ROOT, "src", "fullstack-forge", "commands"), {
     withFileTypes: true
   });
+  // The 42 audit command directories are a strict closed set. Build mode (v0.2.0) adds two command
+  // directories (forge-new, forge-feature) authored by a separate workstream; they are permitted
+  // but not required here, so this test passes both before and after that integration.
+  const EXPECTED_BUILD_COMMANDS = ["forge-new", "forge-feature"];
+  const directoryNames = entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+  const auditDirectories = EXPECTED.map((slug) => `forge-${slug}`).sort();
   assert.deepEqual(
-    entries
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .sort(),
-    EXPECTED.map((slug) => `forge-${slug}`).sort()
+    directoryNames.filter((name) => !EXPECTED_BUILD_COMMANDS.includes(name)),
+    auditDirectories
   );
+  const unexpected = directoryNames.filter(
+    (name) => !auditDirectories.includes(name) && !EXPECTED_BUILD_COMMANDS.includes(name)
+  );
+  assert.deepEqual(unexpected, [], `unexpected command directories: ${unexpected.join(", ")}`);
 });
 
 test("explicit inspection criteria cover every module and render into canonical skills", async () => {
