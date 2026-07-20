@@ -22,7 +22,7 @@ evidence a pass.
 It works as an open-format Agent Skill collection and as a dependency-light TypeScript CLI.
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.4 && npx forge init all
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.10 && npx forge init all
 ```
 
 Codex, Claude Code, Antigravity, Gemini CLI, Cursor, Windsurf, GitHub Copilot, and generic Agent
@@ -62,7 +62,7 @@ Fullstack Forge is **not published to the npm registry**. The working npm-based 
 resolves the package directly from its Git tag:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.5
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.10
 npx forge init all --dry-run
 npx forge init all
 ```

@@ -15,6 +15,10 @@ const REGISTRY_INSTALL =
   /^\s*npm\s+(?:install|i|add)\b[^\n]*?(?<!github:thethunderbolt\/)fullstack-forge-skill\b/u;
 const UNAVAILABLE_MARKER = /NOT YET AVAILABLE/u;
 const GIT_SPECIFIER = /github:[^\s#]+#v\d+\.\d+\.\d+/u;
+const PROJECT_PIN = /github:thethunderbolt\/fullstack-forge-skill#(v\d+\.\d+\.\d+)/gu;
+
+const { version } = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8"));
+const currentTag = `v${version}`;
 
 async function markdownFiles() {
   const files = [join(projectRoot, "README.md")];
@@ -43,6 +47,15 @@ for (const path of await markdownFiles()) {
       errors.push(
         `${relative}: presents an unpublished registry install as usable: ${line.trim()}`
       );
+    }
+  }
+  // Version-pinned install commands drift silently when a release bumps the tag. Outside
+  // version-stamped historical records, every project Git pin must match package.json.
+  if (!/_v\d+\.\d+\.\d+\.md$/u.test(relative)) {
+    for (const [, tag] of content.matchAll(PROJECT_PIN)) {
+      if (tag !== currentTag) {
+        errors.push(`${relative}: install pin ${tag} is stale; current version is ${currentTag}`);
+      }
     }
   }
 }
