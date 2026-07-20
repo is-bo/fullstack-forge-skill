@@ -5,6 +5,12 @@ versioning.
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-07-20
+
+Audit orchestration and report-output milestone. A normal `forge <section> audit` becomes one
+coherent, explicitly authorized operation whose planned checks, executions, refusals, and runtime
+evidence all reach the report through the v0.1.8 typed ledgers.
+
 ### Added
 
 - Audit orchestration. A normal `forge <section> audit` is now one coherent operation: it discovers
