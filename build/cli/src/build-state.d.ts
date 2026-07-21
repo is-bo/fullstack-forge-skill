@@ -1,4 +1,5 @@
 import { BUILD_SUB_VERBS } from "./constants.js";
+import { type EvidenceCommand, type EvidenceEnvelope, type EvidenceRuntimeContext } from "./evidence-envelope.js";
 /**
  * Build-mode persistent state.
  *
@@ -12,7 +13,8 @@ import { BUILD_SUB_VERBS } from "./constants.js";
  *     reusable after its per-file sha256 re-verifies (`reverifyEvidenceHashes`), and anything
  *     whose source changed is demoted to NOT_VERIFIED rather than deleted.
  */
-export declare const BUILD_STATE_VERSION: 1;
+export declare const BUILD_STATE_VERSION: 2;
+export declare const LEGACY_BUILD_STATE_VERSION: 1;
 export declare const BUILD_PHASES: readonly ["frame", "plan", "implement", "check", "done", "blocked", "abandoned"];
 export type BuildPhase = (typeof BUILD_PHASES)[number];
 export declare const TERMINAL_PHASES: ReadonlySet<BuildPhase>;
@@ -35,17 +37,37 @@ export type CriterionEvidence = {
     security_control: boolean;
     status: CriterionStatus;
     producer: string;
+    producer_version?: string;
     evidence: string[];
+    limitations?: string[];
     files: EvidenceFile[];
     instance_ids: string[];
     recorded_at: string;
+    revision?: string;
+    expires_at?: string;
+    command?: EvidenceCommand;
+    runtime?: EvidenceRuntimeContext[];
+    envelope?: EvidenceEnvelope;
     not_applicable_reason?: string;
+    /** v1 imports are retained for auditability but never trusted as current evidence. */
+    migration_state?: "migrated-untrusted";
+    expired_at?: string;
 };
 export type RiskAcceptance = {
     criterion: string;
+    category?: "advisory" | "operational";
+    actor?: string;
     reason: string;
+    canonical_root?: string;
     revision: string;
+    policy?: "advisory" | "operational-human";
+    relevant_files?: EvidenceFile[];
     timestamp: string;
+    expires_at?: string;
+    /** A migrated v1 acceptance is historical only and can never satisfy a v2 gate. */
+    migration_state?: "migrated-untrusted";
+    lifecycle?: "active" | "expired";
+    expired_at?: string;
 };
 export type RepairCounter = {
     criterion: string;
@@ -60,6 +82,88 @@ export type Blocker = {
 export type DisciplineSelection = {
     slug: string;
     reason: string;
+};
+export type ProjectFrame = {
+    problem_statement: string;
+    target_users: string[];
+    users_and_roles: Array<{
+        user: string;
+        roles: string[];
+    }>;
+    desired_outcomes: string[];
+    business_rules: string[];
+    business_invariants: string[];
+    constraints: string[];
+    critical_workflows: string[];
+    sensitive_data_classes: string[];
+    trust_boundaries: string[];
+    expected_scale: string;
+    stack_entries: Array<{
+        name: string;
+        rationale: string;
+    }>;
+    assumptions: string[];
+    unresolved_decisions: string[];
+    initial_feature_backlog: string[];
+    design_direction_reference: string;
+};
+export type SelectionEvent = {
+    id: string;
+    kind: "discipline" | "tier" | "applicability";
+    action: "selected" | "deselected" | "recorded";
+    value: string;
+    reason: string;
+    recorded_at: string;
+    source: "user" | "cli" | "migration";
+};
+export type BuildHistory = {
+    migrated_from?: number;
+    migrated_at?: string;
+};
+export type DesignAlignment = {
+    status: "NOT_VERIFIED" | "ALIGNED" | "DRIFT";
+    references: string[];
+    recorded_at: string;
+};
+export type ApplicabilitySnapshot = {
+    recorded_at: string;
+    source_revision?: string;
+    disciplines: Array<{
+        slug: string;
+        applicable: boolean;
+        reason: string;
+    }>;
+};
+export type FeatureApplicabilitySnapshot = {
+    recorded_at: string;
+    revision: string;
+    decisions: Array<{
+        discipline: string;
+        status: "REQUIRED" | "SUGGESTED" | "EXCLUDED" | "UNRESOLVED";
+        confidence: "LOW" | "MEDIUM" | "HIGH";
+        evidence: string[];
+        exclusion_reason?: string;
+    }>;
+    required: string[];
+    suggested: string[];
+    unresolved: string[];
+    excluded: string[];
+};
+export type BuildGateSnapshot = {
+    id: string;
+    name: string;
+    tier: BuildTier;
+    criteria: string[];
+    required: boolean;
+    waiver_policy: "never" | "advisory" | "operational-human";
+    non_waivable: boolean;
+    reason: string;
+};
+export type BuildGatePlanSnapshot = {
+    recorded_at: string;
+    revision: string;
+    gates: BuildGateSnapshot[];
+    required_criteria: string[];
 };
 export type BuildFeature = {
     schema_version: typeof BUILD_STATE_VERSION;
@@ -81,6 +185,13 @@ export type BuildFeature = {
     risk_acceptances: RiskAcceptance[];
     repair_counters: RepairCounter[];
     blockers: Blocker[];
+    /** Opaque references to independently verified evidence envelopes. */
+    evidence_run_ids: string[];
+    evidence_revision?: string;
+    applicability_snapshot?: FeatureApplicabilitySnapshot;
+    gate_plan?: BuildGatePlanSnapshot;
+    selection_events: SelectionEvent[];
+    history: BuildHistory;
 };
 export type FeatureIndexEntry = {
     slug: string;
@@ -104,6 +215,11 @@ export type BuildProject = {
     stack: string[];
     non_goals: NonGoal[];
     features: FeatureIndexEntry[];
+    frame: ProjectFrame;
+    design_alignment: DesignAlignment;
+    applicability_snapshot?: ApplicabilitySnapshot;
+    selection_events: SelectionEvent[];
+    history: BuildHistory;
 };
 export declare const BUILD_DIR: string[];
 /** Repair-cycle cap: the same failing signature may recur at most this many times before blocking. */
@@ -120,23 +236,36 @@ export type BuildSubVerb = (typeof BUILD_SUB_VERBS)[number];
 export declare function assertValidSlug(slug: string): void;
 export declare function assertBuildProject(value: unknown): asserts value is BuildProject;
 export declare function assertBuildFeature(value: unknown): asserts value is BuildFeature;
+/** Raised before any v1 state is trusted by an ordinary Build command. */
+export declare class BuildMigrationRequiredError extends Error {
+    constructor(kind: "project" | "feature");
+}
+/** Prevents normal Build operations from racing an interrupted replacement set. */
+export declare class BuildMigrationPendingError extends Error {
+    constructor();
+}
+export declare function assertNoInterruptedBuildMigration(root: string): Promise<void>;
 export declare function loadProject(root: string): Promise<BuildProject | undefined>;
 export declare function saveProject(root: string, project: BuildProject, dryRun: boolean): Promise<string | undefined>;
 export declare function loadFeature(root: string, slug: string): Promise<BuildFeature | undefined>;
+/** Enumerates the canonical feature directory and rejects unknown or non-regular entries. */
+export declare function listFeatures(root: string): Promise<BuildFeature[]>;
 export declare function saveFeature(root: string, feature: BuildFeature, dryRun: boolean): Promise<string | undefined>;
 export declare function writeArtifact(root: string, name: string, content: string, dryRun: boolean): Promise<string | undefined>;
 /**
- * Re-verifies each evidence record's per-file hashes and demotes stale evidence to NOT_VERIFIED.
- *
- * Freshness is judged by file content hash, not by a whole-tree revision: an evidence record stays
- * trustworthy exactly as long as every file it was derived from is byte-identical. A changed or
- * missing file demotes the record (recorded in its evidence log, never deleted), so a reloaded PASS
- * can never outlive the source it was proven against.
+ * Re-verifies every positive claim against its registered producer, repository identity, current
+ * revision, expiry, outer fields, and artifact hashes. Invalid claims are retained as diagnostics
+ * but demoted to NOT_VERIFIED, so persisted state alone can never satisfy a Build gate.
  */
 export declare function reverifyEvidenceHashes(root: string, feature: BuildFeature): Promise<{
     feature: BuildFeature;
     demoted: string[];
+    verified: string[];
 }>;
 export declare function upsertFeatureIndex(project: BuildProject, feature: BuildFeature): BuildProject;
+/** Appends an immutable selection record; callers cannot replace prior selection history. */
+export declare function appendSelectionEvent<T extends {
+    selection_events: SelectionEvent[];
+}>(state: T, event: Omit<SelectionEvent, "id" | "recorded_at">): T;
 export declare function newProject(summary: string, tier: BuildTier | undefined): BuildProject;
 export declare function newFeature(slug: string, tier: BuildTier, summary: string): BuildFeature;

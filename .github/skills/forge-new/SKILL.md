@@ -11,7 +11,7 @@ Guide an agent through the new-project foundation workflow: product frame, users
 
 ## Trigger conditions
 
-Use when a request starts a new product or project, asks to scaffold or kick off build mode, or names `/forge-new`. Run it once per project; re-run only to revise the recorded frame, since `forge new` appends to `DECISIONS.md` rather than erasing prior entries.
+Use when a request starts a new product or project, asks to scaffold or kick off build mode, or names `/forge-new`. Run it once per project. `forge new` refuses an existing project unless `--force` is supplied for an intentional reinitialization; a legacy v0.2 Build state must first be handled explicitly with `forge migrate build`.
 
 ## Enforcement honesty
 
@@ -32,13 +32,13 @@ Work through these in order, recording each as you go:
 
 ## CLI behavior and fallback
 
-When the CLI is installed, `forge new` runs this workflow and writes `.forge/build/project.json` (schema-versioned frame, risk-class inputs, stack decision, non-goals with reasons, and the feature index), `.forge/build/DECISIONS.md` (an append-only decision log), and `.forge/build/DESIGN.md` (design direction) from the canonical templates.
+When the CLI is installed, pass structured `forge new` inputs for product name and problem, users/roles, outcomes, invariants, workflows, sensitive data, trust boundaries, expected scale, stack choices with rationale, constraints, assumptions, unresolved decisions, non-goals, backlog, and design reference. The CLI writes schema-v2 `.forge/build/project.json`, `.forge/build/DECISIONS.md`, and `.forge/build/DESIGN.md`.
 
-If the CLI is absent or `forge new` cannot run, do this by hand instead: copy `templates/build/DECISIONS.md` and `templates/build/DESIGN.md` to `.forge/build/DECISIONS.md` and `.forge/build/DESIGN.md`, and record the same frame content in prose inside them. State plainly that this fallback path is unverified — no CLI derived it — and that `.forge/build/project.json` will not exist until the CLI is available. Never fabricate a JSON state file by hand to imitate one.
+If v0.2 Build state exists, do not edit it or rely on implicit migration: review `forge migrate build --dry-run`, then run `forge migrate build`; an interrupted migration requires `--resume` or `--rollback`. If the CLI is absent, record the frame in prose and state that it is unverified. Never fabricate JSON state or a migration result by hand.
 
 ## State and evidence
 
-Everything lives under `.forge/build/`, which stays git-ignored by default; docs show an opt-in `.gitignore` negation for teams that want to commit it. Nothing written in this phase is evidence for `forge ship` or `forge all audit` — build state is agent context only, never a gate input.
+Everything lives under `.forge/build/`, which stays git-ignored by default. Project framing is structured state, not executable evidence, and nothing written in this phase is evidence for `forge ship` or `forge all audit` — Build state is agent context only, never a release-gate input.
 
 ## Non-goals and scope
 

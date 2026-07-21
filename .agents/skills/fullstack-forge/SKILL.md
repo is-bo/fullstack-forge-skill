@@ -43,12 +43,15 @@ Fullstack Forge is Build mode plus Audit mode. Pick by intent, not habit:
 | Inspect or harden existing behavior  | Audit | `/forge-<section>` or `/fullstack-forge` (below) |
 | Gate a release                       | Audit | `forge ship`                                     |
 
-Build mode's `frame` and `plan` are RECORDED guidance; `check` and `done` are ENFORCED from
-CLI-derived evidence, never agent-asserted. Build state under `.forge/build/` satisfies zero
-`forge ship` or `forge all audit` gates — both always re-derive their own evidence independently.
-Decision rule: building a feature → `forge feature <slug> check`; reviewing an arbitrary diff →
-`forge all audit --scope changed`. The rest of this file, and every `/forge-<section>` skill below,
-is Audit mode.
+Build mode's `frame` and `plan` are RECORDED guidance. `check` and `done` re-derive applicability
+and a tier-specific gate plan, then accept positive results only from exact registered producers
+whose typed evidence envelope verifies for the selected root, revision, inputs, artifacts, and
+expiry. Unsupported or unavailable evidence never becomes `PASS`. Build state under `.forge/build/`
+satisfies zero `forge ship` or `forge all audit` gates; Ship performs its own stable-revision
+inspection. Legacy v0.2 Build state is upgraded only through the explicit, journaled
+`forge migrate build` command. Decision rule: building a feature → `forge feature <slug> check`;
+reviewing an arbitrary diff → `forge all audit --scope changed`. The rest of this file, and every
+`/forge-<section>` skill below, is Audit mode.
 
 ## Choose the workflow
 
@@ -194,20 +197,24 @@ checks whose outputs can interfere.
 ## Release readiness
 
 `forge ship` is fail-closed. Its explicit Forge gate registry combines internal checks,
-project-native commands, previous audit evidence, and applicable high-risk capabilities. It covers
-format, lint, type, unit, integration, end-to-end, build, finding and skill validation, generated
-copy synchronization, security, dependencies, licenses, archives, evaluations, migration,
-authorization, tenancy, upload, packaging, attribution, and clean installation.
+project-native commands, a fresh bounded inspection of the current stable working-tree revision, and
+applicable high-risk capabilities. It covers format, lint, type, unit, integration, end-to-end,
+build, finding and skill validation, generated-copy synchronization, security, dependencies,
+licenses, archives, evaluations, migration, authorization, tenancy, upload, packaging, attribution,
+and clean installation.
 
-The gate validates the prior report root and finding schema, confirms current source-evidence
-hashes, and carries the original audit findings into the ship report. It does not run project
-commands when the prior report is missing, malformed, cross-root, or already contains a
-release-blocking finding.
+Persisted reports are historical diagnostics only: their statuses, evidence, envelopes, and module
+decisions never determine a Ship outcome. Current inspection and authorized command evidence must
+match a code-owned producer contract and carry a verified envelope binding the exact root, revision,
+criterion, timestamp/expiry, and artifact hashes. Command evidence additionally binds its detected
+definition source, argv, input manifest, exit code, duration, and output digest. Build- domain
+evidence is categorically ineligible.
 
 It fails for an open critical finding, a required open high finding, a failed required gate, an
 out-of-sync generated copy, incomplete packaging, failed smoke install, invalid attribution, or a
-required high-risk `NOT_VERIFIED` check. A bypass must be explicit, authorized, documented, and must
-not be represented as a passing gate.
+required high-risk `NOT_VERIFIED` check. Missing, stale, malformed, cross-root, expired,
+unregistered, or artifact-mismatched evidence blocks rather than passes. A bypass must be explicit,
+authorized, documented, and must not be represented as a passing gate.
 
 ## Executable tools
 

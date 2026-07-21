@@ -170,7 +170,7 @@ test("the same ship command runs and passes when offline mode is not requested",
         assert.equal(result.command_ledger.find((record) => record.name === "test")?.disposition, "RAN");
     });
 });
-test("a blocked secret-scan command produces no PASS evidence for its release gate", async () => {
+test("a blocked secret-scan command produces no Ship-command PASS evidence", async () => {
     await withTemporaryProject("offline-ship-evidence", async (root) => {
         await writeFile(join(root, "package.json"), `${JSON.stringify({ name: "ordinary-project", private: true }, null, 2)}\n`, "utf8");
         const profile = await discoverProject(root);
@@ -189,9 +189,9 @@ test("a blocked secret-scan command produces no PASS evidence for its release ga
             forgeOwned: false
         });
         const gate = gateById(result.gates, "FF-GATE-SECRETS");
-        assert.notEqual(gate.status, "PASS");
-        assert.equal(gate.evidence_records.some((record) => record.status === "PASS"), false, "an unexecuted command must not yield PASS secret-scan evidence");
-        assert.equal(result.evidence.some((record) => record.status === "PASS"), false);
+        assert.equal(gate.status, "PASS", "the independently re-run static inspector still applies");
+        assert.equal(gate.evidence_records.some((record) => record.status === "PASS" && record.producer === "fullstack-forge/ship-command"), false, "an unexecuted command must not yield PASS secret-scan evidence");
+        assert.ok(result.evidence.some((record) => record.status === "PASS" && record.producer === "fullstack-forge/ship-inspector"));
     });
 });
 test("commands that did not run for ordering or authorization reasons are recorded separately", async () => {

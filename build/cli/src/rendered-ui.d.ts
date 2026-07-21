@@ -27,6 +27,33 @@ export type ViewportResult = {
     sha256?: string;
     error?: string;
 };
+export type StructuralCheckStatus = "PASS" | "FAIL" | "NOT_VERIFIED";
+/**
+ * Fixed, bounded browser observations collected after each navigation. This is intentionally not a
+ * general accessibility scanner: it catches only structural facts the built-in adapter can observe
+ * without caller-provided selectors or JavaScript.
+ */
+export type ViewportStructuralObservation = {
+    name: string;
+    width: number;
+    height: number;
+    status: StructuralCheckStatus;
+    horizontal_overflow?: boolean;
+    keyboard?: {
+        tab_focus: boolean;
+        visible_focus: boolean;
+    };
+    accessibility?: {
+        unlabeled_interactive: number;
+        custom_control_defects: number;
+    };
+    limitations: string[];
+};
+export type RenderedUiStructuralEvidence = {
+    path: string;
+    sha256: string;
+    observations: ViewportStructuralObservation[];
+};
 /** A request the offline interceptor refused. The URL is redacted before it is ever stored. */
 export type BlockedRequest = {
     url: string;
@@ -64,6 +91,8 @@ export type RenderedUiResult = {
     blocked_requests: BlockedRequest[];
     console_errors: number;
     console_warnings: number;
+    /** Optional to preserve the existing rendered-UI CLI contract for older consumers. */
+    structural_evidence?: RenderedUiStructuralEvidence;
     limitations: string[];
     findings: Finding[];
 };
@@ -97,6 +126,11 @@ type MinimalPage = {
     /** Present on real drivers; absence is treated as "cannot enforce offline" rather than ignored. */
     route?(pattern: string, handler: (route: RouteLike, request: RequestLike) => void | Promise<void>): Promise<void>;
     addInitScript?(script: string): Promise<void>;
+    /** Optional because older supported drivers can still capture screenshots without it. */
+    evaluate?(pageFunction: () => unknown): Promise<unknown>;
+    keyboard?: {
+        press(key: "Tab"): Promise<void>;
+    };
 };
 type MinimalBrowser = {
     newPage(): Promise<MinimalPage>;
@@ -117,6 +151,7 @@ export type CaptureOutcome = {
         viewport: string;
         sha256: string;
     }>;
+    structural_observations: ViewportStructuralObservation[];
     artifacts: string[];
     limitations: string[];
     final_url?: string;

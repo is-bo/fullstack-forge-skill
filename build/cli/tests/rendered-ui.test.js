@@ -89,7 +89,19 @@ export const chromium = {
         if (event === 'pageerror') onPageError = handler;
       },
       async route() {},
-      async addInitScript() {}
+      async addInitScript() {},
+      ...(SPEC.noStructuralAdapter ? {} : {
+        keyboard: { async press() {} },
+        async evaluate() {
+          return (SPEC.structural || [])[vp] || {
+            horizontal_overflow: false,
+            tab_focus: true,
+            visible_focus: true,
+            unlabeled_interactive: 0,
+            custom_control_defects: 0
+          };
+        }
+      })
     };
     return { newPage: async () => page, close: async () => {} };
   }
@@ -188,7 +200,7 @@ test("dry run resolves no driver, imports nothing, and writes nothing", async ()
         assert.equal(response.exitCode, 0);
         assert.equal(response.value.dry_run, true);
         assert.equal(response.value.artifacts.length, 0);
-        assert.equal(response.value.planned_artifacts?.length, 5);
+        assert.equal(response.value.planned_artifacts?.length, 6);
         assert.equal(response.value.driver_identity, undefined);
         await assert.rejects(access(sentinel), "dry run must never import a browser driver");
         await assert.rejects(access(join(root, ".forge")), "dry run must not create evidence dirs");
@@ -294,6 +306,51 @@ test("a complete capture with no console errors is the only path to a rendered P
         const manifest = await readJson(join(root, response.value.evidence_dir ?? "", "manifest.json"));
         assert.equal(manifest["capture_status"], "COMPLETE");
         assert.equal(manifest["viewports"].length, 3);
+    });
+});
+test("structural evidence is redacted, hashed, and recorded additively in the manifest", async () => {
+    await withTemporaryProject("rendered-ui-structural", async (root) => {
+        await emptyProject(root);
+        await plantWorkingDriver(root, {
+            structural: [
+                {
+                    horizontal_overflow: false,
+                    tab_focus: true,
+                    visible_focus: true,
+                    unlabeled_interactive: 0,
+                    custom_control_defects: 0
+                },
+                {
+                    horizontal_overflow: true,
+                    tab_focus: true,
+                    visible_focus: true,
+                    unlabeled_interactive: 0,
+                    custom_control_defects: 0
+                },
+                {
+                    horizontal_overflow: false,
+                    tab_focus: true,
+                    visible_focus: true,
+                    unlabeled_interactive: 1,
+                    custom_control_defects: 1
+                }
+            ]
+        });
+        const response = await inspectRenderedUi(root, ["http://127.0.0.1:3000/dashboard?token=structural-secret"], options({ allowRun: true }), REVISION);
+        // Existing Audit capture and exit semantics are unchanged; Build consumes the additive facts.
+        assert.equal(response.exitCode, 0);
+        assert.equal(response.value.capture_status, "COMPLETE");
+        const structural = response.value.structural_evidence;
+        assert.ok(structural !== undefined);
+        assert.equal(structural.observations.length, 3);
+        assert.equal(structural.observations[1]?.horizontal_overflow, true);
+        assert.equal(structural.observations[2]?.accessibility?.custom_control_defects, 1);
+        assert.match(structural.sha256, /^[a-f0-9]{64}$/u);
+        const evidenceDir = join(root, response.value.evidence_dir ?? "");
+        const structuralText = await readFile(join(evidenceDir, "structural.json"), "utf8");
+        const manifest = await readJson(join(evidenceDir, "manifest.json"));
+        assert.ok(!structuralText.includes("structural-secret"));
+        assert.equal(manifest["structural"].sha256, structural.sha256);
     });
 });
 test("every viewport failing returns FAILED, exit 1, and no rendered PASS", async () => {

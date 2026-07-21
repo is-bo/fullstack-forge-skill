@@ -1,4 +1,5 @@
 import type { CapabilityAssessment } from "./discovery-evidence.js";
+import type { EvidenceArtifact, EvidenceCommand, EvidenceEnvelope } from "./evidence-envelope.js";
 export declare const STATUSES: readonly ["PASS", "FAIL", "WARNING", "NOT_APPLICABLE", "NOT_VERIFIED", "BLOCKED"];
 export type Status = (typeof STATUSES)[number];
 export declare const SEVERITIES: readonly ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"];
@@ -170,6 +171,8 @@ export type CliOptions = {
 export declare const GATE_EVIDENCE_TYPES: readonly ["secret-scan", "dependency-audit", "lockfile-inspection", "license-scan", "authorization-evaluation", "tenant-isolation-evaluation", "upload-security-evaluation", "application-security-static-analysis", "migration-validation", "project-test", "release-artifact-validation"];
 export type GateEvidenceType = (typeof GATE_EVIDENCE_TYPES)[number];
 export type GateEvidenceStatus = Extract<Status, "PASS" | "FAIL" | "BLOCKED" | "NOT_VERIFIED" | "NOT_APPLICABLE">;
+/** Exact command claim required for Ship-owned command evidence. */
+export type GateEvidenceCommand = EvidenceCommand;
 /** Semantically typed evidence consumed by release gates. */
 export type GateEvidence = {
     evidence_type: GateEvidenceType;
@@ -181,6 +184,13 @@ export type GateEvidence = {
     relevant_instance_ids: string[];
     absence_proves_success: boolean;
     limitations: string[];
+    /** Present only for the registered Ship command producer. */
+    command?: GateEvidenceCommand;
+    /**
+     * v0.3 trust boundary. Records without this envelope remain readable for history, but Ship
+     * treats them as untrusted diagnostics rather than release evidence.
+     */
+    envelope?: EvidenceEnvelope;
 };
 /**
  * Module applicability is deliberately expressed as two independent axes.
@@ -234,6 +244,8 @@ export type RuntimeEvidence = {
     revision: string;
     artifact_paths: string[];
     hashes: string[];
+    /** v0.3 path/hash/media-type tuples. Legacy parallel lists remain available for migration. */
+    artifacts?: EvidenceArtifact[];
     limitations: string[];
 };
 export declare const TOOL_OWNERSHIPS: readonly ["forge-owned", "project-owned", "external"];
@@ -272,6 +284,8 @@ export type InspectionResult = {
     tool: string;
     root: string;
     generated_at: string;
+    /** Repository-relative files actually read by this inspection. */
+    input_paths: string[];
     observations: Observation[];
     findings: Finding[];
     gate_evidence: GateEvidence[];
