@@ -239,6 +239,42 @@ test("an unmapped project gate also rejects a command that edits its definition 
   });
 });
 
+test("Ship command results redact secrets while retaining a hash-bound current claim", async () => {
+  await withTemporaryProject("ship-command-redaction", async (root) => {
+    await writePackage(root);
+    const profile = await discoverProject(root);
+    const secret = "SKfaketest99887766554433";
+    const command: CommandDefinition = {
+      name: "check:licenses",
+      executable: process.execPath,
+      args: ["-e", `console.log("api_key=${secret}")`],
+      source: "package.json",
+      definition: `api_key=${secret} node synthetic-license-check`
+    };
+
+    const result = await runShipGates(root, profile, undefined, [command], true);
+    const serialized = JSON.stringify(result);
+    const licenses = gateById(result.gates, "FF-GATE-LICENSES");
+    const evidence = licenses.evidence_records.find(
+      (record) => record.producer === "fullstack-forge/ship-command"
+    );
+
+    assert.ok(
+      !serialized.includes(secret),
+      "Ship result retained a secret from command input/output"
+    );
+    assert.match(serialized, /REDACTED/u);
+    assert.equal(licenses.status, "PASS");
+    assert.ok(evidence?.command);
+    assert.match(evidence.command.definition, /REDACTED/u);
+    assert.match(result.execution[0]?.output ?? "", /REDACTED/u);
+    assert.equal(
+      (await verifyEvidenceEnvelope({ root, revision: result.revision, evidence })).verified,
+      true
+    );
+  });
+});
+
 async function priorShipLicenseEvidence(root: string, revision: string): Promise<GateEvidence> {
   const inputManifest = await captureEvidenceArtifacts(root, [
     { path: "package.json", media_type: "application/json" }

@@ -23,6 +23,7 @@ import type {
   Status
 } from "./types.js";
 import type { ModuleSlug } from "./constants.js";
+import { redactError, redactToString } from "./redaction.js";
 import { runFile, sha256, utcNow, workingTreeRevision } from "./utils.js";
 
 export type GateStatus = Extract<
@@ -341,7 +342,7 @@ export async function runShipGates(
     findings: inspection.findings,
     profile: currentProfile,
     revision,
-    command_ledger: ledger
+    command_ledger: ledger.map(sanitizeCommandLedger)
   };
 }
 
@@ -419,7 +420,7 @@ async function runRegisteredCommands(
           {
             ...decision,
             permitted: false,
-            reason: `Command source evidence could not be captured: ${(error as Error).message}`
+            reason: `Command source evidence could not be captured: ${redactError(error)}`
           },
           "BLOCKED",
           policy.offline
@@ -433,9 +434,9 @@ async function runRegisteredCommands(
     const result = await runFile(command.executable, command.args, root, 15 * 60_000);
     const output = `${result.stdout}\n${result.stderr}`.trim();
     execution.push({
-      command: [command.executable, ...command.args],
+      command: [command.executable, ...command.args].map((part) => redactToString(part, 1_000)),
       exitCode: result.exitCode,
-      output,
+      output: redactToString(output, 10_000),
       started_at: startedAt,
       duration_ms: Date.now() - started
     });
@@ -764,7 +765,7 @@ export async function deriveShipInspection(
           absence_proves_success: false,
           limitations: [
             ...record.limitations,
-            `Current evidence could not be sealed: ${(error as Error).message}`
+            `Current evidence could not be sealed: ${redactError(error)}`
           ]
         };
         delete record.envelope;
@@ -829,8 +830,8 @@ async function evidenceFromCommand(
     ],
     command: {
       name: command.name,
-      argv: [command.executable, ...command.args],
-      definition: command.definition,
+      argv: [command.executable, ...command.args].map((part) => redactToString(part, 1_000)),
+      definition: redactToString(command.definition, 1_000),
       exit_code: result.exitCode,
       started_at: result.started_at,
       duration_ms: result.duration_ms,
@@ -847,7 +848,7 @@ async function evidenceFromCommand(
       artifacts: [{ path: command.source, media_type: "application/json" }]
     });
   } catch (error) {
-    record.limitations.push(`Evidence envelope was not created: ${(error as Error).message}`);
+    record.limitations.push(`Evidence envelope was not created: ${redactError(error)}`);
   }
   return [record];
 }
@@ -861,6 +862,10 @@ async function commandGate(
   revision: string,
   ledger?: CommandLedgerRecord
 ): Promise<ShipGate> {
+  const display = redactToString(
+    `${command?.executable ?? ""} ${command?.args.join(" ") ?? ""}`,
+    1_000
+  );
   if (command === undefined)
     return gateValue(
       definition.gate_id,
@@ -876,7 +881,7 @@ async function commandGate(
       definition.name,
       definition.category,
       "BLOCKED",
-      [`${command.executable} ${command.args.join(" ")} requires --allow-run.`],
+      [`${display} requires --allow-run.`],
       definition.required
     );
   if (ledger?.disposition === "BLOCKED")
@@ -886,7 +891,7 @@ async function commandGate(
       definition.category,
       "BLOCKED",
       [
-        `${command.executable} ${command.args.join(" ")} was blocked by offline network policy (${ledger.network_policy}, sandbox=${ledger.sandbox}): ${ledger.reason}`
+        `${display} was blocked by offline network policy (${ledger.network_policy}, sandbox=${ledger.sandbox}): ${redactToString(ledger.reason, 1_000)}`
       ],
       definition.required
     );
@@ -909,7 +914,7 @@ async function commandGate(
       definition.category,
       "BLOCKED",
       [
-        `${command.executable} ${command.args.join(" ")} exited 0, but its current input evidence was rejected: ${currentInputRejection}`
+        `${display} exited 0, but its current input evidence was rejected: ${redactToString(currentInputRejection, 1_000)}`
       ],
       definition.required,
       evidenceRecords.map((record) => rejectedEvidenceDiagnostic(record, [currentInputRejection]))
@@ -926,7 +931,7 @@ async function commandGate(
         definition.category,
         "BLOCKED",
         [
-          `${command.executable} ${command.args.join(" ")} exited 0, but its current evidence was rejected: ${rejected.join(" ")}`
+          `${display} exited 0, but its current evidence was rejected: ${redactToString(rejected.join(" "), 1_000)}`
         ],
         definition.required,
         evidenceRecords.map((record) => rejectedEvidenceDiagnostic(record, rejected))
@@ -938,7 +943,7 @@ async function commandGate(
     definition.category,
     result.exitCode === 0 ? "PASS" : "FAIL",
     [
-      `${command.executable} ${command.args.join(" ")} exited ${result.exitCode} at ${revision}; input artifacts=${result.input_manifest.map((artifact) => `${artifact.path}@${artifact.sha256}`).join(", ")}; output sha256=${sha256(result.output)}.`
+      `${display} exited ${result.exitCode} at ${revision}; input artifacts=${result.input_manifest.map((artifact) => `${artifact.path}@${artifact.sha256}`).join(", ")}; output sha256=${sha256(result.output)}.`
     ],
     definition.required,
     evidenceRecords
@@ -960,7 +965,7 @@ async function commandInputRejection(
     if (JSON.stringify(current) !== JSON.stringify(result.input_manifest))
       return "a command input artifact changed after it was captured";
   } catch (error) {
-    return (error as Error).message;
+    return redactError(error);
   }
   return undefined;
 }
@@ -974,6 +979,15 @@ function rejectedEvidenceDiagnostic(record: GateEvidence, reasons: string[]): Ga
   };
   delete diagnostic.envelope;
   return diagnostic;
+}
+
+function sanitizeCommandLedger(record: CommandLedgerRecord): CommandLedgerRecord {
+  return {
+    ...record,
+    command: record.command.map((part) => redactToString(part, 1_000)),
+    definition: redactToString(record.definition, 1_000),
+    reason: redactToString(record.reason, 1_000)
+  };
 }
 
 function gate(
