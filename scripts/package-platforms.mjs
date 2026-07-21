@@ -7,6 +7,7 @@ import {
   assertSafeRelativePath
 } from "./lib/fs-safety.mjs";
 import { createDeterministicZip } from "./lib/zip.mjs";
+import { assertPublishableArchivePath, packageCommonPaths } from "./lib/package-policy.mjs";
 import { platformTargets, projectRoot, sha256 } from "./project.mjs";
 
 const dryRun = process.argv.includes("--dry-run");
@@ -15,36 +16,7 @@ const distRoot = join(projectRoot, "dist");
 const ownershipPath = join(distRoot, ".fullstack-forge-dist-manifest.json");
 await assertNoSymlinkPath(projectRoot, distRoot);
 await assertNoSymlinkPath(projectRoot, ownershipPath);
-const common = [
-  "README.md",
-  "LICENSE",
-  "NOTICE",
-  "THIRD_PARTY_NOTICES.md",
-  "CONTRIBUTING.md",
-  "CODE_OF_CONDUCT.md",
-  "SECURITY.md",
-  "CHANGELOG.md",
-  "docs/ADDING_A_MODULE.md",
-  "docs/ADDING_A_PLATFORM.md",
-  `docs/AUDIT_CLASSIFICATION_v${version}.md`,
-  "docs/ARCHITECTURE.md",
-  "docs/ANALYZER_SUPPORT.md",
-  "docs/BRAND.md",
-  "docs/COMMANDS.md",
-  "docs/COVERAGE.md",
-  "docs/DEVELOPMENT.md",
-  "docs/FINDING_SCHEMA.md",
-  "docs/IMAGE_GENERATION_BRIEF.md",
-  "docs/PLATFORM_SUPPORT.md",
-  `docs/RELEASE_NOTES_v${version}.md`,
-  `docs/RELEASE_VERIFICATION_v${version}.md`,
-  "docs/RELEASE.md",
-  "docs/RELEASING.md",
-  "docs/SECURITY_MODEL.md",
-  "docs/assets/fullstack-forge-hero.png",
-  "docs/assets/fullstack-forge-social-preview.png",
-  "docs/assets/fullstack-forge-icon.png"
-];
+const common = packageCommonPaths(version);
 const byId = new Map(platformTargets.map((target) => [target.id, target]));
 const archives = [
   {
@@ -65,8 +37,10 @@ const previous = await readOwnership();
 const outputs = new Map();
 for (const archive of archives) {
   const entries = [];
-  for (const path of common)
+  for (const path of common) {
+    assertPublishableArchivePath(path, version);
     entries.push({ path, data: await readRequired(join(projectRoot, ...path.split("/"))) });
+  }
   for (const id of archive.platforms) {
     const platform = byId.get(id);
     if (platform === undefined) throw new Error(`Unknown package platform ${id}`);
@@ -75,7 +49,7 @@ for (const archive of archives) {
     for (const file of await walk(platformRoot)) {
       if (basename(file) === ".fullstack-forge-generated.json") continue;
       const entryPath = relative(projectRoot, file).split(sep).join("/");
-      assertPublishable(entryPath);
+      assertPublishableArchivePath(entryPath, version);
       entries.push({ path: entryPath, data: await readFile(file) });
     }
   }
@@ -211,18 +185,4 @@ async function walk(root) {
     else if (entry.isFile()) files.push(path);
   }
   return files;
-}
-
-function assertPublishable(path) {
-  const normalized = path.toLowerCase();
-  if (normalized.includes("fullstack_forge_spec") || normalized.includes("fullstack-forge-spec")) {
-    throw new Error(`Forbidden local specification path in package inputs: ${path}`);
-  }
-  if (
-    normalized.startsWith(".git/") ||
-    normalized.startsWith(".tmp/") ||
-    normalized.includes("node_modules")
-  ) {
-    throw new Error(`Forbidden package path: ${path}`);
-  }
 }
