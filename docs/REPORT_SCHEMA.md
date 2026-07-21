@@ -27,6 +27,25 @@ through v0.1.6) are still readable and are migrated in memory on load.
 | `module_decisions`  | 2     | Why each module was or was not audited                         |
 | `migration`         | 2     | Present only when the report was read from an older schema     |
 
+## Gate evidence envelopes
+
+The report schema remains version 2, but v0.3 gate-evidence records may carry an optional verified
+`envelope`. This is an additive field. Older records remain readable and visible after in-memory
+migration, but Ship treats a record without a current verified envelope as historical diagnostics.
+
+An envelope records domain (`Audit` or `Ship` for report evidence), registered producer and version,
+contract, canonical root, revision, exact evidence type/criterion and status, run ID, production and
+expiry timestamps, environment, limitations, instance IDs, outer-claim digest, and a non-empty
+one-to-one `(path, SHA-256, media type)` artifact list. Registered Ship command evidence also binds
+command name, argv, detected definition, exit code, start time, duration, output digest, and input
+manifest. Unknown envelope fields are rejected.
+
+Ship re-hashes every envelope artifact against the selected root and current revision when it
+consumes the record. A legacy, expired, cross-root, cross-revision, unregistered, changed,
+malformed, or Build-domain envelope cannot satisfy a Ship gate. The envelope proves local contract
+and artifact integrity; it does not make a bounded analyzer or command a whole-program or external
+attestation.
+
 ## Module applicability
 
 Applicability is two independent axes. Collapsing them is the defect this structure exists to

@@ -7,15 +7,17 @@
 2. Run the complete required command matrix in `AGENTS.md`, including `npm ci --ignore-scripts`, the
    component checks, `npm run check`, packaging, distribution validation, smoke installation, and
    `npm audit`.
-3. Run `npm run package:platforms` twice and compare every byte/hash.
-4. Run `npm run smoke:install` and inspect `npm pack --dry-run --json --ignore-scripts`.
-5. Confirm `npm run validate:dist` verifies entry CRCs, fixed timestamps, licenses, checksums, path
+3. Run `npm run test:evals:v030` and inspect the exact prevention/module outcomes. A missing
+   runtime, provider, external tool, or human judgment must remain `BLOCKED`/`NOT_VERIFIED`.
+4. Run `npm run package:platforms` twice and compare every byte/hash.
+5. Run `npm run smoke:install` and inspect `npm pack --dry-run --json --ignore-scripts`.
+6. Confirm `npm run validate:dist` verifies entry CRCs, fixed timestamps, licenses, checksums, path
    safety, absence of symlinks, and the exact archive set.
-6. Verify the private local specification, research clones, build temporaries, credentials, and
+7. Verify the private local specification, research clones, build temporaries, credentials, and
    `node_modules` are ignored, untracked, and absent from all packages.
-7. Run `npm run check:release-docs`; the tagged record must say `TAGGED_LOCAL`, record local
+8. Run `npm run check:release-docs`; the tagged record must say `TAGGED_LOCAL`, record local
    validation as `PASS`, and keep remote publication `PENDING`.
-8. Run `npm run check` again after the final source edit.
+9. Run `npm run check` again after the final source edit.
 
 ## GitHub publication
 

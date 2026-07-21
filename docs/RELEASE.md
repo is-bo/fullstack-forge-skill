@@ -5,16 +5,19 @@
 2. Run focused tests for the final changes.
 3. Run the complete required local validation matrix and `npm run check` on the complete
    implementation.
-4. Generate and inspect branding dimensions, research attribution, licenses, documentation, and
+4. Run `npm run test:evals:v030`; verify the exact 12 prevention tasks, the module corpus, and that
+   nondeterministic, human-required, browser/provider, and unsupported evidence never appears as
+   deterministic `PASS`.
+5. Generate and inspect branding dimensions, research attribution, licenses, documentation, and
    platform paths.
-5. Run `npm run package:platforms` twice and confirm archive and checksum bytes are identical.
-6. Run `npm run smoke:install` and inspect `npm pack --json` for private/local files.
-7. Make final fixes, then run `npm run check` again after the last edit.
-8. Verify the local specification and temporary research are untracked and absent from npm and ZIP
+6. Run `npm run package:platforms` twice and confirm archive and checksum bytes are identical.
+7. Run `npm run smoke:install` and inspect `npm pack --json` for private/local files.
+8. Make final fixes, then run `npm run check` again after the last edit.
+9. Verify the local specification and temporary research are untracked and absent from npm and ZIP
    contents.
-9. Commit with conventional subjects, merge through a reviewed pull request, and wait for Linux,
-   Windows, macOS, dependency-review, and CodeQL results on `main`.
-10. Create the next annotated tag from the verified commit without moving any prior tag. The release
+10. Commit with conventional subjects, merge through a reviewed pull request, and wait for Linux,
+    Windows, macOS, dependency-review, and CodeQL results on `main`.
+11. Create the next annotated tag from the verified commit without moving any prior tag. The release
     workflow must prove that no release exists, create a draft without clobbering, upload and attest
     deterministic archives, verify downloaded bytes and checksums, attach checksummed final
     evidence, publish once, and verify the resulting immutable release.

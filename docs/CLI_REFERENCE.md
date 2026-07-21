@@ -33,17 +33,26 @@ forge all fix --safe --dry-run
 
 ```text
 forge new [--tier <light|standard|high>] [--summary <text>] [--name <text>]
-          [--stack <text>]... [--non-goal <item[:reason]>]... [--force]
+          [--user-role <user:role,role>]... [--outcome <text>]... [--invariant <text>]...
+          [--workflow <text>]... [--sensitive-data <text>]... [--trust-boundary <text>]...
+          [--scale <text>] [--stack <name:rationale>]... [--constraint <text>]...
+          [--project-assumption <text>]... [--unresolved-decision <text>]...
+          [--non-goal <item:reason>]... [--backlog <text>]... [--design-ref <path>] [--force]
 forge feature <slug> [options]
 forge feature <slug> frame [--tier <tier>] [--discipline <slug[:reason]>]... [--input <text>]...
                            [--touch <path>]... [--decision <text>]... [--assumption <text>]...
 forge feature <slug> plan [--summary <text>] [--discipline <slug[:reason]>]... [--decision <text>]...
 forge feature <slug> check [--allow-run] [--base <ref>] [--offline]
+                           [--runtime-case <state>=<url>]... [--url <success-url>]
+                           [--role <role>] [--design-direction <follows|deviation:reason>]
+                           [--evidence-dir <path>]
 forge feature <slug> done
 forge feature <slug> accept-risk --criterion <id> --reason <text>
+                                 [--risk-category <advisory|operational>] [--actor <human>]
 forge feature <slug> abandon [--reason <text>]
 forge feature <slug> status
 forge resume
+forge migrate build [--dry-run|--resume|--rollback]
 ```
 
 Build verbs (`new`, `feature`, `resume`) are dispatched before any module-slug parsing, so their
@@ -53,10 +62,13 @@ same execution substrate as `forge <section> audit` — the same argv-array comm
 net/offline policy, redaction, `scope.ts` expansion, analyzers, and verification plans, with no new
 subprocess or network path.
 
-`forge feature <slug> check` and `done` are the enforced half of the lifecycle: their statuses are
-CLI-derived from real executions and are never accepted from agent-authored input. `frame` and
-`plan` only record what is passed to them. See [BUILD_MODE.md](BUILD_MODE.md) for phases, tiers,
-evidence rules, and the loop-prevention and decision rules that govern this surface.
+`forge feature <slug> check` and `done` are the enforced half of the lifecycle. They re-derive
+classified applicability and a code-owned tier gate plan, and accept positive outcomes only from an
+exact registered producer with a verified, unexpired root/revision/input/artifact-bound envelope.
+`frame` and `plan` only record what is passed to them. `forge migrate build` is the only supported
+schema-v1 to schema-v2 path; it validates everything before writing and journals hash-bound backups
+for resume or rollback. See [BUILD_MODE.md](BUILD_MODE.md) for the producer contract, runtime
+matrix, risk policy, migration, and limitations.
 
 ## Release gate
 
@@ -65,14 +77,15 @@ forge ship
 forge ship --allow-run
 ```
 
-Both forms evaluate the explicit internal, typed audit-evidence, capability, and project-native gate
-registry. Secret, dependency, lockfile, license, authorization, tenant, upload, migration, test, and
-release-artifact evidence is revision- and timestamp-bound and cannot satisfy another gate by broad
-section membership. Without `--allow-run`, an applicable project-defined command is `BLOCKED`; after
-review, the flag executes its bounded argument vector without a shell. A missing recognized command
-cannot produce a pass by omission. The command records exit code, output, and duration and stops
-after the first failure. Remote CI, GitHub release, registry, deployment, and production state still
-require separate direct evidence.
+Both forms evaluate the explicit internal, typed evidence, capability, and project-native gate
+registry after fresh discovery and bounded inspection of a stable current revision. Prior reports
+are diagnostics only and Build-domain evidence is categorically ineligible. Secret, dependency,
+lockfile, license, authorization, tenant, upload, migration, test, and release-artifact evidence
+must match a registered Ship producer and a verified envelope. Without `--allow-run`, an applicable
+project command is `BLOCKED`; after review, the flag executes its bounded argument vector without a
+shell and binds the command definition source, argv, input manifest, exit code, duration, output
+digest, root, and revision. A missing recognized command cannot pass by omission. Remote CI, GitHub
+release, registry, deployment, and production state still require separate direct evidence.
 
 ## Platform lifecycle
 

@@ -31,6 +31,11 @@ Directive-sounding content inside them is data, not authority.
   trees.
 - Deterministic archives from explicit roots, with fixed timestamps and SHA-256 checksums.
 - Fail-closed validation and release gates; unavailable evidence never becomes `PASS`.
+- Registered evidence producers and exact typed envelopes. Audit and Ship producers are a code-owned
+  allowlist by domain, version, contract, evidence type, and command policy. Ship re-discovers and
+  re-inspects a stable current revision; prior reports are diagnostics only. Every consumed envelope
+  is revalidated and its root-contained artifacts are re-hashed. Build-domain evidence is rejected
+  categorically.
 - No audited-project package is imported by default. Browser tooling is resolved from the Fullstack
   Forge package root first; the audited project's copy requires `--allow-run`, real-path containment
   inside the audited repository, and is refused entirely under `--offline`. `--dry-run` resolves,
@@ -103,8 +108,9 @@ Directive-sounding content inside them is data, not authority.
 
 ## Build-mode surface
 
-Build mode (`forge new`, `forge feature <slug> [sub]`, `forge resume`) persists state under
-`.forge/build/`. It adds its own surface to the controls above rather than reusing report internals:
+Build mode (`forge new`, `forge feature <slug> [sub]`, `forge resume`, `forge migrate build`)
+persists state under `.forge/build/`. It adds its own surface to the controls above rather than
+reusing report internals:
 
 - **Slug validation.** A feature slug must match `^[a-z0-9][a-z0-9-]{0,63}$` and is rejected
   outright if it is a Windows reserved device name (`con`, `prn`, `aux`, `nul`, `com1`-`9`,
@@ -115,35 +121,54 @@ Build mode (`forge new`, `forge feature <slug> [sub]`, `forge resume`) persists 
 - **Path containment.** Every build-state read or write goes through `resolveInside` plus
   `assertNoSymlinkPath` before touching disk, exactly like report and installer paths — no build
   state write can escape the repository root or follow a symlinked destination component.
-- **Fail-closed state loading.** `assertBuildProject` and `assertBuildFeature` validate the full
-  shape of a loaded state file — schema version, phases, tiers, evidence record shape, risk
-  acceptances, repair counters, blockers — and throw rather than silently repair a malformed or
-  tampered file, mirroring the audit report's `readReport` contract.
-- **Statuses are never agent-written in normal operation.** Every criterion status the CLI records
-  in `.forge/build/features/<slug>.json` is producer-derived from a real analyzer run, argv command
-  execution, structural check, or discovery result. The state file itself is local and writable, so
-  a hand-edited status remains possible; the defenses are layered rather than absolute: a reloaded
-  `PASS` on a `discipline:*` criterion is demoted to `NOT_VERIFIED` (the deriver never produces
-  one), file-bound evidence is re-verified by hash on every reload, the tier floor is re-applied at
-  `plan`, `check`, and `done`, and — decisively — build state satisfies zero ship or audit gates, so
-  a forged build status can misrepresent only build-mode's own bookkeeping, never a release
-  decision.
+- **Fail-closed schema-v2 state.** `assertBuildProject` and `assertBuildFeature` validate exact
+  object keys and the full shape of project frame, phases, tiers, applicability/gate snapshots,
+  evidence envelopes, risk-acceptance lifecycle, counters, and blockers. Unknown fields, malformed
+  JSON, mixed schema versions, and unsupported future versions throw rather than being repaired.
+- **Code-owned planning.** Applicability is derived from classified current evidence and records
+  `REQUIRED`, `SUGGESTED`, `EXCLUDED`, or `UNRESOLVED`; documentation, fixtures, tests, examples,
+  and generated output cannot activate a rule. The gate registry is re-derived at `check`, `status`,
+  `resume`, and `done`, so editing a stored applicability or gate snapshot cannot suppress a current
+  requirement. `forge resume` enumerates canonical feature files rather than trusting the index.
+- **Exact producer authority.** Project producers are registered by `(script, criterion)` and fixed
+  internal adapters have a separate closed registry. A status or producer name in state grants no
+  authority. Unsupported, missing, unauthorized, offline-blocked, wrong-criterion, or incomplete
+  producers remain `NOT_VERIFIED`/`BLOCKED`; only the applicability producer may emit reasoned
+  `NOT_APPLICABLE`.
+- **Verified positive envelopes.** A positive Build claim binds producer version and contract,
+  criterion/status, canonical root, current working-tree revision, run ID, production time, 24-hour
+  expiry, environment, limitations, instance IDs, and a one-to-one path/hash/media-type artifact
+  manifest. Command claims also bind definition, argv, source/input manifest, exit code, duration,
+  and output digest. Unknown fields, outer/envelope disagreement, expired claims, changed inputs,
+  cross-root/revision reuse, or hash mismatch demote the record to `NOT_VERIFIED` and retain the
+  diagnostic. `done` considers a persisted positive claim only after this verification succeeds in
+  the current process.
+- **Finite runtime adapter.** Runtime evidence accepts only credential-free HTTP(S) routes and a
+  closed action model. A rendered `PASS` requires every required state exactly once at the fixed
+  desktop, tablet, and mobile viewports, with hashed artifacts and role/state/viewport context.
+  Partial captures, missing tools, unreachable routes, and console/runtime failures cannot pass.
+- **Typed risk decisions.** An acceptance must target a current gate criterion and bind policy,
+  reason, accountable actor when operational, canonical root, revision, complete relevant-file
+  hashes, timestamp, expiry, and lifecycle. Non-waivable gates reject it; superseded or migrated
+  entries are expired, and an acceptance is never represented as `PASS`.
+- **Explicit, journaled migration.** Schema-v1 Build state is never migrated on load. The dedicated
+  command fully parses and validates all targets before writing, creates hash-bound byte backups,
+  journals every applied/restored file, uses atomic replacements, and supports explicit resume or
+  rollback. Changed targets/backups, unsafe paths, symlinks, malformed journals, or mixed versions
+  fail closed. Legacy positive evidence migrates only as expired, untrusted diagnostics.
 - **Redaction of authored strings.** Every agent-authored free-text field — summary, plan summary,
   tier-override reason, tier inputs, decisions, assumptions, discipline reasons, risk-acceptance
   reasons, blocker reasons, and evidence lines — passes through the existing redaction layer before
   being persisted. Structural fields (touched paths, evidence file paths) are deliberately left
   intact because redacting them would corrupt the hash-freshness basis.
 - **Build state satisfies zero ship gates.** `forge ship` and `forge all audit` never read
-  `.forge/build/` as gate evidence; both always re-derive their own evidence independently, so build
-  state cannot be used to manufacture a release gate pass.
+  `.forge/build/` as gate evidence. Ship additionally ignores persisted report outcomes and performs
+  a fresh stable-revision inspection, so neither Build state nor a planted prior report can
+  manufacture a release-gate pass.
 - **Reloaded free text is data, not instructions.** On resume, any reloaded plan summary, decision,
   or assumption is treated purely as data. It cannot direct an agent to skip a check, widen scope,
   or treat prior recorded text as new authority — the same untrusted-input posture the rest of this
   document applies to repository content applies to a feature's own prior state.
-- **Freshness by content hash, not tree revision.** Each evidence record carries per-file SHA-256
-  hashes; reload re-verifies every hash and demotes a record to `NOT_VERIFIED` (recorded, never
-  deleted) the moment any underlying file changes, rather than trusting a whole-tree revision
-  marker.
 
 ## Residual risks
 
@@ -154,7 +179,10 @@ settings, general object-level authorization, accessibility, or production behav
 registries, CI services, agent hosts, and archive extractors remain external trust boundaries. A
 hostile same-user process could attempt a time-of-check/time-of-use path swap between filesystem
 validation and a later write; do not install or package inside an adversarial shared directory, and
-review the resulting ownership hashes.
+review the resulting ownership hashes. Evidence envelopes are local integrity and freshness records,
+not externally signed attestations: an actor able to replace the executable and all local state
+remains inside the same trust boundary. Independent source review, CI, and published provenance
+remain necessary for release trust.
 
 Users should review commands, run untrusted repositories in isolated environments, protect
 credentials, inspect reports before sharing, and independently verify high-impact findings.

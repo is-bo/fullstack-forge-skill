@@ -23,6 +23,14 @@ Do not test against systems or data you do not own or have permission to assess.
 - Existing symlinks, path traversal, unowned conflicts, and modified owned files are refused.
 - Uninstall removes only files whose installed hash still matches the ownership manifest.
 - Secret scanners redact values and never establish that a credential is valid.
+- Build positive outcomes require exact registered producers and typed evidence envelopes bound to
+  the current root, revision, expiry, inputs, and artifacts; unavailable evidence never becomes
+  `PASS`, and Build evidence has no Ship authority.
+- `forge ship` re-discovers and re-inspects the current stable revision. Persisted reports are
+  diagnostics only, command claims are definition/input/output-bound, and rejected evidence is
+  retained only as `NOT_VERIFIED`.
+- Legacy v0.2 Build state is migrated only through the explicit journaled command, with validated
+  hash-bound backups, resumable application, and rollback. No Build command migrates state on load.
 - Packages use explicit source roots and reject local-specification, Git, temporary, dependency, and
   symlink content.
 

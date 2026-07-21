@@ -38,13 +38,15 @@ A coherent project journey: `forge new` frames the product once; each feature th
 `forge feature <slug>` through frame → plan → implement → check → done; before release, the
 independent backstop runs regardless of how the code was built — `forge all audit` (or
 `--scope changed` for a diff) → `forge all fix --safe` → `forge all verify` → `forge ship`. Build
-mode's `frame` and `plan` are recorded guidance; `check` and `done` are CLI-derived, never
-agent-asserted; and build evidence under `.forge/build/` satisfies zero `forge ship` or
-`forge all audit` gates — both always re-derive their own evidence independently. See
+mode's `frame` and `plan` are recorded guidance. `check` and `done` re-derive applicability and a
+tier-specific gate plan, then accept positive results only from registered producers whose typed
+evidence is current for the selected root, revision, inputs, and artifacts. Build evidence under
+`.forge/build/` satisfies zero `forge ship` or `forge all audit` gates; Ship performs a fresh,
+stable-revision inspection and treats prior reports as diagnostics only. See
 [docs/BUILD_MODE.md](docs/BUILD_MODE.md) for the complete guide.
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.2.0 && npx forge init all
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.3.0 && npx forge init all
 ```
 
 Codex, Claude Code, Antigravity, Gemini CLI, Cursor, Windsurf, GitHub Copilot, and generic Agent
@@ -84,7 +86,7 @@ Fullstack Forge is **not published to the npm registry**. The working npm-based 
 resolves the package directly from its Git tag:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.2.0
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.3.0
 npx forge init all --dry-run
 npx forge init all
 ```
@@ -117,6 +119,7 @@ forge new
 forge feature auth-login   # identity triggers escalate this feature to high tier, recorded
 forge feature auth-login plan
 forge feature auth-login check --allow-run
+# Resolve every reported high-tier gate before running done.
 forge feature auth-login done
 ```
 
@@ -209,6 +212,7 @@ forge all audit --scope changed [--base <ref>]
 forge new [--tier <light|standard|high>] [--stack <name>] [--non-goal <item:reason>]
 forge feature <slug> [frame|plan|check|done|accept-risk|abandon|status]
 forge resume
+forge migrate build [--dry-run|--resume|--rollback]
 forge init <platform|all> [--global] [--dry-run]
 forge update [platform] [--dry-run]
 forge uninstall [platform] [--dry-run]
@@ -216,7 +220,8 @@ forge doctor | validate | package | list
 forge tool <name>
 ```
 
-`forge new` and `forge feature` are Build mode; every other verb above is Audit mode. See
+`forge new`, `forge feature`, `forge resume`, and the explicit `forge migrate build` compatibility
+command are Build mode; every other verb above is Audit mode. See
 [docs/BUILD_MODE.md](docs/BUILD_MODE.md) for the full build flag surface.
 
 The CLI includes bounded TypeScript-compiler and structured-config analyzers for supported
@@ -232,9 +237,13 @@ direct running-application evidence for UI, UX, and accessibility audits. Withou
 reachable URL the tool reports `BLOCKED` and rendered-state criteria stay `NOT_VERIFIED` — visual
 evidence is captured, never fabricated.
 
-Audit reports also include typed, revision-bound ship-gate evidence and structured analyzer coverage
-for each detected language/framework. See [commands](docs/COMMANDS.md),
-[analyzer support](docs/ANALYZER_SUPPORT.md), and [coverage policy](docs/COVERAGE.md).
+Audit and Ship evidence use a typed envelope with a code-owned producer contract, exact criterion,
+canonical root, working-tree revision, expiry, one-to-one path/hash/media-type artifacts, and — for
+commands — the detected definition, argv, input manifest, exit code, duration, and output digest.
+Ship re-hashes those artifacts when consuming evidence and never promotes legacy or Build-domain
+records into release proof. Reports also include structured analyzer coverage for each detected
+language/framework. See [commands](docs/COMMANDS.md), [analyzer support](docs/ANALYZER_SUPPORT.md),
+and [coverage policy](docs/COVERAGE.md).
 
 ## Platform support
 
@@ -262,10 +271,10 @@ drifts.
 
 See [architecture](docs/ARCHITECTURE.md), [development](docs/DEVELOPMENT.md),
 [release process](docs/RELEASING.md), the [traceability matrix](docs/TRACEABILITY_MATRIX.md) that
-maps every requirement to evidence, and the
-[v0.1.0 historical verification record](docs/RELEASE_VERIFICATION_v0.1.0.md). The
-[v0.1.1 verification record](docs/RELEASE_VERIFICATION_v0.1.1.md) separates local, CI, publication,
-asset-download, and clean-room evidence.
+maps every requirement to evidence, the
+[v0.3 gap classification](docs/AUDIT_CLASSIFICATION_v0.3.0.md), and the
+[v0.3 release verification record](docs/RELEASE_VERIFICATION_v0.3.0.md), which keeps local, CI,
+publication, asset-download, and clean-room evidence distinct.
 
 ## Safety and limitations
 
@@ -276,9 +285,11 @@ unsupported stack. Runtime, provider, database, browser, assistive-technology, a
 stay `NOT_VERIFIED` until actually performed.
 
 Build mode cannot force analysis quality during `frame` or `plan` — the CLI records what an agent
-decides, it does not grade it — and most discipline criteria resolve `NOT_VERIFIED` or
-`NOT_APPLICABLE` without runtime evidence. Build state is agent context only; the independent
-backstop for correctness remains `forge all audit` and `forge ship`.
+decides, it does not grade it. Its evidence envelopes provide local integrity, provenance,
+freshness, and applicability checks, not an external cryptographic attestation. Unsupported tools,
+missing registered producers, incomplete runtime matrices, and human-only judgments remain
+`NOT_VERIFIED` or `BLOCKED`; they are never represented as automated `PASS`. Build state is agent
+context only, and the independent backstop remains `forge all audit` and `forge ship`.
 
 Read the [security model](docs/SECURITY_MODEL.md) and report vulnerabilities through
 [SECURITY.md](SECURITY.md).

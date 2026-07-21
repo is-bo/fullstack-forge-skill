@@ -813,15 +813,19 @@ function printHelp(): void {
   console.log(`Fullstack Forge ${VERSION}
 
 Usage:
-  Build mode (v0.2.0):
-  forge new [--tier light|standard|high] [--summary <text>] [--stack <name>] [--non-goal <item:reason>]
-  forge feature <slug> [--tier <tier>] [--summary <text>] [--discipline <slug[:reason]>] [--input <trigger>]
+  Build mode:
+  forge new [--tier light|standard|high] [--summary <text>] [--user-role <user:roles>]
+            [--workflow <text>] [--invariant <text>] [--stack <name:rationale>] [--non-goal <item:reason>]
+  forge feature <slug> [--tier <tier>] [--summary <text>] [--discipline <slug[:reason]>]
   forge feature <slug> <frame|plan|check|done|accept-risk|abandon|status> [options]
+  forge feature <slug> check --allow-run [--runtime-case <state>=<url>] [--design-direction <value>]
   forge resume
+  forge migrate build [--dry-run|--resume|--rollback]
   Light tier is a two-invocation flow: 'forge feature <slug> --tier light --allow-run' runs framing
-  and the check pass in one shot; 'forge feature <slug> done' completes it. Standard and high tiers
-  add 'plan' and per-discipline evidence; accept-risk requires --criterion and --reason and is
-  refused for high-tier required security controls.
+  and the check pass in one shot; 'forge feature <slug> done' completes only after every current
+  required gate has verified producer evidence. Standard and high add applicable disciplines;
+  high also adds adverse, recovery, runtime, integration, and security-review gates. Operational
+  accept-risk additionally requires --actor; non-waivable gates refuse it.
 
   Audit mode:
   forge <section> <audit|fix|verify|report> [options]

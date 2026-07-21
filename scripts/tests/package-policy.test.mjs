@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { assertPublishableArchivePath, packageCommonPaths } from "../lib/package-policy.mjs";
 
-const VERSION = "0.2.0";
+const VERSION = "0.3.0";
 
 test("package policy accepts only declared common files and managed platform roots", () => {
   for (const path of packageCommonPaths(VERSION))

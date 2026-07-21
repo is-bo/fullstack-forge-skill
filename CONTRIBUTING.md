@@ -26,6 +26,13 @@ research repositories; they are conceptual references only.
 6. Review the diff for secret exposure, path traversal, unsafe subprocesses, unowned overwrites,
    inaccurate PASS claims, stale attribution, and private/local files.
 
+For Build-mode evidence changes, update the exact producer registry and code-owned gate plan
+together. A command producer is keyed by both script and criterion; never add a generic exit-zero
+promotion, state-defined producer, or manual route to `PASS`. Cover wrong-criterion, missing tool,
+unauthorized/offline execution, stale input, cross-root/revision, expiry, and artifact tampering,
+and add a fixed public prevention evaluation. See
+[the contributor contract](docs/ADDING_A_MODULE.md#build-producer-and-gate-interfaces).
+
 Use Conventional Commit subjects such as `feat(cli): add safe update conflicts` or
 `docs: clarify Gemini skill discovery`.
 

@@ -70,3 +70,17 @@ Run it independently:
 ```bash
 npm run test:evals:v030
 ```
+
+## v0.3 prevention task corpus (`v030-prevention/`)
+
+`v030-prevention/cases.json` is the fixed twelve-task release corpus: new SaaS, intentional
+dashboard, registration/RBAC, secure upload, large-dataset search, justified cache, rejected
+unnecessary Redis, tenant-scoped feature, third-party webhook, hostile-input AI invoice extraction,
+idempotent background job, and offline-capable workflow. Every case contains a materializable
+starting file map, fixed agent task, expected applicability and gates, forbidden defects, required
+validation artifacts, and checks classified as deterministic, nondeterministic, human-required, or
+unsupported external-tool evidence.
+
+The compiled runner exercises real applicability, Build-gate, runtime, and envelope behavior. Only
+deterministic local assertions may start at `PASS`; unavailable browser/provider/human checks remain
+`BLOCKED` or `NOT_VERIFIED`. `npm run test:evals:v030` runs both v0.3 corpora.

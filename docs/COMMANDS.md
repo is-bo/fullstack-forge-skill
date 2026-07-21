@@ -66,38 +66,54 @@ The 42 valid sections are emitted by `forge list`. Unknown sections and modes fa
 forge new [options]
 forge feature <slug> [frame|plan|check|done|accept-risk|abandon|status] [options]
 forge resume [options]
+forge migrate build [--dry-run|--resume|--rollback]
 ```
 
 Build verbs are dispatched before section-slug parsing, so a build option surface never widens the
 audit option type and no existing audit command changes behavior.
 
-- `forge new` runs the new-project foundation workflow once per project and writes
-  `.forge/build/project.json`, `.forge/build/DECISIONS.md`, and `.forge/build/DESIGN.md`. Refuses to
-  reinitialize an existing project unless `--force` is given.
+- `forge new` runs the new-project foundation workflow once per project and writes schema-v2
+  `.forge/build/project.json`, `.forge/build/DECISIONS.md`, and `.forge/build/DESIGN.md`. Structured
+  flags capture users/roles, outcomes, business invariants, workflows, sensitive data, trust
+  boundaries, expected scale, stack rationale, constraints, assumptions, unresolved decisions,
+  non-goals, backlog, and design direction. It refuses reinitialization unless `--force` is given.
 - `forge feature <slug>` with no sub-verb starts a feature (default tier `standard`) or resumes one
   that already exists, re-verifying every evidence hash on load.
-- `forge feature <slug> frame` records tier, disciplines, tier inputs, touched paths, decisions, and
-  assumptions. `plan` records a plan summary and hashes it with the sorted discipline list.
+- `forge feature <slug> frame` records tier, explicit disciplines, tier inputs, touched paths,
+  decisions, and assumptions, then derives discipline applicability as `REQUIRED`, `SUGGESTED`,
+  `EXCLUDED`, or `UNRESOLVED`. `plan` records a plan summary and hashes it with the sorted
+  discipline list; neither phase is proof.
 - `forge feature <slug> check` resolves scope (Git merge-base changed-scope, falling back to
   recorded touched paths or the full worktree), runs analyzers and — with `--allow-run` — detected
-  project commands (`lint`, `typecheck`, `test`, `build`), and derives a status per discipline.
-  Exits 1 if any derived criterion is `FAIL` or the feature is now `blocked`.
-- `forge feature <slug> done` refuses (exit 1) with an actionable missing-items list until every
-  tier-required criterion has `PASS`, a reasoned `NOT_APPLICABLE`, or an eligible risk acceptance.
-- `forge feature <slug> accept-risk --criterion <id> --reason <text>` and
-  `forge feature <slug> abandon [--reason <text>]` are recorded human decisions; see
-  [BUILD_MODE.md](BUILD_MODE.md).
+  project commands only through exact registered `(script, criterion)` producers. Positive results
+  receive a typed, root/revision/input/artifact/expiry-bound envelope. High-tier UI work accepts
+  repeatable `--runtime-case <state>=<url>` routes, `--role`, and `--design-direction`, and requires
+  the complete eight-state by three-viewport matrix. Exits 1 if any derived criterion is `FAIL` or
+  the feature is now `blocked`.
+- `forge feature <slug> done` re-derives applicability and its code-owned gate plan, re-verifies all
+  positive envelopes in memory, and refuses (exit 1) with an actionable missing-items list until
+  every required gate has verified `PASS`. A required gate is not satisfied by `NOT_APPLICABLE`.
+- `forge feature <slug> accept-risk --criterion <id> --reason <text>` is allowed only by the current
+  gate's waiver policy and binds root, revision, relevant file hashes, expiry, and `--actor` for an
+  operational acceptance. It is never `PASS`. `abandon [--reason <text>]` is a recorded human
+  decision; see [BUILD_MODE.md](BUILD_MODE.md).
 - `forge feature <slug> status` renders current phase, criteria, risk acceptances, blockers, and the
   next step without changing state.
-- `forge resume` lists unfinished features and names the most recently updated one.
+- `forge resume` enumerates canonical feature files, re-verifies evidence, re-derives planning,
+  rebuilds the project index, lists unfinished features, and names the most recently updated one.
+- `forge migrate build` is the only v0.2 Build-state migration path. `--dry-run` emits the complete
+  plan; journaled `--resume` and hash-checked `--rollback` recover an interrupted migration. Legacy
+  positive evidence and risk acceptances migrate only as expired, untrusted diagnostics.
 
-Build-specific flags: `--tier <light|standard|high>`, `--summary <text>`, `--reason <text>`,
-`--criterion <id>`, `--base <ref>`, `--name <text>`, `--discipline <slug[:reason]>` (repeatable),
-`--input <text>` (repeatable), `--touch <path>` (repeatable), `--stack <text>` (repeatable),
-`--non-goal <item[:reason]>` (repeatable), `--decision <text>` (repeatable), `--assumption <text>`
-(repeatable), plus the shared `--root`/`--cwd`, `--json`, `--dry-run`, `--global`, `--offline`,
-`--allow-run`, and `--force`. A feature slug must match `^[a-z0-9][a-z0-9-]{0,63}$` and cannot equal
-a reserved sub-verb, audit module slug, platform name, or Windows reserved device name.
+Build-specific flags: `--tier`, `--summary`, `--reason`, `--criterion`, `--base`, `--name`,
+`--scale`, `--design-ref`, `--actor`, `--risk-category <advisory|operational>`, `--url`, `--role`,
+`--design-direction`, `--evidence-dir`; and repeatable `--discipline`, `--input`, `--touch`,
+`--stack`, `--non-goal`, `--decision`, `--assumption`, `--user-role`, `--workflow`, `--invariant`,
+`--sensitive-data`, `--trust-boundary`, `--outcome`, `--constraint`, `--project-assumption`,
+`--unresolved-decision`, `--backlog`, and `--runtime-case`. Shared flags are `--root`/`--cwd`,
+`--json`, `--dry-run`, `--global`, `--offline`, `--allow-run`, and `--force`. Migration alone
+accepts `--resume` and `--rollback`. A feature slug must match `^[a-z0-9][a-z0-9-]{0,63}$` and
+cannot equal a reserved sub-verb, audit module slug, platform name, or Windows reserved device name.
 
 ## Installation lifecycle
 
@@ -126,17 +142,18 @@ remain unowned, and modified owned files are preserved during update or uninstal
 
 ## Release gate
 
-`forge ship` evaluates an explicit Forge gate registry: finding/schema validation, skill and
-generated-copy synchronization, archive/package/install/evaluation checks, project-native commands,
-previous findings, and applicable authorization, tenancy, upload, migration, and security
-capabilities. Application gates consume only their declared typed evidence—secret scan, dependency
-audit, lockfile inspection, license scan, authorization, tenant, upload, security, migration, test,
-or release artifact—and reject stale revisions. It verifies the report root and current
-source-evidence hashes and preserves prior findings in the ship report. Project scripts supplement
-the internal gates; a project with no recognized commands cannot pass by omission.
-`forge ship --allow-run` is required before invoking project-defined scripts, which run as bounded
-argument vectors without a shell. Remote CI, hosting, registry, provider, and production state still
-require separate evidence.
+`forge ship` evaluates an explicit Forge gate registry after re-discovering and re-inspecting a
+stable current working-tree revision. Persisted reports are diagnostics only: prior findings,
+statuses, evidence, envelopes, profiles, and module decisions never determine a Ship outcome.
+Application gates consume only current evidence from registered Ship producers—secret scan,
+dependency and lockfile inspection, license scan, authorization, tenant, upload, security,
+migration, test, or release artifact. Envelopes bind the exact root, revision, criterion, expiry,
+artifacts, and, for commands, definition source, argv, input manifest, exit code, duration, and
+output digest. Stale, legacy, malformed, Build-domain, or mismatched evidence blocks rather than
+passes. Project scripts supplement the internal gates; a project with no recognized commands cannot
+pass by omission. `forge ship --allow-run` is required before invoking project-defined scripts,
+which run as bounded argument vectors without a shell. Remote CI, hosting, registry, provider, and
+production state still require separate evidence.
 
 ## Tool interface
 

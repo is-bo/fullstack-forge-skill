@@ -3,6 +3,77 @@
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic
 versioning.
 
+## [0.3.0] - 2026-07-21
+
+### Added — verifiable Build completion
+
+- A shared typed evidence-envelope primitive for Audit, Ship, and Build, with domain-separated
+  producer registries; exact producer/version/contract and criterion identity; canonical root and
+  working-tree revision; run, production, and expiry timestamps; environment and limitations; and
+  one-to-one path/SHA-256/media-type artifacts. Command evidence additionally binds its detected
+  definition, argv, input manifest, exit code, duration, and output digest.
+- A closed Build producer registry keyed by exact `(script, criterion)` pairs plus a separate fixed
+  internal-adapter registry. Unsupported, missing, unauthorized, offline-blocked, or mismatched
+  producers remain `NOT_VERIFIED`/`BLOCKED`; no generic command-success or manual-state route can
+  manufacture `PASS`.
+- Current Build applicability with `REQUIRED`, `SUGGESTED`, `EXCLUDED`, and `UNRESOLVED` decisions,
+  classified activation evidence, append-only selection history, and a pure tier gate registry.
+  Every tier requires scope, applicability, bounded static evidence, and changed-behavior proof;
+  standard/high tiers add applicable disciplines and detected project commands, while high adds
+  capability-specific adverse, recovery, runtime, integration, privacy, and security-review gates.
+- Complete schema-v2 new-project framing: users/roles, desired outcomes, invariants, workflows,
+  sensitive-data classes, trust boundaries, scale, stack rationale, constraints, assumptions,
+  unresolved decisions, non-goals, backlog, and design alignment.
+- A finite Build runtime adapter for loading, empty, error, success, permission-denied, disabled,
+  destructive-confirmation, and long-content states at desktop, tablet, and mobile viewports, with
+  rendered artifacts, keyboard/accessibility/overflow observations, and explicit design-direction
+  evidence.
+- Explicit `forge migrate build` schema-v1 to schema-v2 migration with full pre-validation,
+  hash-bound byte backups, an interruption journal, atomic writes, `--dry-run`, `--resume`, and
+  `--rollback`. Legacy positive evidence and risk acceptances migrate only as expired, untrusted
+  diagnostics.
+- Two public v0.3 evaluation corpora. The module corpus exercises 12 evidence, gate, runtime,
+  producer, and migration cases. The prevention corpus materializes the 12 fixed product tasks and
+  tests real applicability/gate/runtime/envelope behavior while keeping nondeterministic,
+  human-required, and unsupported external checks out of `PASS`.
+
+### Changed
+
+- `forge feature <slug> check`, `status`, `resume`, and `done` re-derive applicability and the gate
+  plan for the current revision. `done` re-verifies every positive envelope in memory, reopens stale
+  completed features, and requires verified `PASS` for each required gate; persisted snapshots and
+  `NOT_APPLICABLE` cannot satisfy a required gate.
+- Risk acceptance is a typed, expiring lifecycle bound to the current gate policy, root, revision,
+  complete relevant-file hashes, and an accountable actor for operational decisions. Non-waivable
+  gates reject it, and it is never rendered as `PASS`.
+- `forge ship` now re-discovers and re-inspects a stable current revision. Prior report findings,
+  statuses, evidence, envelopes, profiles, and module decisions are historical diagnostics only;
+  current registered Ship evidence is re-hashed at consumption, and Build-domain evidence remains
+  categorically ineligible.
+- Audit CLI verbs and the 42-module catalog remain compatible. Legacy Audit evidence without a v0.3
+  envelope stays visible after in-memory report migration but cannot satisfy Ship.
+
+### Security
+
+- Ship command output, definitions, argv, ledgers, and error surfaces pass through shared redaction;
+  evidence retains only a digest of raw command output. Runtime URLs reject credentials and redact
+  query values before persistence.
+- Package inventory is allowlist-driven and explicitly rejects private specifications, local audit
+  state, credentials, logs, temporary research, path traversal, absolute paths, and symlinks.
+- Planted statuses, producer names, gate plans, applicability snapshots, old reports, changed
+  command definitions, stale artifacts, and cross-root/revision envelopes no longer create a passing
+  outcome.
+
+### Fixed
+
+- Build criteria can no longer be satisfied by self-reported or unregistered evidence, silent
+  discipline omission, an incomplete runtime claim, a stale project index, or an implicit/mixed
+  state migration.
+- Ship no longer trusts editable prior report outcomes as release evidence and preserves rejected
+  claims only as `NOT_VERIFIED` diagnostics.
+- Platform synchronization now skips byte-identical ownership manifests and uses a bounded,
+  Windows-only retry for transient sharing locks without masking permanent write failures.
+
 ## [0.2.0] - 2026-07-20
 
 ### Added — Build mode
@@ -545,7 +616,12 @@ executable evidence rather than documentation.
 - Deterministic ZIP archives, SHA-256 checksums, ownership manifests, clean-install smoke tests,
   fixtures, CI, research attribution, and original branding.
 
-[Unreleased]: https://github.com/thethunderbolt/fullstack-forge-skill/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/thethunderbolt/fullstack-forge-skill/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.3.0
+[0.2.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.2.0
+[0.1.10]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.10
+[0.1.9]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.9
+[0.1.8]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.8
 [0.1.7]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.7
 [0.1.6]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.6
 [0.1.5]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.5

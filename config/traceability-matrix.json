@@ -886,16 +886,113 @@
       "limitations": []
     },
     {
+      "id": "FF-BUILD-01",
+      "summary": "Build project and feature state records a complete schema-versioned product frame, lifecycle, selection history, applicability, gates, and evidence without treating recorded planning as proof.",
+      "implementation": [
+        "cli/src/build.ts",
+        "cli/src/build-state.ts",
+        "src/fullstack-forge/schemas/build-project.schema.json",
+        "src/fullstack-forge/schemas/build-feature.schema.json"
+      ],
+      "tests": ["cli/tests/build.test.ts", "cli/tests/build-state.test.ts"],
+      "documentation": ["docs/BUILD_MODE.md", "docs/CLI_REFERENCE.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "status": "COMPLIANT",
+      "limitations": [
+        "Frame and plan record user or agent inputs; the CLI validates structure and later evidence but cannot grade the quality of product reasoning."
+      ]
+    },
+    {
+      "id": "FF-BUILD-02",
+      "summary": "A Build PASS is accepted only from an exact registered producer with a typed, current root/revision/input/artifact-bound envelope; unavailable or unsupported producers never pass.",
+      "implementation": [
+        "cli/src/evidence-envelope.ts",
+        "cli/src/build-producers.ts",
+        "cli/src/build-state.ts"
+      ],
+      "tests": [
+        "cli/tests/evidence-envelope.test.ts",
+        "cli/tests/build-producers.test.ts",
+        "cli/tests/build-state.test.ts"
+      ],
+      "documentation": ["docs/BUILD_MODE.md", "docs/SECURITY_MODEL.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.3.0.md"],
+      "status": "COMPLIANT",
+      "limitations": [
+        "The envelope is a local integrity and freshness record rather than an externally signed attestation."
+      ]
+    },
+    {
+      "id": "FF-BUILD-03",
+      "summary": "Build applicability and tier gates are derived from current classified evidence and code-owned registries, re-derived before completion, and cannot be weakened by persisted snapshots or a stale project index.",
+      "implementation": [
+        "cli/src/build-applicability.ts",
+        "cli/src/build-gates.ts",
+        "cli/src/build.ts"
+      ],
+      "tests": [
+        "cli/tests/build-applicability.test.ts",
+        "cli/tests/build-gates.test.ts",
+        "cli/tests/build.test.ts"
+      ],
+      "documentation": ["docs/BUILD_MODE.md", "docs/ARCHITECTURE.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.3.0.md"],
+      "status": "COMPLIANT",
+      "limitations": [
+        "Unknown capabilities stay unresolved; static applicability cannot infer provider or production state."
+      ]
+    },
+    {
+      "id": "FF-BUILD-04",
+      "summary": "High-tier interface work requires a complete finite state and viewport runtime matrix plus design-direction evidence, while risk decisions are policy-, actor-, root-, revision-, file-, and expiry-bound and never rendered as PASS.",
+      "implementation": ["cli/src/build-runtime.ts", "cli/src/build-gates.ts", "cli/src/build.ts"],
+      "tests": ["cli/tests/build-runtime.test.ts", "cli/tests/build.test.ts"],
+      "documentation": ["docs/BUILD_MODE.md", "docs/SECURITY_MODEL.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.3.0.md"],
+      "status": "COMPLIANT",
+      "limitations": [
+        "Real browser, assistive-technology, provider, and human design evidence still requires the corresponding environment or reviewer."
+      ]
+    },
+    {
+      "id": "FF-BUILD-05",
+      "summary": "Legacy v0.2 Build state is upgraded only by an explicit prevalidated, hash-bound, journaled, atomic, resumable, and rollback-capable schema migration that never promotes legacy positive claims.",
+      "implementation": ["cli/src/build-migration.ts", "cli/src/build-state.ts"],
+      "tests": ["cli/tests/build-migration.test.ts"],
+      "documentation": ["docs/BUILD_MODE.md", "docs/RELEASE_NOTES_v0.3.0.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.3.0.md"],
+      "status": "COMPLIANT",
+      "limitations": [
+        "Migration is intentionally operator-triggered and refuses mixed, malformed, changed, or unsafe state instead of guessing."
+      ]
+    },
+    {
+      "id": "FF-SHIP-02",
+      "summary": "Ship derives current inspection and command evidence at a stable working-tree revision, treats persisted reports as diagnostics only, verifies registered envelopes, and rejects Build-domain evidence.",
+      "implementation": ["cli/src/gates.ts", "cli/src/evidence-envelope.ts"],
+      "tests": ["cli/tests/gates.test.ts", "cli/tests/ship-rederivation.test.ts"],
+      "documentation": ["docs/COMMANDS.md", "docs/SECURITY_MODEL.md"],
+      "release_verification": ["docs/AUDIT_CLASSIFICATION_v0.3.0.md"],
+      "status": "COMPLIANT",
+      "limitations": [
+        "Remote CI, registry, hosting, provider, production, provenance, and immutable-release state require separate direct evidence."
+      ]
+    },
+    {
       "id": "FF-TEST-01",
       "summary": "Deliberately flawed fixture projects and evaluation cases confirm that the declared defect classes are actually detected, without faking automated guarantees where detection is not deterministic.",
       "implementation": [
         "fixtures",
         "evals/cases.json",
+        "evals/v030-build-mode",
+        "evals/v030-prevention",
         "scripts/check-fixtures.mjs",
         "scripts/lib/fixture-manifests.mjs"
       ],
       "tests": [
         "cli/tests/evals.test.ts",
+        "cli/tests/v030-build-mode-evals.test.ts",
+        "cli/tests/v030-prevention-evals.test.ts",
         "cli/tests/discovery.test.ts",
         "scripts/tests/fixture-manifests.test.mjs"
       ],
