@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import {
   assertValidSlug,
+  assertBuildProject,
   loadFeature,
   newFeature,
+  newProject,
   reverifyEvidenceHashes,
   saveFeature,
+  saveProject,
   type BuildFeature,
   type CriterionEvidence
 } from "../src/build-state.js";
@@ -168,5 +171,24 @@ test("tier inputs are redacted before persistence", async () => {
     await saveFeature(root, feature, false);
     const raw = await readFile(join(root, ".forge", "build", "features", "widget.json"), "utf8");
     assert.ok(!raw.includes("SKfaketest99887766554433"), "tier input secret survived persistence");
+  });
+});
+
+test("v2 project state rejects unknown fields and requires a structured frame", () => {
+  const project = newProject("structured", "standard");
+  assert.doesNotThrow(() => assertBuildProject(project));
+  assert.throws(() => assertBuildProject({ ...project, untrusted_extra: true }), /unknown field/u);
+  const withoutFrame = { ...project } as Record<string, unknown>;
+  delete withoutFrame.frame;
+  assert.throws(() => assertBuildProject(withoutFrame), /structured project frame/u);
+});
+
+test("atomic project persistence leaves no partial temporary file on write failure", async () => {
+  await withTemporaryProject("build-atomic", async (root) => {
+    const buildDir = join(root, ".forge", "build");
+    await mkdir(join(buildDir, "project.json"), { recursive: true });
+    await assert.rejects(saveProject(root, newProject("atomic", undefined), false));
+    const entries = await readdir(buildDir);
+    assert.deepEqual(entries.sort(), ["project.json"]);
   });
 });

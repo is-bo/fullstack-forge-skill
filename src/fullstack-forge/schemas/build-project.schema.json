@@ -11,10 +11,14 @@
     "product",
     "stack",
     "non_goals",
-    "features"
+    "features",
+    "frame",
+    "design_alignment",
+    "selection_events",
+    "history"
   ],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "generated_at": { "type": "string", "format": "date-time" },
     "updated_at": { "type": "string", "format": "date-time" },
     "product": {
@@ -40,6 +44,37 @@
         }
       }
     },
+    "frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "problem_statement",
+        "target_users",
+        "desired_outcomes",
+        "business_rules",
+        "constraints"
+      ],
+      "properties": {
+        "problem_statement": { "type": "string" },
+        "target_users": { "type": "array", "items": { "type": "string" } },
+        "desired_outcomes": { "type": "array", "items": { "type": "string" } },
+        "business_rules": { "type": "array", "items": { "type": "string" } },
+        "constraints": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "design_alignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "references", "recorded_at"],
+      "properties": {
+        "status": { "enum": ["NOT_VERIFIED", "ALIGNED", "DRIFT"] },
+        "references": { "type": "array", "items": { "type": "string" } },
+        "recorded_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "applicability_snapshot": { "type": "object" },
+    "selection_events": { "type": "array" },
+    "history": { "type": "object" },
     "features": {
       "type": "array",
       "items": {
