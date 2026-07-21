@@ -1,10 +1,12 @@
-import { readFile } from "node:fs/promises";
 import {
   captureEvidenceArtifacts,
   createEvidenceEnvelope,
-  verifyEvidenceEnvelope
+  verifyEvidenceEnvelope,
+  type EvidenceArtifact
 } from "./evidence-envelope.js";
+import { discoverProject } from "./discovery.js";
 import { validateFinding } from "./finding.js";
+import { inspectSection } from "./inspectors.js";
 import {
   decideCommandExecution,
   ledgerRecord,
@@ -14,20 +16,14 @@ import {
 import type { AuditReport, ExecutionRecord } from "./report.js";
 import type {
   CommandDefinition,
+  Finding,
   GateEvidence,
   GateEvidenceType,
   ProjectProfile,
   Status
 } from "./types.js";
-import {
-  assertNoSymlinkPath,
-  assertSafeRelative,
-  resolveInside,
-  runFile,
-  sha256,
-  utcNow,
-  workingTreeRevision
-} from "./utils.js";
+import type { ModuleSlug } from "./constants.js";
+import { runFile, sha256, utcNow, workingTreeRevision } from "./utils.js";
 
 export type GateStatus = Extract<
   Status,
@@ -70,7 +66,7 @@ export const FORGE_GATE_REGISTRY: readonly GateDefinition[] = [
   gate("FF-GATE-SCHEMA", "Finding-schema validation", "internal", "audited-application"),
   gate(
     "FF-GATE-AUDIT-FRESHNESS",
-    "Prior audit evidence freshness",
+    "Current Ship inspection evidence freshness",
     "audit-evidence",
     "audited-application"
   ),
@@ -179,11 +175,20 @@ export type ShipGateResult = {
   gates: ShipGate[];
   execution: ExecutionRecord[];
   evidence: GateEvidence[];
+  findings: Finding[];
+  profile: ProjectProfile;
+  revision: string;
   /** Why every registered command ran, did not run, or was blocked by network policy. */
   command_ledger: CommandLedgerRecord[];
 };
 
-type CommandResult = { exitCode: number; output: string; started_at: string; duration_ms: number };
+type CommandResult = {
+  exitCode: number;
+  output: string;
+  started_at: string;
+  duration_ms: number;
+  input_manifest: EvidenceArtifact[];
+};
 
 export async function runShipGates(
   root: string,
@@ -193,9 +198,14 @@ export async function runShipGates(
   allowRun: boolean,
   policy: PolicyContext = { offline: false, forgeOwned: false }
 ): Promise<ShipGateResult> {
+  if (profile.root !== root)
+    throw new Error("The supplied project profile root does not match the selected Ship root.");
   const execution: ExecutionRecord[] = [];
   const ledger: CommandLedgerRecord[] = [];
-  const preflight = [schemaGate(root, previous), openFindingsGate(previous)];
+  let state = await deriveStableShipState(root);
+  const initialRevision = state.revision;
+  let { profile: currentProfile, inspection, revision } = state;
+  let preflight = [schemaGate(root, inspection.findings), openFindingsGate(inspection.findings)];
   const preflightPassed = evaluateGateOutcome(preflight) === "PASS";
   const commandResults =
     allowRun && preflightPassed
@@ -210,15 +220,20 @@ export async function runShipGates(
   }
   // Commands are explicitly authorized but project-owned. Bind their evidence to the tree after
   // they ran so a command that mutates the checkout cannot inherit a pre-execution revision.
-  const revision = await workingTreeRevision(root);
+  if (commandResults.size > 0 || (await workingTreeRevision(root)) !== initialRevision) {
+    state = await deriveStableShipState(root);
+    ({ profile: currentProfile, inspection, revision } = state);
+    preflight = [schemaGate(root, inspection.findings), openFindingsGate(inspection.findings)];
+  }
   const ledgerByName = new Map(ledger.map((record) => [record.name, record] as const));
   const isForgeRepository =
-    profile.repository.name === "fullstack-forge-skill" ||
+    currentProfile.repository.name === "fullstack-forge-skill" ||
     commands.some((command) => command.name === "check:platforms");
   const gates: ShipGate[] = [];
 
   gates.push(...preflight);
-  gates.push(await auditFreshnessGate(root, previous));
+  gates.push(priorReportDiagnosticGate(root, previous));
+  gates.push(await auditFreshnessGate(root, inspection.evidence, revision));
   for (const definition of FORGE_GATE_REGISTRY) {
     if (
       ["FF-GATE-SCHEMA", "FF-GATE-AUDIT-FRESHNESS", "FF-GATE-OPEN-FINDINGS"].includes(
@@ -227,7 +242,9 @@ export async function runShipGates(
     )
       continue;
     if (definition.category === "capability") {
-      gates.push(await capabilityGate(root, definition, profile, previous, revision));
+      gates.push(
+        await capabilityGate(root, definition, currentProfile, inspection.evidence, revision)
+      );
       continue;
     }
     // Forge self-release gates are genuinely inapplicable to an audited application.
@@ -255,7 +272,9 @@ export async function runShipGates(
               commandResults.get(definition.command),
               revision
             );
-      gates.push(await evidenceGate(root, definition, previous, commandEvidence, revision));
+      gates.push(
+        await evidenceGate(root, definition, inspection.evidence, commandEvidence, revision)
+      );
       continue;
     }
     if (definition.command !== undefined) {
@@ -319,6 +338,9 @@ export async function runShipGates(
     gates,
     execution,
     evidence: gates.flatMap((gate) => gate.evidence_records),
+    findings: inspection.findings,
+    profile: currentProfile,
+    revision,
     command_ledger: ledger
   };
 }
@@ -385,6 +407,27 @@ async function runRegisteredCommands(
       ledger.push(ledgerRecord(command, decision, "BLOCKED", policy.offline));
       continue;
     }
+    let inputManifest: EvidenceArtifact[];
+    try {
+      inputManifest = await captureEvidenceArtifacts(root, [
+        { path: command.source, media_type: "application/json" }
+      ]);
+    } catch (error) {
+      ledger.push(
+        ledgerRecord(
+          command,
+          {
+            ...decision,
+            permitted: false,
+            reason: `Command source evidence could not be captured: ${(error as Error).message}`
+          },
+          "BLOCKED",
+          policy.offline
+        )
+      );
+      halted = true;
+      continue;
+    }
     const started = Date.now();
     const startedAt = utcNow();
     const result = await runFile(command.executable, command.args, root, 15 * 60_000);
@@ -400,7 +443,8 @@ async function runRegisteredCommands(
       exitCode: result.exitCode,
       output,
       started_at: startedAt,
-      duration_ms: Date.now() - started
+      duration_ms: Date.now() - started,
+      input_manifest: inputManifest
     });
     ledger.push(ledgerRecord(command, decision, "RAN", policy.offline, result.exitCode));
     if (result.exitCode !== 0) halted = true;
@@ -408,109 +452,60 @@ async function runRegisteredCommands(
   return results;
 }
 
-function schemaGate(root: string, previous: AuditReport | undefined): ShipGate {
-  if (previous === undefined)
-    return gateValue("FF-GATE-SCHEMA", "Finding-schema validation", "internal", "BLOCKED", [
-      "No previous audit report is available."
-    ]);
-  const errors = previous.findings.flatMap((finding, index) =>
+function schemaGate(root: string, findings: Finding[]): ShipGate {
+  const errors = findings.flatMap((finding, index) =>
     validateFinding(finding).map((error) => `[${index}] ${error}`)
   );
-  if (previous.root !== root)
-    errors.push(`Report root '${previous.root}' does not match selected root '${root}'.`);
   return gateValue(
     "FF-GATE-SCHEMA",
     "Finding-schema validation",
     "internal",
     errors.length === 0 ? "PASS" : "FAIL",
-    errors.length === 0 ? [`Validated ${previous.findings.length} finding(s).`] : errors
+    errors.length === 0
+      ? [`Validated ${findings.length} finding(s) re-derived from ${root}.`]
+      : errors
   );
 }
 
 async function auditFreshnessGate(
   root: string,
-  previous: AuditReport | undefined
+  evidence: GateEvidence[],
+  revision: string
 ): Promise<ShipGate> {
-  if (previous === undefined)
+  if (evidence.length === 0)
     return gateValue(
       "FF-GATE-AUDIT-FRESHNESS",
-      "Prior audit evidence freshness",
-      "audit-evidence",
-      "BLOCKED",
-      ["No previous audit evidence is available."]
-    );
-  const snapshots = new Map<string, string>();
-  for (const finding of previous.findings) {
-    for (const snapshot of finding.evidence_snapshot ?? []) {
-      try {
-        assertSafeRelative(snapshot.path);
-      } catch (error) {
-        return gateValue(
-          "FF-GATE-AUDIT-FRESHNESS",
-          "Prior audit evidence freshness",
-          "audit-evidence",
-          "FAIL",
-          [(error as Error).message]
-        );
-      }
-      const current = snapshots.get(snapshot.path);
-      if (current !== undefined && current !== snapshot.sha256)
-        return gateValue(
-          "FF-GATE-AUDIT-FRESHNESS",
-          "Prior audit evidence freshness",
-          "audit-evidence",
-          "FAIL",
-          [`Conflicting evidence hashes were recorded for ${snapshot.path}.`]
-        );
-      snapshots.set(snapshot.path, snapshot.sha256);
-    }
-  }
-  if (snapshots.size === 0)
-    return gateValue(
-      "FF-GATE-AUDIT-FRESHNESS",
-      "Prior audit evidence freshness",
+      "Current inspection evidence freshness",
       "audit-evidence",
       "NOT_VERIFIED",
-      ["The prior report contains no source evidence snapshots to check for staleness."]
+      ["The current Ship inspection produced no typed evidence to validate."]
     );
-  const stale: string[] = [];
-  for (const [path, expected] of snapshots) {
-    try {
-      const target = resolveInside(root, path);
-      await assertNoSymlinkPath(root, target);
-      const current = sha256(await readFile(target));
-      if (current !== expected) stale.push(`${path}: content hash changed`);
-    } catch (error) {
-      stale.push(`${path}: ${(error as Error).message}`);
-    }
+  const rejected: string[] = [];
+  for (const record of evidence) {
+    const result = await verifyEvidenceEnvelope({ root, revision, evidence: record });
+    if (!result.verified) rejected.push(`${record.evidence_type}: ${result.reasons.join(" ")}`);
+    else if (!evidenceIsFresh(record, revision))
+      rejected.push(`${record.evidence_type}: the verified claim is not fresh for ${revision}.`);
   }
   return gateValue(
     "FF-GATE-AUDIT-FRESHNESS",
-    "Prior audit evidence freshness",
+    "Current inspection evidence freshness",
     "audit-evidence",
-    stale.length === 0 ? "PASS" : "BLOCKED",
-    stale.length === 0
-      ? [`Confirmed ${snapshots.size} source evidence snapshot(s).`]
-      : stale.slice(0, 20)
+    rejected.length === 0 ? "PASS" : "BLOCKED",
+    rejected.length === 0
+      ? [`Validated ${evidence.length} current, root-bound evidence record(s) for ${revision}.`]
+      : rejected.slice(0, 20)
   );
 }
 
-function openFindingsGate(previous: AuditReport | undefined): ShipGate {
-  if (previous === undefined)
-    return gateValue(
-      "FF-GATE-OPEN-FINDINGS",
-      "Open critical and required high findings",
-      "audit-evidence",
-      "BLOCKED",
-      ["No previous audit evidence is available."]
-    );
-  const failed = previous.findings.filter(
+function openFindingsGate(findings: Finding[]): ShipGate {
+  const failed = findings.filter(
     (finding) =>
       finding.section !== "ship" &&
       ["FAIL", "WARNING"].includes(finding.status) &&
       ["CRITICAL", "HIGH"].includes(finding.severity)
   );
-  const unresolved = previous.findings.filter(
+  const unresolved = findings.filter(
     (finding) =>
       finding.section !== "ship" &&
       ["BLOCKED", "NOT_VERIFIED"].includes(finding.status) &&
@@ -522,10 +517,28 @@ function openFindingsGate(previous: AuditReport | undefined): ShipGate {
     "audit-evidence",
     failed.length > 0 ? "FAIL" : unresolved.length > 0 ? "BLOCKED" : "PASS",
     failed.length === 0 && unresolved.length === 0
-      ? ["No open critical or high FAIL finding was recorded."]
+      ? ["The current Ship inspection re-derived no open critical or high finding."]
       : [...failed, ...unresolved].map(
           (finding) => `${finding.id}: ${finding.severity} ${finding.status}`
         )
+  );
+}
+
+function priorReportDiagnosticGate(root: string, previous: AuditReport | undefined): ShipGate {
+  const evidence =
+    previous === undefined
+      ? ["No prior report was present; Ship did not require one."]
+      : [
+          `Prior report retained as diagnostics only: ${previous.findings.length} finding(s), ${previous.gate_evidence.length} typed evidence record(s).`,
+          `Prior root match=${previous.root === root}; prior revision recorded=${previous.revision !== undefined}. Persisted statuses, claims, envelopes, and module decisions were not used for any Ship outcome.`
+        ];
+  return gateValue(
+    "FF-GATE-PRIOR-DIAGNOSTICS",
+    "Prior report diagnostics",
+    "audit-evidence",
+    "NOT_APPLICABLE",
+    evidence,
+    false
   );
 }
 
@@ -533,13 +546,13 @@ function openFindingsGate(previous: AuditReport | undefined): ShipGate {
 async function evidenceGate(
   root: string,
   definition: GateDefinition,
-  previous: AuditReport | undefined,
+  currentInspectionEvidence: GateEvidence[],
   currentCommandEvidence: GateEvidence[],
   revision: string
 ): Promise<ShipGate> {
   const expected = definition.evidence_types ?? [];
   const records = [
-    ...(previous?.gate_evidence ?? []).filter((record) => expected.includes(record.evidence_type)),
+    ...currentInspectionEvidence.filter((record) => expected.includes(record.evidence_type)),
     ...currentCommandEvidence.filter((record) => expected.includes(record.evidence_type))
   ];
   const verification = await Promise.all(
@@ -554,6 +567,11 @@ async function evidenceGate(
   const rejected = verification.filter(
     (entry): entry is typeof entry & { result: { verified: false; reasons: string[] } } =>
       !entry.result.verified
+  );
+  const gateRecords = verification.map((entry) =>
+    entry.result.verified
+      ? entry.record
+      : rejectedEvidenceDiagnostic(entry.record, entry.result.reasons)
   );
   const fresh = verified
     .map((entry) => entry.record)
@@ -606,7 +624,7 @@ async function evidenceGate(
     required: true,
     status,
     evidence: details.length > 0 ? details : ["No exact typed evidence was recorded."],
-    evidence_records: records
+    evidence_records: gateRecords
   };
 }
 
@@ -622,16 +640,12 @@ const GATE_MODULES: Record<string, string[]> = {
 /**
  * Decides whether a capability gate may be dismissed as NOT_APPLICABLE.
  *
- * A gate is only inapplicable when the capability genuinely does not exist. If the prior report
- * recorded that the module exists (or might exist) but simply was not audited — out of changed
- * scope, excluded by a risk filter, or capability unknown — the gate stays required and
- * unverified. Otherwise a narrowed audit would silently switch off release gates, which is the
- * exact failure this ledger exists to prevent.
+ * Persisted module decisions are never inputs. Only discovery performed in the current stable
+ * Ship revision can make a capability gate applicable or inapplicable.
  */
 function capabilityApplicability(
   gateId: string,
-  profile: ProjectProfile,
-  previous: AuditReport | undefined
+  profile: ProjectProfile
 ): { applicable: boolean; reasons: string[] } {
   const discovered: Record<string, boolean> = {
     "FF-GATE-AUTH-EVAL": profile.authentication.length > 0 || profile.authorization.length > 0,
@@ -641,25 +655,11 @@ function capabilityApplicability(
     "FF-GATE-MIGRATIONS": profile.databases.length > 0 || profile.deployment.length > 0
   };
   if (discovered[gateId] === true)
-    return { applicable: true, reasons: ["Project discovery found the capability."] };
-  const decisions = (previous?.module_decisions ?? []).filter((decision) =>
-    (GATE_MODULES[gateId] ?? []).includes(decision.module)
-  );
-  const unproven = decisions.filter((decision) => decision.capability_status !== "ABSENT");
-  if (unproven.length > 0)
-    return {
-      applicable: true,
-      reasons: unproven.map(
-        (decision) =>
-          `Module '${decision.module}' was recorded capability ${decision.capability_status} / selection ${decision.selection_status}. It was not audited, which does not make this gate inapplicable.`
-      )
-    };
+    return { applicable: true, reasons: ["Current project discovery found the capability."] };
   return {
     applicable: false,
     reasons: [
-      decisions.length === 0
-        ? "Project discovery found no applicable capability."
-        : `The prior audit proved the capability absent for: ${decisions.map((decision) => decision.module).join(", ")}.`
+      `Current project discovery found no applicable capability for: ${(GATE_MODULES[gateId] ?? []).join(", ")}.`
     ]
   };
 }
@@ -668,10 +668,10 @@ async function capabilityGate(
   root: string,
   definition: GateDefinition,
   profile: ProjectProfile,
-  previous: AuditReport | undefined,
+  currentInspectionEvidence: GateEvidence[],
   revision: string
 ): Promise<ShipGate> {
-  const applicability = capabilityApplicability(definition.gate_id, profile, previous);
+  const applicability = capabilityApplicability(definition.gate_id, profile);
   if (!applicability.applicable) {
     return {
       gate_id: definition.gate_id,
@@ -683,8 +683,107 @@ async function capabilityGate(
       evidence_records: []
     };
   }
-  const gate = await evidenceGate(root, definition, previous, [], revision);
+  const gate = await evidenceGate(root, definition, currentInspectionEvidence, [], revision);
   return { ...gate, evidence: [...applicability.reasons, ...gate.evidence] };
+}
+
+const SHIP_INSPECTION_MODULES = [
+  "security",
+  "supply-chain",
+  "authorization",
+  "tenancy",
+  "uploads",
+  "database",
+  "deployment"
+] as const satisfies readonly ModuleSlug[];
+
+export type ShipInspection = {
+  findings: Finding[];
+  evidence: GateEvidence[];
+};
+
+type StableShipState = {
+  profile: ProjectProfile;
+  inspection: ShipInspection;
+  revision: string;
+};
+
+async function deriveStableShipState(root: string): Promise<StableShipState> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const revision = await workingTreeRevision(root);
+    const profile = await discoverProject(root);
+    const inspection = await deriveShipInspection(root, profile, revision);
+    if ((await workingTreeRevision(root)) === revision) return { profile, inspection, revision };
+  }
+  throw new Error("The working tree changed during Ship evidence derivation; retry the gate.");
+}
+
+/**
+ * Re-runs the bounded inspectors Ship depends on and seals their claims against the current tree.
+ * Persisted report records never enter this function.
+ */
+export async function deriveShipInspection(
+  root: string,
+  profile: ProjectProfile,
+  revision: string
+): Promise<ShipInspection> {
+  const results = await Promise.all(
+    SHIP_INSPECTION_MODULES.map((module) => inspectSection(module, root, profile))
+  );
+  const evidence: GateEvidence[] = [];
+  for (const result of results) {
+    const artifacts = result.input_paths.map((path) => ({
+      path,
+      media_type: evidenceMediaType(path)
+    }));
+    for (const source of result.gate_evidence) {
+      // A claim with no concrete inspected file cannot be sealed. Its absence is represented by
+      // the consuming gate as missing evidence, never by an unbound current record.
+      if (artifacts.length === 0) continue;
+      let record: GateEvidence = {
+        ...structuredClone(source),
+        producer: "fullstack-forge/ship-inspector",
+        revision,
+        limitations: [
+          ...source.limitations,
+          `Ship re-derived this claim with ${result.tool}; no persisted report status was used.`
+        ]
+      };
+      try {
+        record.envelope = await createEvidenceEnvelope({
+          root,
+          revision,
+          domain: "Ship",
+          claim: record,
+          artifacts
+        });
+      } catch (error) {
+        record = {
+          ...record,
+          status: "NOT_VERIFIED",
+          absence_proves_success: false,
+          limitations: [
+            ...record.limitations,
+            `Current evidence could not be sealed: ${(error as Error).message}`
+          ]
+        };
+        delete record.envelope;
+      }
+      evidence.push(record);
+    }
+  }
+  return {
+    findings: results.flatMap((result) => structuredClone(result.findings)),
+    evidence
+  };
+}
+
+function evidenceMediaType(path: string): string {
+  const extension = path.toLowerCase().split(".").at(-1);
+  if (extension === "json") return "application/json";
+  if (["yaml", "yml"].includes(extension ?? "")) return "application/yaml";
+  if (["js", "jsx", "mjs", "cjs", "ts", "tsx"].includes(extension ?? "")) return "text/plain";
+  return "application/octet-stream";
 }
 
 function evidenceIsFresh(record: GateEvidence, revision: string): boolean {
@@ -716,9 +815,6 @@ async function evidenceFromCommand(
   };
   const evidenceType = mapping[command.name];
   if (evidenceType === undefined) return [];
-  const manifest = await captureEvidenceArtifacts(root, [
-    { path: command.source, media_type: "application/json" }
-  ]);
   const record: GateEvidence = {
     evidence_type: evidenceType,
     producer: "fullstack-forge/ship-command",
@@ -739,7 +835,7 @@ async function evidenceFromCommand(
       started_at: result.started_at,
       duration_ms: result.duration_ms,
       output_sha256: sha256(result.output),
-      input_manifest: manifest
+      input_manifest: result.input_manifest
     }
   };
   try {
@@ -803,15 +899,81 @@ async function commandGate(
       [ledger?.reason ?? "A prior required command failed, so this command did not run."],
       definition.required
     );
+  const evidenceRecords = await evidenceFromCommand(root, command, result, revision);
+  const currentInputRejection =
+    result.exitCode === 0 ? await commandInputRejection(root, result) : undefined;
+  if (currentInputRejection !== undefined)
+    return gateValue(
+      definition.gate_id,
+      definition.name,
+      definition.category,
+      "BLOCKED",
+      [
+        `${command.executable} ${command.args.join(" ")} exited 0, but its current input evidence was rejected: ${currentInputRejection}`
+      ],
+      definition.required,
+      evidenceRecords.map((record) => rejectedEvidenceDiagnostic(record, [currentInputRejection]))
+    );
+  if (result.exitCode === 0 && evidenceRecords.length > 0) {
+    const verification = await Promise.all(
+      evidenceRecords.map((evidence) => verifyEvidenceEnvelope({ root, revision, evidence }))
+    );
+    const rejected = verification.flatMap((entry) => (entry.verified ? [] : entry.reasons));
+    if (rejected.length > 0)
+      return gateValue(
+        definition.gate_id,
+        definition.name,
+        definition.category,
+        "BLOCKED",
+        [
+          `${command.executable} ${command.args.join(" ")} exited 0, but its current evidence was rejected: ${rejected.join(" ")}`
+        ],
+        definition.required,
+        evidenceRecords.map((record) => rejectedEvidenceDiagnostic(record, rejected))
+      );
+  }
   return gateValue(
     definition.gate_id,
     definition.name,
     definition.category,
     result.exitCode === 0 ? "PASS" : "FAIL",
-    [`${command.executable} ${command.args.join(" ")} exited ${result.exitCode}.`],
+    [
+      `${command.executable} ${command.args.join(" ")} exited ${result.exitCode} at ${revision}; input artifacts=${result.input_manifest.map((artifact) => `${artifact.path}@${artifact.sha256}`).join(", ")}; output sha256=${sha256(result.output)}.`
+    ],
     definition.required,
-    await evidenceFromCommand(root, command, result, revision)
+    evidenceRecords
   );
+}
+
+async function commandInputRejection(
+  root: string,
+  result: CommandResult
+): Promise<string | undefined> {
+  try {
+    const current = await captureEvidenceArtifacts(
+      root,
+      result.input_manifest.map((artifact) => ({
+        path: artifact.path,
+        media_type: artifact.media_type
+      }))
+    );
+    if (JSON.stringify(current) !== JSON.stringify(result.input_manifest))
+      return "a command input artifact changed after it was captured";
+  } catch (error) {
+    return (error as Error).message;
+  }
+  return undefined;
+}
+
+function rejectedEvidenceDiagnostic(record: GateEvidence, reasons: string[]): GateEvidence {
+  const diagnostic: GateEvidence = {
+    ...structuredClone(record),
+    status: "NOT_VERIFIED",
+    absence_proves_success: false,
+    limitations: [...record.limitations, `Rejected current claim: ${reasons.join(" ")}`]
+  };
+  delete diagnostic.envelope;
+  return diagnostic;
 }
 
 function gate(

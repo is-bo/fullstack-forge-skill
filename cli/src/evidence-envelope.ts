@@ -105,6 +105,23 @@ export const EVIDENCE_PRODUCER_REGISTRY: readonly RegisteredProducer[] = [
   },
   {
     domain: "Ship",
+    producer: "fullstack-forge/ship-inspector",
+    producer_version: EVIDENCE_ENVELOPE_VERSION,
+    contract: EVIDENCE_CONTRACT,
+    evidence_types: [
+      "secret-scan",
+      "dependency-audit",
+      "lockfile-inspection",
+      "authorization-evaluation",
+      "tenant-isolation-evaluation",
+      "upload-security-evaluation",
+      "application-security-static-analysis",
+      "migration-validation"
+    ],
+    command_contract: "forbidden"
+  },
+  {
+    domain: "Ship",
     producer: "fullstack-forge/ship-command",
     producer_version: EVIDENCE_ENVELOPE_VERSION,
     contract: EVIDENCE_CONTRACT,

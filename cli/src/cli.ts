@@ -42,6 +42,7 @@ import type {
   AnalyzerCoverage,
   CliOptions,
   Finding,
+  GateEvidence,
   InspectionResult,
   ModuleDecision,
   ProjectProfile
@@ -428,7 +429,6 @@ async function ship(options: CliOptions): Promise<number> {
   const root = await canonicalDirectory(options.cwd);
   const commands = await detectProjectCommands(root);
   const profile = await discoverProject(root);
-  const revision = await workingTreeRevision(root);
   let previous: Awaited<ReturnType<typeof readReport>> | undefined;
   try {
     previous = await readReport(root, join(root, ".forge", "report.json"));
@@ -467,7 +467,7 @@ async function ship(options: CliOptions): Promise<number> {
     ],
     impact:
       status === "PASS"
-        ? "The recorded local gates and prior audit support release readiness for this checkout."
+        ? "Freshly re-derived, root-bound local evidence supports release readiness for this checkout."
         : "The candidate cannot be represented as release-ready with the current evidence.",
     recommendation:
       status === "PASS"
@@ -480,15 +480,30 @@ async function ship(options: CliOptions): Promise<number> {
     ],
     standards: ["NIST SSDF", "SLSA 1.2", "Agent Skills Specification"]
   };
+  const currentFindingIds = new Set(
+    gateResult.findings.map((candidate) => candidate.instance_id ?? candidate.id)
+  );
+  const priorFindingDiagnostics = (previous?.findings ?? [])
+    .filter(
+      (candidate) =>
+        candidate.section !== "ship" &&
+        !currentFindingIds.has(candidate.instance_id ?? candidate.id)
+    )
+    .map(priorFindingDiagnostic);
+  const priorEvidenceDiagnostics = (previous?.gate_evidence ?? []).map(priorEvidenceDiagnostic);
   const report = createReport(
     root,
-    profile,
-    [...(previous?.findings.filter((candidate) => candidate.section !== "ship") ?? []), finding],
+    gateResult.profile,
+    [...gateResult.findings, ...priorFindingDiagnostics, finding],
     "ship",
     gateResult.execution,
-    previous?.assumptions ?? [],
+    [],
     [
-      ...(previous?.residual_risk ?? []),
+      ...(previous === undefined
+        ? ["No prior report was available; Ship derived its release evidence independently."]
+        : [
+            `The prior report contained ${previous.findings.length} finding(s) and ${previous.gate_evidence.length} typed evidence record(s); they were retained as diagnostics only and did not determine this Ship result.`
+          ]),
       "Remote CI, registry, GitHub release, deployment, and production state require separate direct evidence.",
       ...(blockedByPolicy.length === 0
         ? []
@@ -496,15 +511,40 @@ async function ship(options: CliOptions): Promise<number> {
             `Offline mode blocked ${blockedByPolicy.length} project command(s) with UNKNOWN network policy (${blockedByPolicy.map((record) => record.name).join(", ")}). Fullstack Forge implements no operating-system network isolation, so those gates remain unproven rather than passed.`
           ])
     ],
-    previous?.scope_evidence,
-    [...(previous?.gate_evidence ?? []), ...gateResult.evidence],
-    previous?.analyzer_coverage ?? [],
-    revision,
+    undefined,
+    [...priorEvidenceDiagnostics, ...gateResult.evidence],
+    [],
+    gateResult.revision,
     captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION })
   );
   if (!options.dryRun) await writeReport(report);
   printValue(options.json ? report : renderMarkdown(report), options.json);
   return status === "FAIL" ? 1 : status === "BLOCKED" ? 2 : 0;
+}
+
+function priorFindingDiagnostic(finding: Finding): Finding {
+  return {
+    ...structuredClone(finding),
+    status: "NOT_VERIFIED",
+    evidence: [
+      ...finding.evidence,
+      `Historical diagnostic only: the prior report recorded status ${finding.status}; Ship did not use it for the current gate result.`
+    ]
+  };
+}
+
+function priorEvidenceDiagnostic(evidence: GateEvidence): GateEvidence {
+  const diagnostic: GateEvidence = {
+    ...structuredClone(evidence),
+    status: "NOT_VERIFIED",
+    absence_proves_success: false,
+    limitations: [
+      ...evidence.limitations,
+      `Historical diagnostic only: the prior report recorded status ${evidence.status}; Ship did not use this claim.`
+    ]
+  };
+  delete diagnostic.envelope;
+  return diagnostic;
 }
 
 /**

@@ -341,6 +341,8 @@ export type InspectionResult = {
   tool: string;
   root: string;
   generated_at: string;
+  /** Repository-relative files actually read by this inspection. */
+  input_paths: string[];
   observations: Observation[];
   findings: Finding[];
   gate_evidence: GateEvidence[];

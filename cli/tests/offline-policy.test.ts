@@ -261,7 +261,7 @@ test("the same ship command runs and passes when offline mode is not requested",
   });
 });
 
-test("a blocked secret-scan command produces no PASS evidence for its release gate", async () => {
+test("a blocked secret-scan command produces no Ship-command PASS evidence", async () => {
   await withTemporaryProject("offline-ship-evidence", async (root) => {
     await writeFile(
       join(root, "package.json"),
@@ -284,15 +284,18 @@ test("a blocked secret-scan command produces no PASS evidence for its release ga
       forgeOwned: false
     });
     const gate = gateById(result.gates, "FF-GATE-SECRETS");
-    assert.notEqual(gate.status, "PASS");
+    assert.equal(gate.status, "PASS", "the independently re-run static inspector still applies");
     assert.equal(
-      gate.evidence_records.some((record) => record.status === "PASS"),
+      gate.evidence_records.some(
+        (record) => record.status === "PASS" && record.producer === "fullstack-forge/ship-command"
+      ),
       false,
       "an unexecuted command must not yield PASS secret-scan evidence"
     );
-    assert.equal(
-      result.evidence.some((record) => record.status === "PASS"),
-      false
+    assert.ok(
+      result.evidence.some(
+        (record) => record.status === "PASS" && record.producer === "fullstack-forge/ship-inspector"
+      )
     );
   });
 });

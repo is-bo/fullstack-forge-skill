@@ -23,7 +23,7 @@ import type { GateEvidence } from "../src/types.js";
 import { sha256, workingTreeRevision } from "../src/utils.js";
 import { withTemporaryProject } from "./helpers.js";
 
-test("only registered, root-bound Audit evidence can satisfy Ship", async () => {
+test("persisted Audit evidence is verified as a diagnostic but never consumed by Ship", async () => {
   await withTemporaryProject("evidence-envelope", async (root) => {
     await writePackage(root);
     const profile = await discoverProject(root);
@@ -42,7 +42,11 @@ test("only registered, root-bound Audit evidence can satisfy Ship", async () => 
 
     const forged = structuredClone(trusted);
     forged.producer = "locally-planted";
-    assert.equal(gateStatus(await run(forged)), "NOT_VERIFIED");
+    assert.equal(gateStatus(await run(forged)), "PASS");
+    assert.equal(
+      (await verifyEvidenceEnvelope({ root, revision, evidence: forged })).verified,
+      false
+    );
 
     const statusFlip = structuredClone(trusted);
     statusFlip.status = "FAIL";
@@ -67,7 +71,7 @@ test("only registered, root-bound Audit evidence can satisfy Ship", async () => 
 
     const buildCollision = structuredClone(trusted);
     buildCollision.envelope = { ...trusted.envelope!, domain: "Build" };
-    assert.equal(gateStatus(await run(buildCollision)), "NOT_VERIFIED");
+    assert.equal(gateStatus(await run(buildCollision)), "PASS");
 
     const incompatible = structuredClone(trusted);
     incompatible.envelope = {
@@ -75,7 +79,7 @@ test("only registered, root-bound Audit evidence can satisfy Ship", async () => 
       producer_version: "9",
       contract: "other/v1"
     };
-    assert.equal(gateStatus(await run(incompatible)), "NOT_VERIFIED");
+    assert.equal(gateStatus(await run(incompatible)), "PASS");
 
     await writeFile(join(root, "package.json"), '{"name":"swapped"}\n', "utf8");
     const revisionMismatch = await verifyEvidenceEnvelope({

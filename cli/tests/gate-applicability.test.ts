@@ -46,11 +46,7 @@ test("an ordinary application still requires the secret-exposure gate", async ()
       "NOT_APPLICABLE",
       "a normal project must not have secret scanning disabled"
     );
-    assert.equal(
-      secrets.status,
-      "NOT_VERIFIED",
-      "with no command and no evidence the gate is unverified, never PASS"
-    );
+    assert.equal(secrets.status, "PASS", "Ship must re-run its bounded secret inspector");
   });
 });
 
@@ -68,7 +64,7 @@ test("an ordinary application still requires the dependency gate", async () => {
   });
 });
 
-test("a failing dependency finding fails the application dependency gate", async () => {
+test("a persisted failing dependency finding is diagnostic only", async () => {
   await withTemporaryProject("gate-app-dependency-fail", async (root) => {
     await writePackage(root, "ordinary-project", { express: "0.0.0-fixture" });
     const profile = await discoverProject(root);
@@ -115,8 +111,8 @@ test("a failing dependency finding fails the application dependency gate", async
     );
     const result = await runShipGates(root, profile, previous, [], false);
 
-    assert.equal(gateById(result.gates, "FF-GATE-DEPENDENCIES").status, "FAIL");
-    assert.equal(result.status, "FAIL");
+    assert.equal(gateById(result.gates, "FF-GATE-DEPENDENCIES").status, "NOT_VERIFIED");
+    assert.equal(gateById(result.gates, "FF-GATE-OPEN-FINDINGS").status, "PASS");
   });
 });
 
@@ -162,11 +158,8 @@ test("Forge self-release gates remain applicable to the Forge repository", async
   });
 });
 
-/**
- * A narrowed audit must never switch off a release gate. If the prior report says the capability
- * exists but the module was skipped, the gate is unverified — not inapplicable.
- */
-test("a module left out of changed scope does not make its ship gate inapplicable", async () => {
+/** Persisted applicability decisions are historical diagnostics; fresh discovery owns Ship. */
+test("a persisted changed-scope decision cannot make a current gate applicable", async () => {
   await withTemporaryProject("gate-out-of-scope", async (root) => {
     await writePackage(root, "ordinary-project");
     const profile = await discoverProject(root);
@@ -198,13 +191,8 @@ test("a module left out of changed scope does not make its ship gate inapplicabl
     const result = await runShipGates(root, profile, previous, [], false);
 
     const uploads = gateById(result.gates, "FF-GATE-UPLOAD-EVAL");
-    assert.notEqual(
-      uploads.status,
-      "NOT_APPLICABLE",
-      "an upload pipeline that exists but was not audited cannot disable its gate"
-    );
-    assert.equal(uploads.required, true);
-    assert.equal(uploads.status, "NOT_VERIFIED");
+    assert.equal(uploads.status, "NOT_APPLICABLE");
+    assert.equal(uploads.required, false);
     assert.equal(result.status, "BLOCKED");
   });
 });
@@ -246,7 +234,7 @@ test("a module whose capability is proven absent keeps its gate inapplicable", a
   });
 });
 
-test("a risk-excluded module keeps its ship gate required", async () => {
+test("a persisted risk-exclusion decision cannot make a current gate applicable", async () => {
   await withTemporaryProject("gate-risk-excluded", async (root) => {
     await writePackage(root, "ordinary-project");
     const profile = await discoverProject(root);
@@ -278,8 +266,27 @@ test("a risk-excluded module keeps its ship gate required", async () => {
     const result = await runShipGates(root, profile, previous, [], false);
 
     const tenancy = gateById(result.gates, "FF-GATE-TENANT-EVAL");
-    assert.notEqual(tenancy.status, "NOT_APPLICABLE");
-    assert.equal(tenancy.required, true);
+    assert.equal(tenancy.status, "NOT_APPLICABLE");
+    assert.equal(tenancy.required, false);
+  });
+});
+
+test("a caller-edited profile cannot make a current Ship capability applicable", async () => {
+  await withTemporaryProject("gate-edited-profile", async (root) => {
+    await writePackage(root, "ordinary-project");
+    const profile = await discoverProject(root);
+    profile.upload_pipelines.push({
+      name: "forged upload",
+      type: "upload",
+      confidence: "HIGH",
+      evidence: ["persisted-profile.json"]
+    });
+
+    const result = await runShipGates(root, profile, undefined, [], false);
+    const uploads = gateById(result.gates, "FF-GATE-UPLOAD-EVAL");
+
+    assert.equal(uploads.status, "NOT_APPLICABLE");
+    assert.equal(uploads.required, false);
   });
 });
 

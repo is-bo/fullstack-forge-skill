@@ -255,7 +255,8 @@ export async function inspectSection(
       root,
       [...analyzerObservations, ...inventory.observations],
       [...analyzerFindings, ...inventory.findings],
-      inventory.gate_evidence
+      inventory.gate_evidence,
+      inventory.input_paths
     );
   }
   const regex = SECTION_KEYWORDS[section];
@@ -275,7 +276,9 @@ export async function inspectSection(
     `inspect-${section}`,
     root,
     [...analyzerObservations, ...inventory.observations],
-    [...analyzerFindings, ...inventory.findings]
+    [...analyzerFindings, ...inventory.findings],
+    [],
+    inventory.input_paths
   );
   return section === "security"
     ? mergeInspectionResults(base, await scanSecretPatterns(root, scope))
@@ -289,9 +292,12 @@ async function scanPatterns(
   scope?: AnalyzerScope
 ): Promise<InspectionResult> {
   const observations: Observation[] = [];
-  for (const file of await sourceFiles(root, scope)) {
+  const files = await sourceFiles(root, scope);
+  const inputPaths: string[] = [];
+  for (const file of files) {
     const content = await readTextIfPresent(file);
     if (content === undefined) continue;
+    inputPaths.push(toPosix(relative(root, file)));
     for (const pattern of patterns) {
       pattern.regex.lastIndex = 0;
       for (const match of content.matchAll(pattern.regex)) {
@@ -302,22 +308,24 @@ async function scanPatterns(
           detail: pattern.detail,
           confidence: "MEDIUM"
         });
-        if (observations.length >= 500) return result(tool, root, observations, []);
+        if (observations.length >= 500) return result(tool, root, observations, [], [], inputPaths);
       }
     }
   }
-  return result(tool, root, observations, []);
+  return result(tool, root, observations, [], [], inputPaths);
 }
 
 async function inspectEnvTemplates(root: string, scope?: AnalyzerScope): Promise<InspectionResult> {
   const observations: Observation[] = [];
   const findings: Finding[] = [];
+  const inputPaths: string[] = [];
   const files = (await sourceFiles(root, scope)).filter((file) =>
     /(?:^|[\\/])\.env(?:\.(?:example|sample|template|defaults))?$|\.env\.example$/iu.test(file)
   );
   for (const file of files) {
     const content = await readTextIfPresent(file);
     if (content === undefined) continue;
+    inputPaths.push(toPosix(relative(root, file)));
     for (const [index, line] of content.split(/\r?\n/u).entries()) {
       const match = /^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.*)$/u.exec(line);
       if (match === null) continue;
@@ -352,12 +360,13 @@ async function inspectEnvTemplates(root: string, scope?: AnalyzerScope): Promise
       }
     }
   }
-  return result("inspect-env-template", root, observations, findings);
+  return result("inspect-env-template", root, observations, findings, [], inputPaths);
 }
 
 async function scanSecretPatterns(root: string, scope?: AnalyzerScope): Promise<InspectionResult> {
   const observations: Observation[] = [];
   const findings: Finding[] = [];
+  const inputPaths: string[] = [];
   const patterns = [
     {
       name: "private key header",
@@ -379,9 +388,11 @@ async function scanSecretPatterns(root: string, scope?: AnalyzerScope): Promise<
       confidence: "LOW" as const
     }
   ];
-  for (const file of await sourceFiles(root, scope)) {
+  const files = await sourceFiles(root, scope);
+  for (const file of files) {
     const content = await readTextIfPresent(file);
     if (content === undefined) continue;
+    inputPaths.push(toPosix(relative(root, file)));
     for (const pattern of patterns) {
       pattern.regex.lastIndex = 0;
       for (const match of content.matchAll(pattern.regex)) {
@@ -421,14 +432,16 @@ async function scanSecretPatterns(root: string, scope?: AnalyzerScope): Promise<
       }
     }
   }
-  return result("scan-secret-patterns", root, observations, findings);
+  return result("scan-secret-patterns", root, observations, findings, [], inputPaths);
 }
 
 async function inspectDependencies(root: string): Promise<InspectionResult> {
   const observations: Observation[] = [];
+  const inputPaths: string[] = [];
   const manifestPath = join(root, "package.json");
   const content = await readTextIfPresent(manifestPath);
   if (content !== undefined) {
+    inputPaths.push("package.json");
     try {
       const manifest = JSON.parse(content) as Record<string, unknown>;
       observations.push({
@@ -460,25 +473,32 @@ async function inspectDependencies(root: string): Promise<InspectionResult> {
         }
       }
     } catch {
-      return result("inspect-dependencies", root, observations, [
-        finding(
-          "DEPS",
-          1,
-          "supply-chain",
-          "package.json is invalid JSON",
-          "HIGH",
-          "HIGH",
-          "FAIL",
-          "package.json",
-          1,
-          "JSON parsing failed.",
-          "Dependency installation and tooling are unreliable.",
-          "Correct the manifest without changing dependency intent.",
-          true,
-          ["Parse package.json and run the package manager's frozen install"],
-          ["NIST SSDF"]
-        )
-      ]);
+      return result(
+        "inspect-dependencies",
+        root,
+        observations,
+        [
+          finding(
+            "DEPS",
+            1,
+            "supply-chain",
+            "package.json is invalid JSON",
+            "HIGH",
+            "HIGH",
+            "FAIL",
+            "package.json",
+            1,
+            "JSON parsing failed.",
+            "Dependency installation and tooling are unreliable.",
+            "Correct the manifest without changing dependency intent.",
+            true,
+            ["Parse package.json and run the package manager's frozen install"],
+            ["NIST SSDF"]
+          )
+        ],
+        [],
+        inputPaths
+      );
     }
   }
   for (const lock of [
@@ -491,15 +511,17 @@ async function inspectDependencies(root: string): Promise<InspectionResult> {
     "Cargo.lock",
     "go.sum"
   ]) {
-    if ((await readTextIfPresent(join(root, lock))) !== undefined)
+    if ((await readTextIfPresent(join(root, lock))) !== undefined) {
+      inputPaths.push(lock);
       observations.push({
         category: "lockfile",
         path: lock,
         detail: "Lockfile detected",
         confidence: "HIGH"
       });
+    }
   }
-  return result("inspect-dependencies", root, observations, []);
+  return result("inspect-dependencies", root, observations, [], [], inputPaths);
 }
 
 async function inspectNamedFiles(
@@ -509,11 +531,12 @@ async function inspectNamedFiles(
   detail: string,
   scope?: AnalyzerScope
 ): Promise<InspectionResult> {
-  const observations = (await sourceFiles(root, scope))
+  const files = await sourceFiles(root, scope);
+  const observations = files
     .map((file) => toPosix(relative(root, file)))
     .filter(predicate)
     .map((path): Observation => ({ category: tool, path, detail, confidence: "HIGH" }));
-  return result(tool, root, observations, []);
+  return result(tool, root, observations, [], [], relativePaths(root, files));
 }
 
 async function inspectPlatformSkills(
@@ -522,6 +545,7 @@ async function inspectPlatformSkills(
 ): Promise<InspectionResult> {
   const observations: Observation[] = [];
   const findings: Finding[] = [];
+  const inputPaths: string[] = [];
   const roots = [
     ".agents/skills",
     ".claude/skills",
@@ -546,6 +570,7 @@ async function inspectPlatformSkills(
       if (content === undefined) continue;
       const path = toPosix(relative(root, skillPath));
       if (scope !== undefined && !scope.has(path)) continue;
+      inputPaths.push(path);
       observations.push({
         category: "agent-skill",
         path,
@@ -579,7 +604,7 @@ async function inspectPlatformSkills(
       }
     }
   }
-  return result("inspect-platform-skills", root, observations, findings);
+  return result("inspect-platform-skills", root, observations, findings, [], inputPaths);
 }
 
 async function sourceFiles(root: string, scope?: AnalyzerScope): Promise<string[]> {
@@ -695,12 +720,14 @@ function result(
   root: string,
   observations: Observation[],
   findings: Finding[],
-  inheritedEvidence: GateEvidence[] = []
+  inheritedEvidence: GateEvidence[] = [],
+  inputPaths: string[] = []
 ): InspectionResult {
   return {
     tool,
     root,
     generated_at: utcNow(),
+    input_paths: [...new Set(inputPaths)].sort(),
     observations,
     findings,
     gate_evidence: [...inheritedEvidence, ...evidenceForResult(tool, observations, findings)],
@@ -714,11 +741,16 @@ function mergeInspectionResults(
 ): InspectionResult {
   return {
     ...primary,
+    input_paths: [...new Set([...primary.input_paths, ...additional.input_paths])].sort(),
     observations: [...primary.observations, ...additional.observations],
     findings: [...primary.findings, ...additional.findings],
     gate_evidence: [...primary.gate_evidence, ...additional.gate_evidence],
     analyzer_coverage: [...primary.analyzer_coverage, ...additional.analyzer_coverage]
   };
+}
+
+function relativePaths(root: string, files: string[]): string[] {
+  return files.map((file) => toPosix(relative(root, file)));
 }
 
 function evidenceForResult(
