@@ -60,7 +60,8 @@ test("derives every requested mandatory omission discipline from executable chan
       "src/cache/redis.ts",
       "app/dashboard/page.tsx",
       "src/jobs/worker.ts",
-      "src/ai/document-processor.ts"
+      "src/ai/document-processor.ts",
+      "src/routes/accounts.ts"
     ]
   });
   for (const discipline of [
@@ -74,12 +75,29 @@ test("derives every requested mandatory omission discipline from executable chan
     "cache",
     "ui",
     "jobs",
-    "ai"
+    "ai",
+    "code",
+    "testing",
+    "api"
   ])
     assert.ok(result.required.includes(discipline), `${discipline} must be required`);
   assert.ok(result.required.includes("security"));
   assert.ok(result.required.includes("accessibility"));
   assert.ok(result.required.includes("deployment"));
+  assert.ok(result.required.includes("performance"));
+  assert.ok(result.required.includes("privacy"));
+});
+
+test("a high project risk floor requires security without inventing an application capability", () => {
+  const result = deriveBuildApplicability({
+    profile: profile(),
+    risk_baseline: "high",
+    changed_paths: ["src/core/value.ts"]
+  });
+  assert.ok(result.required.includes("security"));
+  assert.ok(result.required.includes("code"));
+  assert.ok(result.required.includes("testing"));
+  assert.ok(!result.required.includes("payments"));
 });
 
 test("documentation, test, fixture, and generated path signals cannot activate a discipline", () => {

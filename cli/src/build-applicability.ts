@@ -20,6 +20,8 @@ export type BuildApplicabilityInput = {
   touched_paths?: readonly string[];
   summary?: string;
   risk_inputs?: readonly string[];
+  /** Project- or feature-level risk floor; high risk makes security review mandatory. */
+  risk_baseline?: "light" | "standard" | "high";
 };
 
 export type BuildApplicabilityResult = {
@@ -64,6 +66,16 @@ const RULES: readonly Rule[] = [
   rule("jobs", [/\b(?:job|queue|worker|cron|schedule)\b/iu], ["reliability", "observability"]),
   rule("ai", [/\b(?:ai|llm|openai|embedding|prompt|model)\b/iu], ["security", "privacy"]),
   rule(
+    "security",
+    [/\b(?:trust[-_ ]?boundary|injection|credential|secret|token|crypto|encrypt|ssrf)\b/iu],
+    ["testing"]
+  ),
+  rule(
+    "privacy",
+    [/\b(?:pii|personal[-_ ]?data|email|phone|address|consent|retention|gdpr)\b/iu],
+    ["security"]
+  ),
+  rule(
     "ui",
     [/\b(?:ui|dashboard|screen|component|dialog|form|route)\b/iu],
     ["ux", "accessibility", "frontend"]
@@ -79,6 +91,11 @@ const UI_EXTENSIONS = /\.(?:[cm]?[jt]sx?|vue|svelte)$/iu;
 const UI_PATH = /(?:^|\/)(?:app|pages|routes|views|components|screens)(?:\/|$)/iu;
 const DEPLOYMENT_PATH =
   /(?:^|\/)(?:\.github\/workflows|infra(?:structure)?|deploy(?:ment)?|k8s|helm)(?:\/|$)|(?:^|\/)(?:dockerfile|docker-compose[^/]*)$/iu;
+const ROUTE_PATH =
+  /(?:^|\/)(?:routes|controllers|handlers)(?:\/|$)|(?:^|\/)pages\/api(?:\/|$)|(?:^|\/)app\/.*\/route\.[cm]?[jt]sx?$/iu;
+const SCHEMA_PATH = /(?:^|\/)(?:migrations?|schema|prisma)(?:\/|\.|$)|\.(?:sql|prisma)$/iu;
+const QUERY_PATH = /(?:^|\/)(?:queries|repositories|search)(?:\/|$)/iu;
+const CACHE_PATH = /(?:^|\/)(?:cache|redis)(?:\/|\.|$)/iu;
 
 /**
  * Derives Build-mode discipline obligations from classified discovery evidence and implementation
@@ -114,6 +131,16 @@ export function deriveBuildApplicability(input: BuildApplicabilityInput): BuildA
     if (decisions.has(discipline)) return;
     decisions.set(discipline, { discipline, status: "SUGGESTED", confidence: "LOW", evidence });
   };
+
+  if (activatingPaths.length > 0) {
+    require("code", "HIGH", activatingPaths
+      .slice(0, 12)
+      .map((path) => `Changed executable input '${path}'.`));
+    require("testing", "HIGH", ["Changed executable inputs require changed-behavior proof."]);
+  }
+
+  if (input.risk_baseline === "high")
+    require("security", "HIGH", ["The recorded project or feature risk baseline is high."]);
 
   for (const current of RULES) {
     const matchingPaths = activatingPaths.filter((path) =>
@@ -166,6 +193,38 @@ export function deriveBuildApplicability(input: BuildApplicabilityInput): BuildA
       require(discipline, "HIGH", deploymentPaths.map(
         (path) => `Changed deployment path '${path}' requires ${discipline}.`
       ));
+  }
+  const routePaths = activatingPaths.filter((path) => ROUTE_PATH.test(path));
+  if (routePaths.length > 0) {
+    require("api", "MEDIUM", routePaths.map(
+      (path) => `Changed route or handler '${path}' requires boundary review.`
+    ));
+    require("security", "MEDIUM", ["Changed routes cross an application trust boundary."]);
+  }
+  const schemaPaths = activatingPaths.filter((path) => SCHEMA_PATH.test(path));
+  if (schemaPaths.length > 0) {
+    require("database", "HIGH", schemaPaths.map(
+      (path) => `Changed schema or migration '${path}' requires database review.`
+    ));
+    require("deployment", "HIGH", ["Schema changes require migration and rollout evidence."]);
+  }
+  const queryPaths = activatingPaths.filter((path) => QUERY_PATH.test(path));
+  if (queryPaths.length > 0) {
+    require("queries", "HIGH", queryPaths.map(
+      (path) => `Changed query surface '${path}' requires query evidence.`
+    ));
+    require("performance", "MEDIUM", ["Query changes require bounded performance evidence."]);
+  }
+  const cachePaths = activatingPaths.filter((path) => CACHE_PATH.test(path));
+  if (cachePaths.length > 0) {
+    require("cache", "HIGH", cachePaths.map(
+      (path) => `Changed cache surface '${path}' requires cache evidence.`
+    ));
+    require("privacy", "MEDIUM", ["Cache keys and values require privacy review."]);
+    if (input.profile.tenant_boundaries.length > 0)
+      require("tenancy", "HIGH", [
+        "Tenant capability plus cache changes require tenant-safe keys."
+      ]);
   }
   if (ignoredPaths.length > 0)
     suggest(

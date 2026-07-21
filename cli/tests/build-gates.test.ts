@@ -46,13 +46,15 @@ test("light tier requires behavior evidence, not only static analysis", () => {
     [
       "FF-BUILD-GATE-BEHAVIOR",
       "FF-BUILD-GATE-DISCIPLINES",
+      "FF-BUILD-GATE-PROJECT-TEST",
       "FF-BUILD-GATE-SCOPE",
       "FF-BUILD-GATE-STATIC"
     ]
   );
   const evaluated = evaluateBuildGates(plan, [
     evidence("scope-resolution"),
-    evidence("static-analysis")
+    evidence("supported-static-patterns"),
+    evidence("project:test")
   ]);
   const behavior = evaluated.find((entry) => entry.id === "FF-BUILD-GATE-BEHAVIOR");
   if (behavior === undefined) throw new Error("behavior gate unexpectedly missing");
@@ -66,7 +68,7 @@ test("standard requires each detected project command and reports its actionable
     assert.ok(plan.gates.some((entry) => entry.id === `FF-BUILD-GATE-PROJECT-${name}`));
   const evaluated = evaluateBuildGates(plan, [
     evidence("scope-resolution"),
-    evidence("static-analysis"),
+    evidence("supported-static-patterns"),
     evidence("behavior-verification"),
     evidence("project:test", "FAIL")
   ]);
@@ -79,7 +81,7 @@ test("standard requires each detected project command and reports its actionable
 test("high-risk gates are explicit and cannot be waived", () => {
   const applicability: BuildApplicabilityResult = {
     ...base,
-    required: ["authorization", "tenancy", "uploads", "payments", "ui"]
+    required: ["auth", "authorization", "tenancy", "uploads", "payments", "privacy", "ui"]
   };
   const plan = planBuildGates({
     tier: "high",
@@ -90,10 +92,15 @@ test("high-risk gates are explicit and cannot be waived", () => {
   });
   for (const id of [
     "FF-BUILD-GATE-NEGATIVE-SECURITY",
+    "FF-BUILD-GATE-AUTHENTICATION-NEGATIVE",
     "FF-BUILD-GATE-AUTHORIZATION-NEGATIVE",
     "FF-BUILD-GATE-TENANCY-ISOLATION",
     "FF-BUILD-GATE-UPLOAD-HOSTILE-FILE",
     "FF-BUILD-GATE-WEBHOOK-SAFETY",
+    "FF-BUILD-GATE-MIGRATION",
+    "FF-BUILD-GATE-MIGRATION-RECOVERY",
+    "FF-BUILD-GATE-PRIVACY-DATA-FLOW",
+    "FF-BUILD-GATE-INTEGRATION",
     "FF-BUILD-GATE-RUNTIME",
     "FF-BUILD-GATE-SECURITY-REVIEW"
   ])
@@ -103,4 +110,5 @@ test("high-risk gates are explicit and cannot be waived", () => {
     evaluated.find((entry) => entry.id === "FF-BUILD-GATE-NEGATIVE-SECURITY")?.status,
     "NOT_VERIFIED"
   );
+  assert.ok(plan.gates.every((entry) => entry.waiver_policy === "never"));
 });

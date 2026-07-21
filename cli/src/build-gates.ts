@@ -11,13 +11,19 @@ export type BuildGateId =
   | "FF-BUILD-GATE-RUNTIME"
   | "FF-BUILD-GATE-DESIGN-DIRECTION"
   | "FF-BUILD-GATE-MIGRATION"
+  | "FF-BUILD-GATE-MIGRATION-RECOVERY"
   | "FF-BUILD-GATE-NEGATIVE-SECURITY"
+  | "FF-BUILD-GATE-AUTHENTICATION-NEGATIVE"
   | "FF-BUILD-GATE-AUTHORIZATION-NEGATIVE"
   | "FF-BUILD-GATE-TENANCY-ISOLATION"
   | "FF-BUILD-GATE-UPLOAD-HOSTILE-FILE"
   | "FF-BUILD-GATE-WEBHOOK-SAFETY"
+  | "FF-BUILD-GATE-PRIVACY-DATA-FLOW"
+  | "FF-BUILD-GATE-INTEGRATION"
   | "FF-BUILD-GATE-SECURITY-REVIEW"
   | `FF-BUILD-GATE-PROJECT-${string}`;
+
+export type BuildWaiverPolicy = "never" | "advisory" | "operational-human";
 
 export type BuildGate = {
   id: BuildGateId;
@@ -25,6 +31,8 @@ export type BuildGate = {
   tier: BuildTier;
   criteria: string[];
   required: boolean;
+  waiver_policy: BuildWaiverPolicy;
+  /** Compatibility rendering; `waiver_policy` is authoritative. */
   non_waivable: boolean;
   reason: string;
 };
@@ -44,8 +52,27 @@ export type EvaluatedBuildGate = BuildGate & {
   missing: string[];
 };
 
-const PROJECT_COMMANDS = new Set(["format:check", "lint", "typecheck", "test", "build"]);
-const HIGH_SECURITY = new Set(["auth", "authorization", "tenancy", "uploads", "payments"]);
+const PROJECT_COMMANDS = new Set([
+  "format",
+  "format:check",
+  "lint",
+  "typecheck",
+  "test",
+  "test:unit",
+  "test:integration",
+  "test:e2e",
+  "build"
+]);
+const LIGHT_PROJECT_COMMANDS = new Set(["test", "test:unit", "test:integration", "test:e2e"]);
+const HIGH_SECURITY = new Set([
+  "auth",
+  "authorization",
+  "security",
+  "privacy",
+  "tenancy",
+  "uploads",
+  "payments"
+]);
 
 /**
  * A pure, Build-only registry. It shares no state with Ship and has no authority to execute a
@@ -59,17 +86,17 @@ export function planBuildGates(input: BuildGatePlanInput): BuildGatePlan {
       input.tier,
       ["scope-resolution"],
       true,
-      true,
+      "never",
       "Every tier must bind evidence to the changed or recorded touched paths."
     ),
     gate(
       "FF-BUILD-GATE-STATIC",
       "Supported static analysis",
       input.tier,
-      ["static-analysis"],
+      ["supported-static-patterns"],
       true,
-      true,
-      "Static evidence is bounded, but required as one input to completion."
+      "never",
+      "Bounded supported-pattern evidence is required, but never represents whole-feature security."
     ),
     gate(
       "FF-BUILD-GATE-BEHAVIOR",
@@ -77,7 +104,7 @@ export function planBuildGates(input: BuildGatePlanInput): BuildGatePlan {
       input.tier,
       ["behavior-verification"],
       true,
-      true,
+      "never",
       "A feature cannot complete solely from static pattern analysis."
     ),
     gate(
@@ -86,26 +113,25 @@ export function planBuildGates(input: BuildGatePlanInput): BuildGatePlan {
       input.tier,
       input.applicability.required.map((discipline) => `discipline:${discipline}`),
       true,
-      input.tier === "high",
+      input.tier === "high" ? "never" : "operational-human",
       "Mandatory disciplines are derived independently of frame and plan choices."
     )
   ];
 
-  if (input.tier !== "light") {
-    for (const command of input.commands) {
-      if (!PROJECT_COMMANDS.has(command.name)) continue;
-      gates.push(
-        gate(
-          `FF-BUILD-GATE-PROJECT-${command.name.toUpperCase().replace(/[^A-Z0-9]/gu, "-")}`,
-          `Project command ${command.name}`,
-          input.tier,
-          [`project:${command.name}`],
-          true,
-          true,
-          `Detected project command '${command.name}' is required at ${input.tier} tier.`
-        )
-      );
-    }
+  for (const command of input.commands) {
+    if (!PROJECT_COMMANDS.has(command.name)) continue;
+    if (input.tier === "light" && !LIGHT_PROJECT_COMMANDS.has(command.name)) continue;
+    gates.push(
+      gate(
+        `FF-BUILD-GATE-PROJECT-${command.name.toUpperCase().replace(/[^A-Z0-9]/gu, "-")}`,
+        `Project command ${command.name}`,
+        input.tier,
+        [`project:${command.name}`],
+        true,
+        "never",
+        `Detected project command '${command.name}' is required at ${input.tier} tier.`
+      )
+    );
   }
 
   if (input.tier === "high") {
@@ -119,7 +145,7 @@ export function planBuildGates(input: BuildGatePlanInput): BuildGatePlan {
           "high",
           ["security-negative-tests"],
           true,
-          true,
+          "never",
           "High-risk security capabilities require a negative test, not only a positive path."
         )
       );
@@ -131,8 +157,20 @@ export function planBuildGates(input: BuildGatePlanInput): BuildGatePlan {
           "high",
           ["authorization-negative-tests"],
           true,
-          true,
+          "never",
           "Authorization changes require an observed denied path."
+        )
+      );
+    if (has("auth"))
+      gates.push(
+        gate(
+          "FF-BUILD-GATE-AUTHENTICATION-NEGATIVE",
+          "Authentication abuse-path proof",
+          "high",
+          ["authentication-negative-tests"],
+          true,
+          "never",
+          "Authentication changes require invalid, expired, replayed, and recovery abuse-path tests."
         )
       );
     if (has("tenancy"))
@@ -143,7 +181,7 @@ export function planBuildGates(input: BuildGatePlanInput): BuildGatePlan {
           "high",
           ["tenant-isolation-tests"],
           true,
-          true,
+          "never",
           "Tenant data requires a cross-tenant denial test."
         )
       );
@@ -155,7 +193,7 @@ export function planBuildGates(input: BuildGatePlanInput): BuildGatePlan {
           "high",
           ["upload-hostile-file-tests"],
           true,
-          true,
+          "never",
           "Upload handling requires hostile-file rejection evidence."
         )
       );
@@ -167,11 +205,11 @@ export function planBuildGates(input: BuildGatePlanInput): BuildGatePlan {
           "high",
           ["webhook-safety-tests"],
           true,
-          true,
+          "never",
           "Payment webhooks require signature, replay, and idempotency proof."
         )
       );
-    if (has("database") || input.profile.databases.length > 0)
+    if (has("database") || input.profile.databases.length > 0) {
       gates.push(
         gate(
           "FF-BUILD-GATE-MIGRATION",
@@ -179,10 +217,22 @@ export function planBuildGates(input: BuildGatePlanInput): BuildGatePlan {
           "high",
           ["migration-validation"],
           true,
-          true,
+          "never",
           "A database or migration capability requires migration validation."
         )
       );
+      gates.push(
+        gate(
+          "FF-BUILD-GATE-MIGRATION-RECOVERY",
+          "Migration rollback or forward-fix proof",
+          "high",
+          ["migration-recovery"],
+          true,
+          "never",
+          "High-risk schema changes require tested rollback or forward-fix evidence."
+        )
+      );
+    }
     if (has("ui") || has("frontend") || has("accessibility") || has("ux")) {
       gates.push(
         gate(
@@ -191,7 +241,7 @@ export function planBuildGates(input: BuildGatePlanInput): BuildGatePlan {
           "high",
           ["runtime:rendered-ui"],
           true,
-          true,
+          "never",
           input.runtime_available === false
             ? "A UI capability was detected but no runtime is available; this required gate stays blocked."
             : "High-tier UI work requires complete runtime evidence."
@@ -204,11 +254,34 @@ export function planBuildGates(input: BuildGatePlanInput): BuildGatePlan {
           "high",
           ["design-direction"],
           true,
-          true,
+          "never",
           "UI work requires an intentional design-direction record or a reasoned deviation."
         )
       );
     }
+    if (has("privacy"))
+      gates.push(
+        gate(
+          "FF-BUILD-GATE-PRIVACY-DATA-FLOW",
+          "Sensitive-data flow proof",
+          "high",
+          ["privacy-data-flow"],
+          true,
+          "never",
+          "High-risk personal-data work requires collection, storage, logging, retention, and deletion evidence."
+        )
+      );
+    gates.push(
+      gate(
+        "FF-BUILD-GATE-INTEGRATION",
+        "Runtime or integration proof",
+        "high",
+        ["integration-verification"],
+        true,
+        "never",
+        "High-tier behavior requires direct integration or runtime proof."
+      )
+    );
     gates.push(
       gate(
         "FF-BUILD-GATE-SECURITY-REVIEW",
@@ -216,7 +289,7 @@ export function planBuildGates(input: BuildGatePlanInput): BuildGatePlan {
         "high",
         ["security-review"],
         true,
-        true,
+        "never",
         "High tier has a non-waivable security review criterion."
       )
     );
@@ -255,7 +328,7 @@ export function evaluateBuildGates(
         continue;
       }
       if (result.status !== "PASS") {
-        const waived = !current.non_waivable && accepted.has(criterion);
+        const waived = current.waiver_policy !== "never" && accepted.has(criterion);
         if (!waived) missing.push(`${criterion}: ${result.status}`);
         if (!waived) status = strongest(status, result.status);
       }
@@ -270,10 +343,19 @@ function gate(
   tier: BuildTier,
   criteria: string[],
   required: boolean,
-  nonWaivable: boolean,
+  waiverPolicy: BuildWaiverPolicy,
   reason: string
 ): BuildGate {
-  return { id, name, tier, criteria, required, non_waivable: nonWaivable, reason };
+  return {
+    id,
+    name,
+    tier,
+    criteria,
+    required,
+    waiver_policy: waiverPolicy,
+    non_waivable: waiverPolicy === "never",
+    reason
+  };
 }
 
 function strongest(current: BuildGateStatus, next: BuildGateStatus): BuildGateStatus {
