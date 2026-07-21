@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import type { GateEvidence, GateEvidenceType } from "./types.js";
+import type { GateEvidence, GateEvidenceCommand, GateEvidenceType } from "./types.js";
 import {
   assertNoSymlinkPath,
   assertSafeRelative,
@@ -27,6 +27,9 @@ export type EvidenceEnvelope = {
   canonical_root: string;
   revision: string;
   artifacts: EvidenceArtifact[];
+  evidence_type: GateEvidenceType;
+  claim_sha256: string;
+  command?: GateEvidenceCommand;
 };
 
 type RegisteredProducer = {
@@ -35,6 +38,8 @@ type RegisteredProducer = {
   producer_version: string;
   contract: string;
   evidence_types: readonly GateEvidenceType[];
+  command_contract: "forbidden" | "required";
+  commands?: Readonly<Partial<Record<GateEvidenceType, readonly string[]>>>;
 };
 
 /**
@@ -57,7 +62,8 @@ export const EVIDENCE_PRODUCER_REGISTRY: readonly RegisteredProducer[] = [
       "upload-security-evaluation",
       "application-security-static-analysis",
       "migration-validation"
-    ]
+    ],
+    command_contract: "forbidden"
   },
   {
     domain: "Ship",
@@ -71,7 +77,15 @@ export const EVIDENCE_PRODUCER_REGISTRY: readonly RegisteredProducer[] = [
       "license-scan",
       "project-test",
       "release-artifact-validation"
-    ]
+    ],
+    command_contract: "required",
+    commands: {
+      "secret-scan": ["scan:secrets"],
+      "dependency-audit": ["audit:dependencies"],
+      "license-scan": ["check:licenses"],
+      "project-test": ["test"],
+      "release-artifact-validation": ["validate:dist", "package:platforms", "smoke:install"]
+    }
   }
 ];
 
@@ -81,13 +95,19 @@ export async function createEvidenceEnvelope(input: {
   root: string;
   revision: string;
   domain: Exclude<EvidenceDomain, "Build">;
-  producer: string;
-  evidence_type: GateEvidenceType;
+  claim: Omit<GateEvidence, "envelope">;
   artifacts: Array<{ path: string; media_type: string }>;
 }): Promise<EvidenceEnvelope> {
-  const registered = registeredProducer(input.domain, input.producer, input.evidence_type);
+  const registered = registeredProducer(
+    input.domain,
+    input.claim.producer,
+    input.claim.evidence_type
+  );
   if (registered === undefined)
-    throw new Error(`Unregistered evidence producer '${input.domain}/${input.producer}'.`);
+    throw new Error(`Unregistered evidence producer '${input.domain}/${input.claim.producer}'.`);
+  if (input.claim.revision !== input.revision)
+    throw new Error("Evidence claim revision must match its envelope revision.");
+  assertProducerContract(registered, input.claim);
   const canonicalRoot = await canonicalDirectory(input.root);
   const artifacts = await bindArtifacts(canonicalRoot, input.artifacts);
   return {
@@ -97,7 +117,10 @@ export async function createEvidenceEnvelope(input: {
     contract: registered.contract,
     canonical_root: canonicalRoot,
     revision: input.revision,
-    artifacts
+    artifacts,
+    evidence_type: input.claim.evidence_type,
+    claim_sha256: evidenceClaimDigest(input.claim),
+    ...(input.claim.command === undefined ? {} : { command: structuredClone(input.claim.command) })
   };
 }
 
@@ -134,12 +157,26 @@ export async function verifyEvidenceEnvelope(input: {
     };
   if (
     input.evidence.producer !== envelope.producer ||
-    input.evidence.revision !== envelope.revision
+    input.evidence.revision !== envelope.revision ||
+    input.evidence.evidence_type !== envelope.evidence_type
   )
     return {
       verified: false,
-      reasons: ["Evidence record and envelope disagree on producer or revision."]
+      reasons: ["Evidence record and envelope disagree on producer, type, or revision."]
     };
+  if (evidenceClaimDigest(input.evidence) !== envelope.claim_sha256)
+    return { verified: false, reasons: ["Evidence claim digest does not match the outer record."] };
+  try {
+    assertProducerContract(registered, input.evidence);
+    if (registered.command_contract === "required" && envelope.command === undefined)
+      throw new Error("Registered Ship evidence envelope requires a command contract.");
+    if (registered.command_contract === "forbidden" && envelope.command !== undefined)
+      throw new Error("Audit evidence envelope must not carry a command contract.");
+    if (envelope.command !== undefined && !sameJson(envelope.command, input.evidence.command))
+      throw new Error("Evidence command contract does not match the outer record.");
+  } catch (error) {
+    return { verified: false, reasons: [(error as Error).message] };
+  }
   const canonicalRoot = await canonicalDirectory(input.root);
   if (envelope.canonical_root !== canonicalRoot)
     return {
@@ -153,10 +190,32 @@ export async function verifyEvidenceEnvelope(input: {
     };
   try {
     await verifyArtifacts(canonicalRoot, envelope.artifacts);
+    if (envelope.command !== undefined)
+      await verifyArtifacts(canonicalRoot, envelope.command.input_manifest);
   } catch (error) {
     return { verified: false, reasons: [(error as Error).message] };
   }
   return { verified: true };
+}
+
+/** Stable digest of every release-significant outer claim field. */
+export function evidenceClaimDigest(
+  evidence: Omit<GateEvidence, "envelope"> | GateEvidence
+): string {
+  return sha256(
+    JSON.stringify({
+      evidence_type: evidence.evidence_type,
+      producer: evidence.producer,
+      scope: evidence.scope,
+      timestamp: evidence.timestamp,
+      revision: evidence.revision,
+      status: evidence.status,
+      relevant_instance_ids: evidence.relevant_instance_ids,
+      absence_proves_success: evidence.absence_proves_success,
+      limitations: evidence.limitations,
+      ...(evidence.command === undefined ? {} : { command: evidence.command })
+    })
+  );
 }
 
 /** Normalizes runtime collector output to trusted, one-to-one artifact records. */
@@ -177,6 +236,14 @@ export async function bindRuntimeArtifacts(
       throw new Error(`Runtime artifact hash mismatch for ${artifact.path}.`);
   }
   return bound;
+}
+
+/** Captures the manifest that a command or producer used as an input at evidence creation time. */
+export async function captureEvidenceArtifacts(
+  root: string,
+  artifacts: Array<{ path: string; media_type: string }>
+): Promise<EvidenceArtifact[]> {
+  return bindArtifacts(await canonicalDirectory(root), artifacts);
 }
 
 export function assertEvidenceArtifacts(
@@ -215,6 +282,42 @@ function registeredProducer(
       entry.producer === producer &&
       entry.evidence_types.includes(evidenceType)
   );
+}
+
+function assertProducerContract(
+  registered: RegisteredProducer,
+  evidence: Omit<GateEvidence, "envelope"> | GateEvidence
+): void {
+  if (registered.command_contract === "forbidden") {
+    if (evidence.command !== undefined)
+      throw new Error("This producer must not carry a command contract.");
+    return;
+  }
+  const command = evidence.command;
+  if (command === undefined)
+    throw new Error("Registered Ship command evidence requires a command contract.");
+  const allowed = registered.commands?.[evidence.evidence_type] ?? [];
+  if (!allowed.includes(command.name))
+    throw new Error(`Command '${command.name}' is not registered for ${evidence.evidence_type}.`);
+  if (
+    !Array.isArray(command.argv) ||
+    command.argv.length === 0 ||
+    command.argv.some((part) => part.length === 0)
+  )
+    throw new Error("Command contract requires a non-empty argv.");
+  if (typeof command.definition !== "string" || command.definition.length === 0)
+    throw new Error("Command contract requires its detected definition.");
+  if (!Number.isInteger(command.exit_code) || command.exit_code < 0)
+    throw new Error("Command contract requires a non-negative exit code.");
+  if (!Number.isFinite(Date.parse(command.started_at)) || command.duration_ms < 0)
+    throw new Error("Command contract requires a timestamp and non-negative duration.");
+  if (!/^[a-f0-9]{64}$/u.test(command.output_sha256))
+    throw new Error("Command contract requires a lowercase output sha256 digest.");
+  assertEvidenceArtifacts(command.input_manifest);
+}
+
+function sameJson(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 async function bindArtifacts(

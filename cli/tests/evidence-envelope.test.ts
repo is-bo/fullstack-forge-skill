@@ -3,7 +3,12 @@ import { readFile, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { ReportAuditLedger, orchestrateAudit } from "../src/audit-orchestration.js";
-import { createEvidenceEnvelope, verifyEvidenceEnvelope } from "../src/evidence-envelope.js";
+import {
+  captureEvidenceArtifacts,
+  createEvidenceEnvelope,
+  evidenceClaimDigest,
+  verifyEvidenceEnvelope
+} from "../src/evidence-envelope.js";
 import { discoverProject } from "../src/discovery.js";
 import { runShipGates } from "../src/gates.js";
 import { createReport } from "../src/report.js";
@@ -31,6 +36,27 @@ test("only registered, root-bound Audit evidence can satisfy Ship", async () => 
     const forged = structuredClone(trusted);
     forged.producer = "locally-planted";
     assert.equal(gateStatus(await run(forged)), "NOT_VERIFIED");
+
+    const statusFlip = structuredClone(trusted);
+    statusFlip.status = "FAIL";
+    assert.equal(
+      (await verifyEvidenceEnvelope({ root, revision, evidence: statusFlip })).verified,
+      false
+    );
+
+    const typeSwap = structuredClone(trusted);
+    typeSwap.evidence_type = "license-scan";
+    assert.equal(
+      (await verifyEvidenceEnvelope({ root, revision, evidence: typeSwap })).verified,
+      false
+    );
+
+    const claimMutation = structuredClone(trusted);
+    claimMutation.limitations.push("locally appended");
+    assert.equal(
+      (await verifyEvidenceEnvelope({ root, revision, evidence: claimMutation })).verified,
+      false
+    );
 
     const buildCollision = structuredClone(trusted);
     buildCollision.envelope = { ...trusted.envelope!, domain: "Build" };
@@ -69,8 +95,7 @@ test("evidence envelopes reject traversal, missing files, and cross-root reuse",
         root,
         revision,
         domain: "Audit",
-        producer: "fullstack-forge/audit",
-        evidence_type: "secret-scan",
+        claim: auditClaim(revision),
         artifacts: [{ path: "../outside.json", media_type: "application/json" }]
       }),
       /Unsafe manifest path/u
@@ -80,8 +105,7 @@ test("evidence envelopes reject traversal, missing files, and cross-root reuse",
         root,
         revision,
         domain: "Audit",
-        producer: "fullstack-forge/audit",
-        evidence_type: "secret-scan",
+        claim: auditClaim(revision),
         artifacts: [{ path: "missing.json", media_type: "application/json" }]
       })
     );
@@ -115,8 +139,7 @@ test("evidence envelopes reject symlinked artifacts", async (t) => {
         root,
         revision: await workingTreeRevision(root),
         domain: "Audit",
-        producer: "fullstack-forge/audit",
-        evidence_type: "secret-scan",
+        claim: auditClaim(await workingTreeRevision(root)),
         artifacts: [{ path: "linked-package.json", media_type: "application/json" }]
       }),
       /Refusing symlinked/u
@@ -160,7 +183,44 @@ test("runtime ledger preserves and validates one-to-one captured artifact hashes
   });
 });
 
+test("Ship command envelopes reject command and output claim replay", async () => {
+  await withTemporaryProject("ship-command-envelope", async (root) => {
+    await writePackage(root);
+    const revision = await workingTreeRevision(root);
+    const evidence = await shipCommandEvidence(root, revision);
+    assert.equal((await verifyEvidenceEnvelope({ root, revision, evidence })).verified, true);
+
+    const commandSwap = structuredClone(evidence);
+    commandSwap.command!.name = "scan:secrets";
+    commandSwap.envelope!.command!.name = "scan:secrets";
+    commandSwap.envelope!.claim_sha256 = evidenceClaimDigest(commandSwap);
+    assert.equal(
+      (await verifyEvidenceEnvelope({ root, revision, evidence: commandSwap })).verified,
+      false
+    );
+
+    const outputMutation = structuredClone(evidence);
+    outputMutation.command!.output_sha256 = sha256("forged output");
+    assert.equal(
+      (await verifyEvidenceEnvelope({ root, revision, evidence: outputMutation })).verified,
+      false
+    );
+  });
+});
+
 async function auditEvidence(root: string, revision: string): Promise<GateEvidence> {
+  const record: GateEvidence = auditClaim(revision);
+  record.envelope = await createEvidenceEnvelope({
+    root,
+    revision,
+    domain: "Audit",
+    claim: record,
+    artifacts: [{ path: "package.json", media_type: "application/json" }]
+  });
+  return record;
+}
+
+function auditClaim(revision: string): Omit<GateEvidence, "envelope"> {
   return {
     evidence_type: "secret-scan",
     producer: "fullstack-forge/audit",
@@ -170,16 +230,43 @@ async function auditEvidence(root: string, revision: string): Promise<GateEviden
     status: "PASS",
     relevant_instance_ids: [],
     absence_proves_success: true,
-    limitations: ["Synthetic registered audit evidence."],
-    envelope: await createEvidenceEnvelope({
-      root,
-      revision,
-      domain: "Audit",
-      producer: "fullstack-forge/audit",
-      evidence_type: "secret-scan",
-      artifacts: [{ path: "package.json", media_type: "application/json" }]
-    })
+    limitations: ["Synthetic registered audit evidence."]
   };
+}
+
+async function shipCommandEvidence(root: string, revision: string): Promise<GateEvidence> {
+  const manifest = await captureEvidenceArtifacts(root, [
+    { path: "package.json", media_type: "application/json" }
+  ]);
+  const record: GateEvidence = {
+    evidence_type: "project-test",
+    producer: "fullstack-forge/ship-command",
+    scope: ["repository"],
+    timestamp: "2026-01-01T00:00:00.000Z",
+    revision,
+    status: "PASS",
+    relevant_instance_ids: [],
+    absence_proves_success: true,
+    limitations: ["Synthetic command evidence."],
+    command: {
+      name: "test",
+      argv: ["npm", "run", "test"],
+      definition: "node --test",
+      exit_code: 0,
+      started_at: "2026-01-01T00:00:00.000Z",
+      duration_ms: 1,
+      output_sha256: sha256("ok"),
+      input_manifest: manifest
+    }
+  };
+  record.envelope = await createEvidenceEnvelope({
+    root,
+    revision,
+    domain: "Ship",
+    claim: record,
+    artifacts: [{ path: "package.json", media_type: "application/json" }]
+  });
+  return record;
 }
 
 async function writePackage(root: string): Promise<void> {

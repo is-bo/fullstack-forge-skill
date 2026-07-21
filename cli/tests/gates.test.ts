@@ -3,7 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { discoverProject } from "../src/discovery.js";
-import { createEvidenceEnvelope } from "../src/evidence-envelope.js";
+import { createEvidenceEnvelope, evidenceClaimDigest } from "../src/evidence-envelope.js";
 import { evaluateGateOutcome, runShipGates, type ShipGate } from "../src/gates.js";
 import { createReport } from "../src/report.js";
 import type { CommandDefinition, Finding, GateEvidence, GateEvidenceType } from "../src/types.js";
@@ -284,6 +284,7 @@ test("failed and stale typed evidence fail closed independently", async () => {
 
     const stale = await trustedEvidence(root, "secret-scan", revision, "PASS");
     stale.timestamp = "2020-01-01T00:00:00.000Z";
+    stale.envelope!.claim_sha256 = evidenceClaimDigest(stale);
     const staleResult = await runShipGates(
       root,
       profile,
@@ -347,8 +348,7 @@ async function trustedEvidence(
     root,
     revision,
     domain: "Audit",
-    producer: record.producer,
-    evidence_type: evidenceType,
+    claim: record,
     artifacts: [{ path: "package.json", media_type: "application/json" }]
   });
   return record;

@@ -1,5 +1,9 @@
 import { readFile } from "node:fs/promises";
-import { createEvidenceEnvelope, verifyEvidenceEnvelope } from "./evidence-envelope.js";
+import {
+  captureEvidenceArtifacts,
+  createEvidenceEnvelope,
+  verifyEvidenceEnvelope
+} from "./evidence-envelope.js";
 import { validateFinding } from "./finding.js";
 import {
   decideCommandExecution,
@@ -179,7 +183,7 @@ export type ShipGateResult = {
   command_ledger: CommandLedgerRecord[];
 };
 
-type CommandResult = { exitCode: number; output: string; started_at: string };
+type CommandResult = { exitCode: number; output: string; started_at: string; duration_ms: number };
 
 export async function runShipGates(
   root: string,
@@ -247,7 +251,7 @@ export async function runShipGates(
           ? []
           : await evidenceFromCommand(
               root,
-              definition.command,
+              commands.find((candidate) => candidate.name === definition.command),
               commandResults.get(definition.command),
               revision
             );
@@ -392,7 +396,12 @@ async function runRegisteredCommands(
       started_at: startedAt,
       duration_ms: Date.now() - started
     });
-    results.set(name, { exitCode: result.exitCode, output, started_at: startedAt });
+    results.set(name, {
+      exitCode: result.exitCode,
+      output,
+      started_at: startedAt,
+      duration_ms: Date.now() - started
+    });
     ledger.push(ledgerRecord(command, decision, "RAN", policy.offline, result.exitCode));
     if (result.exitCode !== 0) halted = true;
   }
@@ -691,11 +700,11 @@ function evidenceIsFresh(record: GateEvidence, revision: string): boolean {
 
 async function evidenceFromCommand(
   root: string,
-  command: string,
+  command: CommandDefinition | undefined,
   result: CommandResult | undefined,
   revision: string
 ): Promise<GateEvidence[]> {
-  if (result === undefined) return [];
+  if (result === undefined || command === undefined) return [];
   const mapping: Partial<Record<string, GateEvidenceType>> = {
     "scan:secrets": "secret-scan",
     "audit:dependencies": "dependency-audit",
@@ -705,8 +714,11 @@ async function evidenceFromCommand(
     "package:platforms": "release-artifact-validation",
     "smoke:install": "release-artifact-validation"
   };
-  const evidenceType = mapping[command];
+  const evidenceType = mapping[command.name];
   if (evidenceType === undefined) return [];
+  const manifest = await captureEvidenceArtifacts(root, [
+    { path: command.source, media_type: "application/json" }
+  ]);
   const record: GateEvidence = {
     evidence_type: evidenceType,
     producer: "fullstack-forge/ship-command",
@@ -717,17 +729,26 @@ async function evidenceFromCommand(
     relevant_instance_ids: [],
     absence_proves_success: true,
     limitations: [
-      `The record proves only that the discovered '${command}' command exited ${result.exitCode} for this revision.`
-    ]
+      `The record proves only that the discovered '${command.name}' command exited ${result.exitCode} for this revision.`
+    ],
+    command: {
+      name: command.name,
+      argv: [command.executable, ...command.args],
+      definition: command.definition,
+      exit_code: result.exitCode,
+      started_at: result.started_at,
+      duration_ms: result.duration_ms,
+      output_sha256: sha256(result.output),
+      input_manifest: manifest
+    }
   };
   try {
     record.envelope = await createEvidenceEnvelope({
       root,
       revision,
       domain: "Ship",
-      producer: record.producer,
-      evidence_type: evidenceType,
-      artifacts: [{ path: "package.json", media_type: "application/json" }]
+      claim: record,
+      artifacts: [{ path: command.source, media_type: "application/json" }]
     });
   } catch (error) {
     record.limitations.push(`Evidence envelope was not created: ${(error as Error).message}`);
@@ -789,7 +810,7 @@ async function commandGate(
     result.exitCode === 0 ? "PASS" : "FAIL",
     [`${command.executable} ${command.args.join(" ")} exited ${result.exitCode}.`],
     definition.required,
-    await evidenceFromCommand(root, definition.command ?? command.name, result, revision)
+    await evidenceFromCommand(root, command, result, revision)
   );
 }
 
