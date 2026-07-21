@@ -76,6 +76,7 @@
     "smoke:install": "npm run build && node scripts/smoke-install.mjs",
     "offline:install": "npm run build && node scripts/offline-install.mjs",
     "test": "npm run build && node --test build/cli/tests/**/*.test.js scripts/tests/**/*.test.mjs",
+    "test:evals:v030": "npm run build && node --test build/cli/tests/v030-build-mode-evals.test.js",
     "test:coverage": "npm run build && node scripts/run-coverage.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "validate": "node scripts/validate-skill.mjs",

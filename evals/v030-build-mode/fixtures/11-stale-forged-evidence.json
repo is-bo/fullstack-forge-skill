@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "id": "stale-forged-evidence",
+  "title": "Changed inputs and hand-authored passes are demoted",
+  "kind": "stale-forged-evidence",
+  "expected_status": "NOT_VERIFIED",
+  "task": "Demote both stale file-hash evidence and a forged discipline PASS without deleting their records."
+}

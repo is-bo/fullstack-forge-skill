@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "privacy",
+  "title": "Sensitive-data work requires a data-flow proof",
+  "kind": "required-gate",
+  "disciplines": ["privacy"],
+  "gate_id": "FF-BUILD-GATE-PRIVACY-DATA-FLOW",
+  "expected_status": "NOT_VERIFIED",
+  "task": "Do not pass privacy work when collection, retention, deletion, and logging evidence is absent."
+}

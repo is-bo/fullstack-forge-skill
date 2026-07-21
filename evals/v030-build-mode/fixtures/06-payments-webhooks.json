@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "payments-webhooks",
+  "title": "Payment webhooks require signature and replay evidence",
+  "kind": "required-gate",
+  "disciplines": ["payments"],
+  "gate_id": "FF-BUILD-GATE-WEBHOOK-SAFETY",
+  "expected_status": "NOT_VERIFIED",
+  "task": "Do not pass payments when signature, replay, and idempotency evidence is absent."
+}

@@ -49,3 +49,24 @@ security-control lock (`accept-risk` refused, `done` refused, never silently PAS
 `manual_notes` names what remains an agent/human judgment call (choosing the tier and disciplines
 from the prompt, writing the actual negative tests, hostile-file fixtures, rendered UI states, or
 adversarial injection tests the build briefs require) and is never asserted as automated proof.
+
+## v0.3 Build-mode module corpus (`v030-build-mode/`)
+
+`v030-build-mode/fixtures/` contains twelve small, synthetic, declarative tasks. The runner does not
+execute fixture-provided code or contact a network; it dispatches only a fixed allowlist of cases to
+stable Build-module exports. Each fixture declares one expected outcome, and the runner asserts it
+exactly: `PASS`, `FAIL`, `BLOCKED`, or `NOT_VERIFIED`.
+
+The corpus covers a basic executable change; the complete UI state/viewport matrix; authentication
+and authorization; tenant isolation; hostile uploads; payment webhooks; migration and recovery
+gates; privacy data flow; integrations blocked before execution; a failed registered producer; stale
+and forged evidence demotion; and an actual synthetic v1-to-v2 state migration with rollback. All
+fixtures contain only public, fictional values. A `PASS` in this corpus proves the named pure module
+behavior or synthetic state transition, not a real provider, database, browser, or product
+implementation.
+
+Run it independently:
+
+```bash
+npm run test:evals:v030
+```

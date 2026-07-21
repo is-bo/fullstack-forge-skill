@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "id": "ui-runtime-matrix",
+  "title": "A UI feature requires every state across every fixed viewport",
+  "kind": "ui-runtime-matrix",
+  "expected_status": "NOT_VERIFIED",
+  "task": "Plan all supported UI states and viewports, then show that a partial capture cannot pass."
+}

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "auth-authorization",
+  "title": "Authentication and authorization require observed denied paths",
+  "kind": "required-gate",
+  "disciplines": ["auth", "authorization"],
+  "gate_id": "FF-BUILD-GATE-AUTHORIZATION-NEGATIVE",
+  "expected_status": "NOT_VERIFIED",
+  "task": "Do not accept an account and role change without authorization-negative evidence."
+}
