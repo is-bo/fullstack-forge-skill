@@ -230,7 +230,10 @@ function deriveRuntime(input: RuntimeEvidenceInput): BuildRuntimeEvidence {
       /^(?:[a-z]:[\\/]|[\\/]|.*(?:^|[\\/])\.\.(?:[\\/]|$))/iu.test(artifact.path)
   );
   const artifacts = rawArtifacts
-    .map((artifact) => ({ path: redactToString(artifact.path, 500), sha256: artifact.sha256 }))
+    // Artifact paths are structural identifiers that were already constrained to safe relative
+    // paths by the rendered collector. Redacting them as prose can collapse distinct state paths
+    // into the same token and falsely report duplicate evidence.
+    .map((artifact) => ({ path: artifact.path, sha256: artifact.sha256 }))
     .sort((a, b) => a.path.localeCompare(b.path));
   const duplicateArtifactPaths = artifacts
     .map((artifact) => artifact.path)

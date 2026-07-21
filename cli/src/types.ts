@@ -1,5 +1,5 @@
 import type { CapabilityAssessment } from "./discovery-evidence.js";
-import type { EvidenceArtifact, EvidenceEnvelope } from "./evidence-envelope.js";
+import type { EvidenceArtifact, EvidenceCommand, EvidenceEnvelope } from "./evidence-envelope.js";
 
 export const STATUSES = [
   "PASS",
@@ -209,16 +209,7 @@ export type GateEvidenceStatus = Extract<
 >;
 
 /** Exact command claim required for Ship-owned command evidence. */
-export type GateEvidenceCommand = {
-  name: string;
-  argv: string[];
-  definition: string;
-  exit_code: number;
-  started_at: string;
-  duration_ms: number;
-  output_sha256: string;
-  input_manifest: EvidenceArtifact[];
-};
+export type GateEvidenceCommand = EvidenceCommand;
 
 /** Semantically typed evidence consumed by release gates. */
 export type GateEvidence = {

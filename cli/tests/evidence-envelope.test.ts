@@ -3,10 +3,17 @@ import { readFile, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { ReportAuditLedger, orchestrateAudit } from "../src/audit-orchestration.js";
+import { BUILD_PRODUCER_VERSION } from "../src/build-producers.js";
+import { BUILD_RUNTIME_STATES, BUILD_RUNTIME_VIEWPORTS } from "../src/build-runtime.js";
 import {
+  buildEvidenceClaimDigest,
   captureEvidenceArtifacts,
+  createBuildEvidenceEnvelope,
   createEvidenceEnvelope,
   evidenceClaimDigest,
+  verifyBuildEvidenceEnvelopeIntegrity,
+  type BuildEvidenceClaim,
+  type EvidenceEnvelope,
   verifyEvidenceEnvelope
 } from "../src/evidence-envelope.js";
 import { discoverProject } from "../src/discovery.js";
@@ -183,6 +190,204 @@ test("runtime ledger preserves and validates one-to-one captured artifact hashes
   });
 });
 
+test("Build envelopes reject forged claims, roots, revisions, versions, and altered artifacts", async () => {
+  await withTemporaryProject("build-envelope-a", async (root) => {
+    await writePackage(root);
+    const revision = await workingTreeRevision(root);
+    const baseClaim = buildClaim();
+    const claim: BuildEvidenceClaim & { envelope: EvidenceEnvelope } = {
+      ...baseClaim,
+      envelope: await createBuildEvidenceEnvelope({
+        root,
+        revision,
+        claim: baseClaim,
+        artifacts: [{ path: "package.json", media_type: "application/json" }]
+      })
+    };
+    assert.equal(
+      (await verifyBuildEvidenceEnvelopeIntegrity({ root, revision, claim })).verified,
+      true
+    );
+
+    const handEdited = structuredClone(claim);
+    handEdited.producer = "hand-edited";
+    handEdited.envelope.producer = "hand-edited";
+    handEdited.envelope.claim_sha256 = buildEvidenceClaimDigest(handEdited);
+    assert.equal(
+      (await verifyBuildEvidenceEnvelopeIntegrity({ root, revision, claim: handEdited })).verified,
+      false
+    );
+
+    const versionChanged = structuredClone(claim);
+    versionChanged.producer_version = "999";
+    versionChanged.envelope.producer_version = "999";
+    versionChanged.envelope.claim_sha256 = buildEvidenceClaimDigest(versionChanged);
+    assert.equal(
+      (await verifyBuildEvidenceEnvelopeIntegrity({ root, revision, claim: versionChanged }))
+        .verified,
+      false
+    );
+    assert.equal(
+      (
+        await verifyBuildEvidenceEnvelopeIntegrity({
+          root,
+          revision: `${revision}-other`,
+          claim
+        })
+      ).verified,
+      false
+    );
+
+    await withTemporaryProject("build-envelope-b", async (otherRoot) => {
+      await writePackage(otherRoot);
+      assert.equal(
+        (
+          await verifyBuildEvidenceEnvelopeIntegrity({
+            root: otherRoot,
+            revision: await workingTreeRevision(otherRoot),
+            claim
+          })
+        ).verified,
+        false
+      );
+    });
+
+    const malformed = structuredClone(claim);
+    malformed.envelope.claim_sha256 = "not-a-digest";
+    assert.equal(
+      (await verifyBuildEvidenceEnvelopeIntegrity({ root, revision, claim: malformed })).verified,
+      false
+    );
+
+    const unknownField = structuredClone(claim);
+    (unknownField.envelope as unknown as Record<string, unknown>).untrusted_extra = true;
+    const unknownVerification = await verifyBuildEvidenceEnvelopeIntegrity({
+      root,
+      revision,
+      claim: unknownField
+    });
+    assert.equal(unknownVerification.verified, false);
+    assert.match(unknownVerification.reasons.join(" "), /unknown field/u);
+
+    await writeFile(join(root, "package.json"), '{"name":"changed","private":true}\n', "utf8");
+    assert.equal(
+      (await verifyBuildEvidenceEnvelopeIntegrity({ root, revision, claim })).verified,
+      false
+    );
+  });
+});
+
+test("reasoned Build exclusions are producer-restricted and bind the exclusion reason", async () => {
+  await withTemporaryProject("build-envelope-na", async (root) => {
+    await writePackage(root);
+    const revision = await workingTreeRevision(root);
+    const recordedAt = new Date().toISOString();
+    const baseClaim: BuildEvidenceClaim = {
+      criterion: "discipline:auth",
+      discipline: "auth",
+      security_control: true,
+      status: "NOT_APPLICABLE",
+      producer: "fullstack-forge/build-applicability/auth",
+      producer_version: BUILD_PRODUCER_VERSION,
+      evidence: ["Discovery directly proved no authentication capability."],
+      limitations: [],
+      files: [{ path: "package.json", sha256: sha256(await readFile(join(root, "package.json"))) }],
+      instance_ids: [],
+      recorded_at: recordedAt,
+      expires_at: new Date(Date.parse(recordedAt) + 86_400_000).toISOString(),
+      not_applicable_reason: "No authentication routes, session store, or identity dependency."
+    };
+    const claim: BuildEvidenceClaim & { envelope: EvidenceEnvelope } = {
+      ...baseClaim,
+      envelope: await createBuildEvidenceEnvelope({
+        root,
+        revision,
+        claim: baseClaim,
+        artifacts: [{ path: "package.json", media_type: "application/json" }]
+      })
+    };
+    assert.equal(
+      (await verifyBuildEvidenceEnvelopeIntegrity({ root, revision, claim })).verified,
+      true
+    );
+    const edited = structuredClone(claim);
+    edited.not_applicable_reason = "locally rewritten";
+    assert.equal(
+      (await verifyBuildEvidenceEnvelopeIntegrity({ root, revision, claim: edited })).verified,
+      false
+    );
+    await assert.rejects(
+      createBuildEvidenceEnvelope({
+        root,
+        revision,
+        claim: { ...baseClaim, producer: "fullstack-forge/build-analyzers" },
+        artifacts: [{ path: "package.json", media_type: "application/json" }]
+      }),
+      /registered pair|applicability producer/u
+    );
+  });
+});
+
+test("rendered-UI PASS binds the complete typed state and viewport matrix", async () => {
+  await withTemporaryProject("build-envelope-runtime", async (root) => {
+    await writePackage(root);
+    const revision = await workingTreeRevision(root);
+    const recordedAt = new Date().toISOString();
+    const runtime = BUILD_RUNTIME_STATES.flatMap((state) =>
+      BUILD_RUNTIME_VIEWPORTS.map((viewport) => ({
+        url: `http://127.0.0.1/${state}`,
+        role: "representative-user",
+        state,
+        viewport: { ...viewport }
+      }))
+    );
+    const baseClaim: BuildEvidenceClaim = {
+      criterion: "runtime:rendered-ui",
+      discipline: "ui",
+      security_control: true,
+      status: "PASS",
+      producer: "fullstack-forge/build-runtime",
+      producer_version: BUILD_PRODUCER_VERSION,
+      evidence: ["Every required state and viewport was observed."],
+      limitations: [],
+      files: [{ path: "package.json", sha256: sha256(await readFile(join(root, "package.json"))) }],
+      instance_ids: runtime.map((entry) => `${entry.state}:${entry.viewport.name}`),
+      recorded_at: recordedAt,
+      expires_at: new Date(Date.parse(recordedAt) + 86_400_000).toISOString(),
+      runtime
+    };
+    const claim: BuildEvidenceClaim & { envelope: EvidenceEnvelope } = {
+      ...baseClaim,
+      envelope: await createBuildEvidenceEnvelope({
+        root,
+        revision,
+        claim: baseClaim,
+        artifacts: [{ path: "package.json", media_type: "application/json" }]
+      })
+    };
+    assert.equal(
+      (await verifyBuildEvidenceEnvelopeIntegrity({ root, revision, claim })).verified,
+      true
+    );
+    await assert.rejects(
+      createBuildEvidenceEnvelope({
+        root,
+        revision,
+        claim: { ...baseClaim, runtime: runtime.slice(1) },
+        artifacts: [{ path: "package.json", media_type: "application/json" }]
+      }),
+      /all required state and viewport/u
+    );
+    const edited = structuredClone(claim);
+    assert.ok(edited.runtime);
+    edited.runtime[0]!.url = "http://127.0.0.1/rewritten";
+    assert.equal(
+      (await verifyBuildEvidenceEnvelopeIntegrity({ root, revision, claim: edited })).verified,
+      false
+    );
+  });
+});
+
 test("Ship command envelopes reject command and output claim replay", async () => {
   await withTemporaryProject("ship-command-envelope", async (root) => {
     await writePackage(root);
@@ -238,11 +443,12 @@ async function shipCommandEvidence(root: string, revision: string): Promise<Gate
   const manifest = await captureEvidenceArtifacts(root, [
     { path: "package.json", media_type: "application/json" }
   ]);
+  const timestamp = new Date().toISOString();
   const record: GateEvidence = {
     evidence_type: "project-test",
     producer: "fullstack-forge/ship-command",
     scope: ["repository"],
-    timestamp: "2026-01-01T00:00:00.000Z",
+    timestamp,
     revision,
     status: "PASS",
     relevant_instance_ids: [],
@@ -253,7 +459,7 @@ async function shipCommandEvidence(root: string, revision: string): Promise<Gate
       argv: ["npm", "run", "test"],
       definition: "node --test",
       exit_code: 0,
-      started_at: "2026-01-01T00:00:00.000Z",
+      started_at: timestamp,
       duration_ms: 1,
       output_sha256: sha256("ok"),
       input_manifest: manifest
@@ -267,6 +473,25 @@ async function shipCommandEvidence(root: string, revision: string): Promise<Gate
     artifacts: [{ path: "package.json", media_type: "application/json" }]
   });
   return record;
+}
+
+function buildClaim(): BuildEvidenceClaim {
+  const recordedAt = new Date().toISOString();
+  const packageBytes = Buffer.from('{"name":"evidence-test","private":true}\n');
+  return {
+    criterion: "scope-resolution",
+    discipline: "code",
+    security_control: false,
+    status: "PASS",
+    producer: "fullstack-forge/build-scope",
+    producer_version: BUILD_PRODUCER_VERSION,
+    evidence: ["Repository scope was resolved."],
+    limitations: [],
+    files: [{ path: "package.json", sha256: sha256(packageBytes) }],
+    instance_ids: [],
+    recorded_at: recordedAt,
+    expires_at: new Date(Date.parse(recordedAt) + 86_400_000).toISOString()
+  };
 }
 
 async function writePackage(root: string): Promise<void> {

@@ -44,14 +44,15 @@ test("light tier requires behavior evidence, not only static analysis", () => {
   assert.deepEqual(
     plan.gates.map((entry) => entry.id),
     [
+      "FF-BUILD-GATE-APPLICABILITY",
       "FF-BUILD-GATE-BEHAVIOR",
-      "FF-BUILD-GATE-DISCIPLINES",
       "FF-BUILD-GATE-PROJECT-TEST",
       "FF-BUILD-GATE-SCOPE",
       "FF-BUILD-GATE-STATIC"
     ]
   );
   const evaluated = evaluateBuildGates(plan, [
+    evidence("applicability"),
     evidence("scope-resolution"),
     evidence("supported-static-patterns"),
     evidence("project:test")
@@ -76,6 +77,32 @@ test("standard requires each detected project command and reports its actionable
   if (testGate === undefined) throw new Error("project test gate unexpectedly missing");
   assert.equal(testGate.status, "FAIL");
   assert.match(testGate.missing.join(" "), /project:test: FAIL/u);
+});
+
+test("each applicable discipline receives an explicit gate and required NOT_APPLICABLE stays closed", () => {
+  const applicability: BuildApplicabilityResult = {
+    ...base,
+    required: ["api", "observability"]
+  };
+  const plan = planBuildGates({ tier: "standard", commands: [], applicability, profile });
+  const api = plan.gates.find((entry) => entry.id === "FF-BUILD-GATE-DISCIPLINE-API");
+  const observability = plan.gates.find(
+    (entry) => entry.id === "FF-BUILD-GATE-DISCIPLINE-OBSERVABILITY"
+  );
+  assert.equal(api?.waiver_policy, "operational-human");
+  assert.equal(observability?.waiver_policy, "operational-human");
+  const evaluated = evaluateBuildGates(plan, [
+    evidence("discipline:api", "NOT_APPLICABLE"),
+    evidence("discipline:observability", "NOT_VERIFIED")
+  ]);
+  assert.equal(
+    evaluated.find((entry) => entry.id === "FF-BUILD-GATE-DISCIPLINE-API")?.status,
+    "NOT_VERIFIED"
+  );
+  assert.equal(
+    evaluated.find((entry) => entry.id === "FF-BUILD-GATE-DISCIPLINE-OBSERVABILITY")?.status,
+    "NOT_VERIFIED"
+  );
 });
 
 test("high-risk gates are explicit and cannot be waived", () => {

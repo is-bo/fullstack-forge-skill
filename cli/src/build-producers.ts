@@ -19,7 +19,8 @@ export type BuildProducer = {
   id: string;
   version: typeof BUILD_PRODUCER_VERSION;
   contract: typeof BUILD_PRODUCER_CONTRACT;
-  script_name: string;
+  kind: "command" | "internal";
+  script_name?: string;
   criterion: string;
   discipline: string;
   security_control: boolean;
@@ -30,8 +31,87 @@ export type BuildProducer = {
  * Code-owned, exact-name registry. A package script is arbitrary code, so names such as `test` or
  * `verify` do not prove a specialized discipline unless they are explicitly registered below.
  */
-export const BUILD_PRODUCER_REGISTRY: readonly BuildProducer[] = [
+const SECURITY_DISCIPLINES = new Set([
+  "auth",
+  "authorization",
+  "privacy",
+  "security",
+  "tenancy",
+  "uploads",
+  "payments"
+]);
+
+const DISCIPLINE_SCRIPTS = [
+  "requirements",
+  "architecture",
+  "code",
+  "ui",
+  "ux",
+  "accessibility",
+  "i18n",
+  "seo",
+  "frontend",
+  "api",
+  "jobs",
+  "integrations",
+  "auth",
+  "authorization",
+  "security",
+  "privacy",
+  "tenancy",
+  "uploads",
+  "database",
+  "queries",
+  "cache",
+  "storage",
+  "testing",
+  "performance",
+  "scale",
+  "observability",
+  "reliability",
+  "recovery",
+  "deployment",
+  "infrastructure",
+  "supply-chain",
+  "cost",
+  "docs",
+  "analytics",
+  "notifications",
+  "ai",
+  "payments",
+  "realtime",
+  "offline"
+] as const;
+
+const DISCIPLINE_PRODUCERS = DISCIPLINE_SCRIPTS.map((discipline) =>
+  producer(
+    `test:${discipline}`,
+    `discipline:${discipline}`,
+    discipline,
+    SECURITY_DISCIPLINES.has(discipline),
+    SECURITY_DISCIPLINES.has(discipline)
+  )
+);
+
+export const BUILD_PRODUCER_REGISTRY: readonly BuildProducer[] = uniqueProducers([
   producer("test", "behavior-verification", "testing"),
+  producer("test", "discipline:testing", "testing"),
+  producer("test", "project:test", "testing"),
+  producer("test:unit", "behavior-verification", "testing"),
+  producer("test:unit", "discipline:testing", "testing"),
+  producer("test:unit", "project:test:unit", "testing"),
+  producer("test:integration", "integration-verification", "integrations"),
+  producer("test:integration", "discipline:integrations", "integrations"),
+  producer("test:integration", "project:test:integration", "testing"),
+  producer("test:e2e", "behavior-verification", "testing"),
+  producer("test:e2e", "project:test:e2e", "testing"),
+  producer("lint", "discipline:code", "code"),
+  producer("typecheck", "discipline:code", "code"),
+  producer("format", "project:format", "code"),
+  producer("format:check", "project:format:check", "code"),
+  producer("lint", "project:lint", "code"),
+  producer("typecheck", "project:typecheck", "code"),
+  producer("build", "project:build", "deployment"),
   producer("test:auth", "discipline:auth", "auth", true, true),
   producer("test:authentication-negative", "authentication-negative-tests", "auth", true, true),
   producer("test:authorization", "discipline:authorization", "authorization", true, true),
@@ -58,10 +138,31 @@ export const BUILD_PRODUCER_REGISTRY: readonly BuildProducer[] = [
   producer("test:deployment", "discipline:deployment", "deployment"),
   producer("test:reliability", "discipline:reliability", "reliability"),
   producer("test:privacy-data-flow", "privacy-data-flow", "privacy", true, true),
-  producer("test:integration", "integration-verification", "integrations"),
   producer("check:security-review", "security-review", "security", true, true),
-  producer("test:security-negative", "security-negative-tests", "security", true, true)
+  producer("check:security-review", "discipline:security", "security", true, true),
+  producer("test:security-negative", "security-negative-tests", "security", true, true),
+  ...DISCIPLINE_PRODUCERS
+]);
+
+/** Fixed in-process producers. Their implementation accepts no caller-provided code. */
+export const BUILD_INTERNAL_PRODUCER_REGISTRY: readonly BuildProducer[] = [
+  internalProducer("fullstack-forge/build-scope", "scope-resolution", "code"),
+  internalProducer("fullstack-forge/build-analyzers", "supported-static-patterns", "code"),
+  internalProducer("fullstack-forge/build-runtime", "runtime:rendered-ui", "ui", true, true),
+  internalProducer("fullstack-forge/build-design", "design-direction", "ui"),
+  internalProducer("fullstack-forge/build-applicability", "applicability", "requirements"),
+  ...DISCIPLINE_SCRIPTS.map((discipline) =>
+    internalProducer(
+      `fullstack-forge/build-applicability/${discipline}`,
+      `discipline:${discipline}`,
+      discipline,
+      SECURITY_DISCIPLINES.has(discipline),
+      SECURITY_DISCIPLINES.has(discipline)
+    )
+  )
 ];
+
+export const BUILD_UNAVAILABLE_PRODUCER = "fullstack-forge/build-unavailable";
 
 export type BuildProducerCommand = {
   name: string;
@@ -111,8 +212,103 @@ export type ExecuteBuildProducerInput = {
   run_command?: BuildProducerRunner;
 };
 
-export function registeredBuildProducer(scriptName: string): BuildProducer | undefined {
-  return BUILD_PRODUCER_REGISTRY.find((entry) => entry.script_name === scriptName);
+export function registeredBuildProducer(
+  scriptName: string,
+  criterion?: string
+): BuildProducer | undefined {
+  return BUILD_PRODUCER_REGISTRY.find(
+    (entry) =>
+      entry.script_name === scriptName && (criterion === undefined || entry.criterion === criterion)
+  );
+}
+
+export function registeredBuildProducerById(
+  producerId: string,
+  criterion: string
+): BuildProducer | undefined {
+  return [...BUILD_PRODUCER_REGISTRY, ...BUILD_INTERNAL_PRODUCER_REGISTRY].find(
+    (entry) => entry.id === producerId && entry.criterion === criterion
+  );
+}
+
+export type BuildProducerClaimContract = {
+  producer: string;
+  producer_version: string;
+  criterion: string;
+  discipline?: string;
+  security_control: boolean;
+  status: string;
+  not_applicable_reason?: string;
+  command?: {
+    name: string;
+    argv: string[];
+    definition: string;
+    exit_code: number;
+    started_at: string;
+    duration_ms: number;
+    output_sha256: string;
+  };
+};
+
+/** Validates code-owned producer identity and status semantics; it never treats prose as proof. */
+export function buildProducerContractProblems(claim: BuildProducerClaimContract): string[] {
+  const problems: string[] = [];
+  if (!["PASS", "FAIL", "NOT_VERIFIED", "NOT_APPLICABLE", "BLOCKED"].includes(claim.status))
+    problems.push("Build producer status is invalid.");
+  if (
+    claim.status === "NOT_APPLICABLE" &&
+    (claim.not_applicable_reason === undefined || claim.not_applicable_reason.trim().length === 0)
+  )
+    problems.push("NOT_APPLICABLE requires a direct, reasoned exclusion.");
+  if (claim.producer_version !== BUILD_PRODUCER_VERSION)
+    problems.push("Build producer version is not registered.");
+  if (claim.producer === BUILD_UNAVAILABLE_PRODUCER) {
+    if (claim.status === "PASS")
+      problems.push("The unavailable Build producer can never emit PASS.");
+    if (claim.status === "NOT_APPLICABLE")
+      problems.push("The unavailable Build producer cannot prove a direct exclusion.");
+    if (claim.command !== undefined)
+      problems.push("The unavailable Build producer cannot carry an executed command.");
+    return problems;
+  }
+  const producer = registeredBuildProducerById(claim.producer, claim.criterion);
+  if (producer === undefined) {
+    problems.push("Build producer and criterion are not a registered pair.");
+    return problems;
+  }
+  if (claim.discipline !== undefined && claim.discipline !== producer.discipline)
+    problems.push("Build producer discipline does not match its registry entry.");
+  if (claim.security_control !== producer.security_control)
+    problems.push(
+      "Build producer security-control classification does not match its registry entry."
+    );
+  if (producer.kind === "internal") {
+    if (claim.command !== undefined)
+      problems.push("A fixed internal Build producer must not carry a project command.");
+    if (
+      claim.status === "NOT_APPLICABLE" &&
+      !producer.id.startsWith("fullstack-forge/build-applicability/")
+    )
+      problems.push("Only a registered applicability producer may emit NOT_APPLICABLE.");
+    return problems;
+  }
+  if (claim.status === "NOT_APPLICABLE")
+    problems.push("A project command producer cannot emit NOT_APPLICABLE.");
+  if (claim.status === "PASS" || claim.status === "FAIL") {
+    if (claim.command === undefined) {
+      problems.push("An executed Build command result requires a complete command contract.");
+      return problems;
+    }
+    if (claim.command.name !== producer.script_name)
+      problems.push("Build command name does not match its registered producer.");
+    if (claim.status === "PASS" && claim.command.exit_code !== 0)
+      problems.push("A Build command may emit PASS only when it exits zero.");
+    if (claim.status === "FAIL" && claim.command.exit_code === 0)
+      problems.push("A zero-exit Build command cannot be recorded as FAIL.");
+  } else if (claim.command !== undefined) {
+    problems.push("An unexecuted Build result must not carry a completed command contract.");
+  }
+  return problems;
 }
 
 /**
@@ -126,7 +322,8 @@ export async function executeBuildProducer(
   const recordedAt = now();
   const expiresAt = new Date(Date.parse(recordedAt) + BUILD_PRODUCER_EXPIRY_MS).toISOString();
   const command = input.command;
-  const matched = command === undefined ? undefined : registeredBuildProducer(command.name);
+  const matched =
+    command === undefined ? undefined : registeredBuildProducer(command.name, input.criterion);
   const base = (producer: BuildProducer, status: CriterionStatus, limitations: string[]) =>
     observation(
       producer,
@@ -152,12 +349,8 @@ export async function executeBuildProducer(
       input.input_manifest,
       recordedAt,
       expiresAt,
-      `Detected script '${command.name}' has no registered Build producer.`
+      `Detected script '${command.name}' has no registered Build producer for '${input.criterion}'.`
     );
-  if (matched.criterion !== input.criterion)
-    return base(matched, "NOT_VERIFIED", [
-      `Registered script '${command.name}' proves '${matched.criterion}', not requested criterion '${input.criterion}'.`
-    ]);
   if (!isDetectedCommand(command))
     return base(matched, "NOT_VERIFIED", [
       "The command definition is incomplete, so it is not accepted as a detected executable command."
@@ -216,15 +409,41 @@ function producer(
   nonWaivable = false
 ): BuildProducer {
   return {
-    id: `fullstack-forge/build-command/${scriptName}`,
+    id: `fullstack-forge/build-command/${scriptName}/${criterion}`,
     version: BUILD_PRODUCER_VERSION,
     contract: BUILD_PRODUCER_CONTRACT,
+    kind: "command",
     script_name: scriptName,
     criterion,
     discipline,
     security_control: securityControl,
     non_waivable: nonWaivable
   };
+}
+
+function internalProducer(
+  id: string,
+  criterion: string,
+  discipline: string,
+  securityControl = false,
+  nonWaivable = false
+): BuildProducer {
+  return {
+    id,
+    version: BUILD_PRODUCER_VERSION,
+    contract: BUILD_PRODUCER_CONTRACT,
+    kind: "internal",
+    criterion,
+    discipline,
+    security_control: securityControl,
+    non_waivable: nonWaivable
+  };
+}
+
+function uniqueProducers(entries: BuildProducer[]): BuildProducer[] {
+  const unique = new Map<string, BuildProducer>();
+  for (const entry of entries) unique.set(`${entry.script_name}\0${entry.criterion}`, entry);
+  return [...unique.values()];
 }
 
 function observation(
@@ -270,7 +489,7 @@ function unavailableObservation(
 ): BuildProducerObservation {
   return {
     domain: "Build",
-    producer_id: "fullstack-forge/build-command/unavailable",
+    producer_id: BUILD_UNAVAILABLE_PRODUCER,
     producer_version: BUILD_PRODUCER_VERSION,
     contract: BUILD_PRODUCER_CONTRACT,
     criterion,

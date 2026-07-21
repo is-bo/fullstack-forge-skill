@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
+import { BUILD_PRODUCER_VERSION } from "../src/build-producers.js";
 import {
   assertValidSlug,
   assertBuildProject,
@@ -14,7 +15,8 @@ import {
   type BuildFeature,
   type CriterionEvidence
 } from "../src/build-state.js";
-import { sha256 } from "../src/utils.js";
+import { createBuildEvidenceEnvelope, type BuildEvidenceClaim } from "../src/evidence-envelope.js";
+import { sha256, workingTreeRevision } from "../src/utils.js";
 import { withTemporaryProject } from "./helpers.js";
 
 test("valid slugs are accepted", () => {
@@ -100,16 +102,32 @@ test("evidence stale by file hash is demoted to NOT_VERIFIED, not deleted", asyn
   await withTemporaryProject("build-stale", async (root) => {
     await writeFile(join(root, "app.ts"), "export const ready = true;\n", "utf8");
     const feature = newFeature("login", "standard", "s");
+    const revision = await workingTreeRevision(root);
+    const recordedAt = new Date().toISOString();
+    const expiresAt = new Date(Date.parse(recordedAt) + 86_400_000).toISOString();
+    const files = [{ path: "app.ts", sha256: sha256("export const ready = true;\n") }];
     const record: CriterionEvidence = {
-      criterion: "static-analysis",
+      criterion: "supported-static-patterns",
+      discipline: "code",
       security_control: false,
       status: "PASS",
-      producer: "analyzers.ts",
+      producer: "fullstack-forge/build-analyzers",
+      producer_version: BUILD_PRODUCER_VERSION,
       evidence: ["clean"],
-      files: [{ path: "app.ts", sha256: sha256("export const ready = true;\n") }],
+      limitations: ["bounded static patterns only"],
+      files,
       instance_ids: [],
-      recorded_at: new Date().toISOString()
+      recorded_at: recordedAt,
+      revision,
+      expires_at: expiresAt
     };
+    const claim = record as BuildEvidenceClaim;
+    record.envelope = await createBuildEvidenceEnvelope({
+      root,
+      revision,
+      claim,
+      artifacts: [{ path: "app.ts", media_type: "text/typescript" }]
+    });
     feature.evidence = [record];
 
     const fresh = await reverifyEvidenceHashes(root, feature);
@@ -118,7 +136,7 @@ test("evidence stale by file hash is demoted to NOT_VERIFIED, not deleted", asyn
 
     await writeFile(join(root, "app.ts"), "export const ready = false;\n", "utf8");
     const stale = await reverifyEvidenceHashes(root, feature);
-    assert.deepEqual(stale.demoted, ["static-analysis"]);
+    assert.deepEqual(stale.demoted, ["supported-static-patterns"]);
     assert.equal(stale.feature.evidence[0]?.status, "NOT_VERIFIED");
     // The record is preserved, not removed.
     assert.equal(stale.feature.evidence.length, 1);

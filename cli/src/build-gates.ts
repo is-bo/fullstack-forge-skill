@@ -5,6 +5,7 @@ import type { CommandDefinition, ProjectProfile } from "./types.js";
 export type BuildGateStatus = CriterionStatus;
 export type BuildGateId =
   | "FF-BUILD-GATE-SCOPE"
+  | "FF-BUILD-GATE-APPLICABILITY"
   | "FF-BUILD-GATE-STATIC"
   | "FF-BUILD-GATE-BEHAVIOR"
   | "FF-BUILD-GATE-DISCIPLINES"
@@ -21,6 +22,7 @@ export type BuildGateId =
   | "FF-BUILD-GATE-PRIVACY-DATA-FLOW"
   | "FF-BUILD-GATE-INTEGRATION"
   | "FF-BUILD-GATE-SECURITY-REVIEW"
+  | `FF-BUILD-GATE-DISCIPLINE-${string}`
   | `FF-BUILD-GATE-PROJECT-${string}`;
 
 export type BuildWaiverPolicy = "never" | "advisory" | "operational-human";
@@ -73,6 +75,26 @@ const HIGH_SECURITY = new Set([
   "uploads",
   "payments"
 ]);
+const NON_WAIVABLE_DISCIPLINES = new Set([
+  "code",
+  "testing",
+  "auth",
+  "authorization",
+  "security",
+  "privacy",
+  "tenancy",
+  "uploads",
+  "payments",
+  "database",
+  "queries",
+  "cache",
+  "storage",
+  "accessibility",
+  "integrations",
+  "deployment",
+  "reliability",
+  "recovery"
+]);
 
 /**
  * A pure, Build-only registry. It shares no state with Ship and has no authority to execute a
@@ -80,6 +102,15 @@ const HIGH_SECURITY = new Set([
  */
 export function planBuildGates(input: BuildGatePlanInput): BuildGatePlan {
   const gates: BuildGate[] = [
+    gate(
+      "FF-BUILD-GATE-APPLICABILITY",
+      "Resolved discipline applicability",
+      input.tier,
+      ["applicability"],
+      true,
+      "never",
+      "Unresolved applicability questions must be resolved before completion."
+    ),
     gate(
       "FF-BUILD-GATE-SCOPE",
       "Resolved feature scope",
@@ -106,17 +137,23 @@ export function planBuildGates(input: BuildGatePlanInput): BuildGatePlan {
       true,
       "never",
       "A feature cannot complete solely from static pattern analysis."
-    ),
-    gate(
-      "FF-BUILD-GATE-DISCIPLINES",
-      "Applicable discipline evidence",
-      input.tier,
-      input.applicability.required.map((discipline) => `discipline:${discipline}`),
-      true,
-      input.tier === "high" ? "never" : "operational-human",
-      "Mandatory disciplines are derived independently of frame and plan choices."
     )
   ];
+
+  for (const discipline of input.applicability.required) {
+    const never = input.tier === "high" || NON_WAIVABLE_DISCIPLINES.has(discipline);
+    gates.push(
+      gate(
+        `FF-BUILD-GATE-DISCIPLINE-${discipline.toUpperCase().replace(/[^A-Z0-9]/gu, "-")}`,
+        `Applicable discipline ${discipline}`,
+        input.tier,
+        [`discipline:${discipline}`],
+        true,
+        never ? "never" : "operational-human",
+        `Applicability evidence requires '${discipline}' independently of the agent's explicit selections.`
+      )
+    );
+  }
 
   for (const command of input.commands) {
     if (!PROJECT_COMMANDS.has(command.name)) continue;

@@ -78,7 +78,12 @@ test("high-tier security and migration criteria have exact registered producers"
       criterion
     );
   assert.equal(
-    new Set(BUILD_PRODUCER_REGISTRY.map((entry) => entry.script_name)).size,
+    new Set(BUILD_PRODUCER_REGISTRY.map((entry) => `${entry.script_name}\u0000${entry.criterion}`))
+      .size,
+    BUILD_PRODUCER_REGISTRY.length
+  );
+  assert.equal(
+    new Set(BUILD_PRODUCER_REGISTRY.map((entry) => entry.id)).size,
     BUILD_PRODUCER_REGISTRY.length
   );
 });
