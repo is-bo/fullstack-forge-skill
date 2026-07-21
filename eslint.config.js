@@ -10,6 +10,7 @@ export default tseslint.config(
       "node_modules/**",
       "platforms/**",
       ".tmp/**",
+      ".audit-work/**",
       ".claude/**"
     ]
   },
