@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { createEvidenceEnvelope, verifyEvidenceEnvelope } from "./evidence-envelope.js";
 import { validateFinding } from "./finding.js";
 import {
   decideCommandExecution,
@@ -190,7 +191,6 @@ export async function runShipGates(
 ): Promise<ShipGateResult> {
   const execution: ExecutionRecord[] = [];
   const ledger: CommandLedgerRecord[] = [];
-  const revision = await workingTreeRevision(root);
   const preflight = [schemaGate(root, previous), openFindingsGate(previous)];
   const preflightPassed = evaluateGateOutcome(preflight) === "PASS";
   const commandResults =
@@ -204,6 +204,9 @@ export async function runShipGates(
       );
     }
   }
+  // Commands are explicitly authorized but project-owned. Bind their evidence to the tree after
+  // they ran so a command that mutates the checkout cannot inherit a pre-execution revision.
+  const revision = await workingTreeRevision(root);
   const ledgerByName = new Map(ledger.map((record) => [record.name, record] as const));
   const isForgeRepository =
     profile.repository.name === "fullstack-forge-skill" ||
@@ -220,7 +223,7 @@ export async function runShipGates(
     )
       continue;
     if (definition.category === "capability") {
-      gates.push(capabilityGate(definition, profile, previous, revision));
+      gates.push(await capabilityGate(root, definition, profile, previous, revision));
       continue;
     }
     // Forge self-release gates are genuinely inapplicable to an audited application.
@@ -242,19 +245,21 @@ export async function runShipGates(
       const commandEvidence =
         definition.command === undefined
           ? []
-          : evidenceFromCommand(
+          : await evidenceFromCommand(
+              root,
               definition.command,
               commandResults.get(definition.command),
               revision
             );
-      gates.push(evidenceGate(definition, previous, commandEvidence, revision));
+      gates.push(await evidenceGate(root, definition, previous, commandEvidence, revision));
       continue;
     }
     if (definition.command !== undefined) {
       const detected = commands.find((command) => command.name === definition.command);
       const result = commandResults.get(definition.command);
       gates.push(
-        commandGate(
+        await commandGate(
+          root,
           definition,
           detected,
           result,
@@ -267,12 +272,14 @@ export async function runShipGates(
     }
   }
 
-  const projectNative = ["format:check", "lint", "typecheck", "test", "build"].flatMap((name) => {
+  const projectNative: ShipGate[] = [];
+  for (const name of ["format:check", "lint", "typecheck", "test", "build"]) {
     const command = commands.find((candidate) => candidate.name === name);
-    if (command === undefined) return [];
+    if (command === undefined) continue;
     const result = commandResults.get(name);
-    return [
-      commandGate(
+    projectNative.push(
+      await commandGate(
+        root,
         {
           gate_id: `FF-GATE-PROJECT-${name.toUpperCase().replace(/[^A-Z0-9]/gu, "-")}`,
           name: `Project command ${name}`,
@@ -287,8 +294,8 @@ export async function runShipGates(
         revision,
         ledgerByName.get(name)
       )
-    ];
-  });
+    );
+  }
   gates.push(...projectNative);
   if (projectNative.length === 0) {
     gates.push({
@@ -514,19 +521,37 @@ function openFindingsGate(previous: AuditReport | undefined): ShipGate {
 }
 
 /** Exact evidence types replace broad section-level inference. */
-function evidenceGate(
+async function evidenceGate(
+  root: string,
   definition: GateDefinition,
   previous: AuditReport | undefined,
   currentCommandEvidence: GateEvidence[],
   revision: string
-): ShipGate {
+): Promise<ShipGate> {
   const expected = definition.evidence_types ?? [];
   const records = [
     ...(previous?.gate_evidence ?? []).filter((record) => expected.includes(record.evidence_type)),
     ...currentCommandEvidence.filter((record) => expected.includes(record.evidence_type))
   ];
-  const fresh = records.filter((record) => evidenceIsFresh(record, revision));
-  const stale = records.filter((record) => !evidenceIsFresh(record, revision));
+  const verification = await Promise.all(
+    records.map(async (record) => ({
+      record,
+      result: await verifyEvidenceEnvelope({ root, revision, evidence: record })
+    }))
+  );
+  const verified = verification.filter(
+    (entry): entry is typeof entry & { result: { verified: true } } => entry.result.verified
+  );
+  const rejected = verification.filter(
+    (entry): entry is typeof entry & { result: { verified: false; reasons: string[] } } =>
+      !entry.result.verified
+  );
+  const fresh = verified
+    .map((entry) => entry.record)
+    .filter((record) => evidenceIsFresh(record, revision));
+  const stale = verified
+    .map((entry) => entry.record)
+    .filter((record) => !evidenceIsFresh(record, revision));
   const missing = expected.filter((type) => !fresh.some((record) => record.evidence_type === type));
   const failed = fresh.filter((record) => record.status === "FAIL");
   const blocked = fresh.filter((record) => record.status === "BLOCKED");
@@ -556,7 +581,11 @@ function evidenceGate(
       (record) =>
         `${record.evidence_type} from ${record.producer} is stale (record ${record.revision}; current ${revision}).`
     ),
-    ...(missing.length === 0 ? [] : [`Missing evidence types: ${missing.join(", ")}.`]),
+    ...rejected.map(
+      (entry) =>
+        `${entry.record.evidence_type} from ${entry.record.producer} was rejected: ${entry.result.reasons.join(" ")}`
+    ),
+    ...(missing.length === 0 ? [] : [`Missing verified evidence types: ${missing.join(", ")}.`]),
     ...(unproven.length === 0
       ? []
       : [`No fresh, success-proving record exists for: ${unproven.join(", ")}.`])
@@ -626,12 +655,13 @@ function capabilityApplicability(
   };
 }
 
-function capabilityGate(
+async function capabilityGate(
+  root: string,
   definition: GateDefinition,
   profile: ProjectProfile,
   previous: AuditReport | undefined,
   revision: string
-): ShipGate {
+): Promise<ShipGate> {
   const applicability = capabilityApplicability(definition.gate_id, profile, previous);
   if (!applicability.applicable) {
     return {
@@ -644,7 +674,7 @@ function capabilityGate(
       evidence_records: []
     };
   }
-  const gate = evidenceGate(definition, previous, [], revision);
+  const gate = await evidenceGate(root, definition, previous, [], revision);
   return { ...gate, evidence: [...applicability.reasons, ...gate.evidence] };
 }
 
@@ -659,11 +689,12 @@ function evidenceIsFresh(record: GateEvidence, revision: string): boolean {
   );
 }
 
-function evidenceFromCommand(
+async function evidenceFromCommand(
+  root: string,
   command: string,
   result: CommandResult | undefined,
   revision: string
-): GateEvidence[] {
+): Promise<GateEvidence[]> {
   if (result === undefined) return [];
   const mapping: Partial<Record<string, GateEvidenceType>> = {
     "scan:secrets": "secret-scan",
@@ -676,31 +707,43 @@ function evidenceFromCommand(
   };
   const evidenceType = mapping[command];
   if (evidenceType === undefined) return [];
-  return [
-    {
-      evidence_type: evidenceType,
-      producer: `project-command:${command}`,
-      scope: ["repository"],
-      timestamp: result.started_at,
+  const record: GateEvidence = {
+    evidence_type: evidenceType,
+    producer: "fullstack-forge/ship-command",
+    scope: ["repository"],
+    timestamp: result.started_at,
+    revision,
+    status: result.exitCode === 0 ? "PASS" : "FAIL",
+    relevant_instance_ids: [],
+    absence_proves_success: true,
+    limitations: [
+      `The record proves only that the discovered '${command}' command exited ${result.exitCode} for this revision.`
+    ]
+  };
+  try {
+    record.envelope = await createEvidenceEnvelope({
+      root,
       revision,
-      status: result.exitCode === 0 ? "PASS" : "FAIL",
-      relevant_instance_ids: [],
-      absence_proves_success: true,
-      limitations: [
-        `The record proves only that the discovered '${command}' command exited ${result.exitCode} for this revision.`
-      ]
-    }
-  ];
+      domain: "Ship",
+      producer: record.producer,
+      evidence_type: evidenceType,
+      artifacts: [{ path: "package.json", media_type: "application/json" }]
+    });
+  } catch (error) {
+    record.limitations.push(`Evidence envelope was not created: ${(error as Error).message}`);
+  }
+  return [record];
 }
 
-function commandGate(
+async function commandGate(
+  root: string,
   definition: GateDefinition,
   command: CommandDefinition | undefined,
   result: CommandResult | undefined,
   allowRun: boolean,
   revision: string,
   ledger?: CommandLedgerRecord
-): ShipGate {
+): Promise<ShipGate> {
   if (command === undefined)
     return gateValue(
       definition.gate_id,
@@ -746,7 +789,7 @@ function commandGate(
     result.exitCode === 0 ? "PASS" : "FAIL",
     [`${command.executable} ${command.args.join(" ")} exited ${result.exitCode}.`],
     definition.required,
-    evidenceFromCommand(definition.command ?? command.name, result, revision)
+    await evidenceFromCommand(root, definition.command ?? command.name, result, revision)
   );
 }
 

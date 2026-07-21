@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { discoverProject } from "../src/discovery.js";
+import { createEvidenceEnvelope } from "../src/evidence-envelope.js";
 import { evaluateGateOutcome, runShipGates, type ShipGate } from "../src/gates.js";
 import { createReport } from "../src/report.js";
 import type { CommandDefinition, Finding, GateEvidence, GateEvidenceType } from "../src/types.js";
@@ -236,20 +237,20 @@ test("typed secret, dependency, and license evidence satisfy only their own gate
         false
       );
 
-    const secret = await run([evidence("secret-scan", revision, "PASS")]);
+    const secret = await run([await trustedEvidence(root, "secret-scan", revision, "PASS")]);
     assert.equal(gateById(secret.gates, "FF-GATE-SECRETS").status, "PASS");
     assert.equal(gateById(secret.gates, "FF-GATE-DEPENDENCIES").status, "NOT_VERIFIED");
     assert.equal(gateById(secret.gates, "FF-GATE-LICENSES").status, "NOT_VERIFIED");
 
     const dependencies = await run([
-      evidence("dependency-audit", revision, "PASS"),
-      evidence("lockfile-inspection", revision, "PASS")
+      await trustedEvidence(root, "dependency-audit", revision, "PASS"),
+      await trustedEvidence(root, "lockfile-inspection", revision, "PASS")
     ]);
     assert.equal(gateById(dependencies.gates, "FF-GATE-DEPENDENCIES").status, "PASS");
     assert.equal(gateById(dependencies.gates, "FF-GATE-SECRETS").status, "NOT_VERIFIED");
     assert.equal(gateById(dependencies.gates, "FF-GATE-LICENSES").status, "NOT_VERIFIED");
 
-    const licenses = await run([evidence("license-scan", revision, "PASS")]);
+    const licenses = await run([await trustedEvidence(root, "license-scan", revision, "PASS")]);
     assert.equal(gateById(licenses.gates, "FF-GATE-LICENSES").status, "PASS");
     assert.equal(gateById(licenses.gates, "FF-GATE-DEPENDENCIES").status, "NOT_VERIFIED");
   });
@@ -272,7 +273,7 @@ test("failed and stale typed evidence fail closed independently", async () => {
         [],
         [],
         undefined,
-        [evidence("secret-scan", revision, "FAIL")],
+        [await trustedEvidence(root, "secret-scan", revision, "FAIL")],
         [],
         revision
       ),
@@ -281,7 +282,7 @@ test("failed and stale typed evidence fail closed independently", async () => {
     );
     assert.equal(gateById(failed.gates, "FF-GATE-SECRETS").status, "FAIL");
 
-    const stale = evidence("secret-scan", revision, "PASS");
+    const stale = await trustedEvidence(root, "secret-scan", revision, "PASS");
     stale.timestamp = "2020-01-01T00:00:00.000Z";
     const staleResult = await runShipGates(
       root,
@@ -332,6 +333,25 @@ function evidence(
     absence_proves_success: true,
     limitations: ["Synthetic gate-isolation evidence."]
   };
+}
+
+async function trustedEvidence(
+  root: string,
+  evidenceType: GateEvidenceType,
+  revision: string,
+  status: GateEvidence["status"]
+): Promise<GateEvidence> {
+  const record = evidence(evidenceType, revision, status);
+  record.producer = "fullstack-forge/audit";
+  record.envelope = await createEvidenceEnvelope({
+    root,
+    revision,
+    domain: "Audit",
+    producer: record.producer,
+    evidence_type: evidenceType,
+    artifacts: [{ path: "package.json", media_type: "application/json" }]
+  });
+  return record;
 }
 
 function syntheticGate(status: ShipGate["status"]): ShipGate {

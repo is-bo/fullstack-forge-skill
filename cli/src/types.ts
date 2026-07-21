@@ -1,4 +1,5 @@
 import type { CapabilityAssessment } from "./discovery-evidence.js";
+import type { EvidenceArtifact, EvidenceEnvelope } from "./evidence-envelope.js";
 
 export const STATUSES = [
   "PASS",
@@ -218,6 +219,11 @@ export type GateEvidence = {
   relevant_instance_ids: string[];
   absence_proves_success: boolean;
   limitations: string[];
+  /**
+   * v0.3 trust boundary. Records without this envelope remain readable for history, but Ship
+   * treats them as untrusted diagnostics rather than release evidence.
+   */
+  envelope?: EvidenceEnvelope;
 };
 
 /**
@@ -284,6 +290,8 @@ export type RuntimeEvidence = {
   revision: string;
   artifact_paths: string[];
   hashes: string[];
+  /** v0.3 path/hash/media-type tuples. Legacy parallel lists remain available for migration. */
+  artifacts?: EvidenceArtifact[];
   limitations: string[];
 };
 

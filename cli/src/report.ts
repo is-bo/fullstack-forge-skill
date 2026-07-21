@@ -20,6 +20,7 @@ import {
   assertToolRecords
 } from "./ledger.js";
 import { assertFindings } from "./finding.js";
+import { assertEvidenceArtifacts } from "./evidence-envelope.js";
 import { assertNoSymlinkPath, utcNow } from "./utils.js";
 
 export const REPORT_SCHEMA_VERSION = 2;
@@ -171,7 +172,9 @@ export function migrateReport(value: unknown): AuditReport {
     runtime_evidence: runtimeEvidence,
     module_decisions: moduleDecisions
   };
-  if (from === REPORT_SCHEMA_VERSION && absent.length === 0) return migrated;
+  const untrustedGateEvidence = gateEvidence.filter((evidence) => evidence.envelope === undefined);
+  if (from === REPORT_SCHEMA_VERSION && absent.length === 0 && untrustedGateEvidence.length === 0)
+    return migrated;
   migrated.migration = {
     from_schema_version: from,
     to_schema_version: REPORT_SCHEMA_VERSION,
@@ -188,6 +191,11 @@ export function migrateReport(value: unknown): AuditReport {
             "Module applicability cannot be reconstructed from this report: it predates the capability and selection axes, so a module absent from its findings may have been inapplicable, unaudited, or out of scope."
           ]
         : []),
+      ...(untrustedGateEvidence.length === 0
+        ? []
+        : [
+            `${untrustedGateEvidence.length} typed gate evidence record(s) predate the v0.3 verified evidence envelope. They remain visible as historical diagnostics but cannot satisfy Ship gates.`
+          ]),
       "Migration was performed in memory; the source file was not modified."
     ]
   };
@@ -500,7 +508,13 @@ function renderPlannedCheck(check: PlannedCheck): string {
 }
 
 function renderRuntimeEvidence(evidence: RuntimeEvidence): string {
-  return `- **${evidence.evidence_id}** (${evidence.evidence_type}) — ${evidence.status} at revision \`${evidence.revision}\`; artifacts: ${evidence.artifact_paths.map((path) => `\`${path}\``).join(", ") || "none captured"}; hashes: ${evidence.hashes.join(", ") || "none recorded"}; limitations: ${evidence.limitations.join("; ") || "none recorded"}`;
+  const artifacts = evidence.artifacts
+    ?.map((artifact) => `\`${artifact.path}\` (${artifact.sha256}; ${artifact.media_type})`)
+    .join(", ");
+  const renderedArtifacts =
+    artifacts ??
+    (evidence.artifact_paths.map((path) => `\`${path}\``).join(", ") || "none captured");
+  return `- **${evidence.evidence_id}** (${evidence.evidence_type}) — ${evidence.status} at revision \`${evidence.revision}\`; artifacts: ${renderedArtifacts}; hashes: ${evidence.hashes.join(", ") || "none recorded"}; limitations: ${evidence.limitations.join("; ") || "none recorded"}`;
 }
 
 function renderToolRecord(tool: ToolRecord): string {
@@ -508,7 +522,11 @@ function renderToolRecord(tool: ToolRecord): string {
 }
 
 function renderGateEvidence(evidence: GateEvidence): string {
-  return `- **${evidence.evidence_type} / ${evidence.status}** — producer \`${evidence.producer}\`, revision \`${evidence.revision}\`, scope ${evidence.scope.map((path) => `\`${path}\``).join(", ") || "none"}; absence proves success: ${evidence.absence_proves_success ? "yes" : "no"}; relevant instances: ${evidence.relevant_instance_ids.join(", ") || "none"}; limitations: ${evidence.limitations.join("; ")}`;
+  const envelope =
+    evidence.envelope === undefined
+      ? "no v0.3 envelope (untrusted diagnostic)"
+      : `${evidence.envelope.domain}/${evidence.envelope.producer}@${evidence.envelope.producer_version}; contract ${evidence.envelope.contract}; artifacts ${evidence.envelope.artifacts.map((artifact) => `${artifact.path}:${artifact.sha256}:${artifact.media_type}`).join(", ")}`;
+  return `- **${evidence.evidence_type} / ${evidence.status}** — producer \`${evidence.producer}\`, revision \`${evidence.revision}\`, scope ${evidence.scope.map((path) => `\`${path}\``).join(", ") || "none"}; envelope ${envelope}; absence proves success: ${evidence.absence_proves_success ? "yes" : "no"}; relevant instances: ${evidence.relevant_instance_ids.join(", ") || "none"}; limitations: ${evidence.limitations.join("; ")}`;
 }
 
 function renderAnalyzerCoverage(coverage: AnalyzerCoverage): string {
@@ -549,6 +567,13 @@ function assertGateEvidence(values: GateEvidence[]): void {
       errors.push(`[${index}] invalid status`);
     if (typeof value.absence_proves_success !== "boolean")
       errors.push(`[${index}] absence_proves_success must be boolean`);
+    if (value.envelope !== undefined) {
+      try {
+        assertEvidenceArtifacts(value.envelope.artifacts);
+      } catch (error) {
+        errors.push(`[${index}] invalid evidence envelope: ${(error as Error).message}`);
+      }
+    }
   }
   if (errors.length > 0) throw new Error(`Invalid typed gate evidence:\n${errors.join("\n")}`);
 }

@@ -24,6 +24,7 @@ import {
   recordBlockedCheck,
   recordExecutedCheck
 } from "./ledger.js";
+import { bindRuntimeArtifacts, type EvidenceArtifact } from "./evidence-envelope.js";
 import {
   classifyCommandNetworkPolicy,
   plannedCheckNetworkPolicy,
@@ -130,7 +131,8 @@ export type RuntimeEvidenceRecord = {
   /** Already redacted by the producing tool; never a raw URL. */
   url?: string;
   evidence_dir?: string;
-  artifacts: string[];
+  /** Collectors may provide legacy paths or captured path/hash/media-type tuples. */
+  artifacts: Array<string | EvidenceArtifact>;
   limitations: string[];
   complete: boolean;
 };
@@ -406,13 +408,36 @@ export async function orchestrateAudit(
       evidenceComplete = false;
       continue;
     }
-    const evidence = await collect({
+    const collected = await collect({
       root: input.root,
       url: input.url,
       offline: input.offline,
       allowRun: input.allowRun,
       ...(input.evidenceDir === undefined ? {} : { evidenceDir: input.evidenceDir })
     });
+    let evidence = collected;
+    try {
+      // String-only collectors are v0.2-compatible diagnostics. A collector that supplies hashes
+      // opts into v0.3 validation, which makes every persisted path/hash/media-type record atomic.
+      if (collected.artifacts.every((artifact) => typeof artifact !== "string")) {
+        evidence = {
+          ...collected,
+          artifacts: await bindRuntimeArtifacts(input.root, collected.artifacts)
+        };
+      }
+    } catch (error) {
+      // Preserve the collector's record and failure context, but prevent a swapped or missing
+      // artifact from becoming complete runtime evidence.
+      evidence = {
+        ...collected,
+        artifacts: [],
+        limitations: [
+          ...collected.limitations,
+          `Runtime artifact validation failed: ${(error as Error).message}`
+        ],
+        complete: false
+      };
+    }
     runtimeEvidence.push(evidence);
     input.ledger.runtimeEvidence(evidence);
     if (evidence.complete) {
@@ -568,8 +593,15 @@ export class ReportAuditLedger implements AuditLedgerSink {
           ? "BLOCKED"
           : "NOT_VERIFIED",
       revision: this.revision,
-      artifact_paths: [...evidence.artifacts],
-      hashes: [],
+      artifact_paths: evidence.artifacts.map((artifact) =>
+        typeof artifact === "string" ? artifact : artifact.path
+      ),
+      hashes: evidence.artifacts.flatMap((artifact) =>
+        typeof artifact === "string" ? [] : [artifact.sha256]
+      ),
+      artifacts: evidence.artifacts.flatMap((artifact) =>
+        typeof artifact === "string" ? [] : [artifact]
+      ),
       limitations: evidence.complete
         ? [...evidence.limitations]
         : [
