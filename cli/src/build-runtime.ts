@@ -1,5 +1,9 @@
 import { redactToString, redactUrl } from "./redaction.js";
-import type { CaptureStatus, RenderedUiResult } from "./rendered-ui.js";
+import type {
+  CaptureStatus,
+  RenderedUiResult,
+  ViewportStructuralObservation
+} from "./rendered-ui.js";
 
 export const BUILD_RUNTIME_STATES = [
   "loading",
@@ -53,6 +57,8 @@ export type BuildRuntimeCaseResult = {
   accessibility: RuntimeCheckStatus;
   overflow: RuntimeCheckStatus;
   artifacts: Array<{ path: string; sha256: string }>;
+  /** The exact fixed observation that accompanied this viewport artifact. */
+  observation?: ViewportStructuralObservation;
   limitations: string[];
 };
 
@@ -72,20 +78,28 @@ export type BuildRuntimeEvidence = {
 
 export type RuntimeEvidenceInput = {
   plan: BuildRuntimePlan;
-  rendered: Pick<
-    RenderedUiResult,
-    | "capture_status"
-    | "status"
-    | "reason"
-    | "url"
-    | "artifacts"
-    | "viewports"
-    | "console_errors"
-    | "limitations"
-  >;
+  /** Backwards-compatible single-capture input, treated as the success state. */
+  rendered: RenderedRuntimeCapture;
+  /** Use one capture per rendered state to satisfy a multi-state plan. */
+  captures?: readonly RuntimeStateCapture[];
   cases: readonly BuildRuntimeCaseResult[];
   design_direction: DesignDirectionResult;
 };
+
+export type RenderedRuntimeCapture = Pick<
+  RenderedUiResult,
+  | "capture_status"
+  | "status"
+  | "reason"
+  | "url"
+  | "artifacts"
+  | "viewports"
+  | "console_errors"
+  | "limitations"
+  | "structural_evidence"
+>;
+
+export type RuntimeStateCapture = { state: BuildRuntimeState; rendered: RenderedRuntimeCapture };
 
 /**
  * Produces a finite state/viewport matrix. Routes must be http(s), are immediately redacted, and
@@ -127,6 +141,76 @@ export function planBuildRuntime(input: {
 }
 
 /**
+ * Converts one fixed rendered-UI capture into the cases for one explicitly named state. The
+ * screenshot and observation identities come from the capture; callers cannot supply selectors,
+ * scripts, or replacement hashes through this adapter.
+ */
+export function casesFromRenderedCapture(
+  plan: BuildRuntimePlan,
+  capture: RuntimeStateCapture
+): BuildRuntimeCaseResult[] {
+  return plan.cases
+    .filter((planned) => planned.state === capture.state)
+    .map((planned) => {
+      const viewport = capture.rendered.viewports.find(
+        (candidate) =>
+          candidate.name === planned.viewport.name &&
+          candidate.width === planned.viewport.width &&
+          candidate.height === planned.viewport.height
+      );
+      const observation = capture.rendered.structural_evidence?.observations.find(
+        (candidate) =>
+          candidate.name === planned.viewport.name &&
+          candidate.width === planned.viewport.width &&
+          candidate.height === planned.viewport.height
+      );
+      const observedStatus = observation === undefined ? "NOT_VERIFIED" : observation.status;
+      return {
+        id: planned.id,
+        screenshot: viewport?.status === "PASS" ? "PASS" : "NOT_VERIFIED",
+        keyboard:
+          observation?.keyboard === undefined
+            ? structuralCheck(observedStatus)
+            : observation.keyboard.tab_focus && observation.keyboard.visible_focus
+              ? "PASS"
+              : "FAIL",
+        accessibility:
+          observation?.accessibility === undefined
+            ? structuralCheck(observedStatus)
+            : observation.accessibility.unlabeled_interactive === 0 &&
+                observation.accessibility.custom_control_defects === 0
+              ? "PASS"
+              : "FAIL",
+        overflow:
+          observation?.horizontal_overflow === undefined
+            ? structuralCheck(observedStatus)
+            : observation.horizontal_overflow
+              ? "FAIL"
+              : "PASS",
+        artifacts:
+          viewport?.artifact === undefined || viewport.sha256 === undefined
+            ? []
+            : [{ path: viewport.artifact, sha256: viewport.sha256 }],
+        ...(observation === undefined ? {} : { observation }),
+        limitations: observation?.limitations ?? []
+      };
+    });
+}
+
+function structuralCheck(status: ViewportStructuralObservation["status"]): RuntimeCheckStatus {
+  return status === "PASS" ? "PASS" : status === "FAIL" ? "FAIL" : "NOT_VERIFIED";
+}
+
+function sameObservation(
+  left: ViewportStructuralObservation | undefined,
+  right: ViewportStructuralObservation | undefined
+): boolean {
+  return (
+    left !== undefined && right !== undefined && JSON.stringify(left) === JSON.stringify(right)
+  );
+}
+
+/**
  * Converts existing rendered-UI facts and declarative per-case observations into Build evidence.
  * It is intentionally pure: the adapter neither launches a browser nor interprets arbitrary JS.
  */
@@ -137,22 +221,57 @@ export function deriveBuildRuntimeEvidence(input: RuntimeEvidenceInput): BuildRu
 }
 
 function deriveRuntime(input: RuntimeEvidenceInput): BuildRuntimeEvidence {
-  const limitations = [...input.rendered.limitations];
+  const captures = input.captures ?? [{ state: "success" as const, rendered: input.rendered }];
+  const limitations = captures.flatMap((capture) => capture.rendered.limitations);
   const rawArtifacts = input.cases.flatMap((entry) => entry.artifacts);
   const invalidArtifacts = rawArtifacts.filter(
     (artifact) =>
-      !/^[a-f0-9]{64}$/iu.test(artifact.sha256) ||
+      !/^[a-f0-9]{64}$/u.test(artifact.sha256) ||
       /^(?:[a-z]:[\\/]|[\\/]|.*(?:^|[\\/])\.\.(?:[\\/]|$))/iu.test(artifact.path)
   );
   const artifacts = rawArtifacts
     .map((artifact) => ({ path: redactToString(artifact.path, 500), sha256: artifact.sha256 }))
     .sort((a, b) => a.path.localeCompare(b.path));
-  const missing = input.plan.cases.filter(
-    (planned) => !input.cases.some((result) => result.id === planned.id)
+  const duplicateArtifactPaths = artifacts
+    .map((artifact) => artifact.path)
+    .filter((path, index, paths) => paths.indexOf(path) !== index);
+  const expectedById = new Map(input.plan.cases.map((planned) => [planned.id, planned]));
+  const actualIds = input.cases.map((result) => result.id);
+  const duplicateIds = actualIds.filter((id, index) => actualIds.indexOf(id) !== index);
+  const missing = input.plan.cases.filter((planned) => !actualIds.includes(planned.id));
+  const extra = input.cases.filter((result) => !expectedById.has(result.id));
+  const allResults = input.cases.filter((result) => expectedById.has(result.id));
+  const structuralGaps = allResults.filter((result) => result.observation === undefined);
+  const structuralFailures = allResults.filter((result) => result.observation?.status === "FAIL");
+  const structuralUnavailable = allResults.filter(
+    (result) => result.observation?.status !== "PASS"
   );
-  const allResults = input.cases.filter((result) =>
-    input.plan.cases.some((planned) => planned.id === result.id)
-  );
+  const mismatchedArtifacts = allResults.filter((result) => {
+    const planned = expectedById.get(result.id);
+    if (planned === undefined || result.artifacts.length !== 1) return true;
+    const artifact = result.artifacts[0];
+    if (artifact === undefined) return true;
+    const stateCapture = captures.filter((capture) => capture.state === planned.state);
+    if (stateCapture.length !== 1) return true;
+    const rendered = stateCapture[0]?.rendered;
+    const viewport = rendered?.viewports.find(
+      (candidate) =>
+        candidate.name === planned.viewport.name &&
+        candidate.width === planned.viewport.width &&
+        candidate.height === planned.viewport.height
+    );
+    const observation = rendered?.structural_evidence?.observations.find(
+      (candidate) =>
+        candidate.name === planned.viewport.name &&
+        candidate.width === planned.viewport.width &&
+        candidate.height === planned.viewport.height
+    );
+    return (
+      viewport?.artifact !== artifact.path ||
+      viewport.sha256 !== artifact.sha256 ||
+      !sameObservation(observation, result.observation)
+    );
+  });
   const caseFailures = allResults.filter((result) =>
     [result.screenshot, result.keyboard, result.accessibility, result.overflow].some(
       (status) => status === "FAIL"
@@ -163,43 +282,58 @@ function deriveRuntime(input: RuntimeEvidenceInput): BuildRuntimeEvidence {
       (status) => status === "NOT_VERIFIED" || status === "BLOCKED"
     )
   );
-  const captureStatus: CaptureStatus = input.rendered.capture_status;
-  if (captureStatus !== "COMPLETE" || input.rendered.status !== "OK") {
+  const failedCapture = captures.find((capture) => capture.rendered.capture_status === "FAILED");
+  const incompleteCapture = captures.find(
+    (capture) => capture.rendered.capture_status !== "COMPLETE" || capture.rendered.status !== "OK"
+  );
+  const consoleCapture = captures.find((capture) => capture.rendered.console_errors > 0);
+  if (incompleteCapture !== undefined) {
+    const captureStatus: CaptureStatus = incompleteCapture.rendered.capture_status;
     limitations.push(
-      `Rendered capture is ${captureStatus}${input.rendered.reason === undefined ? "" : `: ${redactToString(input.rendered.reason)}`}.`
+      `Rendered capture for '${incompleteCapture.state}' is ${captureStatus}${incompleteCapture.rendered.reason === undefined ? "" : `: ${redactToString(incompleteCapture.rendered.reason)}`}.`
     );
-    if (input.rendered.console_errors > 0)
+    if (consoleCapture !== undefined)
       limitations.push(
-        `Rendered capture recorded ${input.rendered.console_errors} console error(s).`
+        `Rendered capture for '${consoleCapture.state}' recorded ${consoleCapture.rendered.console_errors} console error(s).`
       );
-    if (caseFailures.length > 0)
+    if (caseFailures.length > 0 || structuralFailures.length > 0)
       limitations.push(
-        `Runtime failure in case(s): ${caseFailures.map((entry) => entry.id).join(", ")}.`
+        `Runtime failure in case(s): ${[...caseFailures, ...structuralFailures].map((entry) => entry.id).join(", ")}.`
       );
     return runtimeValue(
-      captureStatus === "FAILED" || input.rendered.console_errors > 0 || caseFailures.length > 0
+      failedCapture !== undefined ||
+        consoleCapture !== undefined ||
+        caseFailures.length > 0 ||
+        structuralFailures.length > 0
         ? "FAIL"
         : "NOT_VERIFIED",
       input,
       artifacts,
-      limitations
+      limitations,
+      captures
     );
   }
-  if (input.rendered.console_errors > 0) {
+  if (consoleCapture !== undefined) {
     limitations.push(
-      `Rendered capture recorded ${input.rendered.console_errors} console error(s).`
+      `Rendered capture for '${consoleCapture.state}' recorded ${consoleCapture.rendered.console_errors} console error(s).`
     );
-    return runtimeValue("FAIL", input, artifacts, limitations);
+    return runtimeValue("FAIL", input, artifacts, limitations, captures);
   }
-  if (caseFailures.length > 0) {
+  if (caseFailures.length > 0 || structuralFailures.length > 0) {
     limitations.push(
-      `Runtime failure in case(s): ${caseFailures.map((entry) => entry.id).join(", ")}.`
+      `Runtime failure in case(s): ${[...caseFailures, ...structuralFailures].map((entry) => entry.id).join(", ")}.`
     );
-    return runtimeValue("FAIL", input, artifacts, limitations);
+    return runtimeValue("FAIL", input, artifacts, limitations, captures);
   }
   if (
     missing.length > 0 ||
+    extra.length > 0 ||
+    duplicateIds.length > 0 ||
+    duplicateArtifactPaths.length > 0 ||
     caseUnavailable.length > 0 ||
+    structuralGaps.length > 0 ||
+    structuralUnavailable.length > 0 ||
+    mismatchedArtifacts.length > 0 ||
     artifacts.length === 0 ||
     invalidArtifacts.length > 0
   ) {
@@ -207,32 +341,52 @@ function deriveRuntime(input: RuntimeEvidenceInput): BuildRuntimeEvidence {
       limitations.push(
         `Missing planned runtime case(s): ${missing.map((entry) => entry.id).join(", ")}.`
       );
+    if (extra.length > 0)
+      limitations.push(`Unexpected runtime case(s): ${extra.map((entry) => entry.id).join(", ")}.`);
+    if (duplicateIds.length > 0)
+      limitations.push(`Duplicate runtime case id(s): ${[...new Set(duplicateIds)].join(", ")}.`);
+    if (duplicateArtifactPaths.length > 0)
+      limitations.push(
+        `Duplicate runtime artifact path(s): ${[...new Set(duplicateArtifactPaths)].join(", ")}.`
+      );
     if (caseUnavailable.length > 0)
       limitations.push(
         "Keyboard, accessibility, overflow, or screenshot evidence is unavailable for one or more cases."
+      );
+    if (structuralGaps.length > 0)
+      limitations.push("One or more cases had no fixed structural observation.");
+    if (structuralUnavailable.length > 0)
+      limitations.push("One or more cases had incomplete fixed structural observations.");
+    if (mismatchedArtifacts.length > 0)
+      limitations.push(
+        "One or more cases did not have exactly one matching rendered artifact and observation."
       );
     if (artifacts.length === 0) limitations.push("No hashed runtime artifacts were supplied.");
     if (invalidArtifacts.length > 0)
       limitations.push(
         "One or more runtime artifacts had an unsafe path or an invalid SHA-256 hash."
       );
-    return runtimeValue("NOT_VERIFIED", input, artifacts, limitations);
+    return runtimeValue("NOT_VERIFIED", input, artifacts, limitations, captures);
   }
-  return runtimeValue("PASS", input, artifacts, limitations);
+  return runtimeValue("PASS", input, artifacts, limitations, captures);
 }
 
 function runtimeValue(
   status: RuntimeCheckStatus,
   input: RuntimeEvidenceInput,
   artifacts: Array<{ path: string; sha256: string }>,
-  limitations: string[]
+  limitations: string[],
+  captures: readonly RuntimeStateCapture[] = [{ state: "success", rendered: input.rendered }]
 ): BuildRuntimeEvidence {
   return {
     criterion: "runtime:rendered-ui",
     status,
     evidence: [
       `Route ${input.plan.route} was planned for role '${input.plan.role}' across ${input.plan.cases.length} state/viewport case(s).`,
-      `Rendered capture status: ${input.rendered.capture_status}; console errors: ${input.rendered.console_errors}.`
+      ...captures.map(
+        (capture) =>
+          `Rendered capture for '${capture.state}': ${capture.rendered.capture_status}; console errors: ${capture.rendered.console_errors}.`
+      )
     ],
     artifacts,
     limitations: [...new Set(limitations.map((entry) => redactToString(entry, 500)))]
