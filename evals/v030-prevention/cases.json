@@ -1,0 +1,559 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "new-saas-app",
+      "title": "New multi-user SaaS application",
+      "agent_task": "Create a team SaaS app with sign-in, organization-owned projects, a public marketing page, and a deployment workflow. Do not invent a cache or provider integration before a measured need.",
+      "starting_repository": {
+        "file_map": [
+          {
+            "path": "src/routes/projects.ts",
+            "content": "export function listProjects() { return []; }\n"
+          },
+          { "path": "app/dashboard/page.tsx", "content": "export const Dashboard = () => null;\n" },
+          { "path": ".github/workflows/check.yml", "content": "name: check\n" }
+        ]
+      },
+      "expected_applicability": [
+        "api",
+        "authorization",
+        "code",
+        "deployment",
+        "frontend",
+        "security",
+        "tenancy",
+        "testing",
+        "ui",
+        "ux",
+        "accessibility"
+      ],
+      "machine_required": [
+        "api",
+        "code",
+        "deployment",
+        "frontend",
+        "infrastructure",
+        "security",
+        "testing",
+        "ui",
+        "ux",
+        "accessibility"
+      ],
+      "expected_gates": [
+        "FF-BUILD-GATE-APPLICABILITY",
+        "FF-BUILD-GATE-BEHAVIOR",
+        "FF-BUILD-GATE-DESIGN-DIRECTION",
+        "FF-BUILD-GATE-RUNTIME",
+        "FF-BUILD-GATE-SECURITY-REVIEW"
+      ],
+      "forbidden_defects": [
+        "A project route returns organization data without a server-side ownership predicate.",
+        "A generated dashboard is accepted without rendered evidence for every state and viewport.",
+        "A cache is introduced merely because the product is called SaaS."
+      ],
+      "required_validation_artifacts": [
+        "organization ownership denial test",
+        "rendered dashboard state matrix",
+        "deployment configuration review"
+      ],
+      "checks": [
+        { "id": "applicability", "classification": "deterministic", "status": "PASS" },
+        { "id": "load-profile", "classification": "nondeterministic", "status": "NOT_VERIFIED" },
+        { "id": "ownership-review", "classification": "human-required", "status": "NOT_VERIFIED" },
+        {
+          "id": "hosted-runtime",
+          "classification": "unsupported-external-tool",
+          "status": "BLOCKED"
+        }
+      ]
+    },
+    {
+      "id": "non-slop-dashboard",
+      "title": "Intentional non-slop dashboard",
+      "agent_task": "Build an operations dashboard for a support lead. It must have an explicit design direction and evidence for loading, empty, error, success, permission-denied, disabled, destructive-confirmation, and long-content states at desktop, tablet, and mobile widths.",
+      "starting_repository": {
+        "file_map": [
+          { "path": "app/dashboard/page.tsx", "content": "export const Dashboard = () => null;\n" }
+        ]
+      },
+      "expected_applicability": ["accessibility", "code", "frontend", "testing", "ui", "ux"],
+      "machine_required": ["accessibility", "code", "frontend", "testing", "ui", "ux"],
+      "expected_gates": ["FF-BUILD-GATE-DESIGN-DIRECTION", "FF-BUILD-GATE-RUNTIME"],
+      "forbidden_defects": [
+        "A dashboard is accepted from source inspection without a rendered state matrix.",
+        "Mobile overflow or keyboard focus loss is silently treated as a pass.",
+        "A generic dashboard is shipped without an intentional design direction."
+      ],
+      "required_validation_artifacts": [
+        "design direction record",
+        "hashed screenshots for every planned state and viewport",
+        "keyboard and accessibility observations"
+      ],
+      "checks": [
+        { "id": "runtime-plan", "classification": "deterministic", "status": "PASS" },
+        {
+          "id": "visual-regression",
+          "classification": "nondeterministic",
+          "status": "NOT_VERIFIED"
+        },
+        { "id": "design-review", "classification": "human-required", "status": "NOT_VERIFIED" },
+        {
+          "id": "browser-capture",
+          "classification": "unsupported-external-tool",
+          "status": "BLOCKED"
+        }
+      ]
+    },
+    {
+      "id": "registration-rbac",
+      "title": "Registration and role-based access control",
+      "agent_task": "Add employee registration and admin-only billing controls. Enforce authentication and object/role authorization at the final server boundary, with denied-path coverage for invalid, expired, replayed, and insufficient-role requests.",
+      "starting_repository": {
+        "file_map": [
+          { "path": "src/auth/register.ts", "content": "export function register() {}\n" },
+          { "path": "src/routes/billing.ts", "content": "export function billing() {}\n" },
+          { "path": "src/authorization/rbac.ts", "content": "export const role = 'admin';\n" }
+        ]
+      },
+      "expected_applicability": ["api", "auth", "authorization", "code", "security", "testing"],
+      "machine_required": ["api", "auth", "authorization", "code", "security", "testing"],
+      "expected_gates": [
+        "FF-BUILD-GATE-AUTHENTICATION-NEGATIVE",
+        "FF-BUILD-GATE-AUTHORIZATION-NEGATIVE",
+        "FF-BUILD-GATE-NEGATIVE-SECURITY"
+      ],
+      "forbidden_defects": [
+        "A client role claim bypasses final server-side authorization.",
+        "An expired or replayed registration/session token is accepted.",
+        "An unauthorized billing request lacks an observed denied path."
+      ],
+      "required_validation_artifacts": [
+        "invalid and expired credential tests",
+        "insufficient-role denial test",
+        "final-boundary authorization trace"
+      ],
+      "checks": [
+        { "id": "gate-plan", "classification": "deterministic", "status": "PASS" },
+        {
+          "id": "timing-resistance",
+          "classification": "nondeterministic",
+          "status": "NOT_VERIFIED"
+        },
+        {
+          "id": "role-policy-review",
+          "classification": "human-required",
+          "status": "NOT_VERIFIED"
+        },
+        {
+          "id": "identity-provider",
+          "classification": "unsupported-external-tool",
+          "status": "BLOCKED"
+        }
+      ]
+    },
+    {
+      "id": "secure-file-upload",
+      "title": "Secure file upload pipeline",
+      "agent_task": "Accept customer evidence files only after authorization, size/type validation, hostile-file rejection, isolated storage naming, and safe downstream processing. Preserve no trust in file name, extension, or client MIME type.",
+      "starting_repository": {
+        "file_map": [
+          { "path": "src/uploads/handler.ts", "content": "export function upload() {}\n" },
+          { "path": "src/routes/evidence.ts", "content": "export function evidence() {}\n" }
+        ]
+      },
+      "expected_applicability": ["api", "code", "security", "storage", "testing", "uploads"],
+      "machine_required": ["api", "code", "security", "storage", "testing", "uploads"],
+      "expected_gates": ["FF-BUILD-GATE-UPLOAD-HOSTILE-FILE", "FF-BUILD-GATE-NEGATIVE-SECURITY"],
+      "forbidden_defects": [
+        "A hostile file is trusted from its extension or browser MIME value.",
+        "An upload is stored under a user-controlled path or served as executable content.",
+        "A missing hostile-file test is treated as PASS."
+      ],
+      "required_validation_artifacts": [
+        "polyglot and oversized-file rejection tests",
+        "storage authorization trace",
+        "malware-processing boundary review"
+      ],
+      "checks": [
+        { "id": "upload-gate", "classification": "deterministic", "status": "PASS" },
+        {
+          "id": "scanner-throughput",
+          "classification": "nondeterministic",
+          "status": "NOT_VERIFIED"
+        },
+        {
+          "id": "hostile-fixture-review",
+          "classification": "human-required",
+          "status": "NOT_VERIFIED"
+        },
+        {
+          "id": "malware-scanner",
+          "classification": "unsupported-external-tool",
+          "status": "BLOCKED"
+        }
+      ]
+    },
+    {
+      "id": "large-dataset-search",
+      "title": "Large dataset search",
+      "agent_task": "Add paginated search over millions of customer records. Define query bounds, tenant access controls, stable pagination, index evidence, timeout behavior, and performance measurements before choosing a search service.",
+      "starting_repository": {
+        "file_map": [
+          { "path": "src/search/query.ts", "content": "export function search() { return []; }\n" },
+          { "path": "src/routes/search.ts", "content": "export function route() {}\n" }
+        ]
+      },
+      "expected_applicability": ["api", "code", "performance", "queries", "security", "testing"],
+      "machine_required": ["api", "code", "performance", "queries", "security", "testing"],
+      "expected_gates": [
+        "FF-BUILD-GATE-DISCIPLINE-QUERIES",
+        "FF-BUILD-GATE-DISCIPLINE-PERFORMANCE"
+      ],
+      "forbidden_defects": [
+        "Search loads an unbounded result set into application memory.",
+        "Pagination is unstable when records change between pages.",
+        "A search index or provider is selected without measured workload evidence."
+      ],
+      "required_validation_artifacts": [
+        "query plan or index evidence",
+        "bounded pagination tests",
+        "representative load measurement"
+      ],
+      "checks": [
+        { "id": "query-applicability", "classification": "deterministic", "status": "PASS" },
+        {
+          "id": "load-measurement",
+          "classification": "nondeterministic",
+          "status": "NOT_VERIFIED"
+        },
+        { "id": "query-plan-review", "classification": "human-required", "status": "NOT_VERIFIED" },
+        {
+          "id": "managed-search",
+          "classification": "unsupported-external-tool",
+          "status": "BLOCKED"
+        }
+      ]
+    },
+    {
+      "id": "justified-cache",
+      "title": "Measured and justified cache",
+      "agent_task": "Add a cache only after a measured read-latency or cost problem is documented. If introduced, define tenant-safe keys, TTL, invalidation, freshness, failure behavior, and a cache-bypass validation path.",
+      "starting_repository": {
+        "file_map": [
+          { "path": "src/cache/projects.ts", "content": "export const ttl = 60;\n" },
+          { "path": "src/routes/projects.ts", "content": "export function projects() {}\n" }
+        ]
+      },
+      "expected_applicability": ["api", "cache", "code", "privacy", "security", "testing"],
+      "machine_required": ["api", "cache", "code", "privacy", "security", "testing"],
+      "expected_gates": ["FF-BUILD-GATE-DISCIPLINE-CACHE", "FF-BUILD-GATE-DISCIPLINE-PRIVACY"],
+      "forbidden_defects": [
+        "A cache key omits tenant or authorization scope.",
+        "Stale data has no invalidation or maximum-age decision.",
+        "Redis is adopted without a measured problem and bypass comparison."
+      ],
+      "required_validation_artifacts": [
+        "before-and-after workload measurement",
+        "cache-key isolation tests",
+        "invalidation and bypass tests"
+      ],
+      "checks": [
+        { "id": "cache-applicability", "classification": "deterministic", "status": "PASS" },
+        { "id": "latency-profile", "classification": "nondeterministic", "status": "NOT_VERIFIED" },
+        { "id": "freshness-review", "classification": "human-required", "status": "NOT_VERIFIED" },
+        {
+          "id": "redis-service",
+          "classification": "unsupported-external-tool",
+          "status": "BLOCKED"
+        }
+      ]
+    },
+    {
+      "id": "reject-unnecessary-redis",
+      "title": "Reject unnecessary Redis",
+      "agent_task": "The product owner asks for Redis 'because every SaaS uses it', but there is no measured latency, rate-limit, queue, or shared-state requirement. Keep the simple database-backed design and record why Redis is not applicable.",
+      "starting_repository": {
+        "file_map": [
+          {
+            "path": "src/routes/projects.ts",
+            "content": "export function projects() { return []; }\n"
+          }
+        ]
+      },
+      "expected_applicability": ["api", "code", "security", "testing"],
+      "machine_required": ["api", "code", "security", "testing"],
+      "expected_gates": ["FF-BUILD-GATE-BEHAVIOR", "FF-BUILD-GATE-STATIC"],
+      "forbidden_defects": [
+        "Redis is added solely from a generic product label.",
+        "An absent cache capability is represented as PASS rather than an exclusion or unresolved decision.",
+        "A speculative cache adds a second source of truth."
+      ],
+      "required_validation_artifacts": [
+        "measured-need decision record",
+        "database-backed behavior test",
+        "explicit cache exclusion rationale"
+      ],
+      "checks": [
+        { "id": "cache-rejection", "classification": "deterministic", "status": "PASS" },
+        {
+          "id": "future-load-forecast",
+          "classification": "nondeterministic",
+          "status": "NOT_VERIFIED"
+        },
+        {
+          "id": "architecture-review",
+          "classification": "human-required",
+          "status": "NOT_VERIFIED"
+        },
+        {
+          "id": "redis-provider",
+          "classification": "unsupported-external-tool",
+          "status": "BLOCKED"
+        }
+      ]
+    },
+    {
+      "id": "tenant-scoped-feature",
+      "title": "Tenant-scoped feature",
+      "agent_task": "Add organization-scoped projects. Derive tenant context from authenticated identity, apply it to every query, mutation, cache, file, job, and administration path, and prove tenant B cannot access tenant A's guessed identifier.",
+      "starting_repository": {
+        "file_map": [
+          {
+            "path": "src/tenant/projects.ts",
+            "content": "export function project(tenantId: string) { return tenantId; }\n"
+          },
+          {
+            "path": "src/authorization/project-policy.ts",
+            "content": "export function allowed() { return false; }\n"
+          }
+        ]
+      },
+      "expected_applicability": [
+        "authorization",
+        "code",
+        "privacy",
+        "security",
+        "tenancy",
+        "testing"
+      ],
+      "machine_required": ["authorization", "code", "security", "tenancy", "testing"],
+      "expected_gates": ["FF-BUILD-GATE-AUTHORIZATION-NEGATIVE", "FF-BUILD-GATE-TENANCY-ISOLATION"],
+      "forbidden_defects": [
+        "A tenant identifier from the client controls the data scope.",
+        "A guessed cross-tenant identifier returns data or modifies a record.",
+        "A cache or queued task loses tenant context after the request ends."
+      ],
+      "required_validation_artifacts": [
+        "cross-tenant denial test",
+        "query predicate trace",
+        "tenant propagation review for cache, storage, and jobs"
+      ],
+      "checks": [
+        { "id": "tenancy-gate", "classification": "deterministic", "status": "PASS" },
+        {
+          "id": "concurrent-tenant-load",
+          "classification": "nondeterministic",
+          "status": "NOT_VERIFIED"
+        },
+        { "id": "isolation-review", "classification": "human-required", "status": "NOT_VERIFIED" },
+        {
+          "id": "production-identity",
+          "classification": "unsupported-external-tool",
+          "status": "BLOCKED"
+        }
+      ]
+    },
+    {
+      "id": "third-party-webhook",
+      "title": "Third-party webhook",
+      "agent_task": "Consume a signed third-party order webhook. Verify the raw-body signature before parsing, reject replay and tampering, tolerate duplicates and out-of-order delivery, and ensure exactly one downstream effect per provider event id.",
+      "starting_repository": {
+        "file_map": [
+          { "path": "src/integrations/webhook.ts", "content": "export function webhook() {}\n" },
+          { "path": "src/routes/webhooks.ts", "content": "export function route() {}\n" }
+        ]
+      },
+      "expected_applicability": [
+        "api",
+        "code",
+        "integrations",
+        "payments",
+        "reliability",
+        "security",
+        "testing"
+      ],
+      "machine_required": [
+        "api",
+        "code",
+        "integrations",
+        "payments",
+        "reliability",
+        "security",
+        "testing"
+      ],
+      "expected_gates": ["FF-BUILD-GATE-NEGATIVE-SECURITY", "FF-BUILD-GATE-WEBHOOK-SAFETY"],
+      "forbidden_defects": [
+        "The handler parses or trusts data before signature verification over the raw body.",
+        "A replayed provider event creates a duplicate effect.",
+        "Provider delivery is claimed verified without a supported external adapter."
+      ],
+      "required_validation_artifacts": [
+        "tampered-signature rejection test",
+        "duplicate and out-of-order event tests",
+        "provider event-id idempotency trace"
+      ],
+      "checks": [
+        { "id": "webhook-gate", "classification": "deterministic", "status": "PASS" },
+        { "id": "delivery-order", "classification": "nondeterministic", "status": "NOT_VERIFIED" },
+        { "id": "signature-review", "classification": "human-required", "status": "NOT_VERIFIED" },
+        {
+          "id": "provider-sandbox",
+          "classification": "unsupported-external-tool",
+          "status": "BLOCKED"
+        }
+      ]
+    },
+    {
+      "id": "hostile-ai-invoice-extraction",
+      "title": "Hostile-input AI invoice extraction",
+      "agent_task": "Extract invoice fields from vendor PDFs and images. Treat all document and retrieved text as data, validate structured output, independently check totals, bound cost, and require explicit authorized human confirmation before changing accounts payable or inventory.",
+      "starting_repository": {
+        "file_map": [
+          {
+            "path": "src/ai/invoice-extractor.ts",
+            "content": "export function extractInvoice() {}\n"
+          },
+          {
+            "path": "src/authorization/approve-invoice.ts",
+            "content": "export function approve() {}\n"
+          },
+          { "path": "src/routes/invoices.ts", "content": "export function invoices() {}\n" }
+        ]
+      },
+      "expected_applicability": [
+        "ai",
+        "api",
+        "authorization",
+        "code",
+        "privacy",
+        "security",
+        "testing"
+      ],
+      "machine_required": ["ai", "api", "authorization", "code", "security", "testing"],
+      "expected_gates": ["FF-BUILD-GATE-AUTHORIZATION-NEGATIVE", "FF-BUILD-GATE-NEGATIVE-SECURITY"],
+      "forbidden_defects": [
+        "Instructions embedded in an invoice alter model tools, system behavior, or downstream authority.",
+        "Free-text model output is coerced into a financial write without schema and independent-total validation.",
+        "A model output alone performs an irreversible inventory or payable action."
+      ],
+      "required_validation_artifacts": [
+        "hostile-document prompt-injection regression test",
+        "out-of-schema rejection test",
+        "human-confirmation authorization test",
+        "independent total-validation trace"
+      ],
+      "checks": [
+        { "id": "ai-gate", "classification": "deterministic", "status": "PASS" },
+        { "id": "model-variance", "classification": "nondeterministic", "status": "NOT_VERIFIED" },
+        {
+          "id": "hostile-input-red-team",
+          "classification": "human-required",
+          "status": "NOT_VERIFIED"
+        },
+        {
+          "id": "model-provider",
+          "classification": "unsupported-external-tool",
+          "status": "BLOCKED"
+        }
+      ]
+    },
+    {
+      "id": "idempotent-background-job",
+      "title": "Idempotent background job",
+      "agent_task": "Send a report email from an at-least-once queue. A retry, duplicate delivery, or crash during processing must not send twice; define idempotency, retry limits, dead-letter handling, observability, and enqueue-after-commit behavior.",
+      "starting_repository": {
+        "file_map": [
+          { "path": "src/jobs/report-worker.ts", "content": "export async function runJob() {}\n" }
+        ]
+      },
+      "expected_applicability": ["code", "jobs", "observability", "reliability", "testing"],
+      "machine_required": ["code", "jobs", "observability", "reliability", "testing"],
+      "expected_gates": ["FF-BUILD-GATE-DISCIPLINE-JOBS", "FF-BUILD-GATE-DISCIPLINE-RELIABILITY"],
+      "forbidden_defects": [
+        "A duplicate delivery sends the same email or mutates the same record twice.",
+        "A poison job retries forever or disappears without a dead-letter signal.",
+        "A job is enqueued before the record it depends on commits."
+      ],
+      "required_validation_artifacts": [
+        "duplicate-delivery test",
+        "forced-failure and dead-letter test",
+        "enqueue-after-commit trace"
+      ],
+      "checks": [
+        { "id": "jobs-applicability", "classification": "deterministic", "status": "PASS" },
+        { "id": "retry-timing", "classification": "nondeterministic", "status": "NOT_VERIFIED" },
+        {
+          "id": "idempotency-review",
+          "classification": "human-required",
+          "status": "NOT_VERIFIED"
+        },
+        {
+          "id": "queue-provider",
+          "classification": "unsupported-external-tool",
+          "status": "BLOCKED"
+        }
+      ]
+    },
+    {
+      "id": "offline-capable-workflow",
+      "title": "Offline-capable workflow",
+      "agent_task": "Let field technicians submit inspections while offline and sync after reconnect. Define conflict resolution and idempotent replay, clear private local data on logout or account switch, and reauthorize stale clients when reconnecting on shared tablets.",
+      "starting_repository": {
+        "file_map": [
+          {
+            "path": "src/offline/inspection-sync.ts",
+            "content": "export function syncInspection() {}\n"
+          },
+          { "path": "src/auth/reconnect.ts", "content": "export function reconnect() {}\n" }
+        ]
+      },
+      "expected_applicability": ["auth", "code", "offline", "privacy", "security", "testing"],
+      "machine_required": ["auth", "code", "security", "testing"],
+      "expected_gates": [
+        "FF-BUILD-GATE-AUTHENTICATION-NEGATIVE",
+        "FF-BUILD-GATE-PRIVACY-DATA-FLOW",
+        "FF-BUILD-GATE-NEGATIVE-SECURITY"
+      ],
+      "forbidden_defects": [
+        "Offline conflicts have no explicit resolution rule.",
+        "A replayed sync action duplicates its server-side effect.",
+        "Private cached data survives logout, revocation, or account switch on a shared tablet."
+      ],
+      "required_validation_artifacts": [
+        "offline conflict test",
+        "reconnect replay-idempotency test",
+        "logout cache-clearing test",
+        "stale-client reauthorization test"
+      ],
+      "checks": [
+        { "id": "auth-applicability", "classification": "deterministic", "status": "PASS" },
+        {
+          "id": "network-partition",
+          "classification": "nondeterministic",
+          "status": "NOT_VERIFIED"
+        },
+        {
+          "id": "conflict-policy-review",
+          "classification": "human-required",
+          "status": "NOT_VERIFIED"
+        },
+        {
+          "id": "device-runtime",
+          "classification": "unsupported-external-tool",
+          "status": "BLOCKED"
+        }
+      ]
+    }
+  ]
+}
