@@ -12,6 +12,7 @@ function v1Project(): Record<string, unknown> {
   delete legacy.design_alignment;
   delete legacy.selection_events;
   delete legacy.history;
+  legacy.stack = ["typescript"];
   legacy.schema_version = 1;
   return legacy;
 }
@@ -72,6 +73,9 @@ test("migrates v1 project and every feature without trusting old evidence or acc
     assert.ok(feature);
     assert.equal(project.schema_version, 2);
     assert.equal(project.frame.problem_statement, "legacy project");
+    assert.deepEqual(project.frame.stack_entries, [{ name: "typescript", rationale: "" }]);
+    assert.deepEqual(project.frame.users_and_roles, []);
+    assert.equal(project.frame.design_direction_reference, "");
     assert.equal(feature.schema_version, 2);
     const legacyEvidence = feature.evidence[0];
     assert.ok(legacyEvidence);
@@ -117,6 +121,47 @@ test("rollback restores exact source bytes and refuses changed migrated state", 
     assert.deepEqual(await readFile(path), before);
     await migrateBuildState(root);
     await writeFile(path, `${await readFile(path, "utf8")}\n`, "utf8");
+    await assert.rejects(migrateBuildState(root, { rollback: true }), /Refusing rollback/u);
+  });
+});
+
+test("rollback completes an interrupted migration by preserving untouched original bytes", async () => {
+  await withTemporaryProject("build-migration-partial-rollback", async (root) => {
+    await writeV1(root);
+    const projectPath = join(root, ".forge", "build", "project.json");
+    const featurePath = join(root, ".forge", "build", "features", "login.json");
+    const before = await Promise.all([readFile(projectPath), readFile(featurePath)]);
+    await assert.rejects(migrateBuildState(root, { interruptAfter: 1 }), /Injected/u);
+    await migrateBuildState(root, { rollback: true });
+    assert.deepEqual(await Promise.all([readFile(projectPath), readFile(featurePath)]), before);
+    await assert.rejects(loadProject(root), /must be migrated/u);
+  });
+});
+
+test("an interrupted rollback blocks normal loads and resumes exact restoration", async () => {
+  await withTemporaryProject("build-migration-rollback-resume", async (root) => {
+    await writeV1(root);
+    const projectPath = join(root, ".forge", "build", "project.json");
+    const featurePath = join(root, ".forge", "build", "features", "login.json");
+    const before = await Promise.all([readFile(projectPath), readFile(featurePath)]);
+    await migrateBuildState(root);
+    await assert.rejects(
+      migrateBuildState(root, { rollback: true, interruptAfter: 1 }),
+      /rollback interruption/u
+    );
+    await assert.rejects(loadProject(root), /interrupted/u);
+    await migrateBuildState(root, { resume: true });
+    assert.deepEqual(await Promise.all([readFile(projectPath), readFile(featurePath)]), before);
+  });
+});
+
+test("interrupted migration rejects tampered state on both resume and rollback", async () => {
+  await withTemporaryProject("build-migration-tamper", async (root) => {
+    await writeV1(root);
+    const projectPath = join(root, ".forge", "build", "project.json");
+    await assert.rejects(migrateBuildState(root, { interruptAfter: 1 }), /Injected/u);
+    await writeFile(projectPath, `${await readFile(projectPath, "utf8")}\n`, "utf8");
+    await assert.rejects(migrateBuildState(root, { resume: true }), /changed/u);
     await assert.rejects(migrateBuildState(root, { rollback: true }), /Refusing rollback/u);
   });
 });

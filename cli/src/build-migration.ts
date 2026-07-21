@@ -56,14 +56,15 @@ export async function migrateBuildState(
   if (options.resume && options.rollback)
     throw new Error("Build migration cannot resume and roll back in the same invocation.");
   const journal = await readJournalIfPresent(root);
-  if (options.rollback) return rollback(root, journal, options.dryRun === true);
+  if (options.rollback)
+    return rollback(root, journal, options.dryRun === true, options.interruptAfter);
   if (journal !== undefined && journal.status !== "complete" && journal.status !== "rolled_back") {
     if (!options.resume)
       throw new Error(
         "A Build migration is interrupted. Run `forge migrate build --resume` or `forge migrate build --rollback`."
       );
     return journal.status === "rolling_back"
-      ? rollback(root, journal, options.dryRun === true)
+      ? rollback(root, journal, options.dryRun === true, options.interruptAfter)
       : resume(root, journal, options);
   }
   if (journal?.status === "complete") return planFromJournal(journal);
@@ -166,7 +167,8 @@ async function resume(
 async function rollback(
   root: string,
   journal: MigrationJournal | undefined,
-  dryRun: boolean
+  dryRun: boolean,
+  interruptAfter: number | undefined
 ): Promise<BuildMigrationPlan> {
   if (journal === undefined) throw new Error("No Build migration journal exists to roll back.");
   if (journal.status === "rolled_back") return planFromJournal(journal);
@@ -174,9 +176,10 @@ async function rollback(
     for (const entry of journal.entries) {
       const target = resolveInside(root, entry.rel);
       await assertRegularFile(root, target);
-      if (sha256(await readFile(target)) !== entry.migrated_sha256)
+      const current = sha256(await readFile(target));
+      if (current !== entry.original_sha256 && current !== entry.migrated_sha256)
         throw new Error(
-          `Refusing rollback: '${entry.rel}' no longer matches the migrated byte hash.`
+          `Refusing rollback: '${entry.rel}' no longer matches an original or migrated byte hash.`
         );
       const backup = resolveInside(root, entry.backup_rel);
       await assertRegularFile(root, backup);
@@ -188,12 +191,16 @@ async function rollback(
   if (!dryRun) {
     journal.status = "rolling_back";
     await writeJournal(root, journal);
+    let restoredThisRun = 0;
     for (const entry of journal.entries) {
       const backup = resolveInside(root, entry.backup_rel);
       const target = resolveInside(root, entry.rel);
       const current = sha256(await readSafeFile(root, entry.rel));
       if (current === entry.original_sha256) {
-        if (!journal.restored.includes(entry.rel)) journal.restored.push(entry.rel);
+        if (!journal.restored.includes(entry.rel)) {
+          journal.restored.push(entry.rel);
+          await writeJournal(root, journal);
+        }
         continue;
       }
       if (current !== entry.migrated_sha256)
@@ -204,6 +211,9 @@ async function rollback(
       await atomicWriteBytes(root, target, await readFile(backup));
       journal.restored.push(entry.rel);
       await writeJournal(root, journal);
+      restoredThisRun += 1;
+      if (interruptAfter !== undefined && restoredThisRun >= interruptAfter)
+        throw new Error("Injected Build rollback interruption.");
     }
     journal.status = "rolled_back";
     journal.applied = [];
@@ -248,9 +258,26 @@ function migrateProject(value: unknown): BuildProject {
     frame: {
       problem_statement: (legacy.product as { summary?: unknown } | undefined)?.summary ?? "",
       target_users: [],
+      users_and_roles: [],
       desired_outcomes: [],
       business_rules: [],
-      constraints: []
+      business_invariants: [],
+      constraints: [],
+      critical_workflows: [],
+      sensitive_data_classes: [],
+      trust_boundaries: [],
+      expected_scale: "",
+      stack_entries: Array.isArray(legacy.stack)
+        ? legacy.stack.map((name: unknown) => {
+            if (typeof name !== "string")
+              throw new Error("Legacy Build stack entries must be strings.");
+            return { name, rationale: "" };
+          })
+        : [],
+      assumptions: [],
+      unresolved_decisions: [],
+      initial_feature_backlog: [],
+      design_direction_reference: ""
     },
     design_alignment: { status: "NOT_VERIFIED", references: [], recorded_at: updatedAt },
     selection_events: [],

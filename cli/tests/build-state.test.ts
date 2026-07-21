@@ -177,10 +177,15 @@ test("tier inputs are redacted before persistence", async () => {
 test("v2 project state rejects unknown fields and requires a structured frame", () => {
   const project = newProject("structured", "standard");
   assert.doesNotThrow(() => assertBuildProject(project));
+  assert.deepEqual(project.frame.critical_workflows, []);
+  assert.deepEqual(project.frame.stack_entries, []);
   assert.throws(() => assertBuildProject({ ...project, untrusted_extra: true }), /unknown field/u);
   const withoutFrame = { ...project } as Record<string, unknown>;
   delete withoutFrame.frame;
   assert.throws(() => assertBuildProject(withoutFrame), /structured project frame/u);
+  const withoutInvariants = structuredClone(project) as Record<string, unknown>;
+  delete (withoutInvariants.frame as Record<string, unknown>).business_invariants;
+  assert.throws(() => assertBuildProject(withoutInvariants), /structured project frame/u);
 });
 
 test("atomic project persistence leaves no partial temporary file on write failure", async () => {

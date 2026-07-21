@@ -50,16 +50,60 @@
       "required": [
         "problem_statement",
         "target_users",
+        "users_and_roles",
         "desired_outcomes",
         "business_rules",
-        "constraints"
+        "business_invariants",
+        "constraints",
+        "critical_workflows",
+        "sensitive_data_classes",
+        "trust_boundaries",
+        "expected_scale",
+        "stack_entries",
+        "assumptions",
+        "unresolved_decisions",
+        "initial_feature_backlog",
+        "design_direction_reference"
       ],
       "properties": {
         "problem_statement": { "type": "string" },
         "target_users": { "type": "array", "items": { "type": "string" } },
+        "users_and_roles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["user", "roles"],
+            "properties": {
+              "user": { "type": "string" },
+              "roles": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
         "desired_outcomes": { "type": "array", "items": { "type": "string" } },
         "business_rules": { "type": "array", "items": { "type": "string" } },
-        "constraints": { "type": "array", "items": { "type": "string" } }
+        "business_invariants": { "type": "array", "items": { "type": "string" } },
+        "constraints": { "type": "array", "items": { "type": "string" } },
+        "critical_workflows": { "type": "array", "items": { "type": "string" } },
+        "sensitive_data_classes": { "type": "array", "items": { "type": "string" } },
+        "trust_boundaries": { "type": "array", "items": { "type": "string" } },
+        "expected_scale": { "type": "string" },
+        "stack_entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "rationale"],
+            "properties": {
+              "name": { "type": "string" },
+              "rationale": { "type": "string" }
+            }
+          }
+        },
+        "assumptions": { "type": "array", "items": { "type": "string" } },
+        "unresolved_decisions": { "type": "array", "items": { "type": "string" } },
+        "initial_feature_backlog": { "type": "array", "items": { "type": "string" } },
+        "design_direction_reference": { "type": "string" }
       }
     },
     "design_alignment": {

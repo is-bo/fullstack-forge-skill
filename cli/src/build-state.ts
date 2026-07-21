@@ -101,9 +101,20 @@ export type DisciplineSelection = { slug: string; reason: string };
 export type ProjectFrame = {
   problem_statement: string;
   target_users: string[];
+  users_and_roles: Array<{ user: string; roles: string[] }>;
   desired_outcomes: string[];
   business_rules: string[];
+  business_invariants: string[];
   constraints: string[];
+  critical_workflows: string[];
+  sensitive_data_classes: string[];
+  trust_boundaries: string[];
+  expected_scale: string;
+  stack_entries: Array<{ name: string; rationale: string }>;
+  assumptions: string[];
+  unresolved_decisions: string[];
+  initial_feature_backlog: string[];
+  design_direction_reference: string;
 };
 export type SelectionEvent = {
   id: string;
@@ -472,16 +483,52 @@ function isValidProjectFrame(value: unknown): value is ProjectFrame {
       [
         "problem_statement",
         "target_users",
+        "users_and_roles",
         "desired_outcomes",
         "business_rules",
-        "constraints"
+        "business_invariants",
+        "constraints",
+        "critical_workflows",
+        "sensitive_data_classes",
+        "trust_boundaries",
+        "expected_scale",
+        "stack_entries",
+        "assumptions",
+        "unresolved_decisions",
+        "initial_feature_backlog",
+        "design_direction_reference"
       ].includes(key)
     ) &&
     typeof value.problem_statement === "string" &&
     isStringArray(value.target_users) &&
+    Array.isArray(value.users_and_roles) &&
+    value.users_and_roles.every(
+      (entry) =>
+        isRecord(entry) &&
+        Object.keys(entry).every((key) => key === "user" || key === "roles") &&
+        typeof entry.user === "string" &&
+        isStringArray(entry.roles)
+    ) &&
     isStringArray(value.desired_outcomes) &&
     isStringArray(value.business_rules) &&
-    isStringArray(value.constraints)
+    isStringArray(value.business_invariants) &&
+    isStringArray(value.constraints) &&
+    isStringArray(value.critical_workflows) &&
+    isStringArray(value.sensitive_data_classes) &&
+    isStringArray(value.trust_boundaries) &&
+    typeof value.expected_scale === "string" &&
+    Array.isArray(value.stack_entries) &&
+    value.stack_entries.every(
+      (entry) =>
+        isRecord(entry) &&
+        Object.keys(entry).every((key) => key === "name" || key === "rationale") &&
+        typeof entry.name === "string" &&
+        typeof entry.rationale === "string"
+    ) &&
+    isStringArray(value.assumptions) &&
+    isStringArray(value.unresolved_decisions) &&
+    isStringArray(value.initial_feature_backlog) &&
+    typeof value.design_direction_reference === "string"
   );
 }
 
@@ -696,9 +743,28 @@ function sanitizeProject(project: BuildProject): BuildProject {
   clone.frame = {
     problem_statement: redactToString(clone.frame.problem_statement),
     target_users: clone.frame.target_users.map((item) => redactToString(item)),
+    users_and_roles: clone.frame.users_and_roles.map((entry) => ({
+      user: redactToString(entry.user),
+      roles: entry.roles.map((role) => redactToString(role))
+    })),
     desired_outcomes: clone.frame.desired_outcomes.map((item) => redactToString(item)),
     business_rules: clone.frame.business_rules.map((item) => redactToString(item)),
-    constraints: clone.frame.constraints.map((item) => redactToString(item))
+    business_invariants: clone.frame.business_invariants.map((item) => redactToString(item)),
+    constraints: clone.frame.constraints.map((item) => redactToString(item)),
+    critical_workflows: clone.frame.critical_workflows.map((item) => redactToString(item)),
+    sensitive_data_classes: clone.frame.sensitive_data_classes.map((item) => redactToString(item)),
+    trust_boundaries: clone.frame.trust_boundaries.map((item) => redactToString(item)),
+    expected_scale: redactToString(clone.frame.expected_scale),
+    stack_entries: clone.frame.stack_entries.map((entry) => ({
+      name: redactToString(entry.name),
+      rationale: redactToString(entry.rationale)
+    })),
+    assumptions: clone.frame.assumptions.map((item) => redactToString(item)),
+    unresolved_decisions: clone.frame.unresolved_decisions.map((item) => redactToString(item)),
+    initial_feature_backlog: clone.frame.initial_feature_backlog.map((item) =>
+      redactToString(item)
+    ),
+    design_direction_reference: redactToString(clone.frame.design_direction_reference)
   };
   clone.design_alignment = {
     ...clone.design_alignment,
@@ -899,9 +965,20 @@ export function newProject(summary: string, tier: BuildTier | undefined): BuildP
     frame: {
       problem_statement: summary,
       target_users: [],
+      users_and_roles: [],
       desired_outcomes: [],
       business_rules: [],
-      constraints: []
+      business_invariants: [],
+      constraints: [],
+      critical_workflows: [],
+      sensitive_data_classes: [],
+      trust_boundaries: [],
+      expected_scale: "",
+      stack_entries: [],
+      assumptions: [],
+      unresolved_decisions: [],
+      initial_feature_backlog: [],
+      design_direction_reference: ""
     },
     design_alignment: { status: "NOT_VERIFIED", references: [], recorded_at: now },
     selection_events: [],
