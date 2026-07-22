@@ -288,9 +288,9 @@ async function listFeatureFiles(root) {
         const entries = await readdir(dir, { withFileTypes: true });
         const files = [];
         for (const entry of entries) {
-            if (entry.isSymbolicLink() ||
-                !entry.isFile() ||
-                !/^[a-z0-9][a-z0-9-]{0,63}\.json$/u.test(entry.name))
+            if (entry.isSymbolicLink())
+                throw new Error(`Refusing symlinked Build feature state entry '${entry.name}'.`);
+            if (!entry.isFile() || !/^[a-z0-9][a-z0-9-]{0,63}\.json$/u.test(entry.name))
                 throw new Error(`Unsafe or unknown Build feature state entry '${entry.name}'.`);
             files.push(`${FEATURES_REL}/${entry.name}`);
         }

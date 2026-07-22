@@ -41,7 +41,7 @@ covered on capable hosts and by remote CI.
 | `npm run typecheck`                                     | PASS   | TypeScript no-emit check completed                                             |
 | `npm test`                                              | PASS   | 662 tests; 661 passed, 0 failed, 1 skipped                                     |
 | `npm run test:evals:v030`                               | PASS   | 44 assertions across the two exact twelve-case public corpora                  |
-| `npm run test:coverage`                                 | PASS   | lines 93.69%, branches 83.73%, functions 93.46%                                |
+| `npm run test:coverage`                                 | PASS   | lines 93.70%, branches 83.73%, functions 93.46%                                |
 | `npm run validate`                                      | PASS   | 45 canonical skills and six generated platform roots                           |
 | `npm run check:platforms`                               | PASS   | 105 generated files exactly synchronized to all six roots                      |
 | `npm run check:links`                                   | PASS   | 764 Markdown files and 149 checked references                                  |
