@@ -1,8 +1,10 @@
-import { access } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { createInterface } from "node:readline/promises";
 import { BUILD_VERBS, MODULE_SLUGS, PACKAGE_ROOT, PLATFORM_ALIASES, PLATFORM_CONFIG, TOOL_NAMES, VERSION } from "./constants.js";
 import { runBuild } from "./build.js";
+import { listFeatures, loadFeature, loadProject } from "./build-state.js";
 import { ReportAuditLedger, orchestrateAudit } from "./audit-orchestration.js";
 import { detectProjectCommands, discoverProject, writeProjectArtifacts } from "./discovery.js";
 import { inspectRenderedUi } from "./rendered-ui.js";
@@ -11,12 +13,14 @@ import { executeFixes } from "./fixes.js";
 import { runShipGates } from "./gates.js";
 import { install, readInstallManifest, uninstall } from "./installer.js";
 import { inspectSection, isModuleSlug } from "./inspectors.js";
+import { redactToString } from "./redaction.js";
 import { captureEnvironment, createReport, readReport, renderMarkdown, writeReport } from "./report.js";
 import { analyzeChangedScope, decideModules, decisionFindingStatus } from "./scope.js";
 import { coverageForProfile } from "./support.js";
 import { isForgePackageRoot, runTool } from "./tools.js";
-import { canonicalDirectory, workingTreeRevision } from "./utils.js";
+import { assertNoSymlinkPath, canonicalDirectory, resolveInside, runFile, sha256, workingTreeRevision } from "./utils.js";
 import { verifyFindings } from "./verification.js";
+import { featureSlugFromRequest, featureSlugWithCollision, menuChoiceToArgs, parseSimpleRoute, renderDoctor, renderInstallResult, renderPlainFix, renderPlainReport, renderSimpleHelp, renderSimpleMenu, renderStatus, suggestCommand } from "./simple-cli.js";
 const MODES = new Set(["audit", "fix", "verify", "report"]);
 const HIGH_RISK_MODULES = new Set([
     "code",
@@ -56,6 +60,41 @@ const ADAPTER_MODULES = new Set([
     "uploads"
 ]);
 export async function runCli(argv) {
+    let simple = false;
+    const simpleRoute = parseSimpleRoute(argv);
+    if (simpleRoute.kind === "menu") {
+        if (!process.stdin.isTTY || !process.stdout.isTTY) {
+            console.log(`${renderSimpleMenu()}\n\nRun 'forge help' for examples.`);
+            return 0;
+        }
+        const selected = await promptSimpleMenu();
+        if (selected === undefined) {
+            console.log("Cancelled. No changes made.");
+            return 0;
+        }
+        return runCli(selected);
+    }
+    if (simpleRoute.kind === "help") {
+        if (simpleRoute.advanced)
+            printAdvancedHelp();
+        else
+            console.log(renderSimpleHelp());
+        return 0;
+    }
+    if (simpleRoute.kind === "build")
+        return runSimpleBuild(simpleRoute.request, simpleRoute.flags);
+    if (simpleRoute.kind === "continue")
+        return runSimpleContinue(simpleRoute.flags);
+    if (simpleRoute.kind === "status")
+        return runSimpleStatus(simpleRoute.flags);
+    if (simpleRoute.kind === "default-audit") {
+        argv = await defaultAuditArguments(simpleRoute.flags);
+        simple = true;
+    }
+    else if (simpleRoute.kind === "expert") {
+        argv = simpleRoute.argv;
+        simple = true;
+    }
     // Build-mode verbs are dispatched before any audit argument parsing so that build's distinct flag
     // surface never has to widen the audit option type, and every existing audit command is untouched.
     if (argv[0] !== undefined && BUILD_VERBS.includes(argv[0]))
@@ -63,8 +102,9 @@ export async function runCli(argv) {
     const parsed = parseArguments(argv);
     const [command, ...positionals] = parsed.positionals;
     const options = parsed.options;
+    options.simple = simple;
     if (command === undefined || command === "help" || command === "--help" || command === "-h") {
-        printHelp();
+        console.log(renderSimpleHelp());
         return 0;
     }
     if (command === "version" || command === "--version" || command === "-v") {
@@ -87,10 +127,9 @@ export async function runCli(argv) {
             global: options.global,
             dryRun: options.dryRun
         });
-        printValue({ operation: command, selector, dry_run: options.dryRun, actions }, options.json);
-        if (!options.json)
-            console.log("Build mode (new in 0.2.0): start work with `forge new` or `forge feature <slug>`. " +
-                "See docs/BUILD_MODE.md in the repository.");
+        printValue(options.json
+            ? { operation: command, selector, dry_run: options.dryRun, actions }
+            : renderInstallResult(command, selector, options.global, options.dryRun, actions), options.json);
         return 0;
     }
     if (command === "uninstall") {
@@ -99,7 +138,9 @@ export async function runCli(argv) {
             global: options.global,
             dryRun: options.dryRun
         });
-        printValue({ operation: command, selector, dry_run: options.dryRun, actions }, options.json);
+        printValue(options.json
+            ? { operation: command, selector, dry_run: options.dryRun, actions }
+            : renderInstallResult(command, selector, options.global, options.dryRun, actions), options.json);
         return actions.some((action) => action.action === "preserve-modified") ? 1 : 0;
     }
     if (command === "doctor")
@@ -123,7 +164,7 @@ export async function runCli(argv) {
         return response.exitCode;
     }
     if (!isModuleSlug(command))
-        throw new Error(`Unknown command or section '${command}'. Run 'forge help'.`);
+        throw new Error(`Unknown command or section '${command}'.${suggestCommand(command) === undefined ? "" : ` Did you mean '${suggestCommand(command)}'?`} Run 'forge help'.`);
     if (command === "ship")
         return ship(options);
     const mode = positionals[0] ?? "audit";
@@ -142,7 +183,9 @@ async function runModule(section, mode, options) {
             allowRun: options.allowRun,
             ...(options.severity === undefined ? {} : { severity: options.severity })
         });
-        printValue(response, options.json);
+        printValue(options.simple && !options.json
+            ? renderPlainFix(response, options.safe && !options.dryRun)
+            : response, options.json);
         return response.status === "PASS" ? 0 : response.status === "FAIL" ? 1 : 2;
     }
     const profile = await discoverProject(root);
@@ -245,7 +288,9 @@ async function runModule(section, mode, options) {
             evidence_complete: orchestration.evidence_complete,
             dry_run: options.dryRun
         }
-        : renderMarkdown(report), options.json);
+        : options.simple && !options.details
+            ? renderPlainReport(report, "audit")
+            : renderMarkdown(report), options.json);
     // A proven defect outranks missing evidence, so FAIL keeps exit 1. Requested evidence that could
     // not be collected exits 2: nothing failed, but the run did not prove what it was asked to prove.
     if (report.findings.some((finding) => finding.status === "FAIL"))
@@ -313,7 +358,11 @@ async function verifySection(section, root, profile, options) {
         allowRun: options.allowRun,
         dryRun: options.dryRun
     });
-    printValue(options.json ? result : renderMarkdown(result.report), options.json);
+    printValue(options.json
+        ? result
+        : options.simple && !options.details
+            ? renderPlainReport(result.report, "verify")
+            : renderMarkdown(result.report), options.json);
     if (result.report.findings.some((finding) => finding.status === "FAIL"))
         return 1;
     if (result.report.findings.some((finding) => finding.status === "BLOCKED"))
@@ -388,7 +437,11 @@ async function ship(options) {
     ], undefined, [...priorEvidenceDiagnostics, ...gateResult.evidence], [], gateResult.revision, captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION }));
     if (!options.dryRun)
         await writeReport(report);
-    printValue(options.json ? report : renderMarkdown(report), options.json);
+    printValue(options.json
+        ? report
+        : options.simple && !options.details
+            ? renderPlainReport(report, "ship")
+            : renderMarkdown(report), options.json);
     return status === "FAIL" ? 1 : status === "BLOCKED" ? 2 : 0;
 }
 function priorFindingDiagnostic(finding) {
@@ -431,35 +484,351 @@ async function doctor(options) {
     const checks = [];
     const major = Number.parseInt(process.versions.node.split(".")[0] ?? "0", 10);
     checks.push({
-        name: "Node.js current LTS baseline",
+        name: "Node.js runtime",
         status: major >= 24 ? "PASS" : "FAIL",
-        evidence: process.version
+        evidence: `${process.version} (requires 24 or newer)`,
+        ...(major >= 24 ? {} : { recovery: "Install Node.js 24 or newer, then rerun forge doctor." })
     });
+    try {
+        const git = await runFile("git", ["--version"], root, 10_000);
+        checks.push({
+            name: "Git runtime",
+            status: git.exitCode === 0 ? "PASS" : "FAIL",
+            evidence: (git.stdout || git.stderr).trim() || `exit ${git.exitCode}`,
+            ...(git.exitCode === 0 ? {} : { recovery: "Install Git and make it available on PATH." })
+        });
+    }
+    catch (error) {
+        checks.push({
+            name: "Git runtime",
+            status: "FAIL",
+            evidence: error.message,
+            recovery: "Install Git and make it available on PATH."
+        });
+    }
     for (const path of [
         "src/fullstack-forge/SKILL.md",
         "config/modules.json",
-        ".agents/skills/fullstack-forge/SKILL.md"
+        ".agents/skills/fullstack-forge/SKILL.md",
+        ".agents/skills/forge/SKILL.md"
     ]) {
         try {
             await access(join(PACKAGE_ROOT, ...path.split("/")));
             checks.push({ name: `bundled ${path}`, status: "PASS", evidence: "readable" });
         }
         catch {
-            checks.push({ name: `bundled ${path}`, status: "FAIL", evidence: "missing" });
+            checks.push({
+                name: `bundled ${path}`,
+                status: "FAIL",
+                evidence: "missing",
+                recovery: "Reinstall Fullstack Forge from a verified package or release archive."
+            });
         }
     }
-    const manifest = options.global
-        ? await readInstallManifest(homedir())
-        : await readInstallManifest(root);
+    const bundledSkills = (await readdir(join(PACKAGE_ROOT, ".agents", "skills"), { withFileTypes: true })).filter((entry) => entry.isDirectory()).length;
     checks.push({
-        name: "ownership manifest",
-        status: manifest === undefined ? "NOT_VERIFIED" : "PASS",
-        evidence: manifest === undefined
-            ? "not installed in selected root"
-            : `${Object.keys(manifest.files).length} records`
+        name: "bundled skill catalog",
+        status: bundledSkills === 46 ? "PASS" : "FAIL",
+        evidence: `${bundledSkills} skills (expected 46)`,
+        ...(bundledSkills === 46
+            ? {}
+            : { recovery: "Reinstall the complete Fullstack Forge bundle; do not copy a partial tree." })
     });
-    printValue({ root, package_root: PACKAGE_ROOT, checks }, options.json);
-    return checks.some((check) => check.status === "FAIL") ? 1 : 0;
+    const manifestRoot = options.global ? await canonicalDirectory(homedir()) : root;
+    const manifest = await readInstallManifest(manifestRoot);
+    if (manifest === undefined) {
+        checks.push({
+            name: "skill installation",
+            status: "NOT_VERIFIED",
+            evidence: `no ownership manifest in ${options.global ? "global" : "project"} scope`,
+            recovery: options.global ? "Run 'forge init all --global'." : "Run 'forge init all'."
+        });
+    }
+    else {
+        checks.push({
+            name: "installed package version",
+            status: manifest.packageVersion === VERSION ? "PASS" : "FAIL",
+            evidence: `${manifest.packageVersion} installed; ${VERSION} running`,
+            ...(manifest.packageVersion === VERSION
+                ? {}
+                : { recovery: `Run 'forge update all${options.global ? " --global" : ""}'.` })
+        });
+        let missing = 0;
+        let changed = 0;
+        for (const [relative, record] of Object.entries(manifest.files)) {
+            const target = resolveInside(manifestRoot, relative);
+            await assertNoSymlinkPath(manifestRoot, target);
+            try {
+                if (sha256(await readFile(target)) !== record.hash)
+                    changed += 1;
+            }
+            catch (error) {
+                if (error.code === "ENOENT")
+                    missing += 1;
+                else
+                    throw error;
+            }
+        }
+        const installedSkills = countInstalledSkills(manifest.files);
+        const integrityPass = missing === 0 && changed === 0 && installedSkills === 46;
+        checks.push({
+            name: "installed skill integrity",
+            status: integrityPass ? "PASS" : "FAIL",
+            evidence: `${installedSkills} skills, ${Object.keys(manifest.files).length} records, ${missing} missing, ${changed} changed`,
+            ...(integrityPass
+                ? {}
+                : {
+                    recovery: `Review modified files, then run 'forge update all${options.global ? " --global" : ""}'. Forge will not overwrite changed or unowned files.`
+                })
+        });
+        checks.push({
+            name: "agent destinations",
+            status: "PASS",
+            evidence: [...new Set(Object.values(manifest.files).map((record) => record.platform))]
+                .sort()
+                .join(", ") || "none"
+        });
+    }
+    const repositoryStatus = await runFile("git", ["status", "--short", "--branch", "--untracked-files=no"], root, 10_000);
+    checks.push({
+        name: "repository status",
+        status: "PASS",
+        evidence: repositoryStatus.exitCode === 0
+            ? repositoryStatus.stdout.trim() || "Git worktree is clean"
+            : "not a Git worktree (Forge will use a content revision and full audit scope)"
+    });
+    const projectCommands = await detectProjectCommands(root);
+    checks.push({
+        name: "project commands",
+        status: "PASS",
+        evidence: projectCommands.length === 0
+            ? "none detected (Ship cannot pass command gates by omission)"
+            : projectCommands.map((command) => command.name).join(", ")
+    });
+    let hasPlaywright = false;
+    for (const packageName of ["playwright", "playwright-core", "@playwright/test"]) {
+        try {
+            await access(join(root, "node_modules", ...packageName.split("/"), "package.json"));
+            hasPlaywright = true;
+            break;
+        }
+        catch {
+            // The browser adapter is optional. Keep checking the finite known package names.
+        }
+    }
+    checks.push({
+        name: "optional rendered-UI dependency",
+        status: "PASS",
+        evidence: hasPlaywright
+            ? "Playwright is available in this project"
+            : "not installed (optional; runtime UI checks will remain BLOCKED until available)"
+    });
+    const project = await loadProject(root);
+    checks.push({
+        name: "Build state",
+        status: "PASS",
+        evidence: project === undefined
+            ? "not initialized (valid; run 'forge build' when needed)"
+            : `${project.features.length} indexed feature(s), schema ${project.schema_version}`
+    });
+    try {
+        const report = await readReport(root, join(root, ".forge", "report.json"));
+        const currentRevision = await workingTreeRevision(root);
+        const current = report.revision !== undefined && report.revision === currentRevision;
+        checks.push({
+            name: "latest report",
+            status: current ? "PASS" : "NOT_VERIFIED",
+            evidence: `${report.scope} at ${report.generated_at} (schema ${report.schema_version}; ${current ? "current revision" : "stale or unbound revision"})`,
+            ...(current
+                ? {}
+                : { recovery: "Run 'forge audit' again to bind evidence to the current revision." })
+        });
+    }
+    catch (error) {
+        if (error.code !== "ENOENT")
+            throw error;
+        checks.push({
+            name: "latest report",
+            status: "PASS",
+            evidence: "none yet (valid; run 'forge audit' when ready)"
+        });
+    }
+    printValue(options.json
+        ? {
+            root,
+            package_root: PACKAGE_ROOT,
+            ready: checks.every((check) => check.status === "PASS"),
+            checks
+        }
+        : renderDoctor(root, checks), options.json);
+    if (checks.some((check) => check.status === "FAIL"))
+        return 1;
+    return checks.some((check) => check.status === "NOT_VERIFIED") ? 2 : 0;
+}
+async function promptSimpleMenu() {
+    const prompt = createInterface({ input: process.stdin, output: process.stdout });
+    try {
+        console.log(renderSimpleMenu());
+        const choice = await prompt.question("\nChoose 0-9: ");
+        if (choice.trim() === "1") {
+            const request = await prompt.question("What would you like to build? Leave blank to initialize the project: ");
+            return menuChoiceToArgs(choice, request.trim() === "" ? undefined : request.trim());
+        }
+        const selected = menuChoiceToArgs(choice);
+        if (selected === undefined &&
+            !["0", "q", "quit", "exit", "cancel"].includes(choice.trim().toLowerCase()))
+            throw new Error(`Unknown menu choice '${choice}'. Choose a number from 0 to 9.`);
+        return selected;
+    }
+    finally {
+        prompt.close();
+    }
+}
+async function defaultAuditArguments(flags) {
+    if (hasValueFlag(flags, "--scope"))
+        return ["all", "audit", ...flags];
+    const options = parseArguments(["all", "audit", ...flags]).options;
+    const root = await canonicalDirectory(options.cwd);
+    let scope = "full";
+    try {
+        const profile = await discoverProject(root);
+        await analyzeChangedScope(root, profile, options.base);
+        scope = "changed";
+    }
+    catch {
+        // A missing or unreliable Git base cannot safely define changed scope. Full scope is the
+        // explicit fallback; the actual audit still records every applicability decision.
+    }
+    if (!options.json)
+        console.log(scope === "changed"
+            ? "Scope selection: changed work (reliable Git base found)."
+            : "Scope selection: full applicable project (no reliable Git base found).");
+    return ["all", "audit", ...flags, "--scope", scope];
+}
+async function runSimpleBuild(request, flags) {
+    const root = await simpleRoot(flags);
+    const project = await loadProject(root);
+    if (request === undefined) {
+        if (project === undefined)
+            return runBuild(["new", ...flags, "--simple"]);
+        return runSimpleContinue(flags);
+    }
+    const safeRequest = redactToString(request);
+    let slug = featureSlugFromRequest(safeRequest);
+    const existing = await loadFeature(root, slug);
+    if (existing !== undefined && existing.summary !== safeRequest) {
+        slug = featureSlugWithCollision(safeRequest, slug);
+        const collision = await loadFeature(root, slug);
+        if (collision !== undefined && collision.summary !== safeRequest)
+            throw new Error(`Could not derive a unique safe feature ID for '${safeRequest}'. Use the expert 'forge feature <slug>' command.`);
+    }
+    return runBuild(["feature", slug, "--summary", safeRequest, ...flags, "--simple"]);
+}
+async function runSimpleContinue(flags) {
+    const root = await simpleRoot(flags);
+    const project = await loadProject(root);
+    if (project === undefined)
+        throw new Error("No Build project exists here. Run 'forge build' to initialize one.");
+    const unfinished = (await listFeatures(root))
+        .filter((feature) => !["done", "blocked", "abandoned"].includes(feature.phase))
+        .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+    if (unfinished.length === 0) {
+        if (flags.includes("--json"))
+            console.log(JSON.stringify({ operation: "continue", unfinished_features: [], next: "forge build <request>" }, null, 2));
+        else
+            console.log("No unfinished work was found.\nNext: run 'forge build \"describe your feature\"'.");
+        return 0;
+    }
+    const firstFeature = unfinished[0];
+    if (firstFeature === undefined)
+        throw new Error("Unfinished feature selection became empty.");
+    let feature = firstFeature;
+    if (unfinished.length > 1) {
+        if (!process.stdin.isTTY || !process.stdout.isTTY)
+            throw new Error(`Several features are unfinished; Forge will not guess. Choose one with the expert command:\n${unfinished.map((item) => `- forge feature ${item.slug} (${item.phase})`).join("\n")}`);
+        const prompt = createInterface({ input: process.stdin, output: process.stdout });
+        try {
+            console.log("Several features are unfinished:");
+            for (const [index, item] of unfinished.entries())
+                console.log(`  ${index + 1}. ${item.slug} (${item.phase})`);
+            const answer = await prompt.question("Choose a feature number, or 0 to cancel: ");
+            if (answer.trim() === "0") {
+                console.log("Cancelled. No changes made.");
+                return 0;
+            }
+            if (!/^\d+$/u.test(answer.trim()))
+                throw new Error(`Unknown feature choice '${answer}'. No changes were made.`);
+            const selected = Number(answer.trim());
+            const selectedFeature = unfinished[selected - 1];
+            if (selectedFeature === undefined)
+                throw new Error(`Unknown feature choice '${answer}'. No changes were made.`);
+            feature = selectedFeature;
+        }
+        finally {
+            prompt.close();
+        }
+    }
+    return runBuild(["feature", feature.slug, ...flags, "--simple"]);
+}
+async function runSimpleStatus(flags) {
+    const options = parseArguments(["status", ...flags]).options;
+    const root = await canonicalDirectory(options.cwd);
+    const manifest = await readInstallManifest(options.global ? homedir() : root);
+    const project = await loadProject(root);
+    const features = project === undefined ? [] : await listFeatures(root);
+    let report;
+    try {
+        report = await readReport(root, join(root, ".forge", "report.json"));
+    }
+    catch (error) {
+        if (error.code !== "ENOENT")
+            throw error;
+    }
+    const snapshot = {
+        root,
+        installed: manifest !== undefined,
+        installedSkills: countInstalledSkills(manifest?.files ?? {}),
+        buildInitialized: project !== undefined,
+        features: features.map((feature) => ({
+            slug: feature.slug,
+            summary: feature.summary,
+            phase: feature.phase,
+            updated_at: feature.updated_at
+        })),
+        ...(report === undefined ? {} : { report })
+    };
+    printValue(options.json ? snapshot : renderStatus(snapshot), options.json);
+    return 0;
+}
+async function simpleRoot(flags) {
+    let root = process.cwd();
+    for (let index = 0; index < flags.length; index += 1) {
+        const value = flags[index] ?? "";
+        if (value.startsWith("--root=") || value.startsWith("--cwd="))
+            root = value.slice(value.indexOf("=") + 1);
+        else if (value === "--root" || value === "--cwd") {
+            const next = flags[index + 1];
+            if (next === undefined)
+                throw new Error(`Option '${value}' requires a value`);
+            root = next;
+            index += 1;
+        }
+    }
+    return canonicalDirectory(resolve(root));
+}
+function countInstalledSkills(files) {
+    const skills = new Set();
+    for (const path of Object.keys(files)) {
+        const parts = path.split(/[\\/]+/u);
+        const index = parts.lastIndexOf("skills");
+        const name = index === -1 ? undefined : parts[index + 1];
+        if (name !== undefined)
+            skills.add(name);
+    }
+    return skills.size;
+}
+function hasValueFlag(flags, name) {
+    return flags.some((flag) => flag === name || flag.startsWith(`${name}=`));
 }
 function coverageFinding(section, observations, detail) {
     return {
@@ -555,6 +924,8 @@ function parseArguments(argv) {
     const options = {
         cwd: process.cwd(),
         json: false,
+        simple: false,
+        details: false,
         dryRun: false,
         global: false,
         offline: false,
@@ -591,6 +962,11 @@ function parseArguments(argv) {
             positionals.push(arg);
         else if (arg === "--json")
             options.json = true;
+        else if (arg === "--details")
+            options.details = true;
+        else if (arg === "--no-color") {
+            // Forge output is deliberately color-free; accept the conventional flag for accessible logs.
+        }
         else if (arg === "--dry-run")
             options.dryRun = true;
         else if (arg === "--global")
@@ -667,7 +1043,7 @@ function printValue(value, json) {
     else
         console.log(JSON.stringify(value, null, json ? 2 : 2));
 }
-function printHelp() {
+function printAdvancedHelp() {
     console.log(`Fullstack Forge ${VERSION}
 
 Usage:

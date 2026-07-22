@@ -99,6 +99,7 @@ const MAX_SCOPE_FILES = 2000;
 type BuildOptions = {
   cwd: string;
   json: boolean;
+  simple: boolean;
   dryRun: boolean;
   global: boolean;
   offline: boolean;
@@ -167,6 +168,7 @@ function parseBuildArgs(argv: string[]): BuildOptions {
   const options: BuildOptions = {
     cwd: process.cwd(),
     json: false,
+    simple: false,
     dryRun: false,
     global: false,
     offline: false,
@@ -278,6 +280,7 @@ function parseBuildArgs(argv: string[]): BuildOptions {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index] ?? "";
     if (arg === "--json") options.json = true;
+    else if (arg === "--simple") options.simple = true;
     else if (arg === "--dry-run") options.dryRun = true;
     else if (arg === "--global") options.global = true;
     else if (arg === "--offline") options.offline = true;
@@ -461,6 +464,19 @@ async function buildNew(root: string, options: BuildOptions): Promise<number> {
     designTemplate(project.product.summary),
     options.dryRun
   );
+  if (options.simple && !options.json) {
+    print(
+      [
+        options.dryRun
+          ? "Project setup preview finished — no files changed."
+          : "Build project initialized.",
+        `Project state: ${projectPath ?? ".forge/build/project.json"}`,
+        "Planning notes: .forge/build/DECISIONS.md and .forge/build/DESIGN.md",
+        "Next: run 'forge build \"describe your first feature\"'."
+      ].join("\n")
+    );
+    return 0;
+  }
   return report(options, {
     operation: "new",
     dry_run: options.dryRun,

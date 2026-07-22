@@ -109,5 +109,5 @@ async function walk(root) {
 
 function isManaged(rel) {
   const first = rel.split("/")[0] ?? "";
-  return first === "fullstack-forge" || first.startsWith("forge-");
+  return first === "fullstack-forge" || first === "forge" || first.startsWith("forge-");
 }

@@ -1,9 +1,9 @@
 # Commands
 
-The 42 audit command skills (plus the two build-mode command skills, `forge-new` and
-`forge-feature`) share one evidence protocol; the audit set collectively enumerates 957 explicit
-inspection criteria in `config/module-criteria.json`. Generation and validation require every
-criterion to appear in its canonical and platform-specific skill; a checklist item is routing
+The 42 audit command skills plus the simple `forge` router and the two expert Build skills,
+`forge-new` and `forge-feature`, share one evidence protocol; the audit set collectively enumerates
+957 explicit inspection criteria in `config/module-criteria.json`. Generation and validation require
+every criterion to appear in its canonical and platform-specific skill; a checklist item is routing
 context and never counts as evidence by itself.
 
 Each module also carries its own ordered inspection procedure from `config/module-procedures.json`
@@ -12,6 +12,14 @@ applicability opening and a shared evidence-and-findings closing, so every modul
 inspect its own domain rather than repeating one generic checklist.
 
 `fullstack-forge` and `forge` are identical executables. Node.js 24 or newer is required.
+
+## Simple product commands
+
+`forge build`, `continue`, `audit`, `fix`, `verify`, `ship`, `status`, and `help` are additive
+routes over the expert commands below. The generated `forge` Agent Skill exposes the same intent
+surface as `/forge ...`, `$forge ...`, or named skill selection according to host capability. It is
+a router, not a second evidence engine: all statuses, approvals, hashes, revisions, producers, and
+Ship independence remain enforced by the existing implementation.
 
 ## Audit modules
 

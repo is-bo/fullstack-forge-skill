@@ -195,10 +195,12 @@ export async function validateBundledSkills(): Promise<{
         join(PACKAGE_ROOT, "src", "fullstack-forge", "commands", `forge-${slug}`, "SKILL.md")
       );
   }
-  // Build-mode command skills carry the generic contract checks but have no
+  // Product-router and Build-mode command skills carry the generic contract checks but have no
   // per-slug inspection criteria, so they are appended after the audit set.
-  for (const buildCommand of ["forge-new", "forge-feature"]) {
-    paths.push(join(PACKAGE_ROOT, "src", "fullstack-forge", "commands", buildCommand, "SKILL.md"));
+  for (const workflowCommand of ["forge", "forge-new", "forge-feature"]) {
+    paths.push(
+      join(PACKAGE_ROOT, "src", "fullstack-forge", "commands", workflowCommand, "SKILL.md")
+    );
   }
   for (const [index, path] of paths.entries()) {
     let content: string;

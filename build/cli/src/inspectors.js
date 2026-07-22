@@ -2,7 +2,7 @@ import { readdir } from "node:fs/promises";
 import { basename, extname, join, relative } from "node:path";
 import { runAnalyzers } from "./analyzers.js";
 import { MODULE_SLUGS, SECTION_CAPABILITY } from "./constants.js";
-import { lineNumber, readTextIfPresent, toPosix, utcNow, walkFiles } from "./utils.js";
+import { isTestSourcePath, lineNumber, readTextIfPresent, toPosix, utcNow, walkFiles } from "./utils.js";
 const EXCLUDED = new Set([
     ".git",
     ".forge",
@@ -331,9 +331,11 @@ async function scanSecretPatterns(root, scope) {
             pattern.regex.lastIndex = 0;
             for (const match of content.matchAll(pattern.regex)) {
                 const candidate = match[1] ?? match[0];
-                if (isPlaceholder(candidate))
-                    continue;
                 const path = toPosix(relative(root, file));
+                if (isPlaceholder(candidate) ||
+                    isExplicitlySyntheticTestValue(candidate, path) ||
+                    (pattern.confidence === "LOW" && isTestSourcePath(path)))
+                    continue;
                 const line = lineNumber(content, match.index);
                 observations.push({
                     category: "secret-pattern",
@@ -512,6 +514,12 @@ function isPlaceholder(value) {
     return (value.length === 0 ||
         /^(?:your[-_ ]|example|sample|test|dummy|placeholder|changeme|xxx|<|\$\{|\*+)/iu.test(value) ||
         /example\.com/iu.test(value));
+}
+function isExplicitlySyntheticTestValue(value, path) {
+    if (!isTestSourcePath(path))
+        return false;
+    const normalized = value.toLowerCase();
+    return ["example", "fake", "fixture", "placeholder", "redacted", "sentinel", "test"].some((marker) => normalized.includes(marker));
 }
 function notApplicableFinding(section, capability) {
     return {

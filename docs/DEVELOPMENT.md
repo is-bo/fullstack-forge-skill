@@ -21,9 +21,9 @@ retrying.
 
 ## Scripts
 
-- `npm run generate`: render 42 audit command skills (`generate-modules.mjs`), render the two build
-  command skills and every `references/build/<slug>.md` discipline brief (`generate-build.mjs`), and
-  synchronize all platform roots (`sync-platform-assets.mjs`).
+- `npm run generate`: render 42 audit command skills (`generate-modules.mjs`), render the simple
+  `forge` router, two expert Build command skills, and every `references/build/<slug>.md` discipline
+  brief (`generate-build.mjs`), and synchronize all platform roots (`sync-platform-assets.mjs`).
 - `npm run build`: generate and compile the CLI.
 - `npm run test`: build and run Node's test runner.
 - `npm run validate`: validate skill structure, metadata, schemas, and required files.
