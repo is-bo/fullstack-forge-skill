@@ -17,14 +17,13 @@ import { expectedSlugs, projectRoot } from "../project.mjs";
  * file proves exactly two things and is explicit about the boundary between them:
  *
  *  1. (deterministic) The real CLI state machine enforces the mechanical guarantees each scenario
- *     depends on: tier and disciplines persist as recorded, a discipline the CLI's fixed
- *     security-control set locks at high tier can never be risk-accepted or silently passed, a
- *     discipline outside that set can be risk-accepted (and is never rendered as PASS), and a
- *     legitimately absent capability (the cache-justification scenario's "no Redis needed") is
- *     accepted as a complete answer via an auto-derived NOT_APPLICABLE, not a workaround.
+ *     depends on: tier and disciplines persist as recorded, the current gate plan is authoritative
+ *     about waiver policy, every high-tier discipline must be proved directly, eligible
+ *     operational acceptances name an accountable actor (and are never rendered as PASS), and a
+ *     legitimately absent cache is excluded only when the feature did not explicitly select it.
  *  2. (structural) evals/build-cases.json itself is well-formed: every scenario names a real
  *     entry point, real disciplines, real build-briefs, and an honest_completion contract whose
- *     never_waivable_at_high_tier list is consistent with the CLI's own security-control set.
+ *     never_waivable_at_high_tier list is consistent with the CLI's high-tier gate policy.
  *
  * Whether an agent actually derives the right tier/disciplines from the prompt, and produces the
  * concrete evidence (negative tests, hostile-file fixtures, rendered UI states, adversarial
@@ -156,7 +155,7 @@ test("build-cases.json covers the exact 11 required prevention scenarios", async
 });
 
 test("every scenario declares a well-formed entry point, tier, disciplines, and briefs", async () => {
-  const { BUILD_TIERS, SECURITY_DISCIPLINES } = await loadBuildModule("build-state.js");
+  const { BUILD_TIERS } = await loadBuildModule("build-state.js");
   const cases = await loadCases();
   const slugSet = new Set(expectedSlugs);
   for (const entry of cases) {
@@ -198,9 +197,9 @@ test("every scenario declares a well-formed entry point, tier, disciplines, and 
       assert.ok(entry.verification.deterministic_summary.length > 40);
       assert.ok(entry.verification.manual_notes.length > 40);
 
-      // The never_waivable_at_high_tier list is not free text: every entry must be a
-      // `discipline:<slug>` criterion for a discipline this scenario actually selected, that is
-      // in the CLI's fixed security-control set, at a tier where the lock actually applies.
+      // The never_waivable_at_high_tier list is not free text. At high tier every selected
+      // discipline is a required, non-waivable gate; below high tier this high-tier-only list is
+      // empty and the runtime gate plan still decides any tier-independent waiver restrictions.
       const selectedSlugs = new Set(entry.expected_disciplines.map((d) => d.slug));
       for (const criterion of entry.honest_completion.never_waivable_at_high_tier) {
         const match = /^discipline:([a-z0-9-]+)$/u.exec(criterion);
@@ -210,16 +209,16 @@ test("every scenario declares a well-formed entry point, tier, disciplines, and 
           selectedSlugs.has(slug),
           `${entry.id}: never-waivable discipline '${slug}' was not selected by this scenario`
         );
-        assert.ok(
-          SECURITY_DISCIPLINES.has(slug),
-          `${entry.id}: '${slug}' is not in the CLI's SECURITY_DISCIPLINES set, so it cannot be never-waivable`
-        );
-        assert.equal(
-          entry.expected_tier,
-          "high",
-          `${entry.id}: the high-tier lock only applies at tier 'high', not '${entry.expected_tier}'`
-        );
       }
+      const expectedHighTierLocks =
+        entry.expected_tier === "high"
+          ? [...selectedSlugs].map((slug) => `discipline:${slug}`).sort()
+          : [];
+      assert.deepEqual(
+        [...entry.honest_completion.never_waivable_at_high_tier].sort(),
+        expectedHighTierLocks,
+        `${entry.id}: high-tier lock metadata must match the current gate policy`
+      );
     });
   }
 });
@@ -309,7 +308,12 @@ test("the real CLI state machine enforces every scenario's honest-completion con
             `${scenario.id}: '${record.criterion}' unexpectedly FAIL against a safe fixture (${record.evidence[0]})`
           );
 
-        const lockedCriteria = new Set(scenario.honest_completion.never_waivable_at_high_tier);
+        const lockedCriteria = new Set(
+          (feature.gate_plan?.gates ?? [])
+            .filter((gate) => gate.waiver_policy === "never")
+            .flatMap((gate) => gate.criteria)
+            .filter((criterion) => criterion.startsWith("discipline:"))
+        );
         for (const discipline of scenario.expected_disciplines) {
           const criterion = `discipline:${discipline.slug}`;
           const record = feature.evidence.find((entry) => entry.criterion === criterion);
@@ -333,7 +337,7 @@ test("the real CLI state machine enforces every scenario's honest-completion con
                 "--root",
                 root
               ]),
-              /required security control at high tier/u,
+              /non-waivable in the current gate plan/u,
               `${scenario.id}: accept-risk must be refused for locked criterion ${criterion}`
             );
           } else {
@@ -344,7 +348,9 @@ test("the real CLI state machine enforces every scenario's honest-completion con
               "--criterion",
               criterion,
               "--reason",
-              "recorded for the prevention eval; not a security control at this tier",
+              "recorded for the prevention eval under the current operational gate policy",
+              "--actor",
+              "prevention-eval-reviewer",
               "--root",
               root
             ]);
@@ -388,7 +394,7 @@ test("the real CLI state machine enforces every scenario's honest-completion con
           assert.match(done.out, /done refused/u);
           assert.ok(
             missing.some((item) =>
-              [...lockedCriteria].some((criterion) => item.startsWith(criterion))
+              [...lockedCriteria].some((criterion) => item.includes(`${criterion}:`))
             ),
             `${scenario.id}: missing_for_done must actionably name the locked criterion`
           );
@@ -405,7 +411,7 @@ test("the real CLI state machine enforces every scenario's honest-completion con
   }
 });
 
-test("cache-justification: an absent cache/Redis signal auto-resolves NOT_APPLICABLE and done needs no risk acceptance", async () => {
+test("an absent cache is excluded when the feature does not explicitly select cache", async () => {
   const { runBuild } = await loadBuildModule("build.js");
   const { loadFeature } = await loadBuildModule("build-state.js");
   const cases = await loadCases();
@@ -413,32 +419,30 @@ test("cache-justification: an absent cache/Redis signal auto-resolves NOT_APPLIC
   assert.ok(scenario);
 
   await withTemporaryProject("cache-not-applicable", async (root) => {
+    const featureSlug = "database-backed-dashboard";
     await writeFile(join(root, "app.ts"), TRIVIAL_SOURCE, "utf8");
     await captureRun(runBuild, [
       "feature",
-      scenario.feature_slug,
+      featureSlug,
       "--tier",
       scenario.expected_tier,
       "--summary",
-      scenario.title,
-      "--discipline",
-      "cache:evaluate whether caching is justified",
+      "Keep the existing database-backed dashboard query",
       "--touch",
       "app.ts",
       "--root",
       root
     ]);
-    await captureRun(runBuild, ["feature", scenario.feature_slug, "check", "--root", root]);
-    const feature = await loadFeature(root, scenario.feature_slug);
-    const record = feature.evidence.find((entry) => entry.criterion === "discipline:cache");
-    assert.equal(record?.status, "NOT_APPLICABLE");
-    assert.match(record?.not_applicable_reason ?? "", /absent/u);
-
-    // No accept-risk call happened, yet the missing discipline never blocks anything further --
-    // rejecting unnecessary Redis is the PASS-equivalent outcome, not a gap to talk around.
-    const doneReady = feature.evidence.every(
-      (entry) => entry.status === "PASS" || entry.status === "NOT_APPLICABLE"
+    await captureRun(runBuild, ["feature", featureSlug, "check", "--root", root]);
+    const feature = await loadFeature(root, featureSlug);
+    const decision = feature.applicability_snapshot?.decisions.find(
+      (entry) => entry.discipline === "cache"
     );
-    assert.ok(doneReady, "every criterion should already be satisfied without any risk acceptance");
+    assert.equal(decision?.status, "EXCLUDED");
+    assert.ok(!feature.applicability_snapshot?.required.includes("cache"));
+    assert.ok(!feature.gate_plan?.required_criteria.includes("discipline:cache"));
+    const cacheEvidence = feature.evidence.find((entry) => entry.criterion === "discipline:cache");
+    assert.equal(cacheEvidence?.status, "NOT_APPLICABLE");
+    assert.match(cacheEvidence?.not_applicable_reason ?? "", /absent/u);
   });
 });
