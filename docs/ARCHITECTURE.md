@@ -91,6 +91,9 @@ flowchart TD
   keyboard, accessibility, overflow, and design-direction observations into Build criteria.
 - `build-migration.ts` performs explicit, journaled schema-v1 to schema-v2 migration with complete
   pre-validation, hash-bound byte backups, atomic writes, resume, and rollback.
+- `build-migration-journal.ts` owns the exact journal, entry, hash, backup-mapping, and lifecycle
+  validator shared by migration commands and ordinary Build loads, so a malformed terminal status
+  cannot bypass the interrupted-migration guard.
 - `build-state.ts` defines the `.forge/build/project.json` and `.forge/build/features/<slug>.json`
   shapes, validates them fail-closed on every load (mirroring `readReport`), sanitizes
   agent-authored free text through the redaction layer before persisting, and re-verifies positive

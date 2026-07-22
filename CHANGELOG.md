@@ -3,7 +3,7 @@
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic
 versioning.
 
-## [0.3.0] - 2026-07-21
+## [0.3.0] - 2026-07-22
 
 ### Added — verifiable Build completion
 
