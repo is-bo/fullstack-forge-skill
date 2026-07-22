@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "id": "basic-executable-change",
+  "title": "A registered behavior test proves a basic executable change",
+  "kind": "producer-pass",
+  "expected_status": "PASS",
+  "task": "Run the registered behavior producer against a complete synthetic input manifest."
+}

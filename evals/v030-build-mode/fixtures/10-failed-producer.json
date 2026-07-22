@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "id": "failed-producer",
+  "title": "A nonzero registered producer remains a failure",
+  "kind": "producer-failure",
+  "expected_status": "FAIL",
+  "task": "Preserve a failed payment-webhook producer result as FAIL."
+}

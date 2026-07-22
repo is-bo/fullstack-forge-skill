@@ -1027,9 +1027,9 @@
     "Clearly mark blocked and not-verified checks"
   ],
   "ship": [
-    "Format, lint, typecheck, unit, integration, end-to-end, and production build gates",
+    "Current format, lint, typecheck, unit, integration, end-to-end, and production build gates with registered root/revision/input-bound evidence",
     "Skill validation and platform asset synchronization",
-    "Security, dependency, migration, authorization, and upload-security checks",
+    "Current security, dependency, migration, authorization, and upload-security checks re-derived independently of prior report outcomes",
     "Package, archive, license, attribution, and installation smoke validation",
     "Open critical findings block release",
     "Required open high-severity findings block release",

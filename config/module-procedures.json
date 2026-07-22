@@ -289,7 +289,7 @@
     "Rank the combined findings by severity, confidence, effort, and impact, and emit a prioritized remediation plan with blocked and unverified checks stated plainly."
   ],
   "ship": [
-    "Assemble the gate inputs: latest audit findings, test and build results, skill validation, platform synchronization, packaging, and license checks — each from a real execution, not memory.",
+    "Re-discover and re-inspect a stable current working-tree revision, keeping prior report outcomes as diagnostics only; assemble fresh inspector evidence, authorized command results, skill validation, platform synchronization, packaging, and license checks from registered root/revision/artifact-bound producers, not memory.",
     "Fail the gate on any open CRITICAL finding, any required failing check, or any required high-risk check still `NOT_VERIFIED`; never downgrade a status to proceed.",
     "Verify packaging integrity: archives build deterministically, contain no symlinks or excluded content, and match their checksums.",
     "Run the installation smoke test from the packed artifact in a clean directory.",

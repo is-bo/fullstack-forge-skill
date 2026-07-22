@@ -36,6 +36,15 @@ Record the smallest reproducible evidence:
 Never include secrets, raw credentials, full personal records, or unnecessary payloads. Redact a
 value without erasing the fact that the value was observed.
 
+Release-significant Audit and Ship evidence uses the v0.3 typed envelope. A record is eligible only
+when its domain, registered producer/version/contract, exact criterion/status, canonical root,
+working-tree revision, production/expiry times, outer-claim digest, and one-to-one
+path/SHA-256/media-type artifacts verify. Registered command evidence also binds its detected
+definition, argv, input manifest, exit code, duration, and output digest. Re-hash artifacts at
+consumption. Treat legacy, expired, cross-root/revision, unregistered, malformed, changed, and
+Build-domain records as diagnostics, never release proof. The envelope proves local integrity and
+freshness; it does not expand the producer's bounded coverage or serve as an external signature.
+
 ## Finding lifecycle
 
 Use a stable module prefix and monotonically increasing suffix. Preserve an identifier across

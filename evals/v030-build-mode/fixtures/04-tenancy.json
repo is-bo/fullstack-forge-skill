@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "id": "tenancy",
+  "title": "Tenant-owned data requires a cross-tenant denial test",
+  "kind": "required-gate",
+  "disciplines": ["tenancy"],
+  "gate_id": "FF-BUILD-GATE-TENANCY-ISOLATION",
+  "expected_status": "NOT_VERIFIED",
+  "task": "Do not pass tenant isolation when no cross-tenant evidence was produced."
+}

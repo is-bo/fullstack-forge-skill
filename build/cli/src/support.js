@@ -236,7 +236,9 @@ export function renderSupportRegistryMarkdown() {
 
 This file is rendered from the executable registry in \`cli/src/support.ts\`. The test suite fails if
 documentation and runtime support diverge. “Executable” remains bounded by the listed unsupported
-shapes and never implies whole-program or runtime proof.
+shapes and never implies whole-program or runtime proof. Build-mode producer coverage is a separate,
+exact \`(script, criterion)\` registry in \`cli/src/build-producers.ts\`; an analyzer row does not by
+itself authorize a Build \`PASS\`, and missing producers remain \`NOT_VERIFIED\`.
 
 ${renderRow(header)}
 ${separator}

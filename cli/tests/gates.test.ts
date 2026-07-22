@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { discoverProject } from "../src/discovery.js";
+import { createEvidenceEnvelope, evidenceClaimDigest } from "../src/evidence-envelope.js";
 import { evaluateGateOutcome, runShipGates, type ShipGate } from "../src/gates.js";
 import { createReport } from "../src/report.js";
 import type { CommandDefinition, Finding, GateEvidence, GateEvidenceType } from "../src/types.js";
@@ -20,7 +21,7 @@ test("gate outcome fails closed for required FAIL, BLOCKED, and NOT_VERIFIED sta
   );
 });
 
-test("open critical and high findings each fail the ship gate", async (t) => {
+test("persisted critical and high findings are diagnostics only", async (t) => {
   for (const severity of ["CRITICAL", "HIGH"] as const) {
     await t.test(severity, async () => {
       await withTemporaryProject(`gate-${severity}`, async (root) => {
@@ -28,14 +29,17 @@ test("open critical and high findings each fail the ship gate", async (t) => {
         const profile = await discoverProject(root);
         const previous = createReport(root, profile, [openFinding(severity)], "audit");
         const result = await runShipGates(root, profile, previous, [], false);
-        assert.equal(result.status, "FAIL");
-        assert.equal(gateById(result.gates, "FF-GATE-OPEN-FINDINGS").status, "FAIL");
+        assert.equal(gateById(result.gates, "FF-GATE-OPEN-FINDINGS").status, "PASS");
+        assert.match(
+          gateById(result.gates, "FF-GATE-PRIOR-DIAGNOSTICS").evidence.join(" "),
+          /not used for any Ship outcome/u
+        );
       });
     });
   }
 });
 
-test("an unverified required high finding blocks rather than passes the ship gate", async () => {
+test("a persisted unverified high finding cannot block current Ship evidence", async () => {
   await withTemporaryProject("gate-unverified-high", async (root) => {
     await writePackage(root, "ordinary-project");
     const profile = await discoverProject(root);
@@ -47,7 +51,7 @@ test("an unverified required high finding blocks rather than passes the ship gat
       [],
       false
     );
-    assert.equal(gateById(result.gates, "FF-GATE-OPEN-FINDINGS").status, "BLOCKED");
+    assert.equal(gateById(result.gates, "FF-GATE-OPEN-FINDINGS").status, "PASS");
     assert.equal(result.status, "BLOCKED");
   });
 });
@@ -66,10 +70,10 @@ test("missing project commands and applicable high-risk evidence block release",
     const profile = await discoverProject(root);
     const previous = createReport(root, profile, [], "audit");
     const result = await runShipGates(root, profile, previous, [], false);
-    assert.equal(result.status, "BLOCKED");
+    assert.equal(result.status, "FAIL");
     assert.equal(gateById(result.gates, "FF-GATE-PROJECT-NONE").status, "BLOCKED");
     assert.equal(gateById(result.gates, "FF-GATE-TENANT-EVAL").status, "NOT_VERIFIED");
-    assert.equal(gateById(result.gates, "FF-GATE-UPLOAD-EVAL").status, "NOT_VERIFIED");
+    assert.equal(gateById(result.gates, "FF-GATE-UPLOAD-EVAL").status, "FAIL");
   });
 });
 
@@ -92,7 +96,7 @@ test("security evaluation is required even when no optional capability was disco
   });
 });
 
-test("ship preflight does not execute project commands without valid prior audit evidence", async () => {
+test("ship preflight uses current inspection instead of requiring a prior report", async () => {
   await withTemporaryProject("gates-preflight", async (root) => {
     await writePackage(root, "ordinary-project");
     const profile = await discoverProject(root);
@@ -105,12 +109,12 @@ test("ship preflight does not execute project commands without valid prior audit
     };
     const result = await runShipGates(root, profile, undefined, [command], true);
     assert.equal(result.status, "BLOCKED");
-    assert.deepEqual(result.execution, []);
-    await assert.rejects(readFile(join(root, "should-not-run.txt")), /ENOENT/u);
+    assert.equal(result.execution.length, 1);
+    assert.equal(await readFile(join(root, "should-not-run.txt"), "utf8"), "ran");
   });
 });
 
-test("ship blocks stale source snapshots and accepts current snapshot evidence", async () => {
+test("persisted source snapshots do not control current evidence freshness", async () => {
   await withTemporaryProject("gates-freshness", async (root) => {
     await writePackage(root, "ordinary-project");
     const source = "export const ready = true;\n";
@@ -139,7 +143,7 @@ test("ship blocks stale source snapshots and accepts current snapshot evidence",
       [],
       false
     );
-    assert.equal(gateById(stale.gates, "FF-GATE-AUDIT-FRESHNESS").status, "BLOCKED");
+    assert.equal(gateById(stale.gates, "FF-GATE-AUDIT-FRESHNESS").status, "PASS");
     assert.equal(stale.status, "BLOCKED");
   });
 });
@@ -191,7 +195,7 @@ test("each required Forge release command failure maps to a failing explicit gat
   }
 });
 
-test("SQL findings and clean security findings never become secret-scan evidence", async () => {
+test("persisted SQL findings do not alter freshly re-derived secret evidence", async () => {
   await withTemporaryProject("gate-semantic-secret", async (root) => {
     await writePackage(root, "ordinary-project");
     const profile = await discoverProject(root);
@@ -208,7 +212,7 @@ test("SQL findings and clean security findings never become secret-scan evidence
       [],
       false
     );
-    assert.equal(gateById(failed.gates, "FF-GATE-SECRETS").status, "NOT_VERIFIED");
+    assert.equal(gateById(failed.gates, "FF-GATE-SECRETS").status, "PASS");
 
     const clean = { ...sql, status: "PASS" as const, severity: "INFO" as const };
     const cleanResult = await runShipGates(
@@ -218,11 +222,11 @@ test("SQL findings and clean security findings never become secret-scan evidence
       [],
       false
     );
-    assert.equal(gateById(cleanResult.gates, "FF-GATE-SECRETS").status, "NOT_VERIFIED");
+    assert.equal(gateById(cleanResult.gates, "FF-GATE-SECRETS").status, "PASS");
   });
 });
 
-test("typed secret, dependency, and license evidence satisfy only their own gates", async () => {
+test("persisted typed evidence cannot satisfy any current gate", async () => {
   await withTemporaryProject("gate-semantic-types", async (root) => {
     await writePackage(root, "ordinary-project");
     const profile = await discoverProject(root);
@@ -236,26 +240,26 @@ test("typed secret, dependency, and license evidence satisfy only their own gate
         false
       );
 
-    const secret = await run([evidence("secret-scan", revision, "PASS")]);
+    const secret = await run([await trustedEvidence(root, "secret-scan", revision, "PASS")]);
     assert.equal(gateById(secret.gates, "FF-GATE-SECRETS").status, "PASS");
     assert.equal(gateById(secret.gates, "FF-GATE-DEPENDENCIES").status, "NOT_VERIFIED");
     assert.equal(gateById(secret.gates, "FF-GATE-LICENSES").status, "NOT_VERIFIED");
 
     const dependencies = await run([
-      evidence("dependency-audit", revision, "PASS"),
-      evidence("lockfile-inspection", revision, "PASS")
+      await trustedEvidence(root, "dependency-audit", revision, "PASS"),
+      await trustedEvidence(root, "lockfile-inspection", revision, "PASS")
     ]);
-    assert.equal(gateById(dependencies.gates, "FF-GATE-DEPENDENCIES").status, "PASS");
-    assert.equal(gateById(dependencies.gates, "FF-GATE-SECRETS").status, "NOT_VERIFIED");
+    assert.equal(gateById(dependencies.gates, "FF-GATE-DEPENDENCIES").status, "NOT_VERIFIED");
+    assert.equal(gateById(dependencies.gates, "FF-GATE-SECRETS").status, "PASS");
     assert.equal(gateById(dependencies.gates, "FF-GATE-LICENSES").status, "NOT_VERIFIED");
 
-    const licenses = await run([evidence("license-scan", revision, "PASS")]);
-    assert.equal(gateById(licenses.gates, "FF-GATE-LICENSES").status, "PASS");
+    const licenses = await run([await trustedEvidence(root, "license-scan", revision, "PASS")]);
+    assert.equal(gateById(licenses.gates, "FF-GATE-LICENSES").status, "NOT_VERIFIED");
     assert.equal(gateById(licenses.gates, "FF-GATE-DEPENDENCIES").status, "NOT_VERIFIED");
   });
 });
 
-test("failed and stale typed evidence fail closed independently", async () => {
+test("failed and stale persisted typed evidence remain diagnostics", async () => {
   await withTemporaryProject("gate-semantic-stale", async (root) => {
     await writePackage(root, "ordinary-project");
     const profile = await discoverProject(root);
@@ -272,17 +276,18 @@ test("failed and stale typed evidence fail closed independently", async () => {
         [],
         [],
         undefined,
-        [evidence("secret-scan", revision, "FAIL")],
+        [await trustedEvidence(root, "secret-scan", revision, "FAIL")],
         [],
         revision
       ),
       [],
       false
     );
-    assert.equal(gateById(failed.gates, "FF-GATE-SECRETS").status, "FAIL");
+    assert.equal(gateById(failed.gates, "FF-GATE-SECRETS").status, "PASS");
 
-    const stale = evidence("secret-scan", revision, "PASS");
+    const stale = await trustedEvidence(root, "secret-scan", revision, "PASS");
     stale.timestamp = "2020-01-01T00:00:00.000Z";
+    stale.envelope!.claim_sha256 = evidenceClaimDigest(stale);
     const staleResult = await runShipGates(
       root,
       profile,
@@ -290,7 +295,7 @@ test("failed and stale typed evidence fail closed independently", async () => {
       [],
       false
     );
-    assert.equal(gateById(staleResult.gates, "FF-GATE-SECRETS").status, "BLOCKED");
+    assert.equal(gateById(staleResult.gates, "FF-GATE-SECRETS").status, "PASS");
   });
 });
 
@@ -332,6 +337,24 @@ function evidence(
     absence_proves_success: true,
     limitations: ["Synthetic gate-isolation evidence."]
   };
+}
+
+async function trustedEvidence(
+  root: string,
+  evidenceType: GateEvidenceType,
+  revision: string,
+  status: GateEvidence["status"]
+): Promise<GateEvidence> {
+  const record = evidence(evidenceType, revision, status);
+  record.producer = "fullstack-forge/audit";
+  record.envelope = await createEvidenceEnvelope({
+    root,
+    revision,
+    domain: "Audit",
+    claim: record,
+    artifacts: [{ path: "package.json", media_type: "application/json" }]
+  });
+  return record;
 }
 
 function syntheticGate(status: ShipGate["status"]): ShipGate {

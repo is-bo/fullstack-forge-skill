@@ -1,4 +1,4 @@
-export declare const VERSION = "0.2.0";
+export declare const VERSION = "0.3.0";
 export declare const PACKAGE_ROOT: string;
 export declare const MODULE_SLUGS: readonly ["discover", "requirements", "architecture", "code", "ui", "ux", "accessibility", "i18n", "seo", "frontend", "api", "jobs", "integrations", "auth", "authorization", "security", "privacy", "tenancy", "uploads", "database", "queries", "cache", "storage", "testing", "performance", "scale", "observability", "reliability", "recovery", "deployment", "infrastructure", "supply-chain", "cost", "docs", "analytics", "notifications", "ai", "payments", "realtime", "offline", "all", "ship"];
 export type ModuleSlug = (typeof MODULE_SLUGS)[number];
@@ -6,7 +6,7 @@ export type ModuleSlug = (typeof MODULE_SLUGS)[number];
  * Build-mode verbs, dispatched before module-slug parsing. `feature` takes a slug and an optional
  * reserved sub-verb. These names are reserved so a feature slug can never shadow a command.
  */
-export declare const BUILD_VERBS: readonly ["new", "feature", "resume"];
+export declare const BUILD_VERBS: readonly ["new", "feature", "resume", "migrate"];
 export declare const BUILD_SUB_VERBS: readonly ["frame", "plan", "check", "done", "accept-risk", "abandon", "status"];
 export declare const PLATFORM_CONFIG: {
     readonly agents: {
@@ -60,5 +60,5 @@ export declare const PLATFORM_ALIASES: {
 };
 export declare const TOOL_NAMES: readonly ["detect-stack", "discover-project", "detect-project-commands", "run-project-command", "inspect-env-template", "scan-secret-patterns", "inspect-routes", "inspect-auth-boundaries", "inspect-authorization", "inspect-upload-pipeline", "inspect-database-schema", "inspect-query-patterns", "inspect-cache-usage", "inspect-dependencies", "inspect-ci", "inspect-deployment-config", "inspect-platform-skills", "inspect-rendered-ui", "generate-report", "validate-finding-schema", "validate-skill", "sync-platform-assets", "check-platform-assets", "package-platforms", "smoke-install"];
 export type ToolName = (typeof TOOL_NAMES)[number];
-export declare const ALWAYS_APPLICABLE: Set<"docs" | "authorization" | "uploads" | "payments" | "database" | "tenancy" | "cache" | "jobs" | "storage" | "ai" | "realtime" | "notifications" | "analytics" | "observability" | "offline" | "security" | "auth" | "queries" | "integrations" | "accessibility" | "frontend" | "deployment" | "all" | "discover" | "requirements" | "architecture" | "code" | "ui" | "ux" | "i18n" | "seo" | "api" | "privacy" | "testing" | "performance" | "scale" | "reliability" | "recovery" | "infrastructure" | "supply-chain" | "cost" | "ship">;
+export declare const ALWAYS_APPLICABLE: Set<"docs" | "authorization" | "uploads" | "payments" | "database" | "tenancy" | "cache" | "jobs" | "storage" | "ai" | "realtime" | "notifications" | "analytics" | "observability" | "offline" | "discover" | "requirements" | "architecture" | "code" | "ui" | "ux" | "accessibility" | "i18n" | "seo" | "frontend" | "api" | "integrations" | "auth" | "security" | "privacy" | "queries" | "testing" | "performance" | "scale" | "reliability" | "recovery" | "deployment" | "infrastructure" | "supply-chain" | "cost" | "all" | "ship">;
 export declare const SECTION_CAPABILITY: Partial<Record<ModuleSlug, string>>;

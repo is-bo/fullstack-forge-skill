@@ -32,7 +32,7 @@ the decision.
 ## Inputs from project discovery
 
 - project profile
-- finding reports
+- prior finding reports as historical diagnostics
 - detected project commands
 - package and license manifests
 
@@ -43,7 +43,7 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 ## Inspection procedure
 
 1. Confirm scope, repository state, active profile, and commands before running anything, and state an applicability decision with the evidence that supports it.
-2. Assemble the gate inputs: latest audit findings, test and build results, skill validation, platform synchronization, packaging, and license checks — each from a real execution, not memory.
+2. Re-discover and re-inspect a stable current working-tree revision, keeping prior report outcomes as diagnostics only; assemble fresh inspector evidence, authorized command results, skill validation, platform synchronization, packaging, and license checks from registered root/revision/artifact-bound producers, not memory.
 3. Fail the gate on any open CRITICAL finding, any required failing check, or any required high-risk check still `NOT_VERIFIED`; never downgrade a status to proceed.
 4. Verify packaging integrity: archives build deterministically, contain no symlinks or excluded content, and match their checksums.
 5. Run the installation smoke test from the packed artifact in a clean directory.
@@ -56,9 +56,9 @@ predicate must be proven at the final boundary it protects.
 
 ### Concrete checks
 
-- Run applicable format, lint, type, unit, integration, end-to-end, build, security, dependency, migration, authorization, upload, and validation checks
+- Re-discover and inspect the stable current revision, then run applicable format, lint, type, unit, integration, end-to-end, build, security, dependency, migration, authorization, upload, and validation checks
 - Check canonical/generated synchronization, deterministic packaging, checksums, attribution, and clean installation
-- Fail for open critical or required high findings, failed gates, incomplete packages, or required high-risk NOT_VERIFIED checks
+- Fail for open critical or required high findings, failed gates, unregistered or stale evidence, incomplete packages, or required high-risk NOT_VERIFIED checks
 
 ## Required inspection criteria
 
@@ -66,9 +66,9 @@ For every applicable criterion below, attach direct evidence or record a reasone
 `NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
 evidence by itself.
 
-- Format, lint, typecheck, unit, integration, end-to-end, and production build gates
+- Current format, lint, typecheck, unit, integration, end-to-end, and production build gates with registered root/revision/input-bound evidence
 - Skill validation and platform asset synchronization
-- Security, dependency, migration, authorization, and upload-security checks
+- Current security, dependency, migration, authorization, and upload-security checks re-derived independently of prior report outcomes
 - Package, archive, license, attribution, and installation smoke validation
 - Open critical findings block release
 - Required open high-severity findings block release

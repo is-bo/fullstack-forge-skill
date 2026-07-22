@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "id": "v1-v2-rollback",
+  "title": "A synthetic v1 Build state migrates to v2 and restores exactly",
+  "kind": "migration-rollback",
+  "expected_status": "PASS",
+  "task": "Migrate a synthetic v1 project and feature, then roll back to their exact original bytes."
+}

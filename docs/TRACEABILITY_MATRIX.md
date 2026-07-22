@@ -10,11 +10,11 @@ Summaries here are original wording. No authoritative source text is quoted or r
 
 ## Requirement count
 
-75 requirements.
+81 requirements.
 
 ## Status summary
 
-- **COMPLIANT**: 37
+- **COMPLIANT**: 43
 - **PARTIALLY_COMPLIANT**: 36
 - **NOT_VERIFIED**: 2
 
@@ -67,6 +67,66 @@ Before release, branding is validated for working image paths, useful alternativ
 - **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
 - **Pending integration**: _none_
 - **Limitations**: Paths, alternative text, and byte budgets are enforced automatically; how GitHub finally renders the images is observed manually and not asserted in CI.
+
+### FF-BUILD-01
+
+Build project and feature state records a complete schema-versioned product frame, lifecycle, selection history, applicability, gates, and evidence without treating recorded planning as proof.
+
+- **Status**: COMPLIANT
+- **Implementation**: `cli/src/build.ts`, `cli/src/build-state.ts`, `src/fullstack-forge/schemas/build-project.schema.json`, `src/fullstack-forge/schemas/build-feature.schema.json`
+- **Tests**: `cli/tests/build.test.ts`, `cli/tests/build-state.test.ts`
+- **Documentation**: `docs/BUILD_MODE.md`, `docs/CLI_REFERENCE.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.3.0.md`
+- **Pending integration**: _none_
+- **Limitations**: Frame and plan record user or agent inputs; the CLI validates structure and later evidence but cannot grade the quality of product reasoning.
+
+### FF-BUILD-02
+
+A Build PASS is accepted only from an exact registered producer with a typed, current root/revision/input/artifact-bound envelope; unavailable or unsupported producers never pass.
+
+- **Status**: COMPLIANT
+- **Implementation**: `cli/src/evidence-envelope.ts`, `cli/src/build-producers.ts`, `cli/src/build-state.ts`
+- **Tests**: `cli/tests/evidence-envelope.test.ts`, `cli/tests/build-producers.test.ts`, `cli/tests/build-state.test.ts`
+- **Documentation**: `docs/BUILD_MODE.md`, `docs/SECURITY_MODEL.md`
+- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.3.0.md`
+- **Pending integration**: _none_
+- **Limitations**: The envelope is a local integrity and freshness record rather than an externally signed attestation.
+
+### FF-BUILD-03
+
+Build applicability and tier gates are derived from current classified evidence and code-owned registries, re-derived before completion, and cannot be weakened by persisted snapshots or a stale project index.
+
+- **Status**: COMPLIANT
+- **Implementation**: `cli/src/build-applicability.ts`, `cli/src/build-gates.ts`, `cli/src/build.ts`
+- **Tests**: `cli/tests/build-applicability.test.ts`, `cli/tests/build-gates.test.ts`, `cli/tests/build.test.ts`
+- **Documentation**: `docs/BUILD_MODE.md`, `docs/ARCHITECTURE.md`
+- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.3.0.md`
+- **Pending integration**: _none_
+- **Limitations**: Unknown capabilities stay unresolved; static applicability cannot infer provider or production state.
+
+### FF-BUILD-04
+
+High-tier interface work requires a complete finite state and viewport runtime matrix plus design-direction evidence, while risk decisions are policy-, actor-, root-, revision-, file-, and expiry-bound and never rendered as PASS.
+
+- **Status**: COMPLIANT
+- **Implementation**: `cli/src/build-runtime.ts`, `cli/src/build-gates.ts`, `cli/src/build.ts`
+- **Tests**: `cli/tests/build-runtime.test.ts`, `cli/tests/build.test.ts`
+- **Documentation**: `docs/BUILD_MODE.md`, `docs/SECURITY_MODEL.md`
+- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.3.0.md`
+- **Pending integration**: _none_
+- **Limitations**: Real browser, assistive-technology, provider, and human design evidence still requires the corresponding environment or reviewer.
+
+### FF-BUILD-05
+
+Legacy v0.2 Build state is upgraded only by an explicit prevalidated, hash-bound, journaled, atomic, resumable, and rollback-capable schema migration that never promotes legacy positive claims.
+
+- **Status**: COMPLIANT
+- **Implementation**: `cli/src/build-migration.ts`, `cli/src/build-state.ts`
+- **Tests**: `cli/tests/build-migration.test.ts`
+- **Documentation**: `docs/BUILD_MODE.md`, `docs/RELEASE_NOTES_v0.3.0.md`
+- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.3.0.md`
+- **Pending integration**: _none_
+- **Limitations**: Migration is intentionally operator-triggered and refuses mixed, malformed, changed, or unsafe state instead of guessing.
 
 ### FF-CI-01
 
@@ -884,13 +944,25 @@ A release-readiness gate fails closed on open critical findings, failed required
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
+### FF-SHIP-02
+
+Ship derives current inspection and command evidence at a stable working-tree revision, treats persisted reports as diagnostics only, verifies registered envelopes, and rejects Build-domain evidence.
+
+- **Status**: COMPLIANT
+- **Implementation**: `cli/src/gates.ts`, `cli/src/evidence-envelope.ts`
+- **Tests**: `cli/tests/gates.test.ts`, `cli/tests/ship-rederivation.test.ts`
+- **Documentation**: `docs/COMMANDS.md`, `docs/SECURITY_MODEL.md`
+- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.3.0.md`
+- **Pending integration**: _none_
+- **Limitations**: Remote CI, registry, hosting, provider, production, provenance, and immutable-release state require separate direct evidence.
+
 ### FF-TEST-01
 
 Deliberately flawed fixture projects and evaluation cases confirm that the declared defect classes are actually detected, without faking automated guarantees where detection is not deterministic.
 
 - **Status**: COMPLIANT
-- **Implementation**: `fixtures`, `evals/cases.json`, `scripts/check-fixtures.mjs`, `scripts/lib/fixture-manifests.mjs`
-- **Tests**: `cli/tests/evals.test.ts`, `cli/tests/discovery.test.ts`, `scripts/tests/fixture-manifests.test.mjs`
+- **Implementation**: `fixtures`, `evals/cases.json`, `evals/v030-build-mode`, `evals/v030-prevention`, `scripts/check-fixtures.mjs`, `scripts/lib/fixture-manifests.mjs`
+- **Tests**: `cli/tests/evals.test.ts`, `cli/tests/v030-build-mode-evals.test.ts`, `cli/tests/v030-prevention-evals.test.ts`, `cli/tests/discovery.test.ts`, `scripts/tests/fixture-manifests.test.mjs`
 - **Documentation**: `fixtures/README.md`, `evals/README.md`
 - **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
 - **Pending integration**: _none_

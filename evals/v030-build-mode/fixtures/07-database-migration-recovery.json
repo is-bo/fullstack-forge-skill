@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "id": "database-migration-recovery",
+  "title": "Migration validation and recovery evidence satisfy their exact gates",
+  "kind": "migration-gates",
+  "expected_status": "PASS",
+  "task": "Verify that separately supplied migration and recovery evidence satisfy both database gates."
+}

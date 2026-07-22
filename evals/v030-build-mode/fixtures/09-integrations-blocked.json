@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "id": "integrations-blocked",
+  "title": "An integration producer is blocked without explicit execution approval",
+  "kind": "producer-blocked",
+  "expected_status": "BLOCKED",
+  "task": "Keep integration verification blocked until the reviewed command is explicitly allowed to run."
+}

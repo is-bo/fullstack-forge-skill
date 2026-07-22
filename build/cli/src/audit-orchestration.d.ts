@@ -1,5 +1,6 @@
 import type { ModuleSlug } from "./constants.js";
 import type { ExecutionRecord } from "./report.js";
+import { type EvidenceArtifact } from "./evidence-envelope.js";
 import { type PolicyContext } from "./offline-policy.js";
 import type { CommandDefinition, Finding, NetworkPolicy, PlannedCheck as LedgerPlannedCheck, RuntimeEvidence, ToolRecord } from "./types.js";
 /**
@@ -56,7 +57,8 @@ export type RuntimeEvidenceRecord = {
     /** Already redacted by the producing tool; never a raw URL. */
     url?: string;
     evidence_dir?: string;
-    artifacts: string[];
+    /** Collectors may provide legacy paths or captured path/hash/media-type tuples. */
+    artifacts: Array<string | EvidenceArtifact>;
     limitations: string[];
     complete: boolean;
 };

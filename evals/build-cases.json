@@ -43,10 +43,10 @@
       "not_verified_until_evidence": [
         "the product frame, risk-class inputs, stack rationale, and non-goals are RECORDED guidance only; `forge new` never produces a PASS or FAIL and must never be narrated as having verified anything"
       ],
-      "never_waivable_at_high_tier": ["discipline:auth"],
+      "never_waivable_at_high_tier": ["discipline:auth", "discipline:api"],
       "done_refuses_without": [
-        "`forge new` has no `check` or `done` sub-verb, so there is nothing to refuse at the project level; the onboarding feature's own `done` still refuses until its selected disciplines (auth, api) resolve to PASS, a reasoned NOT_APPLICABLE, or an eligible risk acceptance",
-        "the auth discipline is a required security control: the account-creation feature escalates to high tier (identity triggers are recorded in tier_inputs), so discipline:auth can never be waived by risk acceptance — it must resolve to PASS or a reasoned NOT_APPLICABLE"
+        "`forge new` has no `check` or `done` sub-verb, so there is nothing to refuse at the project level; the onboarding feature's own `done` still refuses until its selected auth and api discipline gates have current verified PASS evidence",
+        "the account-creation feature escalates to high tier (identity triggers are recorded in tier_inputs), so every selected discipline is non-waivable; NOT_APPLICABLE and risk acceptance cannot satisfy either required gate"
       ]
     },
     "verification": {
@@ -99,13 +99,13 @@
       "never_waivable_at_high_tier": [],
       "done_refuses_without": [
         "scope-resolution and static-analysis both PASS (or no FAIL)",
-        "discipline:ui, discipline:frontend, and discipline:accessibility each resolved to PASS-equivalent evidence, a reasoned NOT_APPLICABLE, or (since none of these are security-control disciplines at this tier) an explicit accept-risk with a non-empty --reason"
+        "discipline:accessibility has current verified PASS evidence; discipline:ui and discipline:frontend have verified PASS evidence or a current operational risk acceptance naming an accountable --actor"
       ]
     },
     "verification": {
       "mode": "deterministic-cli-plus-prompt",
-      "deterministic_summary": "Confirms the ui/frontend/accessibility disciplines are recorded with reasons, that `check` never auto-produces a PASS for them from static analysis, and that `done` refuses until each is resolved by evidence, reasoned NOT_APPLICABLE, or accept-risk (all three permitted here because none of these three disciplines is a security control).",
-      "manual_notes": "Rendering the dashboard and actually observing loading/empty/error/success/permission-denied/disabled states, and matching them against DESIGN.md, is real browser/runtime work this harness does not perform; a reviewer compares the agent's evidence against the defects list above, and treats a bare accept-risk with no rendered evidence as a failure of intent even though the CLI mechanically allows it for a non-security discipline."
+      "deterministic_summary": "Confirms the ui/frontend/accessibility disciplines are recorded with reasons, that `check` never auto-produces a PASS for them from static analysis, that accessibility is non-waivable, and that eligible ui/frontend acceptance requires an accountable actor and is never rendered as PASS.",
+      "manual_notes": "Rendering the dashboard and actually observing loading/empty/error/success/permission-denied/disabled states, and matching them against DESIGN.md, is real browser/runtime work this harness does not perform; a reviewer compares the agent's evidence against the defects list above and treats an operational acceptance without the required context as insufficient human evidence."
     }
   },
   {
@@ -156,12 +156,12 @@
       ],
       "done_refuses_without": [
         "scope-resolution PASS and static-analysis with no FAIL",
-        "discipline:auth, discipline:authorization, and discipline:security each PASS or a reasoned NOT_APPLICABLE -- at high tier none of the three can be satisfied by accept-risk, and a NOT_VERIFIED status on any of them blocks `done` permanently until real evidence exists"
+        "discipline:auth, discipline:authorization, and discipline:security each have current verified PASS evidence -- at high tier none can be satisfied by NOT_APPLICABLE or accept-risk"
       ]
     },
     "verification": {
       "mode": "deterministic-cli-plus-prompt",
-      "deterministic_summary": "Uses a fixture file that contains real (non-commented) calls matching the discovery capability signatures for authentication and authorization, so the CLI assesses both capabilities PRESENT instead of auto-resolving them NOT_APPLICABLE. Proves: (1) `check` leaves discipline:auth/authorization/security NOT_VERIFIED, never an unearned PASS; (2) `accept-risk` is rejected for discipline:auth and discipline:authorization with the exact 'required security control at high tier' message; (3) `done` exits 1 and lists them as never-waivable while they remain NOT_VERIFIED.",
+      "deterministic_summary": "Uses a fixture file that contains real (non-commented) calls matching the discovery capability signatures for authentication and authorization, so the CLI assesses both capabilities PRESENT instead of excluding them. Proves: (1) `check` leaves discipline:auth/authorization/security NOT_VERIFIED, never an unearned PASS; (2) `accept-risk` is rejected for every selected high-tier discipline by the current gate plan; (3) `done` exits 1 and lists the non-waivable gaps.",
       "manual_notes": "Whether the agent actually writes the negative RBAC test (member calling an owner-only endpoint and being denied) and cites the file:line where the predicate runs at the final server boundary is not mechanically checkable here; it is judged against the authorization.md brief's evidence-to-produce list."
     }
   },
@@ -206,16 +206,19 @@
       "not_verified_until_evidence": [
         "discipline:uploads stays NOT_VERIFIED until a hostile-file fixture suite (oversized, wrong-signature, archive bomb, polyglot, malformed) is run through the real pipeline and shown rejected or quarantined"
       ],
-      "never_waivable_at_high_tier": ["discipline:uploads", "discipline:security"],
+      "never_waivable_at_high_tier": [
+        "discipline:uploads",
+        "discipline:storage",
+        "discipline:security"
+      ],
       "done_refuses_without": [
         "scope-resolution PASS and static-analysis with no FAIL",
-        "discipline:uploads and discipline:security each PASS or a reasoned NOT_APPLICABLE -- neither can be waived by accept-risk at high tier while NOT_VERIFIED",
-        "discipline:storage resolved (PASS, reasoned NOT_APPLICABLE, or accept-risk, since storage alone is not a required security control in this tier's lock set)"
+        "discipline:uploads, discipline:storage, and discipline:security each have current verified PASS evidence -- high-tier required gates reject NOT_APPLICABLE and accept-risk"
       ]
     },
     "verification": {
       "mode": "deterministic-cli-plus-prompt",
-      "deterministic_summary": "Uses a fixture file with a real (non-commented) call matching the uploads capability signature (a bare multer(...) invocation) so discovery assesses uploads PRESENT rather than ABSENT. Proves discipline:uploads and discipline:security stay NOT_VERIFIED after `check`, that accept-risk is rejected for both at high tier, and that `done` refuses with both listed as never-waivable.",
+      "deterministic_summary": "Uses a fixture file with a real (non-commented) call matching the uploads capability signature (a bare multer(...) invocation) so discovery assesses uploads PRESENT rather than ABSENT. Proves every selected high-tier discipline stays NOT_VERIFIED after `check`, rejects accept-risk, and remains an actionable blocker for `done`.",
       "manual_notes": "The hostile-file fixture suite itself (oversized, wrong-signature, archive-bomb, polyglot, malformed) and the scanner fail-closed test are real pipeline exercises this harness does not run; they are judged against the uploads.md evidence-to-produce list."
     }
   },
@@ -261,13 +264,13 @@
       "never_waivable_at_high_tier": [],
       "done_refuses_without": [
         "scope-resolution PASS and static-analysis with no FAIL",
-        "discipline:queries, discipline:database, and discipline:performance each resolved by evidence, reasoned NOT_APPLICABLE, or accept-risk with a --reason -- all three are permitted to be risk-accepted at this (non-high, non-security-control) tier and discipline mix, and a risk acceptance is never rendered as PASS"
+        "discipline:queries and discipline:database each have current verified PASS evidence; discipline:performance has verified PASS evidence or a current operational acceptance naming an accountable --actor"
       ]
     },
     "verification": {
       "mode": "deterministic-cli-plus-prompt",
-      "deterministic_summary": "Confirms none of queries/database/performance is a security-control discipline, so at standard tier each NOT_VERIFIED criterion can be resolved with an explicit accept-risk (never silently) and `done` then succeeds -- contrasted with the high-tier security-control scenarios where the same accept-risk call is refused.",
-      "manual_notes": "The actual query-count trace, index citation tied to a real access pattern, and a concurrent-pagination stability test are real measurements this harness does not perform; they are judged against the queries.md evidence-to-produce list, and a bare accept-risk with a vague reason ('will fix later') should be flagged by a reviewer even though the CLI accepts it mechanically."
+      "deterministic_summary": "Confirms the current gate plan makes queries and database non-waivable at standard tier while performance remains eligible only for a typed, expiring operational acceptance with an accountable actor; no acceptance is rendered as PASS.",
+      "manual_notes": "The actual query-count trace, index citation tied to a real access pattern, and a concurrent-pagination stability test are real measurements this harness does not perform; they are judged against the queries.md evidence-to-produce list, and the non-waivable query/database gates prevent a vague risk record from replacing that proof."
     }
   },
   {
@@ -294,7 +297,7 @@
         ".forge/build/DECISIONS.md"
       ],
       "content_classes": [
-        "features/cache-justification.json.evidence: discipline:cache resolved either NOT_APPLICABLE (discovery proved the capability absent) or by an explicit accept-risk/PASS carrying the measured reason",
+        "features/cache-justification.json.evidence: an explicitly selected discipline:cache requires direct verified PASS evidence; a separate unselected cache decision may be EXCLUDED when discovery proves the capability absent",
         "DECISIONS.md or project.json.non_goals: the recorded 'no Redis' conclusion with its measured reason, if the feature genuinely does not need one"
       ]
     },
@@ -302,21 +305,21 @@
       "adding Redis or another cache layer without a named, measured latency or cost problem it solves",
       "a cache key that omits tenant/user scope, letting one caller's data leak into another caller's cache read",
       "declaring a cache 'invalidated' because a TTL exists, with no write-path invalidation actually wired",
-      "silently skipping the cache decision instead of recording 'no cache needed' as an explicit, reasoned non-goal or NOT_APPLICABLE"
+      "silently skipping the cache decision instead of recording 'no cache needed' as an explicit, reasoned non-goal and applicability exclusion"
     ],
     "honest_completion": {
       "not_verified_until_evidence": [
-        "discipline:cache is never a bare PASS from static analysis; it is legitimately satisfied either by discovery proving the cache capability absent (auto NOT_APPLICABLE) or by a recorded reason (accept-risk or direct evidence) -- never by silence"
+        "discipline:cache is never a bare PASS from static analysis; once explicitly selected it is non-waivable and requires current direct evidence, while an unselected absent cache is represented as EXCLUDED rather than PASS"
       ],
       "never_waivable_at_high_tier": [],
       "done_refuses_without": [
         "scope-resolution PASS and static-analysis with no FAIL",
-        "discipline:cache resolved: on a codebase with no cache/Redis signal, the CLI auto-derives NOT_APPLICABLE with the reason 'discovery proved the cache capability is absent', which alone satisfies `done` -- this IS the PASS outcome for rejecting unnecessary Redis, not a workaround"
+        "an explicitly selected discipline:cache has current verified PASS evidence; if the feature rejects Redis instead, cache is left unselected and discovery records EXCLUDED without adding a cache gate"
       ]
     },
     "verification": {
       "mode": "deterministic-cli-plus-prompt",
-      "deterministic_summary": "Runs `check` against a fixture with no cache/Redis signal and asserts discipline:cache resolves to NOT_APPLICABLE with a not_applicable_reason mentioning the capability is absent, and that `done` succeeds immediately without any accept-risk call -- proving the CLI treats 'no cache needed' as a complete, non-waived answer rather than a gap that must be talked around.",
+      "deterministic_summary": "Runs `check` against a fixture with no cache/Redis signal and, without explicitly selecting cache, asserts applicability records cache as EXCLUDED, no discipline:cache gate is created, its diagnostic evidence is NOT_APPLICABLE, and no invented PASS or risk acceptance appears.",
       "manual_notes": "Whether the agent's conclusion is actually well-reasoned (versus reflexively skipping the discipline) is not mechanically distinguishable from a codebase that legitimately has no cache; a reviewer checks that the recorded reason in DECISIONS.md/non_goals names the measured problem (or its absence), not just 'not needed'."
     }
   },
@@ -359,16 +362,19 @@
       "not_verified_until_evidence": [
         "discipline:tenancy stays NOT_VERIFIED until a cross-tenant negative test (organization B requesting organization A's project id gets denied or not-found) is produced with a file:line trace to the actual query"
       ],
-      "never_waivable_at_high_tier": ["discipline:tenancy", "discipline:authorization"],
+      "never_waivable_at_high_tier": [
+        "discipline:tenancy",
+        "discipline:authorization",
+        "discipline:database"
+      ],
       "done_refuses_without": [
         "scope-resolution PASS and static-analysis with no FAIL",
-        "discipline:tenancy and discipline:authorization each PASS or a reasoned NOT_APPLICABLE -- neither can be waived by accept-risk at high tier while NOT_VERIFIED",
-        "discipline:database resolved (PASS, reasoned NOT_APPLICABLE, or accept-risk)"
+        "discipline:tenancy, discipline:authorization, and discipline:database each have current verified PASS evidence -- high-tier required gates reject NOT_APPLICABLE and accept-risk"
       ]
     },
     "verification": {
       "mode": "deterministic-cli-plus-prompt",
-      "deterministic_summary": "Uses a fixture file with a real reference to a tenant-scoping identifier (tripping the tenancy capability signature) and an authorization-style role check, so both capabilities assess PRESENT rather than auto-resolving NOT_APPLICABLE. Proves discipline:tenancy and discipline:authorization stay NOT_VERIFIED, that accept-risk is refused for both at high tier, and that `done` lists both as never-waivable.",
+      "deterministic_summary": "Uses a fixture file with a real reference to a tenant-scoping identifier (tripping the tenancy capability signature) and an authorization-style role check, so both capabilities assess PRESENT rather than being excluded. Proves every selected high-tier discipline stays NOT_VERIFIED, rejects accept-risk, and remains an actionable blocker for `done`.",
       "manual_notes": "The actual cross-tenant negative test (organization B denied organization A's resource) and the file:line trace showing the tenant filter reaches the real query are real test-writing work this harness does not perform; they are judged against the tenancy.md evidence-to-produce list."
     }
   },
@@ -412,16 +418,19 @@
       "not_verified_until_evidence": [
         "discipline:payments stays NOT_VERIFIED until a test replaying the same webhook event proves exactly one effect, and a test with a tampered signature proves rejection"
       ],
-      "never_waivable_at_high_tier": ["discipline:payments", "discipline:security"],
+      "never_waivable_at_high_tier": [
+        "discipline:payments",
+        "discipline:integrations",
+        "discipline:security"
+      ],
       "done_refuses_without": [
         "scope-resolution PASS and static-analysis with no FAIL",
-        "discipline:payments and discipline:security each PASS or a reasoned NOT_APPLICABLE -- neither can be waived by accept-risk at high tier while NOT_VERIFIED",
-        "discipline:integrations resolved (PASS, reasoned NOT_APPLICABLE, or accept-risk)"
+        "discipline:payments, discipline:integrations, and discipline:security each have current verified PASS evidence -- high-tier required gates reject NOT_APPLICABLE and accept-risk"
       ]
     },
     "verification": {
       "mode": "deterministic-cli-plus-prompt",
-      "deterministic_summary": "Uses a fixture file with a real call matching the payments capability signature (stripe.webhooks.constructEvent(...), which is literally the safe signature-verification call) so discovery assesses payments PRESENT. Proves discipline:payments and discipline:security stay NOT_VERIFIED after `check`, that accept-risk is refused for both at high tier, and that `done` refuses listing both as never-waivable.",
+      "deterministic_summary": "Uses a fixture file with a real call matching the payments capability signature (stripe.webhooks.constructEvent(...), which is literally the safe signature-verification call) so discovery assesses payments PRESENT. Proves every selected high-tier discipline stays NOT_VERIFIED after `check`, rejects accept-risk, and blocks `done`.",
       "manual_notes": "The actual replay test (duplicate event, single effect), the tampered-signature rejection test, and the reconciliation run comparing provider/ledger/entitlement are real work this harness does not perform; they are judged against the payments.md evidence-to-produce list."
     }
   },
@@ -466,17 +475,20 @@
         "discipline:ai stays NOT_VERIFIED until an adversarial test shows injected instructions inside the document do not change the feature's tool calls or output, and a test shows out-of-schema model output is rejected rather than coerced",
         "discipline:authorization stays NOT_VERIFIED until a test shows the irreversible stock/accounts-payable write requires explicit human confirmation and cannot be triggered by model output alone"
       ],
-      "never_waivable_at_high_tier": ["discipline:authorization", "discipline:security"],
+      "never_waivable_at_high_tier": [
+        "discipline:ai",
+        "discipline:authorization",
+        "discipline:security"
+      ],
       "done_refuses_without": [
         "scope-resolution PASS and static-analysis with no FAIL",
-        "discipline:authorization and discipline:security each PASS or a reasoned NOT_APPLICABLE -- neither can be waived by accept-risk at high tier while NOT_VERIFIED",
-        "discipline:ai resolved (PASS, reasoned NOT_APPLICABLE, or accept-risk -- 'ai' itself is not in the CLI's fixed security-control set, so the irreversible-action guarantee here is carried by discipline:authorization, not discipline:ai)"
+        "discipline:ai, discipline:authorization, and discipline:security each have current verified PASS evidence -- high-tier required gates reject NOT_APPLICABLE and accept-risk"
       ]
     },
     "verification": {
       "mode": "deterministic-cli-plus-prompt",
-      "deterministic_summary": "Uses a fixture file with a real authorization-capability call so discipline:authorization assesses PRESENT and stays NOT_VERIFIED rather than auto-NOT_APPLICABLE. Proves accept-risk is refused for discipline:authorization and discipline:security at high tier, that discipline:ai (not itself a locked security-control slug) can legitimately be risk-accepted, and that `done` still refuses overall because the authorization/security lock remains unresolved -- an explicit, load-bearing distinction: prevention of the irreversible-action defect rides on the authorization discipline, not the ai discipline alone.",
-      "manual_notes": "The adversarial injection test, the out-of-schema rejection test, and the independent-check-before-acting evidence are real red-team-style work this harness does not perform; they are judged against the ai.md evidence-to-produce list. A reviewer should treat 'discipline:ai was risk-accepted' alone, with authorization still failing, as correctly blocked by the CLI -- not as a gap in the scenario."
+      "deterministic_summary": "Uses a fixture file with a real authorization-capability call so discipline:authorization assesses PRESENT and stays NOT_VERIFIED rather than being excluded. Proves accept-risk is refused for ai, authorization, and security at high tier and that `done` remains blocked until each has current direct evidence.",
+      "manual_notes": "The adversarial injection test, the out-of-schema rejection test, and the independent-check-before-acting evidence are real red-team-style work this harness does not perform; they are judged against the ai.md evidence-to-produce list, and no risk acceptance can replace them at high tier."
     }
   },
   {
@@ -517,13 +529,13 @@
       "never_waivable_at_high_tier": [],
       "done_refuses_without": [
         "scope-resolution PASS and static-analysis with no FAIL",
-        "discipline:jobs and discipline:reliability each resolved by evidence, reasoned NOT_APPLICABLE, or accept-risk with a --reason -- neither is a security-control discipline at any tier in this CLI, so both are legitimately waivable, and the risk acceptance is recorded and never rendered as PASS"
+        "discipline:reliability has current verified PASS evidence; discipline:jobs has verified PASS evidence or a current operational acceptance naming an accountable --actor"
       ]
     },
     "verification": {
       "mode": "deterministic-cli-plus-prompt",
-      "deterministic_summary": "Confirms jobs/reliability are outside the CLI's fixed security-control set, so a NOT_VERIFIED discipline:jobs can be resolved with an explicit accept-risk and `done` then succeeds -- and separately confirms the risk_acceptances record is never rendered as a PASS status on the evidence itself.",
-      "manual_notes": "The actual duplicate-delivery test, the forced-failure/dead-letter test, and the enqueue-after-commit trace are real work this harness does not perform; they are judged against the jobs.md evidence-to-produce list, and a bare accept-risk with no such test should be flagged by a reviewer as an unearned resolution even though the CLI permits it."
+      "deterministic_summary": "Confirms reliability is non-waivable at standard tier, while jobs is eligible only for a typed, expiring operational acceptance with an accountable actor; the acceptance is never rendered as PASS and cannot satisfy the reliability gate.",
+      "manual_notes": "The actual duplicate-delivery test, the forced-failure/dead-letter test, and the enqueue-after-commit trace are real work this harness does not perform; they are judged against the jobs.md evidence-to-produce list, and the non-waivable reliability gate prevents a risk record from replacing the recovery proof."
     }
   },
   {
@@ -566,16 +578,19 @@
         "discipline:privacy stays NOT_VERIFIED until a test shows logout or account switch clears this feature's locally cached private data on the shared device",
         "discipline:auth stays NOT_VERIFIED until a test shows a long-offline client has its authorization re-verified on reconnect"
       ],
-      "never_waivable_at_high_tier": ["discipline:privacy", "discipline:auth"],
+      "never_waivable_at_high_tier": [
+        "discipline:offline",
+        "discipline:privacy",
+        "discipline:auth"
+      ],
       "done_refuses_without": [
         "scope-resolution PASS and static-analysis with no FAIL",
-        "discipline:privacy and discipline:auth each PASS or a reasoned NOT_APPLICABLE -- neither can be waived by accept-risk at high tier while NOT_VERIFIED",
-        "discipline:offline resolved (PASS, reasoned NOT_APPLICABLE, or accept-risk, since offline itself is not in the CLI's fixed security-control set)"
+        "discipline:offline, discipline:privacy, and discipline:auth each have current verified PASS evidence -- high-tier required gates reject NOT_APPLICABLE and accept-risk"
       ]
     },
     "verification": {
       "mode": "deterministic-cli-plus-prompt",
-      "deterministic_summary": "Uses a fixture file with real references matching the personal-data and authentication capability signatures, so discipline:privacy and discipline:auth assess PRESENT rather than auto-NOT_APPLICABLE. Proves both stay NOT_VERIFIED after `check`, that accept-risk is refused for both at high tier, that discipline:offline (not itself locked) can legitimately be risk-accepted, and that `done` still refuses overall because the privacy/auth lock remains unresolved.",
+      "deterministic_summary": "Uses a fixture file with real references matching the personal-data and authentication capability signatures, so discipline:privacy and discipline:auth assess PRESENT rather than being excluded. Proves all selected high-tier disciplines stay NOT_VERIFIED, reject accept-risk, and block `done` until current direct evidence exists.",
       "manual_notes": "The actual sync-conflict test, the replayed-queue idempotency test, the logout-clears-cache test, and the stale-client reauthorization test are real work this harness does not perform; they are judged against the offline.md and privacy.md evidence-to-produce lists."
     }
   }

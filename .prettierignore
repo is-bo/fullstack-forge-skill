@@ -1,4 +1,5 @@
 .audit/
+.audit-work/
 build/
 dist/
 FULLSTACK_FORGE_SPEC.md

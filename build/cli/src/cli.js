@@ -324,7 +324,6 @@ async function ship(options) {
     const root = await canonicalDirectory(options.cwd);
     const commands = await detectProjectCommands(root);
     const profile = await discoverProject(root);
-    const revision = await workingTreeRevision(root);
     let previous;
     try {
         previous = await readReport(root, join(root, ".forge", "report.json"));
@@ -356,7 +355,7 @@ async function ship(options) {
             ...gateResult.command_ledger.map((record) => `command-ledger ${record.name} ${record.disposition} (policy=${record.network_policy}, offline=${record.offline}, sandbox=${record.sandbox}): ${record.reason}`)
         ],
         impact: status === "PASS"
-            ? "The recorded local gates and prior audit support release readiness for this checkout."
+            ? "Freshly re-derived, root-bound local evidence supports release readiness for this checkout."
             : "The candidate cannot be represented as release-ready with the current evidence.",
         recommendation: status === "PASS"
             ? "Review residual risk and verify remote publication evidence before release."
@@ -368,19 +367,52 @@ async function ship(options) {
         ],
         standards: ["NIST SSDF", "SLSA 1.2", "Agent Skills Specification"]
     };
-    const report = createReport(root, profile, [...(previous?.findings.filter((candidate) => candidate.section !== "ship") ?? []), finding], "ship", gateResult.execution, previous?.assumptions ?? [], [
-        ...(previous?.residual_risk ?? []),
+    const currentFindingIds = new Set(gateResult.findings.map((candidate) => candidate.instance_id ?? candidate.id));
+    const priorFindingDiagnostics = (previous?.findings ?? [])
+        .filter((candidate) => candidate.section !== "ship" &&
+        !currentFindingIds.has(candidate.instance_id ?? candidate.id))
+        .map(priorFindingDiagnostic);
+    const priorEvidenceDiagnostics = (previous?.gate_evidence ?? []).map(priorEvidenceDiagnostic);
+    const report = createReport(root, gateResult.profile, [...gateResult.findings, ...priorFindingDiagnostics, finding], "ship", gateResult.execution, [], [
+        ...(previous === undefined
+            ? ["No prior report was available; Ship derived its release evidence independently."]
+            : [
+                `The prior report contained ${previous.findings.length} finding(s) and ${previous.gate_evidence.length} typed evidence record(s); they were retained as diagnostics only and did not determine this Ship result.`
+            ]),
         "Remote CI, registry, GitHub release, deployment, and production state require separate direct evidence.",
         ...(blockedByPolicy.length === 0
             ? []
             : [
                 `Offline mode blocked ${blockedByPolicy.length} project command(s) with UNKNOWN network policy (${blockedByPolicy.map((record) => record.name).join(", ")}). Fullstack Forge implements no operating-system network isolation, so those gates remain unproven rather than passed.`
             ])
-    ], previous?.scope_evidence, [...(previous?.gate_evidence ?? []), ...gateResult.evidence], previous?.analyzer_coverage ?? [], revision, captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION }));
+    ], undefined, [...priorEvidenceDiagnostics, ...gateResult.evidence], [], gateResult.revision, captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION }));
     if (!options.dryRun)
         await writeReport(report);
     printValue(options.json ? report : renderMarkdown(report), options.json);
     return status === "FAIL" ? 1 : status === "BLOCKED" ? 2 : 0;
+}
+function priorFindingDiagnostic(finding) {
+    return {
+        ...structuredClone(finding),
+        status: "NOT_VERIFIED",
+        evidence: [
+            ...finding.evidence,
+            `Historical diagnostic only: the prior report recorded status ${finding.status}; Ship did not use it for the current gate result.`
+        ]
+    };
+}
+function priorEvidenceDiagnostic(evidence) {
+    const diagnostic = {
+        ...structuredClone(evidence),
+        status: "NOT_VERIFIED",
+        absence_proves_success: false,
+        limitations: [
+            ...evidence.limitations,
+            `Historical diagnostic only: the prior report recorded status ${evidence.status}; Ship did not use this claim.`
+        ]
+    };
+    delete diagnostic.envelope;
+    return diagnostic;
 }
 /**
  * The full candidate set a run considers, before any capability, risk, or changed-scope filter.
@@ -639,15 +671,19 @@ function printHelp() {
     console.log(`Fullstack Forge ${VERSION}
 
 Usage:
-  Build mode (v0.2.0):
-  forge new [--tier light|standard|high] [--summary <text>] [--stack <name>] [--non-goal <item:reason>]
-  forge feature <slug> [--tier <tier>] [--summary <text>] [--discipline <slug[:reason]>] [--input <trigger>]
+  Build mode:
+  forge new [--tier light|standard|high] [--summary <text>] [--user-role <user:roles>]
+            [--workflow <text>] [--invariant <text>] [--stack <name:rationale>] [--non-goal <item:reason>]
+  forge feature <slug> [--tier <tier>] [--summary <text>] [--discipline <slug[:reason]>]
   forge feature <slug> <frame|plan|check|done|accept-risk|abandon|status> [options]
+  forge feature <slug> check --allow-run [--runtime-case <state>=<url>] [--design-direction <value>]
   forge resume
+  forge migrate build [--dry-run|--resume|--rollback]
   Light tier is a two-invocation flow: 'forge feature <slug> --tier light --allow-run' runs framing
-  and the check pass in one shot; 'forge feature <slug> done' completes it. Standard and high tiers
-  add 'plan' and per-discipline evidence; accept-risk requires --criterion and --reason and is
-  refused for high-tier required security controls.
+  and the check pass in one shot; 'forge feature <slug> done' completes only after every current
+  required gate has verified producer evidence. Standard and high add applicable disciplines;
+  high also adds adverse, recovery, runtime, integration, and security-review gates. Operational
+  accept-risk additionally requires --actor; non-waivable gates refuse it.
 
   Audit mode:
   forge <section> <audit|fix|verify|report> [options]

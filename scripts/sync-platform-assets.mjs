@@ -1,6 +1,7 @@
-import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, stat } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
 import { assertNoSymlinkPath, assertSafeRelativePath } from "./lib/fs-safety.mjs";
+import { writeFileWithTransientRetry } from "./lib/retry-write.mjs";
 import {
   canonicalRoot,
   commandRoot,
@@ -68,7 +69,7 @@ async function synchronize(platform, sourceFiles) {
     } catch (error) {
       if (error?.code !== "ENOENT") throw error;
     }
-    if (currentHash !== hash) await writeFile(target, bytes);
+    if (currentHash !== hash) await writeFileWithTransientRetry(target, bytes);
   }
 
   for (const [rel, oldHash] of Object.entries(previous.files ?? {})) {
@@ -91,7 +92,15 @@ async function synchronize(platform, sourceFiles) {
     platform: platform.id,
     files: nextFiles
   };
-  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  const manifestText = `${JSON.stringify(manifest, null, 2)}\n`;
+  let currentManifest = "";
+  try {
+    currentManifest = await readFile(manifestPath, "utf8");
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+  if (currentManifest !== manifestText)
+    await writeFileWithTransientRetry(manifestPath, manifestText, "utf8");
 }
 
 function validateManifest(value, platform) {

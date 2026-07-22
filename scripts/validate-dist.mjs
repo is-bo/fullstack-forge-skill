@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { crc32 } from "./lib/zip.mjs";
 import { assertNoSymlinkPath, assertRegularFile } from "./lib/fs-safety.mjs";
+import { assertPublishableArchivePath } from "./lib/package-policy.mjs";
 import { projectRoot } from "./project.mjs";
 
 const distRoot = join(projectRoot, "dist");
@@ -30,8 +31,6 @@ const requiredEntries = [
   `docs/RELEASE_NOTES_v${version}.md`,
   `docs/RELEASE_VERIFICATION_v${version}.md`
 ];
-const forbidden = /(?:^|\/)(?:node_modules|\.git|\.tmp)(?:\/|$)|fullstack[-_]forge[-_]spec/iu;
-
 await assertRegularFile(join(distRoot, "manifest.json"), "distribution manifest");
 await assertRegularFile(join(distRoot, "SHA256SUMS.txt"), "checksum file");
 const manifest = JSON.parse(await readFile(join(distRoot, "manifest.json"), "utf8"));
@@ -117,10 +116,10 @@ function readStoredZip(bytes, archiveName) {
       name.length === 0 ||
       name.startsWith("/") ||
       name.includes("\\") ||
-      name.split("/").some((part) => part === "" || part === "." || part === "..") ||
-      forbidden.test(name)
+      name.split("/").some((part) => part === "" || part === "." || part === "..")
     )
       throw new Error(`${archiveName} contains forbidden entry ${name}`);
+    assertPublishableArchivePath(name, version);
     if (seen.has(name)) throw new Error(`${archiveName} contains duplicate entry ${name}`);
     seen.add(name);
     if ((flags & 0x0800) === 0 || method !== 0 || time !== 0 || date !== 33)

@@ -26,6 +26,11 @@ skills, so they ship to all six platform roots above with the same invocation co
 `/forge-feature <slug>` on Claude Code, `$forge-new` and `$forge-feature <slug>` on Codex. See
 [BUILD_MODE.md](BUILD_MODE.md).
 
+All platform archives carry the same v0.3 compiled CLI contracts: schema-v2 Build state, registered
+producers, applicability/gate re-derivation, the runtime evidence matrix, and explicit
+`forge migrate build`. Migration is a CLI command rather than an Agent Skill entry point; no host
+may silently reinterpret v0.2 state or manufacture a Build result when the CLI is absent.
+
 ## Primary sources
 
 - Agent Skills specification: <https://agentskills.io/specification>

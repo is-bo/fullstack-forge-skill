@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const VERSION = "0.2.0";
+export const VERSION = "0.3.0";
 export const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 export const MODULE_SLUGS = [
@@ -55,7 +55,7 @@ export type ModuleSlug = (typeof MODULE_SLUGS)[number];
  * Build-mode verbs, dispatched before module-slug parsing. `feature` takes a slug and an optional
  * reserved sub-verb. These names are reserved so a feature slug can never shadow a command.
  */
-export const BUILD_VERBS = ["new", "feature", "resume"] as const;
+export const BUILD_VERBS = ["new", "feature", "resume", "migrate"] as const;
 export const BUILD_SUB_VERBS = [
   "frame",
   "plan",

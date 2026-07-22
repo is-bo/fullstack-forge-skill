@@ -1339,14 +1339,14 @@
     "notApplies": ["Exploratory work not represented as release-ready"],
     "inputs": [
       "project profile",
-      "finding reports",
+      "prior finding reports as historical diagnostics",
       "detected project commands",
       "package and license manifests"
     ],
     "checks": [
-      "Run applicable format, lint, type, unit, integration, end-to-end, build, security, dependency, migration, authorization, upload, and validation checks",
+      "Re-discover and inspect the stable current revision, then run applicable format, lint, type, unit, integration, end-to-end, build, security, dependency, migration, authorization, upload, and validation checks",
       "Check canonical/generated synchronization, deterministic packaging, checksums, attribution, and clean installation",
-      "Fail for open critical or required high findings, failed gates, incomplete packages, or required high-risk NOT_VERIFIED checks"
+      "Fail for open critical or required high findings, failed gates, unregistered or stale evidence, incomplete packages, or required high-risk NOT_VERIFIED checks"
     ],
     "manual": [
       "Review residual risk, skipped checks, release notes, rollback, and human-only publication steps",

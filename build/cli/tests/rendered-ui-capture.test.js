@@ -78,6 +78,18 @@ function fakeChromium(spec, recorder) {
                             recorder.initScripts.push(script);
                             return Promise.resolve();
                         }
+                    }),
+                ...(spec.supportsStructuralAdapter === false
+                    ? {}
+                    : {
+                        keyboard: { press: () => Promise.resolve() },
+                        evaluate: () => Promise.resolve(spec.structural?.[viewportIndex] ?? {
+                            horizontal_overflow: false,
+                            tab_focus: true,
+                            visible_focus: true,
+                            unlabeled_interactive: 0,
+                            custom_control_defects: 0
+                        })
                     })
             };
             let consoleHandler;
@@ -188,6 +200,39 @@ test("console errors are captured without affecting capture completeness", async
     assert.equal(outcome.capture_status, "COMPLETE");
     const types = outcome.console_entries.map((entry) => entry.type);
     assert.deepEqual(types, ["error", "warning", "pageerror"]);
+});
+test("fixed structural observations record responsive, keyboard-accessible dialog, and custom-control facts", async () => {
+    const clean = {
+        horizontal_overflow: false,
+        tab_focus: true,
+        visible_focus: true,
+        unlabeled_interactive: 0,
+        custom_control_defects: 0
+    };
+    const { outcome } = await capture({
+        structural: [
+            clean,
+            { ...clean, horizontal_overflow: true },
+            { ...clean, unlabeled_interactive: 1, custom_control_defects: 1 }
+        ]
+    });
+    assert.equal(outcome.structural_observations.length, 3);
+    assert.equal(outcome.structural_observations[0]?.status, "PASS");
+    const tablet = outcome.structural_observations[1];
+    if (tablet === undefined)
+        throw new Error("tablet observation unexpectedly missing");
+    assert.equal(tablet.status, "FAIL");
+    assert.equal(tablet.horizontal_overflow, true);
+    const mobile = outcome.structural_observations[2];
+    if (mobile === undefined)
+        throw new Error("mobile observation unexpectedly missing");
+    assert.equal(mobile.status, "FAIL");
+    assert.equal(mobile.accessibility?.custom_control_defects, 1);
+});
+test("a driver without the fixed structural adapter preserves capture but records NOT_VERIFIED", async () => {
+    const { outcome } = await capture({ supportsStructuralAdapter: false });
+    assert.equal(outcome.capture_status, "COMPLETE");
+    assert.ok(outcome.structural_observations.every((entry) => entry.status === "NOT_VERIFIED"));
 });
 test("offline mode aborts every non-loopback request before it reaches the network", async () => {
     const { outcome, record } = await capture({

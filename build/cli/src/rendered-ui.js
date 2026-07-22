@@ -30,6 +30,7 @@ export async function captureRenderedUi(chromium, params) {
     const viewports = [];
     const artifacts = [];
     const screenshots = [];
+    const structuralObservations = [];
     let finalUrl;
     const startedAt = Date.now();
     let browser;
@@ -50,6 +51,7 @@ export async function captureRenderedUi(chromium, params) {
             console_entries: [],
             blocked_requests: [],
             screenshots: [],
+            structural_observations: [],
             artifacts: [],
             limitations: [`Browser launch failed: ${redactError(error)}`]
         };
@@ -71,6 +73,7 @@ export async function captureRenderedUi(chromium, params) {
                     console_entries: [],
                     blocked_requests: [],
                     screenshots: [],
+                    structural_observations: [],
                     artifacts: [],
                     limitations: [
                         "Offline mode requires browser request interception, which this driver does not " +
@@ -180,6 +183,7 @@ export async function captureRenderedUi(chromium, params) {
                 artifact: relativeArtifact,
                 sha256: digest
             });
+            structuralObservations.push(await inspectViewportStructure(page, viewport));
         }
     }
     catch (error) {
@@ -218,10 +222,123 @@ export async function captureRenderedUi(chromium, params) {
         console_entries: consoleEntries,
         blocked_requests: blockedRequests,
         screenshots,
+        structural_observations: structuralObservations,
         artifacts,
         limitations,
         ...(finalUrl === undefined ? {} : { final_url: finalUrl })
     };
+}
+/**
+ * Executes only this module's fixed structural observation. No selector, script, or command is
+ * accepted from callers. A missing browser capability is an evidence gap rather than a guessed
+ * clean result, while screenshot capture remains compatible with older drivers.
+ */
+async function inspectViewportStructure(page, viewport) {
+    const base = { name: viewport.name, width: viewport.width, height: viewport.height };
+    if (typeof page.evaluate !== "function" || page.keyboard === undefined)
+        return {
+            ...base,
+            status: "NOT_VERIFIED",
+            limitations: [
+                "The resolved browser driver does not support the fixed keyboard and structural-observation adapter."
+            ]
+        };
+    try {
+        await page.keyboard.press("Tab");
+        const observed = await page.evaluate(() => {
+            const text = (element) => (element?.textContent ?? "").trim();
+            const nameFor = (element) => {
+                const ariaLabel = element.getAttribute("aria-label")?.trim();
+                if (ariaLabel !== undefined && ariaLabel !== "")
+                    return ariaLabel;
+                const labelledBy = element.getAttribute("aria-labelledby")?.trim();
+                if (labelledBy !== undefined && labelledBy !== "") {
+                    const value = labelledBy
+                        .split(/\s+/u)
+                        .map((id) => text(document.getElementById(id)))
+                        .join(" ")
+                        .trim();
+                    if (value !== "")
+                        return value;
+                }
+                if (element instanceof HTMLInputElement) {
+                    const labels = [...(element.labels ?? [])]
+                        .map((label) => text(label))
+                        .join(" ")
+                        .trim();
+                    if (labels !== "")
+                        return labels;
+                }
+                return (element.getAttribute("title") ?? text(element)).trim();
+            };
+            const interactive = [
+                ...document.querySelectorAll("button,a[href],input:not([type=hidden]),select,textarea,[role]")
+            ].filter((element) => element.getAttribute("aria-hidden") !== "true");
+            const nativeTags = new Set(["button", "a", "input", "select", "textarea"]);
+            let unlabeledInteractive = 0;
+            let customControlDefects = 0;
+            for (const element of interactive) {
+                const name = nameFor(element);
+                if (name === "")
+                    unlabeledInteractive += 1;
+                const role = element.getAttribute("role");
+                if (role !== null && !nativeTags.has(element.tagName.toLowerCase()) && name === "")
+                    customControlDefects += 1;
+            }
+            const focused = document.activeElement;
+            const tabFocus = focused !== null && focused !== document.body && focused !== document.documentElement;
+            const style = focused === null ? undefined : getComputedStyle(focused);
+            const visibleFocus = tabFocus &&
+                style !== undefined &&
+                (style.outlineStyle !== "none" ||
+                    style.outlineWidth !== "0px" ||
+                    style.boxShadow !== "none");
+            return {
+                horizontal_overflow: document.documentElement.scrollWidth > window.innerWidth,
+                tab_focus: tabFocus,
+                visible_focus: visibleFocus,
+                unlabeled_interactive: unlabeledInteractive,
+                custom_control_defects: customControlDefects
+            };
+        });
+        if (!isStructuralObservation(observed))
+            throw new Error("browser returned an invalid fixed structural-observation shape");
+        const failed = observed.horizontal_overflow ||
+            !observed.tab_focus ||
+            !observed.visible_focus ||
+            observed.unlabeled_interactive > 0 ||
+            observed.custom_control_defects > 0;
+        return {
+            ...base,
+            status: failed ? "FAIL" : "PASS",
+            horizontal_overflow: observed.horizontal_overflow,
+            keyboard: { tab_focus: observed.tab_focus, visible_focus: observed.visible_focus },
+            accessibility: {
+                unlabeled_interactive: observed.unlabeled_interactive,
+                custom_control_defects: observed.custom_control_defects
+            },
+            limitations: []
+        };
+    }
+    catch (error) {
+        return {
+            ...base,
+            status: "NOT_VERIFIED",
+            limitations: [`Structural observation could not run: ${redactError(error)}`]
+        };
+    }
+}
+function isStructuralObservation(value) {
+    if (typeof value !== "object" || value === null)
+        return false;
+    const record = value;
+    return (typeof record["horizontal_overflow"] === "boolean" &&
+        typeof record["tab_focus"] === "boolean" &&
+        typeof record["visible_focus"] === "boolean" &&
+        Number.isInteger(record["unlabeled_interactive"]) &&
+        record["unlabeled_interactive"] >= 0 &&
+        Number.isInteger(record["custom_control_defects"]) &&
+        record["custom_control_defects"] >= 0);
 }
 export async function inspectRenderedUi(root, args, options, revision) {
     const offline = options.offline;
@@ -276,6 +393,7 @@ export async function inspectRenderedUi(root, args, options, revision) {
     const plannedArtifacts = [
         ...VIEWPORTS.map((viewport) => toPosix(join(relativeEvidenceDir, `${viewport.name}-${viewport.width}x${viewport.height}.png`))),
         toPosix(join(relativeEvidenceDir, "console.json")),
+        toPosix(join(relativeEvidenceDir, "structural.json")),
         toPosix(join(relativeEvidenceDir, "manifest.json"))
     ];
     // Dry run must resolve nothing and import nothing: importing a browser driver executes that
@@ -325,6 +443,20 @@ export async function inspectRenderedUi(root, args, options, revision) {
     const consolePath = join(evidenceDirectory, "console.json");
     await writeFile(consolePath, consoleDocument, "utf8");
     artifacts.push(toPosix(join(relativeEvidenceDir, "console.json")));
+    const structuralDocument = `${JSON.stringify({
+        url: redactUrl(parsed),
+        route_id: routeId,
+        captured_at: utcNow(),
+        observations: capture.structural_observations
+    }, null, 2)}\n`;
+    const structuralPath = toPosix(join(relativeEvidenceDir, "structural.json"));
+    await writeFile(join(evidenceDirectory, "structural.json"), structuralDocument, "utf8");
+    const structuralEvidence = {
+        path: structuralPath,
+        sha256: sha256(structuralDocument),
+        observations: capture.structural_observations
+    };
+    artifacts.push(structuralPath);
     const errors = consoleEntries.filter((entry) => entry.type === "error" || entry.type === "pageerror");
     const warnings = consoleEntries.filter((entry) => entry.type === "warning");
     const manifest = {
@@ -346,6 +478,7 @@ export async function inspectRenderedUi(root, args, options, revision) {
         viewports: capture.viewports,
         blocked_requests: capture.blocked_requests,
         screenshots: capture.screenshots,
+        structural: structuralEvidence,
         console: {
             path: toPosix(join(relativeEvidenceDir, "console.json")),
             sha256: sha256(consoleDocument),
@@ -448,6 +581,7 @@ export async function inspectRenderedUi(root, args, options, revision) {
             blocked_requests: capture.blocked_requests,
             console_errors: errors.length,
             console_warnings: warnings.length,
+            structural_evidence: structuralEvidence,
             limitations,
             findings
         },

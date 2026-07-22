@@ -1,9 +1,11 @@
 # Release-readiness checklist
 
-- [ ] Project profile is current and applicable modules are recorded.
+- [ ] Project profile and findings were re-derived from a stable current revision; prior reports are
+      diagnostics only.
 - [ ] Format, lint, typecheck, unit, integration, end-to-end, and production build gates pass or are
       explicitly non-applicable.
-- [ ] Required security, dependency, authorization, upload, migration, and license checks pass.
+- [ ] Required security, dependency, authorization, upload, migration, and license checks have
+      current registered, root/revision/artifact-bound evidence and pass.
 - [ ] No open critical or required high finding remains.
 - [ ] No required high-risk check remains `NOT_VERIFIED`.
 - [ ] Canonical and generated platform assets match ownership manifests.

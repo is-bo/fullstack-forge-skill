@@ -1,15 +1,20 @@
 import { readFile } from "node:fs/promises";
 import { extname, relative, resolve } from "node:path";
 import { BUILD_SUB_VERBS } from "./constants.js";
+import { migrateBuildState } from "./build-migration.js";
 import { runAnalyzers } from "./analyzers.js";
+import { deriveBuildApplicability } from "./build-applicability.js";
+import { evaluateBuildGates, planBuildGates } from "./build-gates.js";
 import { detectProjectCommands, discoverProject } from "./discovery.js";
-import { isModuleSlug } from "./inspectors.js";
-import { decideCommandExecution } from "./offline-policy.js";
-import { analyzeChangedScope, capabilityStatusFor } from "./scope.js";
+import { BUILD_PRODUCER_EXPIRY_MS, BUILD_PRODUCER_REGISTRY, BUILD_PRODUCER_VERSION, BUILD_UNAVAILABLE_PRODUCER, executeBuildProducer } from "./build-producers.js";
+import { BUILD_RUNTIME_STATES, casesFromRenderedCapture, deriveBuildRuntimeEvidence, planBuildRuntime } from "./build-runtime.js";
+import { createBuildEvidenceEnvelope } from "./evidence-envelope.js";
+import { inspectRenderedUi } from "./rendered-ui.js";
+import { analyzeChangedScope } from "./scope.js";
 import { isForgePackageRoot } from "./tools.js";
 import { redactError, redactToString } from "./redaction.js";
 import { canonicalDirectory, resolveInside, runFile, sha256, toPosix, utcNow, walkFiles, workingTreeRevision } from "./utils.js";
-import { BUILD_TIERS, REPAIR_CAP, SECURITY_DISCIPLINES, TERMINAL_PHASES, assertValidSlug, loadFeature, loadProject, newFeature, newProject, reverifyEvidenceHashes, saveFeature, saveProject, upsertFeatureIndex, writeArtifact } from "./build-state.js";
+import { BUILD_TIERS, REPAIR_CAP, SECURITY_DISCIPLINES, TERMINAL_PHASES, appendSelectionEvent, assertValidSlug, listFeatures, loadFeature, loadProject, newFeature, newProject, reverifyEvidenceHashes, saveFeature, saveProject, upsertFeatureIndex, writeArtifact } from "./build-state.js";
 const SOURCE_EXTENSIONS = new Set([
     ".cjs",
     ".cts",
@@ -35,8 +40,6 @@ const WORKTREE_EXCLUDE = new Set([
     "target",
     "vendor"
 ]);
-const PROJECT_CHECK_ORDER = ["lint", "typecheck", "test", "build"];
-const MAX_EVIDENCE_FILES = 60;
 const MAX_SCOPE_FILES = 2000;
 /**
  * Build-mode entry point.
@@ -55,7 +58,9 @@ export async function runBuild(argv) {
         return buildResume(root, options);
     if (verb === "feature")
         return featureDispatch(root, options);
-    throw new Error(`Unknown build verb '${verb ?? ""}'. Expected new, feature, or resume.`);
+    if (verb === "migrate")
+        return buildMigrate(root, options);
+    throw new Error(`Unknown build verb '${verb ?? ""}'. Expected new, feature, resume, or migrate.`);
 }
 // ---------------------------------------------------------------------------
 // Argument parsing
@@ -69,6 +74,8 @@ function parseBuildArgs(argv) {
         offline: false,
         allowRun: false,
         force: false,
+        migrationResume: false,
+        migrationRollback: false,
         disciplines: [],
         inputs: [],
         touch: [],
@@ -76,6 +83,17 @@ function parseBuildArgs(argv) {
         nonGoals: [],
         decisions: [],
         assumptions: [],
+        usersRoles: [],
+        workflows: [],
+        invariants: [],
+        sensitiveData: [],
+        trustBoundaries: [],
+        outcomes: [],
+        constraints: [],
+        projectAssumptions: [],
+        unresolvedDecisions: [],
+        backlog: [],
+        runtimeCases: [],
         positionals: []
     };
     const valueFlags = {
@@ -86,7 +104,15 @@ function parseBuildArgs(argv) {
         "--reason": "reason",
         "--criterion": "criterion",
         "--base": "base",
-        "--name": "name"
+        "--name": "name",
+        "--scale": "scale",
+        "--design-ref": "designRef",
+        "--actor": "actor",
+        "--risk-category": "riskCategory",
+        "--url": "url",
+        "--role": "role",
+        "--design-direction": "designDirection",
+        "--evidence-dir": "evidenceDir"
     };
     const listFlags = {
         "--discipline": "disciplines",
@@ -95,13 +121,26 @@ function parseBuildArgs(argv) {
         "--stack": "stack",
         "--non-goal": "nonGoals",
         "--decision": "decisions",
-        "--assumption": "assumptions"
+        "--assumption": "assumptions",
+        "--user-role": "usersRoles",
+        "--workflow": "workflows",
+        "--invariant": "invariants",
+        "--sensitive-data": "sensitiveData",
+        "--trust-boundary": "trustBoundaries",
+        "--outcome": "outcomes",
+        "--constraint": "constraints",
+        "--project-assumption": "projectAssumptions",
+        "--unresolved-decision": "unresolvedDecisions",
+        "--backlog": "backlog",
+        "--runtime-case": "runtimeCases"
     };
     const assign = (key, value) => {
         if (key === "cwd")
             options.cwd = value;
         else if (key === "tier")
             options.tier = validateTier(value);
+        else if (key === "riskCategory")
+            options.riskCategory = validateRiskCategory(value);
         else
             options[key] = value;
     };
@@ -119,6 +158,10 @@ function parseBuildArgs(argv) {
             options.allowRun = true;
         else if (arg === "--force")
             options.force = true;
+        else if (arg === "--resume")
+            options.migrationResume = true;
+        else if (arg === "--rollback")
+            options.migrationRollback = true;
         else if (arg.startsWith("--") && arg.includes("=")) {
             const [flag, ...rest] = arg.split("=");
             const value = rest.join("=");
@@ -155,9 +198,45 @@ function parseBuildArgs(argv) {
     options.cwd = resolve(options.cwd);
     return options;
 }
+// ---------------------------------------------------------------------------
+// forge migrate build
+// ---------------------------------------------------------------------------
+async function buildMigrate(root, options) {
+    const target = options.positionals[1];
+    if (target !== "build" || options.positionals.length !== 2)
+        throw new Error("Usage: forge migrate build [--dry-run] [--resume|--rollback]. Migration never runs implicitly.");
+    const plan = await migrateBuildState(root, {
+        dryRun: options.dryRun,
+        resume: options.migrationResume,
+        rollback: options.migrationRollback
+    });
+    return report(options, {
+        operation: options.migrationRollback
+            ? "migrate-build-rollback"
+            : options.migrationResume
+                ? "migrate-build-resume"
+                : options.dryRun
+                    ? "migrate-build-dry-run"
+                    : "migrate-build",
+        schema_version: 2,
+        dry_run: options.dryRun,
+        files: plan.entries,
+        writes: plan.writes,
+        next: options.dryRun
+            ? "Review this plan, then run `forge migrate build`."
+            : options.migrationRollback
+                ? "Legacy v0.2.0 bytes were restored exactly; run migration again before other Build commands."
+                : "Build state migration is complete."
+    });
+}
 function validateTier(value) {
     if (!BUILD_TIERS.includes(value))
         throw new Error(`Unknown tier '${value}'. Expected light, standard, or high.`);
+    return value;
+}
+function validateRiskCategory(value) {
+    if (value !== "advisory" && value !== "operational")
+        throw new Error("--risk-category must be advisory or operational.");
     return value;
 }
 function parseDisciplines(values) {
@@ -176,6 +255,34 @@ function parseNonGoals(values) {
         return { item, reason: reason.length === 0 ? "no reason recorded" : reason };
     });
 }
+function parseStackEntries(values) {
+    return values.map((value) => {
+        const separator = value.indexOf(":");
+        const name = (separator === -1 ? value : value.slice(0, separator)).trim();
+        if (name.length === 0)
+            throw new Error("--stack requires a non-empty stack name.");
+        return {
+            name,
+            rationale: separator === -1 ? "" : value.slice(separator + 1).trim()
+        };
+    });
+}
+function parseUsersRoles(values) {
+    return values.map((value) => {
+        const separator = value.indexOf(":");
+        const user = (separator === -1 ? value : value.slice(0, separator)).trim();
+        const roles = separator === -1
+            ? []
+            : value
+                .slice(separator + 1)
+                .split(",")
+                .map((role) => role.trim())
+                .filter(Boolean);
+        if (user.length === 0)
+            throw new Error("--user-role requires a non-empty user label.");
+        return { user, roles };
+    });
+}
 // ---------------------------------------------------------------------------
 // forge new
 // ---------------------------------------------------------------------------
@@ -184,10 +291,36 @@ async function buildNew(root, options) {
     if (existing !== undefined && !options.force)
         throw new Error("A build project already exists at .forge/build/project.json. Pass --force to reinitialize it.");
     const project = newProject(options.summary ?? "", options.tier);
-    project.stack = options.stack;
+    const stackEntries = parseStackEntries(options.stack);
+    const usersAndRoles = parseUsersRoles(options.usersRoles);
+    project.stack = stackEntries.map((entry) => entry.name);
     project.non_goals = parseNonGoals(options.nonGoals);
     if (options.name !== undefined)
         project.product.name = options.name;
+    project.frame = {
+        ...project.frame,
+        problem_statement: options.summary ?? project.frame.problem_statement,
+        target_users: usersAndRoles.map((entry) => entry.user),
+        users_and_roles: usersAndRoles,
+        desired_outcomes: options.outcomes,
+        business_rules: options.invariants,
+        business_invariants: options.invariants,
+        constraints: options.constraints,
+        critical_workflows: options.workflows,
+        sensitive_data_classes: options.sensitiveData,
+        trust_boundaries: options.trustBoundaries,
+        expected_scale: options.scale ?? "",
+        stack_entries: stackEntries,
+        assumptions: options.projectAssumptions,
+        unresolved_decisions: options.unresolvedDecisions,
+        initial_feature_backlog: options.backlog,
+        design_direction_reference: options.designRef ?? ".forge/build/DESIGN.md"
+    };
+    project.design_alignment = {
+        status: "NOT_VERIFIED",
+        references: [project.frame.design_direction_reference],
+        recorded_at: project.updated_at
+    };
     const projectPath = await saveProject(root, project, options.dryRun);
     const decisionsPath = await writeArtifact(root, "DECISIONS.md", DECISIONS_TEMPLATE, options.dryRun);
     const designPath = await writeArtifact(root, "DESIGN.md", designTemplate(project.product.summary), options.dryRun);
@@ -204,7 +337,24 @@ async function buildNew(root, options) {
 // forge resume
 // ---------------------------------------------------------------------------
 async function buildResume(root, options) {
-    const project = await loadProject(root);
+    const loadedProject = await loadProject(root);
+    const features = await listFeatures(root);
+    const profile = await discoverProject(root);
+    let project = loadedProject;
+    if (project !== undefined) {
+        project = { ...project, features: [] };
+        for (const loaded of features) {
+            const { feature, demoted, verified } = await reverifyEvidenceHashes(root, loaded);
+            const planningChanged = await refreshBuildPlanning(root, feature, profile, options);
+            if (feature.phase === "done" && missingForDone(feature, new Set(verified)).length > 0)
+                feature.phase = "check";
+            if (planningChanged || demoted.length > 0 || feature.phase !== loaded.phase)
+                await saveFeature(root, feature, options.dryRun);
+            project = upsertFeatureIndex(project, feature);
+        }
+        if (JSON.stringify(project.features) !== JSON.stringify(loadedProject?.features))
+            await saveProject(root, project, options.dryRun);
+    }
     const unfinished = (project?.features ?? []).filter((entry) => !TERMINAL_PHASES.has(entry.phase));
     const mostRecent = [...unfinished].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
     return report(options, {
@@ -270,13 +420,18 @@ async function ensureProjectIndex(root, feature, options) {
 async function featureStart(root, slug, options) {
     const existing = await loadFeature(root, slug);
     if (existing !== undefined) {
-        const { feature, demoted } = await reverifyEvidenceHashes(root, existing);
-        if (demoted.length > 0)
+        const { feature, demoted, verified } = await reverifyEvidenceHashes(root, existing);
+        const planningChanged = await refreshBuildPlanning(root, feature, await discoverProject(root), options);
+        if (feature.phase === "done" && missingForDone(feature, new Set(verified)).length > 0)
+            feature.phase = "check";
+        if (planningChanged || demoted.length > 0 || feature.phase !== existing.phase) {
             await saveFeature(root, feature, options.dryRun);
+            await ensureProjectIndex(root, feature, options);
+        }
         return renderFeature(options, feature, {
             operation: "resume",
             demoted,
-            next: nextStepFor(feature)
+            next: nextStepFor(feature, new Set(verified))
         });
     }
     const tier = options.tier ?? "standard";
@@ -343,8 +498,7 @@ function applyTierPolicy(feature, notes) {
 function applyFrameInputs(feature, options) {
     if (options.summary !== undefined)
         feature.summary = options.summary;
-    if (options.disciplines.length > 0)
-        feature.disciplines = parseDisciplines(options.disciplines);
+    applySelectedDisciplines(feature, options.disciplines);
     if (options.inputs.length > 0)
         feature.tier_inputs = [...new Set(options.inputs)];
     if (options.touch.length > 0)
@@ -355,6 +509,32 @@ function applyFrameInputs(feature, options) {
         feature.assumptions = [...feature.assumptions, ...options.assumptions];
     if (options.reason !== undefined)
         feature.tier_override_reason = options.reason;
+}
+function applySelectedDisciplines(feature, values) {
+    if (values.length > 0) {
+        const previous = new Map(feature.disciplines.map((item) => [item.slug, item.reason]));
+        const selected = parseDisciplines(values);
+        const next = new Set(selected.map((item) => item.slug));
+        for (const item of selected)
+            if (!previous.has(item.slug))
+                feature.selection_events = appendSelectionEvent(feature, {
+                    kind: "discipline",
+                    action: "selected",
+                    value: item.slug,
+                    reason: item.reason,
+                    source: "user"
+                }).selection_events;
+        for (const [slug, reason] of previous)
+            if (!next.has(slug))
+                feature.selection_events = appendSelectionEvent(feature, {
+                    kind: "discipline",
+                    action: "deselected",
+                    value: slug,
+                    reason,
+                    source: "user"
+                }).selection_events;
+        feature.disciplines = selected;
+    }
 }
 // ---------------------------------------------------------------------------
 // feature frame / plan
@@ -371,6 +551,8 @@ async function featureFrame(root, slug, options) {
         throw new Error(`Feature '${slug}' is ${feature.phase} and cannot be reframed.`);
     if (feature.phase === "frame")
         feature.phase = "frame";
+    const planning = await deriveBuildPlanning(root, feature, await discoverProject(root), options);
+    applyBuildPlanning(feature, planning);
     await saveFeature(root, feature, options.dryRun);
     await ensureProjectIndex(root, feature, options);
     return renderFeature(options, feature, {
@@ -385,6 +567,7 @@ async function featurePlan(root, slug, options) {
         throw new Error(`Feature '${slug}' is ${feature.phase}; it cannot be planned.`);
     if (options.summary !== undefined && feature.summary.length === 0)
         feature.summary = options.summary;
+    applySelectedDisciplines(feature, options.disciplines);
     const planSummary = options.summary ?? feature.plan_summary ?? feature.summary;
     feature.plan_summary = planSummary;
     feature.plan_hash = sha256(`${planSummary}\u0000${feature.disciplines
@@ -393,12 +576,12 @@ async function featurePlan(root, slug, options) {
         .join(",")}`);
     if (options.decisions.length > 0)
         feature.decisions = [...feature.decisions, ...options.decisions];
-    if (options.disciplines.length > 0)
-        feature.disciplines = parseDisciplines(options.disciplines);
     // Disciplines added at plan time can introduce high-risk classes, so the tier floor is
     // re-evaluated here, not only at frame.
     const tierNotes = [];
     applyTierPolicy(feature, tierNotes);
+    const planning = await deriveBuildPlanning(root, feature, await discoverProject(root), options);
+    applyBuildPlanning(feature, planning);
     feature.phase = "plan";
     await saveFeature(root, feature, options.dryRun);
     await ensureProjectIndex(root, feature, options);
@@ -408,9 +591,111 @@ async function featurePlan(root, slug, options) {
         next: nextStepFor(feature)
     });
 }
-// ---------------------------------------------------------------------------
-// feature check
-// ---------------------------------------------------------------------------
+async function deriveBuildPlanning(root, feature, profile, options) {
+    const revision = await workingTreeRevision(root);
+    const scope = await resolveBuildScope(root, profile, feature, options.base);
+    const project = await loadProject(root);
+    const derived = deriveBuildApplicability({
+        profile,
+        changed_paths: scope.files,
+        touched_paths: feature.touched_paths,
+        summary: feature.summary,
+        risk_inputs: feature.tier_inputs,
+        risk_baseline: project?.risk_class ?? feature.tier
+    });
+    const applicability = mergeExplicitApplicability(derived, feature);
+    const commands = await detectProjectCommands(root);
+    const gatePlan = planBuildGates({
+        tier: feature.tier,
+        commands,
+        applicability,
+        profile,
+        runtime_available: options.url !== undefined ||
+            options.runtimeCases.length > 0 ||
+            feature.evidence.some((record) => record.criterion === "runtime:rendered-ui" && record.status === "PASS")
+    });
+    return { revision, scope, commands, applicability, gatePlan };
+}
+async function refreshBuildPlanning(root, feature, profile, options) {
+    applyTierPolicy(feature, []);
+    const planning = await deriveBuildPlanning(root, feature, profile, options);
+    if (buildPlanningMatches(feature, planning))
+        return false;
+    applyBuildPlanning(feature, planning);
+    return true;
+}
+function buildPlanningMatches(feature, planning) {
+    const applicability = feature.applicability_snapshot;
+    const gatePlan = feature.gate_plan;
+    return (applicability?.revision === planning.revision &&
+        JSON.stringify(applicability.decisions) === JSON.stringify(planning.applicability.decisions) &&
+        JSON.stringify(applicability.required) === JSON.stringify(planning.applicability.required) &&
+        JSON.stringify(applicability.suggested) === JSON.stringify(planning.applicability.suggested) &&
+        JSON.stringify(applicability.unresolved) ===
+            JSON.stringify(planning.applicability.unresolved) &&
+        JSON.stringify(applicability.excluded) === JSON.stringify(planning.applicability.excluded) &&
+        gatePlan?.revision === planning.revision &&
+        JSON.stringify(gatePlan.gates) === JSON.stringify(planning.gatePlan.gates) &&
+        JSON.stringify(gatePlan.required_criteria) ===
+            JSON.stringify(planning.gatePlan.required_criteria));
+}
+function mergeExplicitApplicability(derived, feature) {
+    const decisions = new Map(derived.decisions.map((decision) => [decision.discipline, structuredClone(decision)]));
+    for (const selection of feature.disciplines) {
+        const existing = decisions.get(selection.slug);
+        if (existing?.status === "REQUIRED")
+            continue;
+        decisions.set(selection.slug, {
+            discipline: selection.slug,
+            status: "REQUIRED",
+            confidence: existing?.status === "EXCLUDED" ? "MEDIUM" : "HIGH",
+            evidence: [
+                `The feature explicitly selected '${selection.slug}': ${redactToString(selection.reason, 300)}.`,
+                ...(existing?.evidence ?? [])
+            ]
+        });
+    }
+    const ordered = [...decisions.values()].sort((left, right) => left.discipline.localeCompare(right.discipline));
+    return {
+        decisions: ordered,
+        required: ordered.filter((item) => item.status === "REQUIRED").map((item) => item.discipline),
+        suggested: ordered.filter((item) => item.status === "SUGGESTED").map((item) => item.discipline),
+        unresolved: ordered
+            .filter((item) => item.status === "UNRESOLVED")
+            .map((item) => item.discipline),
+        excluded: ordered.filter((item) => item.status === "EXCLUDED").map((item) => item.discipline)
+    };
+}
+function applyBuildPlanning(feature, planning) {
+    const recordedAt = utcNow();
+    feature.applicability_snapshot = {
+        recorded_at: recordedAt,
+        revision: planning.revision,
+        decisions: structuredClone(planning.applicability.decisions),
+        required: [...planning.applicability.required],
+        suggested: [...planning.applicability.suggested],
+        unresolved: [...planning.applicability.unresolved],
+        excluded: [...planning.applicability.excluded]
+    };
+    feature.gate_plan = {
+        recorded_at: recordedAt,
+        revision: planning.revision,
+        gates: structuredClone(planning.gatePlan.gates),
+        required_criteria: [...planning.gatePlan.required_criteria]
+    };
+    for (const decision of planning.applicability.decisions) {
+        const value = `${decision.status}:${decision.discipline}`;
+        if (feature.selection_events.some((event) => event.kind === "applicability" && event.value === value))
+            continue;
+        feature.selection_events = appendSelectionEvent(feature, {
+            kind: "applicability",
+            action: "recorded",
+            value,
+            reason: decision.evidence.join(" "),
+            source: "cli"
+        }).selection_events;
+    }
+}
 async function featureCheck(root, slug, options) {
     const loaded = await requireFeature(root, slug);
     const { feature } = await reverifyEvidenceHashes(root, loaded);
@@ -433,8 +718,15 @@ async function featureCheck(root, slug, options) {
  */
 async function runCheckPass(root, feature, options, operation) {
     const profile = await discoverProject(root);
-    const derived = await deriveCriteria(root, feature, profile, options);
+    const planning = await deriveBuildPlanning(root, feature, profile, options);
+    applyBuildPlanning(feature, planning);
+    const derived = await deriveCriteria(root, feature, options, planning);
     feature.evidence = mergeEvidence(feature.evidence, derived);
+    feature.evidence_run_ids = [
+        ...new Set(feature.evidence
+            .map((record) => record.envelope?.run_id)
+            .filter((runId) => runId !== undefined))
+    ];
     const { blockers, tripped } = advanceRepairCounters(feature, derived);
     feature.repair_counters = blockers.counters;
     if (tripped.length > 0) {
@@ -447,11 +739,13 @@ async function runCheckPass(root, feature, options, operation) {
     else if (feature.phase === "implement") {
         feature.phase = "check";
     }
+    const reverified = await reverifyEvidenceHashes(root, feature);
+    Object.assign(feature, reverified.feature);
     await saveFeature(root, feature, options.dryRun);
     await ensureProjectIndex(root, feature, options);
     const hasFail = derived.some((record) => record.status === "FAIL");
-    const missing = missingForDone(feature);
-    const exitCode = feature.phase === "blocked" || hasFail ? 1 : 0;
+    const missing = missingForDone(feature, new Set(reverified.verified));
+    const exitCode = feature.phase === "blocked" || hasFail || missing.length > 0 ? 1 : 0;
     return renderFeature(options, feature, {
         operation,
         derived,
@@ -469,15 +763,21 @@ async function runCheckPass(root, feature, options, operation) {
 // ---------------------------------------------------------------------------
 async function featureDone(root, slug, options) {
     const loaded = await requireFeature(root, slug);
-    const { feature, demoted } = await reverifyEvidenceHashes(root, loaded);
-    if (feature.phase !== "done")
-        applyTierPolicy(feature, []);
-    if (feature.phase === "done")
-        return renderFeature(options, feature, { operation: "done", next: "Already done." });
+    const { feature, demoted, verified } = await reverifyEvidenceHashes(root, loaded);
+    const planningChanged = await refreshBuildPlanning(root, feature, await discoverProject(root), options);
     if (feature.phase === "abandoned" || feature.phase === "blocked")
         throw new Error(`Feature '${slug}' is ${feature.phase}; it cannot be completed.`);
-    const missing = missingForDone(feature);
-    if (demoted.length > 0)
+    const missing = missingForDone(feature, new Set(verified));
+    if (feature.phase === "done" && missing.length === 0) {
+        if (planningChanged || demoted.length > 0) {
+            await saveFeature(root, feature, options.dryRun);
+            await ensureProjectIndex(root, feature, options);
+        }
+        return renderFeature(options, feature, { operation: "done", next: "Already done." });
+    }
+    if (feature.phase === "done" && missing.length > 0)
+        feature.phase = "check";
+    if (planningChanged || demoted.length > 0 || feature.phase !== loaded.phase)
         await saveFeature(root, feature, options.dryRun);
     if (missing.length > 0) {
         return renderFeature(options, feature, {
@@ -485,7 +785,7 @@ async function featureDone(root, slug, options) {
             refused: true,
             missing_for_done: missing,
             demoted,
-            next: "Provide evidence, a reasoned NOT_APPLICABLE, or an eligible risk acceptance for each item, then re-run done."
+            next: "Provide current verified evidence or an eligible policy-bound risk acceptance for each item, then re-run done. NOT_APPLICABLE cannot satisfy a required gate."
         }, 1);
     }
     feature.phase = "done";
@@ -500,7 +800,9 @@ async function featureDone(root, slug, options) {
 // feature accept-risk / abandon / status
 // ---------------------------------------------------------------------------
 async function featureAcceptRisk(root, slug, options) {
-    const feature = await requireFeature(root, slug);
+    const loaded = await requireFeature(root, slug);
+    const { feature } = await reverifyEvidenceHashes(root, loaded);
+    await refreshBuildPlanning(root, feature, await discoverProject(root), options);
     if (options.criterion === undefined)
         throw new Error("accept-risk requires --criterion <criterion-id>.");
     if (options.reason === undefined || options.reason.trim().length === 0)
@@ -508,16 +810,51 @@ async function featureAcceptRisk(root, slug, options) {
     const record = feature.evidence.find((item) => item.criterion === options.criterion);
     if (record === undefined)
         throw new Error(`No evidence record exists for criterion '${options.criterion}'. Run \`forge feature ${slug} check\` first.`);
-    if (feature.tier === "high" && record.security_control)
-        throw new Error(`Criterion '${options.criterion}' is a required security control at high tier and cannot be risk-accepted. It must be PASS or a reasoned NOT_APPLICABLE.`);
+    if (feature.phase !== "check")
+        throw new Error("accept-risk requires a current check result; run feature check first.");
+    if (record.status === "PASS")
+        throw new Error(`Criterion '${options.criterion}' already has verified PASS evidence.`);
+    if (record.status === "FAIL")
+        throw new Error(`Criterion '${options.criterion}' is FAIL and must be fixed, not waived.`);
+    const gates = feature.gate_plan?.gates.filter((gate) => gate.criteria.includes(options.criterion));
+    if (gates === undefined || gates.length === 0)
+        throw new Error(`Criterion '${options.criterion}' is not part of the current Build gate plan.`);
+    if (gates.some((gate) => gate.waiver_policy === "never"))
+        throw new Error(`Criterion '${options.criterion}' is non-waivable in the current gate plan and must be proved directly.`);
     const revision = await workingTreeRevision(root);
+    if (feature.gate_plan?.revision !== revision)
+        throw new Error("The gate plan is stale; run feature check again before accepting risk.");
+    const policy = gates.some((gate) => gate.waiver_policy === "operational-human")
+        ? "operational-human"
+        : "advisory";
+    const category = policy === "operational-human" ? "operational" : "advisory";
+    if (options.riskCategory !== undefined && options.riskCategory !== category)
+        throw new Error(`This criterion requires risk category '${category}'.`);
+    if (policy === "operational-human" && (options.actor ?? "").trim().length === 0)
+        throw new Error("Operational risk acceptance requires --actor <accountable-human>.");
+    const relevantFiles = await hashFiles(root, record.files.map((file) => file.path));
+    if (relevantFiles.length === 0 || relevantFiles.length !== record.files.length)
+        throw new Error("Risk acceptance requires a complete non-empty current file manifest.");
+    const timestamp = utcNow();
+    for (const acceptance of feature.risk_acceptances)
+        if (acceptance.criterion === options.criterion && acceptance.lifecycle !== "expired") {
+            acceptance.lifecycle = "expired";
+            acceptance.expired_at = timestamp;
+        }
     feature.risk_acceptances = [
         ...feature.risk_acceptances,
         {
             criterion: options.criterion,
+            category,
+            ...(options.actor === undefined ? {} : { actor: options.actor }),
             reason: options.reason,
+            canonical_root: await canonicalDirectory(root),
             revision,
-            timestamp: utcNow()
+            policy,
+            relevant_files: relevantFiles,
+            timestamp,
+            expires_at: new Date(Date.parse(timestamp) + BUILD_PRODUCER_EXPIRY_MS).toISOString(),
+            lifecycle: "active"
         }
     ];
     await saveFeature(root, feature, options.dryRun);
@@ -542,12 +879,19 @@ async function featureAbandon(root, slug, options) {
 }
 async function featureStatus(root, slug, options) {
     const loaded = await requireFeature(root, slug);
-    const { feature, demoted } = await reverifyEvidenceHashes(root, loaded);
+    const { feature, demoted, verified } = await reverifyEvidenceHashes(root, loaded);
+    const planningChanged = await refreshBuildPlanning(root, feature, await discoverProject(root), options);
+    if (feature.phase === "done" && missingForDone(feature, new Set(verified)).length > 0)
+        feature.phase = "check";
+    if (planningChanged || demoted.length > 0 || feature.phase !== loaded.phase) {
+        await saveFeature(root, feature, options.dryRun);
+        await ensureProjectIndex(root, feature, options);
+    }
     return renderFeature(options, feature, {
         operation: "status",
         demoted,
-        missing_for_done: missingForDone(feature),
-        next: nextStepFor(feature)
+        missing_for_done: missingForDone(feature, new Set(verified)),
+        next: nextStepFor(feature, new Set(verified))
     });
 }
 async function requireFeature(root, slug) {
@@ -556,152 +900,486 @@ async function requireFeature(root, slug) {
         throw new Error(`Feature '${slug}' does not exist. Start it with \`forge feature ${slug} --tier <light|standard|high>\`.`);
     return feature;
 }
-async function deriveCriteria(root, feature, profile, options) {
+async function deriveCriteria(root, feature, options, planning) {
     const now = utcNow();
     const criteria = [];
-    const scope = await resolveBuildScope(root, profile, feature, options.base);
+    const { scope, revision, commands } = planning;
     feature.touched_paths = scope.files.slice(0, MAX_SCOPE_FILES);
     const scopeSource = scope.files.filter(isSourcePath);
-    criteria.push({
+    const scopeFiles = await hashFiles(root, scope.files);
+    const scopeComplete = scope.files.length > 0 && scopeFiles.length === scope.files.length;
+    criteria.push(await createCriterionRecord(root, revision, {
         criterion: "scope-resolution",
+        discipline: "code",
         security_control: false,
-        status: "PASS",
-        producer: "scope.ts",
+        status: scopeComplete ? "PASS" : "NOT_VERIFIED",
+        producer: "fullstack-forge/build-scope",
         evidence: [
             `Scope resolved via ${scope.mode}; ${scope.files.length} file(s) in scope.`,
             ...scope.reasons.slice(0, 5)
         ],
-        files: await hashFiles(root, scope.files),
+        limitations: scopeComplete
+            ? []
+            : ["Scope was empty or one or more scoped files could not be hashed completely."],
+        files: scopeFiles,
         instance_ids: [],
         recorded_at: now
-    });
+    }));
     const scopeSet = new Set(scope.files);
     const runs = await runAnalyzers("all", root, scopeSet.size > 0 ? scopeSet : undefined);
     const supported = runs.reduce((total, run) => total + run.supported_files, 0);
     const failFindings = runs.flatMap((run) => run.findings).filter((f) => f.status === "FAIL");
-    criteria.push({
-        criterion: "static-analysis",
+    const sourceFiles = await hashFiles(root, scopeSource);
+    const analyzerStatus = failFindings.length > 0
+        ? "FAIL"
+        : supported > 0 && sourceFiles.length === scopeSource.length
+            ? "PASS"
+            : "NOT_VERIFIED";
+    criteria.push(await createCriterionRecord(root, revision, {
+        criterion: "supported-static-patterns",
+        discipline: "code",
         security_control: false,
-        status: failFindings.length > 0 ? "FAIL" : supported > 0 ? "PASS" : "NOT_VERIFIED",
-        producer: "analyzers.ts",
+        status: analyzerStatus,
+        producer: "fullstack-forge/build-analyzers",
         evidence: failFindings.length > 0
             ? failFindings
                 .slice(0, 10)
-                .map((f) => redactToString(`${f.instance_id ?? f.id}: ${f.title} (${f.location[0]?.path ?? "?"})`))
+                .map((finding) => redactToString(`${finding.instance_id ?? finding.id}: ${finding.title} (${finding.location[0]?.path ?? "?"})`))
             : [
                 supported > 0
-                    ? `Analyzed ${supported} supported source file(s) in scope; no failing pattern was reproduced.`
-                    : "No analyzable source files were in scope, so static analysis could not run."
+                    ? `PASS — supported analyzers found no reproduced failure in ${supported} supported file(s).`
+                    : "No analyzable source files were in scope, so supported static patterns were not verified."
             ],
-        files: await hashFiles(root, scopeSource),
-        instance_ids: failFindings.map((f) => f.instance_id ?? f.id).slice(0, 50),
+        limitations: [
+            "This bounded result does not verify runtime behavior, unsupported frameworks, or whole-feature security."
+        ],
+        files: sourceFiles,
+        instance_ids: failFindings.map((finding) => finding.instance_id ?? finding.id).slice(0, 50),
         recorded_at: now
-    });
-    const commands = await detectProjectCommands(root);
-    const policy = { offline: options.offline, forgeOwned: await isForgePackageRoot(root) };
-    for (const name of PROJECT_CHECK_ORDER) {
-        const command = commands.find((candidate) => candidate.name === name);
-        if (command === undefined)
+    }));
+    criteria.push(await createCriterionRecord(root, revision, {
+        criterion: "applicability",
+        discipline: "requirements",
+        security_control: false,
+        status: planning.applicability.unresolved.length === 0 ? "PASS" : "NOT_VERIFIED",
+        producer: "fullstack-forge/build-applicability",
+        evidence: planning.applicability.decisions.map((decision) => `${decision.discipline}: ${decision.status}/${decision.confidence} — ${decision.evidence.join(" ")}`),
+        limitations: planning.applicability.unresolved.map((discipline) => `Applicability for '${discipline}' remains unresolved.`),
+        files: scopeFiles,
+        instance_ids: planning.applicability.unresolved,
+        recorded_at: now
+    }));
+    for (const decision of planning.applicability.decisions) {
+        if (decision.status !== "EXCLUDED")
             continue;
-        criteria.push(await deriveCommandCriterion(root, command, name, options.allowRun, policy, scopeSource, now));
+        criteria.push(await createCriterionRecord(root, revision, {
+            criterion: `discipline:${decision.discipline}`,
+            discipline: decision.discipline,
+            security_control: SECURITY_DISCIPLINES.has(decision.discipline),
+            status: scopeComplete ? "NOT_APPLICABLE" : "NOT_VERIFIED",
+            producer: `fullstack-forge/build-applicability/${decision.discipline}`,
+            evidence: decision.evidence,
+            limitations: [],
+            files: scopeFiles,
+            instance_ids: [],
+            recorded_at: now,
+            ...(decision.exclusion_reason === undefined
+                ? {}
+                : { not_applicable_reason: decision.exclusion_reason })
+        }));
     }
-    for (const discipline of feature.disciplines) {
-        criteria.push(deriveDisciplineCriterion(discipline, profile, failFindings, now));
+    const commandResults = new Map();
+    const runCommand = (command, commandRoot) => {
+        const key = JSON.stringify([command.executable, command.args, command.definition]);
+        let result = commandResults.get(key);
+        if (result === undefined) {
+            result = runFile(command.executable, command.args, commandRoot, 10 * 60_000);
+            commandResults.set(key, result);
+        }
+        return result;
+    };
+    const forgeOwned = await isForgePackageRoot(root);
+    const internallyDerived = new Set([
+        "scope-resolution",
+        "supported-static-patterns",
+        "applicability",
+        "runtime:rendered-ui",
+        "design-direction"
+    ]);
+    for (const criterion of planning.gatePlan.required_criteria) {
+        if (internallyDerived.has(criterion))
+            continue;
+        const candidates = BUILD_PRODUCER_REGISTRY.filter((entry) => entry.criterion === criterion);
+        const matched = candidates
+            .map((producer) => ({
+            producer,
+            command: commands.find((command) => command.name === producer.script_name)
+        }))
+            .find((entry) => entry.command !== undefined);
+        if (matched?.command === undefined) {
+            const expected = candidates[0];
+            criteria.push(await createCriterionRecord(root, revision, {
+                criterion,
+                ...(expected === undefined ? {} : { discipline: expected.discipline }),
+                security_control: expected?.security_control ?? securityCriterion(criterion),
+                status: "NOT_VERIFIED",
+                producer: expected?.id ?? BUILD_UNAVAILABLE_PRODUCER,
+                evidence: [
+                    expected === undefined
+                        ? `No registered Build producer exists for '${criterion}'.`
+                        : `Required producer script '${expected.script_name}' was not detected for '${criterion}'.`
+                ],
+                limitations: ["Unsupported or absent producer evidence never becomes PASS."],
+                files: scopeFiles,
+                instance_ids: [],
+                recorded_at: now
+            }));
+            continue;
+        }
+        const commandInputPaths = [
+            ...new Set([...scope.files, matched.command.source].map((path) => toPosix(path)))
+        ].sort();
+        const commandInputFiles = await hashFiles(root, commandInputPaths);
+        const observation = await executeBuildProducer({
+            root,
+            criterion,
+            command: matched.command,
+            input_manifest: commandInputFiles,
+            input_manifest_complete: commandInputPaths.length > 0 && commandInputFiles.length === commandInputPaths.length,
+            allow_run: options.allowRun,
+            offline: options.offline,
+            forge_owned: forgeOwned,
+            run_command: runCommand
+        });
+        criteria.push(await recordFromObservation(root, revision, observation));
     }
+    if (planning.gatePlan.required_criteria.includes("runtime:rendered-ui") ||
+        planning.gatePlan.required_criteria.includes("design-direction"))
+        criteria.push(...(await deriveRuntimeCriteria(root, feature, options, planning, scopeFiles, now)));
     return criteria;
 }
-async function deriveCommandCriterion(root, command, name, allowRun, policy, scopeSource, now) {
-    const criterion = `project:${name}`;
-    const files = await hashFiles(root, scopeSource);
-    if (!allowRun)
-        return {
-            criterion,
-            security_control: false,
-            status: "NOT_VERIFIED",
-            producer: `project-command:${name}`,
-            evidence: [
-                `'${name}' was detected but requires explicit --allow-run after review; it did not execute.`
-            ],
-            files,
-            instance_ids: [],
-            recorded_at: now
-        };
-    const decision = decideCommandExecution(command, policy);
-    if (!decision.permitted)
-        return {
-            criterion,
-            security_control: false,
-            status: "BLOCKED",
-            producer: `project-command:${name}`,
-            evidence: [redactToString(decision.reason)],
-            files,
-            instance_ids: [],
-            recorded_at: now
-        };
-    const result = await runFile(command.executable, command.args, root, 10 * 60_000);
-    const output = redactToString(`${result.stdout}\n${result.stderr}`.trim(), 800);
+async function createCriterionRecord(root, revision, input) {
+    const expiresAt = new Date(Date.parse(input.recorded_at) + BUILD_PRODUCER_EXPIRY_MS).toISOString();
+    const record = {
+        ...input,
+        evidence: input.evidence.map((line) => redactToString(line, 1_000)),
+        limitations: (input.limitations ?? []).map((line) => redactToString(line, 500)),
+        ...(input.not_applicable_reason === undefined
+            ? {}
+            : { not_applicable_reason: redactToString(input.not_applicable_reason, 500) }),
+        producer_version: BUILD_PRODUCER_VERSION,
+        revision,
+        expires_at: expiresAt
+    };
+    if (record.files.length === 0) {
+        if (record.status === "PASS" || record.status === "NOT_APPLICABLE") {
+            record.status = "NOT_VERIFIED";
+            record.evidence.push("Positive evidence requires at least one current hashed artifact.");
+        }
+        return record;
+    }
+    const claim = toBuildEvidenceClaim(record);
+    try {
+        record.envelope = await createBuildEvidenceEnvelope({
+            root,
+            revision,
+            claim,
+            artifacts: record.files.map((file) => ({
+                path: file.path,
+                media_type: mediaTypeForPath(file.path)
+            }))
+        });
+    }
+    catch (error) {
+        if (record.status === "PASS" || record.status === "NOT_APPLICABLE")
+            record.status = "NOT_VERIFIED";
+        record.evidence.push(`Evidence envelope unavailable: ${redactError(error)}`);
+        delete record.envelope;
+    }
+    return record;
+}
+function toBuildEvidenceClaim(record) {
+    if (record.producer_version === undefined ||
+        record.limitations === undefined ||
+        record.expires_at === undefined)
+        throw new Error(`Criterion '${record.criterion}' lacks complete producer metadata.`);
     return {
-        criterion,
-        security_control: false,
-        status: result.exitCode === 0 ? "PASS" : "FAIL",
-        producer: `project-command:${name}`,
-        evidence: [
-            `${command.executable} ${command.args.join(" ")} exited ${result.exitCode}.`,
-            output
-        ],
-        files,
-        instance_ids: [],
-        recorded_at: now
+        criterion: record.criterion,
+        ...(record.discipline === undefined ? {} : { discipline: record.discipline }),
+        security_control: record.security_control,
+        status: record.status,
+        producer: record.producer,
+        producer_version: record.producer_version,
+        evidence: record.evidence,
+        limitations: record.limitations,
+        files: record.files,
+        instance_ids: record.instance_ids,
+        recorded_at: record.recorded_at,
+        expires_at: record.expires_at,
+        ...(record.not_applicable_reason === undefined
+            ? {}
+            : { not_applicable_reason: record.not_applicable_reason }),
+        ...(record.runtime === undefined ? {} : { runtime: record.runtime }),
+        ...(record.command === undefined ? {} : { command: record.command })
     };
 }
-function deriveDisciplineCriterion(discipline, profile, failFindings, now) {
-    const slug = discipline.slug;
-    const securityControl = SECURITY_DISCIPLINES.has(slug);
-    const criterion = `discipline:${slug}`;
-    const failing = failFindings.filter((finding) => finding.section === slug);
-    if (failing.length > 0)
-        return {
-            criterion,
-            discipline: slug,
-            security_control: securityControl,
-            status: "FAIL",
-            producer: "analyzers.ts",
-            evidence: failing
-                .slice(0, 10)
-                .map((f) => redactToString(`${f.instance_id ?? f.id}: ${f.title}`)),
-            files: [],
-            instance_ids: failing.map((f) => f.instance_id ?? f.id).slice(0, 50),
-            recorded_at: now
-        };
-    if (isModuleSlug(slug)) {
-        const capability = capabilityStatusFor(slug, profile);
-        if (capability.status === "ABSENT")
-            return {
-                criterion,
-                discipline: slug,
-                security_control: securityControl,
-                status: "NOT_APPLICABLE",
-                producer: "discovery",
-                evidence: capability.evidence.slice(0, 3),
-                files: [],
-                instance_ids: [],
-                recorded_at: now,
-                not_applicable_reason: `Discovery proved the '${slug}' capability is absent.`
-            };
-    }
-    return {
-        criterion,
-        discipline: slug,
-        security_control: securityControl,
-        status: "NOT_VERIFIED",
-        producer: "build",
+async function recordFromObservation(root, revision, observation) {
+    const complete = observation.command.exit_code !== undefined;
+    const command = complete
+        ? {
+            name: observation.command.name,
+            argv: [...observation.command.argv],
+            definition: redactToString(observation.command.definition, 1_000),
+            exit_code: observation.command.exit_code,
+            started_at: observation.command.started_at,
+            duration_ms: observation.command.duration_ms,
+            output_sha256: observation.command.output_sha256,
+            input_manifest: observation.input_manifest.map((file) => ({
+                ...file,
+                media_type: mediaTypeForPath(file.path)
+            }))
+        }
+        : undefined;
+    return createCriterionRecord(root, revision, {
+        criterion: observation.criterion,
+        discipline: observation.discipline,
+        security_control: observation.security_control,
+        status: observation.status,
+        producer: observation.producer_id,
         evidence: [
-            `Discipline '${slug}' has no executable producer that proved it in this scope. Provide direct evidence, a reasoned NOT_APPLICABLE, or an eligible risk acceptance.`
+            complete
+                ? `Registered script '${observation.command.name}' exited ${observation.command.exit_code}.`
+                : `Registered script '${observation.command.name}' did not produce an executed result.`,
+            ...(observation.command.output_excerpt === undefined
+                ? []
+                : [observation.command.output_excerpt])
         ],
-        files: [],
+        limitations: observation.limitations,
+        files: observation.input_manifest,
+        instance_ids: [],
+        recorded_at: observation.recorded_at,
+        ...(command === undefined ? {} : { command })
+    });
+}
+function securityCriterion(criterion) {
+    return [
+        "authentication",
+        "authorization",
+        "tenant",
+        "upload",
+        "webhook",
+        "security",
+        "privacy",
+        "payment"
+    ].some((token) => criterion.includes(token));
+}
+function mediaTypeForPath(path) {
+    const extension = extname(path).toLowerCase();
+    if (extension === ".json")
+        return "application/json";
+    if (extension === ".png")
+        return "image/png";
+    if (extension === ".jpg" || extension === ".jpeg")
+        return "image/jpeg";
+    if (extension === ".html")
+        return "text/html";
+    if ([".md", ".txt", ".ts", ".tsx", ".js", ".jsx", ".css"].includes(extension))
+        return "text/plain";
+    return "application/octet-stream";
+}
+async function deriveRuntimeCriteria(root, feature, options, planning, scopeFiles, now) {
+    const routeByState = parseRuntimeCases(options);
+    const design = await designDirectionResult(root, options.designDirection);
+    const designFiles = await hashFiles(root, [".forge/build/DESIGN.md"]);
+    if (routeByState.size === 0) {
+        return [
+            await createCriterionRecord(root, planning.revision, {
+                criterion: "runtime:rendered-ui",
+                discipline: "ui",
+                security_control: true,
+                status: "NOT_VERIFIED",
+                producer: "fullstack-forge/build-runtime",
+                evidence: [
+                    "No rendered state URLs were supplied. Use --runtime-case <state>=<url> for every required state."
+                ],
+                limitations: [
+                    `Required states: ${BUILD_RUNTIME_STATES.join(", ")}. Browser evidence is never fabricated.`
+                ],
+                files: scopeFiles,
+                instance_ids: BUILD_RUNTIME_STATES.map((state) => `missing:${state}`),
+                recorded_at: now
+            }),
+            await createDesignCriterion(root, planning.revision, design, designFiles, scopeFiles, now)
+        ];
+    }
+    const role = options.role ?? "representative-user";
+    const statePlans = [...routeByState].map(([state, route]) => planBuildRuntime({ route, role, states: [state] }));
+    const plan = {
+        route: statePlans[0].route,
+        role: statePlans[0].role,
+        cases: statePlans.flatMap((entry) => entry.cases)
+    };
+    const captures = [];
+    for (const [state, url] of routeByState) {
+        const renderedOptions = {
+            cwd: root,
+            json: true,
+            dryRun: options.dryRun,
+            global: false,
+            offline: options.offline,
+            allowRun: options.allowRun,
+            safe: true,
+            evidenceDir: options.evidenceDir ?? `.forge/build/evidence/${feature.slug}/${state}`
+        };
+        const captured = await inspectRenderedUi(root, [url], renderedOptions, planning.revision);
+        captures.push({ state, rendered: captured.value });
+    }
+    const cases = captures.flatMap((capture) => casesFromRenderedCapture(plan, capture));
+    const fallback = captures[0]?.rendered ?? {
+        capture_status: "BLOCKED",
+        status: "BLOCKED",
+        reason: "No runtime capture completed.",
+        artifacts: [],
+        viewports: [],
+        console_errors: 0,
+        limitations: ["No runtime capture completed."]
+    };
+    const [runtimeResult, designResult] = deriveBuildRuntimeEvidence({
+        plan,
+        rendered: fallback,
+        captures,
+        cases,
+        design_direction: design
+    });
+    if (runtimeResult === undefined || designResult === undefined)
+        throw new Error("Build runtime evidence adapter returned an incomplete result set.");
+    const runtimePaths = [
+        ...new Set(captures.flatMap((capture) => capture.rendered.artifacts))
+    ].sort();
+    const hashedRuntimeFiles = await hashFiles(root, runtimePaths);
+    const runtimeArtifactsComplete = hashedRuntimeFiles.length === runtimePaths.length;
+    const runtimeFiles = mergeEvidenceFiles(scopeFiles, hashedRuntimeFiles);
+    const runtime = plan.cases.map((entry) => ({
+        url: entry.route,
+        role: entry.role,
+        state: entry.state,
+        viewport: { ...entry.viewport }
+    }));
+    return [
+        await createCriterionRecord(root, planning.revision, {
+            criterion: runtimeResult.criterion,
+            discipline: "ui",
+            security_control: true,
+            status: runtimeResult.status === "PASS" && !runtimeArtifactsComplete
+                ? "NOT_VERIFIED"
+                : runtimeResult.status,
+            producer: "fullstack-forge/build-runtime",
+            evidence: runtimeResult.evidence,
+            limitations: [
+                ...runtimeResult.limitations,
+                ...(runtimeArtifactsComplete
+                    ? []
+                    : ["One or more declared rendered artifacts could not be hashed after capture."])
+            ],
+            files: runtimeFiles,
+            instance_ids: plan.cases.map((entry) => entry.id),
+            recorded_at: now,
+            runtime
+        }),
+        await createCriterionRecord(root, planning.revision, {
+            criterion: designResult.criterion,
+            discipline: "ui",
+            security_control: false,
+            status: designResult.status,
+            producer: "fullstack-forge/build-design",
+            evidence: designResult.evidence,
+            limitations: designResult.limitations,
+            files: mergeEvidenceFiles(scopeFiles, designFiles),
+            instance_ids: [],
+            recorded_at: now
+        })
+    ];
+}
+async function createDesignCriterion(root, revision, design, designFiles, scopeFiles, now) {
+    const placeholder = {
+        capture_status: "BLOCKED",
+        status: "BLOCKED",
+        artifacts: [],
+        viewports: [],
+        console_errors: 0,
+        limitations: []
+    };
+    const plan = planBuildRuntime({
+        route: "http://127.0.0.1/",
+        role: "representative-user",
+        states: []
+    });
+    const result = deriveBuildRuntimeEvidence({
+        plan,
+        rendered: placeholder,
+        captures: [],
+        cases: [],
+        design_direction: design
+    }).find((entry) => entry.criterion === "design-direction");
+    if (result === undefined)
+        throw new Error("Design-direction adapter returned no result.");
+    return createCriterionRecord(root, revision, {
+        criterion: "design-direction",
+        discipline: "ui",
+        security_control: false,
+        status: result.status,
+        producer: "fullstack-forge/build-design",
+        evidence: result.evidence,
+        limitations: result.limitations,
+        files: mergeEvidenceFiles(scopeFiles, designFiles),
         instance_ids: [],
         recorded_at: now
-    };
+    });
+}
+function parseRuntimeCases(options) {
+    const result = new Map();
+    if (options.url !== undefined)
+        result.set("success", options.url);
+    for (const raw of options.runtimeCases) {
+        const separator = raw.indexOf("=");
+        if (separator <= 0 || separator === raw.length - 1)
+            throw new Error("--runtime-case must use <state>=<absolute-http-url>.");
+        const state = raw.slice(0, separator);
+        const url = raw.slice(separator + 1);
+        if (!BUILD_RUNTIME_STATES.includes(state))
+            throw new Error(`Unknown runtime state '${state}'. Expected one of: ${BUILD_RUNTIME_STATES.join(", ")}.`);
+        if (result.has(state))
+            throw new Error(`Runtime state '${state}' was supplied more than once.`);
+        result.set(state, url);
+    }
+    return result;
+}
+async function designDirectionResult(root, declaration) {
+    try {
+        await readFile(resolveInside(root, ".forge/build/DESIGN.md"));
+    }
+    catch {
+        return { status: "MISSING" };
+    }
+    if (declaration === undefined)
+        return { status: "NOT_VERIFIED" };
+    if (declaration === "follows")
+        return { status: "PRESENT", follows_direction: true };
+    if (declaration.startsWith("deviation:")) {
+        const reason = declaration.slice("deviation:".length).trim();
+        return {
+            status: "PRESENT",
+            follows_direction: false,
+            ...(reason.length === 0 ? {} : { deviation_reason: reason })
+        };
+    }
+    throw new Error("--design-direction must be 'follows' or 'deviation:<reason>'.");
+}
+function mergeEvidenceFiles(...groups) {
+    const byPath = new Map();
+    for (const file of groups.flat())
+        byPath.set(file.path, file);
+    return [...byPath.values()].sort((left, right) => left.path.localeCompare(right.path));
 }
 // ---------------------------------------------------------------------------
 // Scope resolution
@@ -749,13 +1427,13 @@ async function collectWorktreeFiles(root) {
 }
 async function hashFiles(root, paths) {
     const files = [];
-    for (const path of paths.slice(0, MAX_EVIDENCE_FILES)) {
+    for (const path of [...new Set(paths)].sort()) {
         try {
             const bytes = await readFile(resolveInside(root, path));
             files.push({ path, sha256: sha256(bytes) });
         }
         catch {
-            // A path that cannot be read contributes no freshness anchor; skip it silently.
+            // The caller compares requested and returned counts and must fail closed on any gap.
         }
     }
     return files;
@@ -819,55 +1497,62 @@ function failureSignature(record) {
             .join("\n");
     return sha256(`${record.criterion}\u0000${basis}`);
 }
-/** The criteria that must be satisfied for `done`, by tier. */
-function requiredCriteria(feature) {
-    const required = new Set(["scope-resolution", "static-analysis"]);
-    if (feature.tier !== "light") {
-        for (const discipline of feature.disciplines)
-            required.add(`discipline:${discipline.slug}`);
-        if (feature.evidence.some((record) => record.criterion === "project:test"))
-            required.add("project:test");
-    }
-    return required;
-}
-/**
- * Computes the actionable missing-items list for `done`.
- *
- * A criterion is satisfied by PASS, a reasoned NOT_APPLICABLE, or an eligible risk acceptance. A
- * FAIL is never waivable. A high-tier required security control that is NOT_VERIFIED can never be
- * satisfied and is reported as such.
- */
-export function missingForDone(feature) {
+/** Computes the actionable missing-items list for `done` from verified evidence and gate policy. */
+export function missingForDone(feature, verifiedCriteria = new Set()) {
     const missing = [];
-    const byId = new Map(feature.evidence.map((record) => [record.criterion, record]));
+    if (feature.phase !== "check" && feature.phase !== "done")
+        missing.push(`lifecycle: feature must reach check before done (current phase: ${feature.phase})`);
     for (const record of feature.evidence)
         if (record.status === "FAIL")
             missing.push(`${record.criterion}: FAIL must be fixed (${record.evidence[0] ?? "no detail"})`);
-    const accepted = new Set(feature.risk_acceptances.map((item) => item.criterion));
-    for (const criterion of requiredCriteria(feature)) {
-        const record = byId.get(criterion);
-        if (record === undefined) {
-            missing.push(`${criterion}: no evidence recorded (run \`check\`)`);
+    if (feature.gate_plan === undefined) {
+        missing.push("gate-plan: no Build gate plan is recorded (run `check`)");
+        return [...new Set(missing)];
+    }
+    if (feature.evidence_revision === undefined ||
+        feature.gate_plan.revision !== feature.evidence_revision)
+        missing.push("gate-plan: evidence and gate plan belong to different working-tree revisions");
+    const evidence = feature.evidence.map((record) => {
+        if ((record.status === "PASS" || record.status === "NOT_APPLICABLE") &&
+            !verifiedCriteria.has(record.criterion))
+            return {
+                ...record,
+                status: "NOT_VERIFIED",
+                evidence: [...record.evidence, "The persisted positive claim was not verified in memory."]
+            };
+        return record;
+    });
+    const activeAcceptances = feature.risk_acceptances.filter((item) => item.lifecycle !== "expired" &&
+        item.migration_state === undefined &&
+        item.policy !== undefined &&
+        item.canonical_root !== undefined &&
+        item.relevant_files !== undefined &&
+        item.relevant_files.length > 0 &&
+        item.expires_at !== undefined &&
+        Date.parse(item.expires_at) > Date.now() &&
+        item.revision === feature.evidence_revision);
+    const accepted = [...new Set(feature.gate_plan.gates.flatMap((gate) => gate.criteria))].filter((criterion) => {
+        const gates = feature.gate_plan?.gates.filter((gate) => gate.criteria.includes(criterion)) ?? [];
+        if (gates.length === 0 || gates.some((gate) => gate.waiver_policy === "never"))
+            return false;
+        const requiredPolicy = gates.some((gate) => gate.waiver_policy === "operational-human")
+            ? "operational-human"
+            : "advisory";
+        return activeAcceptances.some((item) => item.criterion === criterion &&
+            item.policy === requiredPolicy &&
+            (requiredPolicy === "operational-human"
+                ? item.category === "operational" && (item.actor ?? "").trim().length > 0
+                : item.category === "advisory"));
+    });
+    const evaluated = evaluateBuildGates(feature.gate_plan, evidence, accepted);
+    for (const gate of evaluated) {
+        if (!gate.required || gate.status === "PASS")
             continue;
-        }
-        if (record.status === "PASS")
-            continue;
-        if (record.status === "FAIL")
-            continue; // already reported above
-        if (record.status === "NOT_APPLICABLE" && record.not_applicable_reason !== undefined)
-            continue;
-        const highSecurity = feature.tier === "high" && record.security_control;
-        if (highSecurity && record.status === "NOT_VERIFIED") {
-            missing.push(`${criterion}: high-tier required security control is NOT_VERIFIED and cannot be waived`);
-            continue;
-        }
-        if (accepted.has(criterion) && !highSecurity)
-            continue;
-        missing.push(`${criterion}: ${record.status} — provide evidence, a reasoned NOT_APPLICABLE, or an eligible risk acceptance`);
+        missing.push(`${gate.id} ${gate.name}: ${gate.status} — ${gate.missing.join("; ") || "required evidence is incomplete"}`);
     }
     return [...new Set(missing)];
 }
-function nextStepFor(feature) {
+function nextStepFor(feature, verifiedCriteria = new Set()) {
     switch (feature.phase) {
         case "frame":
             return feature.tier === "light"
@@ -877,7 +1562,7 @@ function nextStepFor(feature) {
         case "implement":
             return `Implement, then run \`forge feature ${feature.slug} check --allow-run\`.`;
         case "check": {
-            const missing = missingForDone(feature);
+            const missing = missingForDone(feature, verifiedCriteria);
             return missing.length === 0
                 ? `Run \`forge feature ${feature.slug} done\`.`
                 : `Resolve ${missing.length} item(s), then \`forge feature ${feature.slug} done\`.`;

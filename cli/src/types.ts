@@ -1,4 +1,5 @@
 import type { CapabilityAssessment } from "./discovery-evidence.js";
+import type { EvidenceArtifact, EvidenceCommand, EvidenceEnvelope } from "./evidence-envelope.js";
 
 export const STATUSES = [
   "PASS",
@@ -207,6 +208,9 @@ export type GateEvidenceStatus = Extract<
   "PASS" | "FAIL" | "BLOCKED" | "NOT_VERIFIED" | "NOT_APPLICABLE"
 >;
 
+/** Exact command claim required for Ship-owned command evidence. */
+export type GateEvidenceCommand = EvidenceCommand;
+
 /** Semantically typed evidence consumed by release gates. */
 export type GateEvidence = {
   evidence_type: GateEvidenceType;
@@ -218,6 +222,13 @@ export type GateEvidence = {
   relevant_instance_ids: string[];
   absence_proves_success: boolean;
   limitations: string[];
+  /** Present only for the registered Ship command producer. */
+  command?: GateEvidenceCommand;
+  /**
+   * v0.3 trust boundary. Records without this envelope remain readable for history, but Ship
+   * treats them as untrusted diagnostics rather than release evidence.
+   */
+  envelope?: EvidenceEnvelope;
 };
 
 /**
@@ -284,6 +295,8 @@ export type RuntimeEvidence = {
   revision: string;
   artifact_paths: string[];
   hashes: string[];
+  /** v0.3 path/hash/media-type tuples. Legacy parallel lists remain available for migration. */
+  artifacts?: EvidenceArtifact[];
   limitations: string[];
 };
 
@@ -328,6 +341,8 @@ export type InspectionResult = {
   tool: string;
   root: string;
   generated_at: string;
+  /** Repository-relative files actually read by this inspection. */
+  input_paths: string[];
   observations: Observation[];
   findings: Finding[];
   gate_evidence: GateEvidence[];
