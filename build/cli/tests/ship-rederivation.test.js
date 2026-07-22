@@ -84,7 +84,7 @@ test("current Ship inspection evidence is fresh, file-bound, and independently v
 test("a freshly re-derived secret finding fails Ship even when the prior report claims PASS", async () => {
     await withTemporaryProject("ship-current-failure", async (root) => {
         await writePackage(root);
-        await writeFile(join(root, "secret.ts"), 'export const apiKey = "live-looking-credential-123456";\n', "utf8");
+        await writeFile(join(root, "secret.ts"), 'export const apiKey = "fixture-live-looking-credential-123456";\n', "utf8");
         const profile = await discoverProject(root);
         const revision = await workingTreeRevision(root);
         const priorPass = await priorShipLicenseEvidence(root, revision);

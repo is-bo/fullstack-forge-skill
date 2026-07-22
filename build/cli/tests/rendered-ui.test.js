@@ -336,7 +336,7 @@ test("structural evidence is redacted, hashed, and recorded additively in the ma
                 }
             ]
         });
-        const response = await inspectRenderedUi(root, ["http://127.0.0.1:3000/dashboard?token=structural-secret"], options({ allowRun: true }), REVISION);
+        const response = await inspectRenderedUi(root, ["http://127.0.0.1:3000/dashboard?token=fixture-structural-secret"], options({ allowRun: true }), REVISION);
         // Existing Audit capture and exit semantics are unchanged; Build consumes the additive facts.
         assert.equal(response.exitCode, 0);
         assert.equal(response.value.capture_status, "COMPLETE");
@@ -349,7 +349,7 @@ test("structural evidence is redacted, hashed, and recorded additively in the ma
         const evidenceDir = join(root, response.value.evidence_dir ?? "");
         const structuralText = await readFile(join(evidenceDir, "structural.json"), "utf8");
         const manifest = await readJson(join(evidenceDir, "manifest.json"));
-        assert.ok(!structuralText.includes("structural-secret"));
+        assert.ok(!structuralText.includes("fixture-structural-secret"));
         assert.equal(manifest["structural"].sha256, structural.sha256);
     });
 });

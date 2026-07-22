@@ -155,7 +155,7 @@ test("a freshly re-derived secret finding fails Ship even when the prior report 
     await writePackage(root);
     await writeFile(
       join(root, "secret.ts"),
-      'export const apiKey = "live-looking-credential-123456";\n',
+      'export const apiKey = "fixture-live-looking-credential-123456";\n',
       "utf8"
     );
     const profile = await discoverProject(root);

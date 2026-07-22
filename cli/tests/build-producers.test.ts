@@ -161,7 +161,7 @@ test("failure, incomplete manifests, and redacted output remain visible", async 
     offline: false,
     now: fixedNow,
     run_command: () =>
-      Promise.resolve({ exitCode: 7, stdout: "token=super-secret-value", stderr: "failed" })
+      Promise.resolve({ exitCode: 7, stdout: "token=fixture-secret-value", stderr: "failed" })
   });
   assert.equal(failure.status, "FAIL");
   assert.equal(failure.command.exit_code, 7);
