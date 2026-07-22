@@ -461,6 +461,62 @@ test("missingForDone accepts only positive criteria verified by the current call
     assert.ok(missingForDone(feature).some((item) => item.includes("NOT_VERIFIED")));
     assert.deepEqual(missingForDone(feature, new Set(["applicability"])), []);
 });
+test("missingForDone binds risk acceptance to the current gate policy and accountable actor", () => {
+    const feature = newFeature("f", "standard", "s");
+    feature.phase = "check";
+    feature.evidence_revision = "revision";
+    feature.gate_plan = {
+        recorded_at: new Date().toISOString(),
+        revision: "revision",
+        gates: [
+            {
+                id: "FF-BUILD-GATE-DISCIPLINES",
+                name: "Disciplines",
+                tier: "standard",
+                criteria: ["discipline:observability"],
+                required: true,
+                waiver_policy: "operational-human",
+                non_waivable: false,
+                reason: "required"
+            }
+        ],
+        required_criteria: ["discipline:observability"]
+    };
+    feature.evidence = [
+        {
+            criterion: "discipline:observability",
+            security_control: false,
+            status: "NOT_VERIFIED",
+            producer: "registered-producer",
+            evidence: ["unavailable"],
+            files: [{ path: "app.js", sha256: "a".repeat(64) }],
+            instance_ids: [],
+            recorded_at: new Date().toISOString()
+        }
+    ];
+    feature.risk_acceptances = [
+        {
+            criterion: "discipline:observability",
+            category: "advisory",
+            reason: "planted weaker acceptance",
+            canonical_root: "C:/project",
+            revision: "revision",
+            policy: "advisory",
+            relevant_files: [{ path: "app.js", sha256: "a".repeat(64) }],
+            timestamp: new Date().toISOString(),
+            expires_at: new Date(Date.now() + 60_000).toISOString(),
+            lifecycle: "active"
+        }
+    ];
+    assert.ok(missingForDone(feature).some((item) => item.includes("discipline:observability")), "a weaker advisory acceptance must not satisfy an operational-human gate");
+    feature.risk_acceptances[0] = {
+        ...feature.risk_acceptances[0],
+        category: "operational",
+        actor: "release-owner",
+        policy: "operational-human"
+    };
+    assert.deepEqual(missingForDone(feature), []);
+});
 test("registered producers can complete all twelve material discipline paths", async () => {
     await withTemporaryProject("build-discipline-e2e", async (root) => {
         const disciplines = [

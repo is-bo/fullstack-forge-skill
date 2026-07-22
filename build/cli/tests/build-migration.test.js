@@ -144,6 +144,49 @@ test("interrupted migration rejects tampered state on both resume and rollback",
         await assert.rejects(migrateBuildState(root, { rollback: true }), /Refusing rollback/u);
     });
 });
+test("migration journals reject unknown fields, forged backups, malformed hashes, and duplicates", async () => {
+    await withTemporaryProject("build-migration-journal-tamper", async (root) => {
+        await writeV1(root);
+        await migrateBuildState(root);
+        const journalPath = join(root, ".forge", "build", "migration-v1-to-v2.json");
+        const baseline = JSON.parse(await readFile(journalPath, "utf8"));
+        const first = baseline.entries[0];
+        assert.ok(first);
+        const mutations = [
+            { ...structuredClone(baseline), unexpected: true },
+            {
+                ...structuredClone(baseline),
+                entries: [{ ...first, unexpected: true }, ...baseline.entries.slice(1)]
+            },
+            {
+                ...structuredClone(baseline),
+                entries: [
+                    {
+                        ...first,
+                        backup_rel: `.forge/build/.migration-v1-to-v2-backups/${"0".repeat(64)}.bin`
+                    },
+                    ...baseline.entries.slice(1)
+                ]
+            },
+            {
+                ...structuredClone(baseline),
+                entries: [{ ...first, original_sha256: "not-a-hash" }, ...baseline.entries.slice(1)]
+            },
+            {
+                ...structuredClone(baseline),
+                entries: [first, first, ...baseline.entries.slice(1)]
+            },
+            {
+                ...structuredClone(baseline),
+                applied: [...baseline.applied, baseline.applied[0]]
+            }
+        ];
+        for (const mutation of mutations) {
+            await writeFile(journalPath, `${JSON.stringify(mutation, undefined, 2)}\n`, "utf8");
+            await assert.rejects(migrateBuildState(root), /Invalid|Unsafe/u);
+        }
+    });
+});
 test("malformed, unknown, mixed, and traversal-shaped state writes nothing", async () => {
     await withTemporaryProject("build-migration-refuse", async (root) => {
         await writeV1(root);

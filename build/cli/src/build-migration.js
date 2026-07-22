@@ -371,32 +371,46 @@ function assertJournal(value) {
     if (typeof value !== "object" || value === null || Array.isArray(value))
         throw new Error("Invalid Build migration journal.");
     const journal = value;
-    if (journal.schema_version !== 1 ||
+    const journalKeys = ["schema_version", "kind", "status", "entries", "applied", "restored"];
+    if (Object.keys(journal).length !== journalKeys.length ||
+        !Object.keys(journal).every((key) => journalKeys.includes(key)) ||
+        journal.schema_version !== 1 ||
         journal.kind !== "build-v1-to-v2" ||
         !["prepared", "applying", "complete", "rolling_back", "rolled_back"].includes(journal.status) ||
         !Array.isArray(journal.entries) ||
         !Array.isArray(journal.applied) ||
         !Array.isArray(journal.restored))
         throw new Error("Invalid Build migration journal.");
+    const seenTargets = new Set();
     for (const entry of journal.entries) {
         if (typeof entry !== "object" || entry === null || Array.isArray(entry))
             throw new Error("Invalid Build migration journal entry.");
         const candidate = entry;
-        for (const key of ["rel", "backup_rel", "original_sha256", "migrated_sha256", "migrated_text"])
+        const entryKeys = ["rel", "backup_rel", "original_sha256", "migrated_sha256", "migrated_text"];
+        if (Object.keys(candidate).length !== entryKeys.length ||
+            !Object.keys(candidate).every((key) => entryKeys.includes(key)))
+            throw new Error("Invalid Build migration journal entry.");
+        for (const key of entryKeys)
             if (typeof candidate[key] !== "string")
                 throw new Error("Invalid Build migration journal entry.");
-        if (!isJournalTargetRelative(String(candidate.rel)) ||
-            !/^[a-f0-9]{64}\.bin$/u.test(String(candidate.backup_rel).slice(`${BACKUP_REL}/`.length)) ||
-            !String(candidate.backup_rel).startsWith(`${BACKUP_REL}/`) ||
+        const rel = String(candidate.rel);
+        if (!isJournalTargetRelative(rel) ||
+            seenTargets.has(rel) ||
+            candidate.backup_rel !== `${BACKUP_REL}/${sha256(rel)}.bin` ||
+            !/^[a-f0-9]{64}$/u.test(String(candidate.original_sha256)) ||
+            !/^[a-f0-9]{64}$/u.test(String(candidate.migrated_sha256)) ||
             sha256(String(candidate.migrated_text)) !== candidate.migrated_sha256)
             throw new Error("Unsafe Build migration journal entry.");
+        seenTargets.add(rel);
     }
     const entries = journal.entries;
     const applied = journal.applied;
     const restored = journal.restored;
-    if (!applied.every((entry) => typeof entry === "string" && entries.some((item) => item.rel === entry)))
+    if (new Set(applied).size !== applied.length ||
+        !applied.every((entry) => typeof entry === "string" && entries.some((item) => item.rel === entry)))
         throw new Error("Invalid Build migration journal applied list.");
-    if (!restored.every((entry) => typeof entry === "string" && entries.some((item) => item.rel === entry)))
+    if (new Set(restored).size !== restored.length ||
+        !restored.every((entry) => typeof entry === "string" && entries.some((item) => item.rel === entry)))
         throw new Error("Invalid Build migration journal restored list.");
 }
 function isJournalTargetRelative(rel) {

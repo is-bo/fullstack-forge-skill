@@ -785,7 +785,7 @@ async function featureDone(root, slug, options) {
             refused: true,
             missing_for_done: missing,
             demoted,
-            next: "Provide evidence, a reasoned NOT_APPLICABLE, or an eligible risk acceptance for each item, then re-run done."
+            next: "Provide current verified evidence or an eligible policy-bound risk acceptance for each item, then re-run done. NOT_APPLICABLE cannot satisfy a required gate."
         }, 1);
     }
     feature.phase = "done";
@@ -1522,8 +1522,7 @@ export function missingForDone(feature, verifiedCriteria = new Set()) {
             };
         return record;
     });
-    const accepted = feature.risk_acceptances
-        .filter((item) => item.lifecycle !== "expired" &&
+    const activeAcceptances = feature.risk_acceptances.filter((item) => item.lifecycle !== "expired" &&
         item.migration_state === undefined &&
         item.policy !== undefined &&
         item.canonical_root !== undefined &&
@@ -1531,9 +1530,20 @@ export function missingForDone(feature, verifiedCriteria = new Set()) {
         item.relevant_files.length > 0 &&
         item.expires_at !== undefined &&
         Date.parse(item.expires_at) > Date.now() &&
-        item.revision === feature.evidence_revision &&
-        (item.policy !== "operational-human" || (item.actor ?? "").trim().length > 0))
-        .map((item) => item.criterion);
+        item.revision === feature.evidence_revision);
+    const accepted = [...new Set(feature.gate_plan.gates.flatMap((gate) => gate.criteria))].filter((criterion) => {
+        const gates = feature.gate_plan?.gates.filter((gate) => gate.criteria.includes(criterion)) ?? [];
+        if (gates.length === 0 || gates.some((gate) => gate.waiver_policy === "never"))
+            return false;
+        const requiredPolicy = gates.some((gate) => gate.waiver_policy === "operational-human")
+            ? "operational-human"
+            : "advisory";
+        return activeAcceptances.some((item) => item.criterion === criterion &&
+            item.policy === requiredPolicy &&
+            (requiredPolicy === "operational-human"
+                ? item.category === "operational" && (item.actor ?? "").trim().length > 0
+                : item.category === "advisory"));
+    });
     const evaluated = evaluateBuildGates(feature.gate_plan, evidence, accepted);
     for (const gate of evaluated) {
         if (!gate.required || gate.status === "PASS")
