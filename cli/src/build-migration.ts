@@ -11,28 +11,17 @@ import {
   type CriterionEvidence,
   type RiskAcceptance
 } from "./build-state.js";
+import {
+  assertBuildMigrationJournal,
+  BUILD_MIGRATION_BACKUP_REL as BACKUP_REL,
+  BUILD_MIGRATION_JOURNAL_REL as JOURNAL_REL,
+  BUILD_MIGRATION_PROJECT_REL as PROJECT_REL,
+  type BuildMigrationEntry as MigrationEntry,
+  type BuildMigrationJournal as MigrationJournal
+} from "./build-migration-journal.js";
 import { assertNoSymlinkPath, resolveInside, sha256 } from "./utils.js";
 
-const PROJECT_REL = ".forge/build/project.json";
 const FEATURES_REL = ".forge/build/features";
-const JOURNAL_REL = ".forge/build/migration-v1-to-v2.json";
-const BACKUP_REL = ".forge/build/.migration-v1-to-v2-backups";
-
-type MigrationEntry = {
-  rel: string;
-  backup_rel: string;
-  original_sha256: string;
-  migrated_sha256: string;
-  migrated_text: string;
-};
-type MigrationJournal = {
-  schema_version: 1;
-  kind: "build-v1-to-v2";
-  status: "prepared" | "applying" | "complete" | "rolling_back" | "rolled_back";
-  entries: MigrationEntry[];
-  applied: string[];
-  restored: string[];
-};
 export type BuildMigrationPlan = {
   entries: Array<Pick<MigrationEntry, "rel" | "original_sha256" | "migrated_sha256">>;
   writes: string[];
@@ -427,7 +416,7 @@ async function readJournalIfPresent(root: string): Promise<MigrationJournal | un
   try {
     const bytes = await readFile(path);
     const value = parseJson(JOURNAL_REL, bytes);
-    assertJournal(value);
+    assertBuildMigrationJournal(value);
     return value;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
@@ -436,80 +425,11 @@ async function readJournalIfPresent(root: string): Promise<MigrationJournal | un
 }
 
 async function writeJournal(root: string, journal: MigrationJournal): Promise<void> {
-  assertJournal(journal);
+  assertBuildMigrationJournal(journal);
   await atomicWriteBytes(
     root,
     resolveInside(root, JOURNAL_REL),
     Buffer.from(`${JSON.stringify(journal, null, 2)}\n`, "utf8")
-  );
-}
-
-function assertJournal(value: unknown): asserts value is MigrationJournal {
-  if (typeof value !== "object" || value === null || Array.isArray(value))
-    throw new Error("Invalid Build migration journal.");
-  const journal = value as Record<string, unknown>;
-  const journalKeys = ["schema_version", "kind", "status", "entries", "applied", "restored"];
-  if (
-    Object.keys(journal).length !== journalKeys.length ||
-    !Object.keys(journal).every((key) => journalKeys.includes(key)) ||
-    journal.schema_version !== 1 ||
-    journal.kind !== "build-v1-to-v2" ||
-    !["prepared", "applying", "complete", "rolling_back", "rolled_back"].includes(
-      journal.status as string
-    ) ||
-    !Array.isArray(journal.entries) ||
-    !Array.isArray(journal.applied) ||
-    !Array.isArray(journal.restored)
-  )
-    throw new Error("Invalid Build migration journal.");
-  const seenTargets = new Set<string>();
-  for (const entry of journal.entries) {
-    if (typeof entry !== "object" || entry === null || Array.isArray(entry))
-      throw new Error("Invalid Build migration journal entry.");
-    const candidate = entry as Record<string, unknown>;
-    const entryKeys = ["rel", "backup_rel", "original_sha256", "migrated_sha256", "migrated_text"];
-    if (
-      Object.keys(candidate).length !== entryKeys.length ||
-      !Object.keys(candidate).every((key) => entryKeys.includes(key))
-    )
-      throw new Error("Invalid Build migration journal entry.");
-    for (const key of entryKeys)
-      if (typeof candidate[key] !== "string")
-        throw new Error("Invalid Build migration journal entry.");
-    const rel = String(candidate.rel);
-    if (
-      !isJournalTargetRelative(rel) ||
-      seenTargets.has(rel) ||
-      candidate.backup_rel !== `${BACKUP_REL}/${sha256(rel)}.bin` ||
-      !/^[a-f0-9]{64}$/u.test(String(candidate.original_sha256)) ||
-      !/^[a-f0-9]{64}$/u.test(String(candidate.migrated_sha256)) ||
-      sha256(String(candidate.migrated_text)) !== candidate.migrated_sha256
-    )
-      throw new Error("Unsafe Build migration journal entry.");
-    seenTargets.add(rel);
-  }
-  const entries = journal.entries as MigrationEntry[];
-  const applied = journal.applied as unknown[];
-  const restored = journal.restored as unknown[];
-  if (
-    new Set(applied).size !== applied.length ||
-    !applied.every(
-      (entry) => typeof entry === "string" && entries.some((item) => item.rel === entry)
-    )
-  )
-    throw new Error("Invalid Build migration journal applied list.");
-  if (
-    new Set(restored).size !== restored.length ||
-    !restored.every(
-      (entry) => typeof entry === "string" && entries.some((item) => item.rel === entry)
-    )
-  )
-    throw new Error("Invalid Build migration journal restored list.");
-}
-
-function isJournalTargetRelative(rel: string): boolean {
-  return (
-    rel === PROJECT_REL || /^\.forge\/build\/features\/[a-z0-9][a-z0-9-]{0,63}\.json$/u.test(rel)
   );
 }
 

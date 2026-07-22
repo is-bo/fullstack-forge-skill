@@ -5,6 +5,7 @@ import { BUILD_SUB_VERBS, BUILD_VERBS, MODULE_SLUGS, PLATFORM_ALIASES, PLATFORM_
 import { redactToString } from "./redaction.js";
 import { assertNoSymlinkPath, canonicalDirectory, readTextIfPresent, resolveInside, sha256, utcNow, workingTreeRevision } from "./utils.js";
 import { assertEvidenceEnvelopeShape, verifyBuildEvidenceEnvelopeIntegrity } from "./evidence-envelope.js";
+import { assertBuildMigrationJournal, BUILD_MIGRATION_JOURNAL_REL } from "./build-migration-journal.js";
 /**
  * Build-mode persistent state.
  *
@@ -233,7 +234,7 @@ export class BuildMigrationPendingError extends Error {
     }
 }
 export async function assertNoInterruptedBuildMigration(root) {
-    const journal = resolveInside(root, ".forge/build/migration-v1-to-v2.json");
+    const journal = resolveInside(root, BUILD_MIGRATION_JOURNAL_REL);
     await assertNoSymlinkPath(root, journal);
     const text = await readTextIfPresent(journal);
     if (text === undefined)
@@ -245,8 +246,7 @@ export async function assertNoInterruptedBuildMigration(root) {
     catch {
         throw new Error("Malformed Build migration journal; inspect it before continuing.");
     }
-    if (!isRecord(value) || typeof value.status !== "string")
-        throw new Error("Malformed Build migration journal; inspect it before continuing.");
+    assertBuildMigrationJournal(value);
     if (value.status !== "complete" && value.status !== "rolled_back")
         throw new BuildMigrationPendingError();
 }

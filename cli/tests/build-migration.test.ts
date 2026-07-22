@@ -205,6 +205,10 @@ test("migration journals reject unknown fields, forged backups, malformed hashes
       {
         ...structuredClone(baseline),
         applied: [...baseline.applied, baseline.applied[0]]
+      },
+      {
+        ...structuredClone(baseline),
+        applied: []
       }
     ];
 
@@ -212,6 +216,7 @@ test("migration journals reject unknown fields, forged backups, malformed hashes
       await writeFile(journalPath, `${JSON.stringify(mutation, undefined, 2)}\n`, "utf8");
       await assert.rejects(migrateBuildState(root), /Invalid|Unsafe/u);
     }
+    await assert.rejects(loadProject(root), /Invalid|Unsafe/u);
   });
 });
 

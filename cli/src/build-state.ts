@@ -25,6 +25,10 @@ import {
   type EvidenceEnvelope,
   type EvidenceRuntimeContext
 } from "./evidence-envelope.js";
+import {
+  assertBuildMigrationJournal,
+  BUILD_MIGRATION_JOURNAL_REL
+} from "./build-migration-journal.js";
 
 /**
  * Build-mode persistent state.
@@ -482,7 +486,7 @@ export class BuildMigrationPendingError extends Error {
 }
 
 export async function assertNoInterruptedBuildMigration(root: string): Promise<void> {
-  const journal = resolveInside(root, ".forge/build/migration-v1-to-v2.json");
+  const journal = resolveInside(root, BUILD_MIGRATION_JOURNAL_REL);
   await assertNoSymlinkPath(root, journal);
   const text = await readTextIfPresent(journal);
   if (text === undefined) return;
@@ -492,8 +496,7 @@ export async function assertNoInterruptedBuildMigration(root: string): Promise<v
   } catch {
     throw new Error("Malformed Build migration journal; inspect it before continuing.");
   }
-  if (!isRecord(value) || typeof value.status !== "string")
-    throw new Error("Malformed Build migration journal; inspect it before continuing.");
+  assertBuildMigrationJournal(value);
   if (value.status !== "complete" && value.status !== "rolled_back")
     throw new BuildMigrationPendingError();
 }

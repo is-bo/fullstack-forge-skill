@@ -1,10 +1,4 @@
-type MigrationEntry = {
-    rel: string;
-    backup_rel: string;
-    original_sha256: string;
-    migrated_sha256: string;
-    migrated_text: string;
-};
+import { type BuildMigrationEntry as MigrationEntry } from "./build-migration-journal.js";
 export type BuildMigrationPlan = {
     entries: Array<Pick<MigrationEntry, "rel" | "original_sha256" | "migrated_sha256">>;
     writes: string[];
@@ -22,4 +16,3 @@ export type BuildMigrationOptions = {
  */
 export declare function migrateBuildState(root: string, options?: BuildMigrationOptions): Promise<BuildMigrationPlan>;
 export declare function planBuildMigration(root: string): Promise<BuildMigrationPlan>;
-export {};
