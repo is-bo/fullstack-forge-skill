@@ -3,9 +3,9 @@
 
 # Fullstack Forge
 
-**A production engineering skill suite for AI coding agents.**
+**Build and verify production-ready applications through one simple AI-agent workflow.**
 
-One audit system. Forty-two specialist skills. Evidence before confidence.
+One product entrance. Forty-two audit specialists. Evidence before confidence.
 
 [![Release](https://img.shields.io/github/v/release/thethunderbolt/fullstack-forge-skill?display_name=tag&sort=semver)](https://github.com/thethunderbolt/fullstack-forge-skill/releases)
 [![CI](https://github.com/thethunderbolt/fullstack-forge-skill/actions/workflows/ci.yml/badge.svg)](https://github.com/thethunderbolt/fullstack-forge-skill/actions/workflows/ci.yml)
@@ -14,12 +14,53 @@ One audit system. Forty-two specialist skills. Evidence before confidence.
 [![Node](https://img.shields.io/badge/node-%3E%3D24-2563EB.svg)](package.json)
 </div>
 
-Fullstack Forge gives AI coding agents a repeatable way to build features and to audit, fix, verify,
-and report on real full-stack applications. It discovers the actual stack, selects only applicable
-modules, gathers reproducible evidence, separates safe fixes from risky decisions, and refuses to
-call missing evidence a pass.
+Fullstack Forge helps AI coding agents build and verify production-ready applications without
+treating missing evidence as success. It discovers the actual stack, selects applicable checks,
+gathers reproducible evidence, separates safe fixes from risky decisions, and gives first-time users
+one plain-language entrance while preserving the complete expert workflow.
 
 It works as an open-format Agent Skill collection and as a dependency-light TypeScript CLI.
+
+```text
+You:    /forge audit the login system
+Forge:  Audit finished — evidence is incomplete.
+        Confirmed: 1 failed, 0 warnings
+        Evidence gaps: 2 blocked, 3 not verified
+        Safe fix: not automatic; review or approval is required
+        Details: .forge/report.md and .forge/report.json
+```
+
+## Install and start
+
+Node.js 24 or newer and Git are required. The reliable full-product route is:
+
+```bash
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.4.0
+npx forge init all
+npx forge doctor
+```
+
+Then build or inspect in ordinary language:
+
+```bash
+npx forge build "add customer login"
+npx forge audit
+npx forge status
+```
+
+Use `/forge ...` on hosts that expose skill names as slash commands. In Codex, select `$forge` or
+the `forge` skill and use the same request. Running `npx forge` opens a guided menu in an
+interactive terminal and prints a script-friendly numbered list otherwise.
+
+The one-command skills-only alternative is documented in [Getting started](docs/GETTING_STARTED.md).
+It uses the current third-party skills installer with `--copy`; use the full-product route above for
+the persistent CLI, doctor, and ownership-aware updates. Supported agents include Codex, Claude
+Code, Cursor, Gemini CLI, Antigravity, Windsurf, GitHub Copilot, and generic Agent Skills hosts.
+
+[Build your first feature](docs/BUILD_YOUR_FIRST_FEATURE.md) ·
+[Audit your application](docs/AUDIT_YOUR_APPLICATION.md) · [Fix and verify](docs/FIX_AND_VERIFY.md)
+· [Ship](docs/SHIP_A_RELEASE.md) · [Nontechnical guide](docs/NONTECHNICAL_GUIDE.md) ·
+[Troubleshooting](docs/TROUBLESHOOTING.md) · [Advanced CLI](docs/ADVANCED_CLI.md)
 
 ## Two modes
 
@@ -27,12 +68,12 @@ It works as an open-format Agent Skill collection and as a dependency-light Type
 production-quality engineering workflow. **Audit mode** — use to inspect, harden, and gate work that
 already exists, including work built in Build mode.
 
-| You want to...                       | Mode  | Entry point                                      |
-| ------------------------------------ | ----- | ------------------------------------------------ |
-| Start a new product or codebase      | Build | `/forge-new` (`forge new`)                       |
-| Build, continue, or ship one feature | Build | `/forge-feature <slug>` (`forge feature <slug>`) |
-| Inspect or harden existing behavior  | Audit | `/forge-<section>` or `/fullstack-forge`         |
-| Gate a release                       | Audit | `forge ship`                                     |
+| You want to...                      | Mode  | Entry point                                  |
+| ----------------------------------- | ----- | -------------------------------------------- |
+| Start a new product or codebase     | Build | `/forge build` (`forge build`)               |
+| Build or continue one feature       | Build | `/forge build <request>` / `/forge continue` |
+| Inspect or harden existing behavior | Audit | `/forge audit [all                           | area]` |
+| Gate a release                      | Audit | `/forge ship` (`forge ship`)                 |
 
 A coherent project journey: `forge new` frames the product once; each feature then runs
 `forge feature <slug>` through frame → plan → implement → check → done; before release, the
@@ -45,9 +86,8 @@ evidence is current for the selected root, revision, inputs, and artifacts. Buil
 stable-revision inspection and treats prior reports as diagnostics only. See
 [docs/BUILD_MODE.md](docs/BUILD_MODE.md) for the complete guide.
 
-```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.3.0 && npx forge init all
-```
+Expert `/forge-new`, `/forge-feature`, `/forge-<section>`, and `/fullstack-forge` entries remain
+available and unchanged.
 
 Codex, Claude Code, Antigravity, Gemini CLI, Cursor, Windsurf, GitHub Copilot, and generic Agent
 Skills are supported. [Commands](docs/COMMANDS.md) · [Platforms](docs/PLATFORM_SUPPORT.md) ·
@@ -86,7 +126,7 @@ Fullstack Forge is **not published to the npm registry**. The working npm-based 
 resolves the package directly from its Git tag:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.3.0
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.4.0
 npx forge init all --dry-run
 npx forge init all
 ```
@@ -107,20 +147,26 @@ modified files, follows no destination symlinks, and uninstalls only unchanged f
 
 ## Quick start
 
-Build mode, starting a project or a feature:
+Simple product workflow:
 
 ```text
-/forge-new
-/forge-feature auth-login
+/forge build
+/forge build add customer login
+/forge continue
+/forge audit
+/forge fix
+/forge verify
+/forge ship
 ```
 
 ```bash
-forge new
-forge feature auth-login   # identity triggers escalate this feature to high tier, recorded
-forge feature auth-login plan
-forge feature auth-login check --allow-run
-# Resolve every reported high-tier gate before running done.
-forge feature auth-login done
+forge build "add customer login"
+forge continue
+forge audit
+forge fix                 # preview only
+forge fix --safe          # reviewed bounded edits only
+forge verify
+forge ship
 ```
 
 Audit mode, inspecting and gating what already exists:
@@ -170,8 +216,9 @@ history, while `forge-realtime` traces connect authorization, channel isolation,
 backpressure — so specialized risks remain visible instead of disappearing behind a generic “best
 practices” instruction.
 
-The audit module set stays closed at 42. Build mode ships two additional command skills, `forge-new`
-and `forge-feature`, alongside them — see [Two modes](#two-modes) above.
+The audit module set stays closed at 42. The bundle also ships the simple `forge` router plus the
+expert Build command skills `forge-new` and `forge-feature` — 46 skills in total including the
+master `fullstack-forge` skill.
 
 ## Finding contract
 
@@ -208,6 +255,12 @@ financial, legal, architecture, production, and destructive changes remain appro
 
 ```text
 forge <section> <audit|fix|verify|report> [options]
+forge build [plain-language request]
+forge continue
+forge audit [all|area]
+forge fix [area]
+forge verify [area]
+forge status | help
 forge all audit --scope changed [--base <ref>]
 forge new [--tier <light|standard|high>] [--stack <name>] [--non-goal <item:reason>]
 forge feature <slug> [frame|plan|check|done|accept-risk|abandon|status]
@@ -249,12 +302,12 @@ and [coverage policy](docs/COVERAGE.md).
 
 | Agent                  | Project path        | User/global path              | Typical invocation      |
 | ---------------------- | ------------------- | ----------------------------- | ----------------------- |
-| Codex                  | `.agents/skills/`   | `~/.agents/skills/`           | `$fullstack-forge`      |
-| Claude Code            | `.claude/skills/`   | `~/.claude/skills/`           | `/fullstack-forge`      |
+| Codex                  | `.agents/skills/`   | `~/.agents/skills/`           | `$forge`                |
+| Claude Code            | `.claude/skills/`   | `~/.claude/skills/`           | `/forge`                |
 | Antigravity            | `.agents/skills/`   | `~/.gemini/config/skills/`    | name the skill          |
 | Gemini CLI             | `.gemini/skills/`   | `~/.gemini/skills/`           | `/skills`, then name it |
-| Cursor                 | `.cursor/skills/`   | `~/.cursor/skills/`           | `/fullstack-forge`      |
-| Windsurf/Devin Cascade | `.windsurf/skills/` | `~/.codeium/windsurf/skills/` | `@fullstack-forge`      |
+| Cursor                 | `.cursor/skills/`   | `~/.cursor/skills/`           | `/forge`                |
+| Windsurf/Devin Cascade | `.windsurf/skills/` | `~/.codeium/windsurf/skills/` | `@forge`                |
 | GitHub Copilot         | `.github/skills/`   | `~/.copilot/skills/`          | name or auto-select     |
 | Generic Agent Skills   | `.agents/skills/`   | `~/.agents/skills/`           | agent-specific          |
 
@@ -272,8 +325,8 @@ drifts.
 See [architecture](docs/ARCHITECTURE.md), [development](docs/DEVELOPMENT.md),
 [release process](docs/RELEASING.md), the [traceability matrix](docs/TRACEABILITY_MATRIX.md) that
 maps every requirement to evidence, the
-[v0.3 gap classification](docs/AUDIT_CLASSIFICATION_v0.3.0.md), and the
-[v0.3 release verification record](docs/RELEASE_VERIFICATION_v0.3.0.md), which keeps local, CI,
+[v0.4 gap classification](docs/AUDIT_CLASSIFICATION_v0.4.0.md), and the
+[v0.4 release verification record](docs/RELEASE_VERIFICATION_v0.4.0.md), which keeps local, CI,
 publication, asset-download, and clean-room evidence distinct.
 
 ## Safety and limitations

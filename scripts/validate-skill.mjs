@@ -108,7 +108,10 @@ for (const platform of platformTargets) {
   const skills = entries
     .filter(
       (entry) =>
-        entry.isDirectory() && (entry.name === "fullstack-forge" || entry.name.startsWith("forge-"))
+        entry.isDirectory() &&
+        (entry.name === "fullstack-forge" ||
+          entry.name === "forge" ||
+          entry.name.startsWith("forge-"))
     )
     .map((entry) => entry.name)
     .sort();
@@ -155,7 +158,7 @@ if (errors.length > 0) {
   process.exitCode = 1;
 } else {
   console.log(
-    `Validated 45 canonical skills, 6 generated platform roots, schemas, and interface metadata.`
+    `Validated 46 canonical skills, 6 generated platform roots, schemas, and interface metadata.`
   );
 }
 

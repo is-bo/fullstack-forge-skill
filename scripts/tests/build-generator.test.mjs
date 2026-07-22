@@ -58,8 +58,8 @@ test("validateCommandCatalog rejects a section set that does not match the requi
   assert.throws(
     () =>
       validateCommandCatalog(
-        [broken, { ...sampleEntry, name: "forge-feature" }],
-        ["forge-new", "forge-feature"]
+        [{ ...sampleEntry, name: "forge" }, broken, { ...sampleEntry, name: "forge-feature" }],
+        ["forge", "forge-new", "forge-feature"]
       ),
     /must define exactly/u
   );

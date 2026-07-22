@@ -1,6 +1,6 @@
 # Platform support
 
-Verified 2026-07-18 against primary platform documentation. Fullstack Forge emits independent file
+Verified 2026-07-22 against primary platform documentation. Fullstack Forge emits independent file
 copies; it never depends on symlinks.
 
 | Selector      | Product                  | Project path                           | User path                                          | Invocation / notes                                                                                          |
@@ -18,15 +18,15 @@ copies; it never depends on symlinks.
 the same project directory but a separate user destination. `forge init all` deduplicates identical
 project destinations while preserving distinct global destinations.
 
-## Build mode command skills
+## Product and Build command skills
 
-`forge-new` and `forge-feature` are generated and synchronized alongside the 42 audit command
-skills, so they ship to all six platform roots above with the same invocation conventions as
-`fullstack-forge` and every `forge-<section>` skill — for example `/forge-new` and
-`/forge-feature <slug>` on Claude Code, `$forge-new` and `$forge-feature <slug>` on Codex. See
-[BUILD_MODE.md](BUILD_MODE.md).
+The simple `forge` router plus `forge-new` and `forge-feature` are generated and synchronized
+alongside the 42 audit command skills, so all 46 skills ship to every platform root. Use
+`/forge ...` where named skills become slash commands; use `$forge ...` or explicit skill selection
+in Codex. Expert `/forge-new`, `/forge-feature <slug>`, `$forge-new`, and `$forge-feature <slug>`
+forms remain available. See [BUILD_MODE.md](BUILD_MODE.md).
 
-All platform archives carry the same v0.3 compiled CLI contracts: schema-v2 Build state, registered
+All platform archives carry the same v0.4 compiled CLI contracts: schema-v2 Build state, registered
 producers, applicability/gate re-derivation, the runtime evidence matrix, and explicit
 `forge migrate build`. Migration is a CLI command rather than an Agent Skill entry point; no host
 may silently reinterpret v0.2 state or manufacture a Build result when the CLI is absent.
@@ -34,7 +34,7 @@ may silently reinterpret v0.2 state or manufacture a Build result when the CLI i
 ## Primary sources
 
 - Agent Skills specification: <https://agentskills.io/specification>
-- OpenAI Codex skills: <https://learn.chatgpt.com/docs/build-skills.md>
+- OpenAI Codex manual: <https://developers.openai.com/codex/codex-manual.md>
 - Claude Code skills and slash commands: <https://code.claude.com/docs/en/slash-commands>
 - Gemini CLI Agent Skills: <https://geminicli.com/docs/cli/using-agent-skills/>
 - Antigravity getting started:

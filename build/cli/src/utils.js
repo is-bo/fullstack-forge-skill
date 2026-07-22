@@ -10,6 +10,19 @@ export function sha256(content) {
 export function toPosix(path) {
     return path.split(sep).join("/");
 }
+/**
+ * Identifies conventional test-source paths without treating arbitrary names containing "test"
+ * as tests. Boundary analyzers use this to avoid reporting intentionally hostile regression
+ * snippets as production behavior; secret scanning still examines these files separately.
+ */
+export function isTestSourcePath(path) {
+    const normalized = toPosix(path);
+    const segments = normalized.split("/");
+    if (segments.some((segment) => ["__tests__", "spec", "specs", "test", "tests"].includes(segment)))
+        return true;
+    const basename = segments.at(-1) ?? "";
+    return /\.(?:spec|test)\.[^.]+$/iu.test(basename);
+}
 export function isInside(root, candidate) {
     const rel = relative(root, candidate);
     return rel === "" || (!rel.startsWith(`..${sep}`) && rel !== ".." && !isAbsolute(rel));
@@ -78,10 +91,13 @@ export async function assertNoSymlinkPath(root, candidate) {
 export async function walkFiles(root, options = {}) {
     const output = [];
     const exclude = options.exclude ?? new Set();
+    // Local audit/research/attachment trees are not application inputs. Scanning them can copy
+    // private task material into reports and can turn test evidence into false product findings.
+    const privateLocalDirectories = new Set([".audit", ".audit-work", ".codex"]);
     let totalBytes = 0;
     async function visit(directory, depth) {
         for (const entry of await readdir(directory, { withFileTypes: true })) {
-            if (exclude.has(entry.name))
+            if (exclude.has(entry.name) || privateLocalDirectories.has(entry.name))
                 continue;
             const path = join(directory, entry.name);
             if (entry.isSymbolicLink())

@@ -2,6 +2,30 @@
 
 Both `fullstack-forge` and `forge` execute the same CLI. Node.js 24 or newer is required.
 
+## Simple commands
+
+These are the default product surface. They route into the same Build, Audit, Fix, Verify, and Ship
+engines described below.
+
+```text
+forge                              Guided menu in a TTY; numbered list otherwise
+forge build [plain-language request]
+forge continue
+forge audit [all|area]
+forge fix [area] [--safe]
+forge verify [area]
+forge ship
+forge status
+forge help
+forge help advanced
+```
+
+`forge audit` prefers changed scope only when a reliable Git base exists; otherwise it explicitly
+uses full scope. `audit all` is always full. Natural-language area mappings fail on ambiguity.
+`forge fix` is a preview until `--safe` is supplied. Concise output is the default for these simple
+commands; use `--details` for full Markdown or `--json` for the stable technical structure. Missing
+or blocked evidence is preserved and can make the command exit `2`.
+
 ## Module commands
 
 ```text

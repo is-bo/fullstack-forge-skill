@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { runAnalyzers } from "../src/analyzers.js";
@@ -45,6 +45,19 @@ test("upload analyzer detects missing scan, original filename paths, and absent 
             "FF-UPLOAD-LIMITS-001"
         ])
             assert.ok(ids.has(id), id);
+    });
+});
+test("boundary analyzers do not treat hostile regression snippets as production behavior", async () => {
+    await withTemporaryProject("analyzer-test-boundary", async (root) => {
+        await mkdir(join(root, "tests"));
+        await writeFile(join(root, "tests", "upload.test.ts"), `const PAYMENT_API_SECRET = "fixture_secret_1234567890";
+app.post("/upload", upload.any(), async (req, res) => {
+  await save(req.files[0].originalname, req.files[0].buffer);
+  res.sendStatus(201);
+});
+`, "utf8");
+        assert.deepEqual(await findingIds(root, "security"), new Set());
+        assert.deepEqual(await findingIds(root, "uploads"), new Set());
     });
 });
 test("query analyzer detects pagination without deterministic ordering", async () => {

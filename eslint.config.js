@@ -37,12 +37,13 @@ export default tseslint.config(
     }
   },
   {
-    files: ["scripts/**/*.mjs", "eslint.config.js"],
+    files: ["scripts/**/*.mjs", "examples/**/*.{js,ts,tsx}", "eslint.config.js"],
     ...tseslint.configs.disableTypeChecked,
     languageOptions: {
       globals: {
         console: "readonly",
-        process: "readonly"
+        process: "readonly",
+        URL: "readonly"
       }
     }
   }

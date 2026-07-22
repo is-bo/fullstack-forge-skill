@@ -148,6 +148,10 @@ export type CommandDefinition = {
 export type CliOptions = {
     cwd: string;
     json: boolean;
+    /** True only when a simple command was translated onto the expert engine. */
+    simple?: boolean;
+    /** Render the full technical report for a simple command. */
+    details?: boolean;
     dryRun: boolean;
     global: boolean;
     offline: boolean;

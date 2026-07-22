@@ -14,7 +14,14 @@ import {
   type TaintModel,
   type TaintOrigin
 } from "./dataflow.js";
-import { lineNumber, readTextIfPresent, sha256, toPosix, walkFiles } from "./utils.js";
+import {
+  isTestSourcePath,
+  lineNumber,
+  readTextIfPresent,
+  sha256,
+  toPosix,
+  walkFiles
+} from "./utils.js";
 
 const EXCLUDED = new Set([
   ".git",
@@ -979,6 +986,7 @@ async function loadSources(root: string, scope?: AnalyzerScope): Promise<SourceR
     const extension = extname(absolute).toLowerCase();
     if (!SCRIPT_EXTENSIONS.has(extension)) continue;
     const path = toPosix(relative(root, absolute));
+    if (isTestSourcePath(path)) continue;
     if (scope !== undefined && !scope.has(path)) continue;
     const content = await readTextIfPresent(absolute);
     if (content === undefined) continue;

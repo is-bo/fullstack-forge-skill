@@ -133,10 +133,15 @@ try {
   for (const root of roots) {
     const skillsRoot = join(consumerRoot, root, "skills");
     const master = join(skillsRoot, "fullstack-forge", "SKILL.md");
+    const simple = join(skillsRoot, "forge", "SKILL.md");
     if (!(await readFile(master, "utf8")).includes("# Fullstack Forge"))
       throw new Error(`offline install produced an invalid master skill in ${root}`);
+    if (!(await readFile(simple, "utf8")).includes("# forge: Simple product workflow"))
+      throw new Error(`offline install produced an invalid simple forge skill in ${root}`);
     await assertNoLinks(skillsRoot);
     installed[root] = await countSkills(skillsRoot);
+    if (installed[root] !== 46)
+      throw new Error(`offline install produced ${installed[root]} skills in ${root}, expected 46`);
   }
 
   const uninstall = await run(

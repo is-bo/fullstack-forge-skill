@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { discoverProject } from "../src/discovery.js";
 import { FORGE_GATE_REGISTRY, runShipGates, type ShipGate } from "../src/gates.js";
+import { inspectSection } from "../src/inspectors.js";
 import { createReport } from "../src/report.js";
 import type { Finding } from "../src/types.js";
 import { workingTreeRevision } from "../src/utils.js";
@@ -47,6 +48,34 @@ test("an ordinary application still requires the secret-exposure gate", async ()
       "a normal project must not have secret scanning disabled"
     );
     assert.equal(secrets.status, "PASS", "Ship must re-run its bounded secret inspector");
+  });
+});
+
+test("secret inspection ignores only explicitly synthetic test values", async () => {
+  await withTemporaryProject("inspector-test-secrets", async (root) => {
+    await writePackage(root, "ordinary-project");
+    await mkdir(join(root, "tests"));
+    const testPath = join(root, "tests", "redaction.test.ts");
+    await writeFile(testPath, 'const api_key = "SKfaketest99887766554433";\n', "utf8");
+    const profile = await discoverProject(root);
+
+    const synthetic = await inspectSection("security", root, profile);
+    assert.equal(
+      synthetic.findings.some((finding) => finding.id.startsWith("FF-SECRET-")),
+      false
+    );
+
+    const credentialShapedValue = "AKIA" + "1234567890ABCDEF";
+    await writeFile(
+      testPath,
+      ["const ", "api_key", ' = "', credentialShapedValue, '";\n'].join(""),
+      "utf8"
+    );
+    const genuine = await inspectSection("security", root, profile);
+    assert.equal(
+      genuine.findings.some((finding) => finding.id.startsWith("FF-SECRET-")),
+      true
+    );
   });
 });
 

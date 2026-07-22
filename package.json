@@ -1,6 +1,6 @@
 {
   "name": "fullstack-forge-skill",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Evidence-driven production audits for full-stack applications and AI coding agents.",
   "type": "module",
   "license": "Apache-2.0",
@@ -37,6 +37,7 @@
     ".github/skills/",
     ".windsurf/",
     "docs/",
+    "examples/quickstart-demo/",
     "research/",
     "scripts/",
     "skill.json",

@@ -1,0 +1,12 @@
+{
+  "name": "fullstack-forge-quickstart-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "react": "0.0.0-demo"
+  },
+  "scripts": {
+    "test": "node --test app.test.js"
+  }
+}

@@ -3,6 +3,37 @@
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic
 versioning.
 
+## [0.4.0] - 2026-07-22
+
+### Added — simple product experience
+
+- Simple `build`, `continue`, `audit`, `fix`, `verify`, `ship`, `status`, and `help` commands that
+  route into the existing evidence-backed engines, plus a TTY menu and noninteractive command list.
+- A generated `forge` Agent Skill across all platform roots, natural-language feature naming and
+  audit-area mapping, typo suggestions, concise plain-language reports, and technical
+  `--details`/`--json` views.
+- Expanded installation success and doctor diagnostics, eight goal-oriented onboarding guides, an
+  implementation gap report and product-layer design, and a tested under-ten-minute demo.
+
+### Changed
+
+- The generated bundle now contains 46 skills. Smoke and offline installation require the exact
+  catalog and the new `forge` router in every installed platform root.
+- Human install, update, uninstall, audit, fix, verify, and Ship output now prioritizes status,
+  impact, safe-fix availability, evidence paths, and one next action. JSON contracts are unchanged.
+- The package and deterministic archives include the onboarding guides and quickstart demo.
+
+### Security
+
+- Natural-language input is redacted before slugging or persistence, ambiguous mappings fail closed,
+  interactive choices are closed and cancellable, and the simple layer grants no new
+  command-execution, write, evidence, or Ship authority.
+- Missing evidence still never becomes `PASS`; safe fixes remain explicit, registered, bounded,
+  hash-current, path-contained, and link-refusing.
+- Boundary analyzers no longer interpret conventional test sources as production behavior. Secret
+  inspection continues to scan tests, suppressing only low-confidence values explicitly marked as
+  synthetic while retaining high-confidence credential signatures.
+
 ## [0.3.0] - 2026-07-22
 
 ### Added — verifiable Build completion
@@ -616,7 +647,8 @@ executable evidence rather than documentation.
 - Deterministic ZIP archives, SHA-256 checksums, ownership manifests, clean-install smoke tests,
   fixtures, CI, research attribution, and original branding.
 
-[Unreleased]: https://github.com/thethunderbolt/fullstack-forge-skill/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/thethunderbolt/fullstack-forge-skill/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.4.0
 [0.3.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.3.0
 [0.2.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.2.0
 [0.1.10]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.10

@@ -95,8 +95,14 @@ try {
   );
   if (init.code !== 0) throw new Error(`init failed: ${init.stderr}`);
   const skill = join(consumerRoot, ".agents", "skills", "fullstack-forge", "SKILL.md");
+  const simpleSkill = join(consumerRoot, ".agents", "skills", "forge", "SKILL.md");
   if (!(await readFile(skill, "utf8")).includes("# Fullstack Forge"))
     throw new Error("installed master skill is invalid");
+  if (!(await readFile(simpleSkill, "utf8")).includes("# forge: Simple product workflow"))
+    throw new Error("installed simple forge skill is invalid");
+  const genericSkillCount = await countSkills(join(consumerRoot, ".agents", "skills"));
+  if (genericSkillCount !== 46)
+    throw new Error(`generic install produced ${genericSkillCount} skills, expected 46`);
   await assertNoLinks(dirname(skill));
 
   const update = await run(
@@ -139,6 +145,10 @@ try {
       throw new Error(`${selector} project install failed: ${platformInstall.stderr}`);
     const installedSkill = join(consumerRoot, ...expected);
     await stat(installedSkill);
+    await stat(join(dirname(dirname(installedSkill)), "forge", "SKILL.md"));
+    const platformSkillCount = await countSkills(dirname(dirname(installedSkill)));
+    if (platformSkillCount !== 46)
+      throw new Error(`${selector} install produced ${platformSkillCount} skills, expected 46`);
     await assertNoLinks(dirname(installedSkill));
     const platformUninstall = await run(
       process.execPath,
@@ -174,8 +184,22 @@ try {
     120_000,
     globalEnvironment
   );
-  if (globalDoctor.code !== 0 || !globalDoctor.stdout.includes('"ownership manifest"'))
-    throw new Error(`Antigravity global doctor failed: ${globalDoctor.stderr}`);
+  let globalDoctorResult;
+  try {
+    globalDoctorResult = JSON.parse(globalDoctor.stdout);
+  } catch {
+    globalDoctorResult = undefined;
+  }
+  if (
+    globalDoctor.code !== 0 ||
+    globalDoctorResult?.ready !== true ||
+    !globalDoctorResult.checks?.some(
+      (check) => check.name === "installed skill integrity" && check.status === "PASS"
+    )
+  )
+    throw new Error(
+      `Antigravity global doctor failed:\n${globalDoctor.stderr}\n${globalDoctor.stdout}`
+    );
   const antigravityGlobalUninstall = await run(
     process.execPath,
     [cli, "uninstall", "antigravity", "--global", "--root", consumerRoot, "--json"],
@@ -195,6 +219,7 @@ try {
         antigravity_project: ".agents/skills",
         antigravity_global: ".gemini/config/skills",
         gemini_project: ".gemini/skills",
+        installed_skills: 46,
         symlinks: 0
       },
       null,
@@ -262,4 +287,18 @@ async function assertNoLinks(root) {
     if (info.isSymbolicLink()) throw new Error(`Smoke installation created a link: ${path}`);
     if (entry.isDirectory()) await assertNoLinks(path);
   }
+}
+
+async function countSkills(root) {
+  let count = 0;
+  for (const entry of await readdir(root, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    try {
+      await stat(join(root, entry.name, "SKILL.md"));
+      count += 1;
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
+  }
+  return count;
 }

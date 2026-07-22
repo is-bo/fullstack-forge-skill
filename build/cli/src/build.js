@@ -69,6 +69,7 @@ function parseBuildArgs(argv) {
     const options = {
         cwd: process.cwd(),
         json: false,
+        simple: false,
         dryRun: false,
         global: false,
         offline: false,
@@ -148,6 +149,8 @@ function parseBuildArgs(argv) {
         const arg = argv[index] ?? "";
         if (arg === "--json")
             options.json = true;
+        else if (arg === "--simple")
+            options.simple = true;
         else if (arg === "--dry-run")
             options.dryRun = true;
         else if (arg === "--global")
@@ -324,6 +327,17 @@ async function buildNew(root, options) {
     const projectPath = await saveProject(root, project, options.dryRun);
     const decisionsPath = await writeArtifact(root, "DECISIONS.md", DECISIONS_TEMPLATE, options.dryRun);
     const designPath = await writeArtifact(root, "DESIGN.md", designTemplate(project.product.summary), options.dryRun);
+    if (options.simple && !options.json) {
+        print([
+            options.dryRun
+                ? "Project setup preview finished — no files changed."
+                : "Build project initialized.",
+            `Project state: ${projectPath ?? ".forge/build/project.json"}`,
+            "Planning notes: .forge/build/DECISIONS.md and .forge/build/DESIGN.md",
+            "Next: run 'forge build \"describe your first feature\"'."
+        ].join("\n"));
+        return 0;
+    }
     return report(options, {
         operation: "new",
         dry_run: options.dryRun,

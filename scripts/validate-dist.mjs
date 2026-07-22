@@ -28,6 +28,8 @@ const requiredEntries = [
   "docs/ANALYZER_SUPPORT.md",
   `docs/AUDIT_CLASSIFICATION_v${version}.md`,
   "docs/COVERAGE.md",
+  "docs/GETTING_STARTED.md",
+  "examples/quickstart-demo/README.md",
   `docs/RELEASE_NOTES_v${version}.md`,
   `docs/RELEASE_VERIFICATION_v${version}.md`
 ];

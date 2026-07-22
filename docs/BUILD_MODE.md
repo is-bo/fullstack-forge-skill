@@ -9,13 +9,17 @@ satisfies one of their gates.
 
 | Entry point                   | CLI                          | Purpose                                             |
 | ----------------------------- | ---------------------------- | --------------------------------------------------- |
+| `/forge build [request]`      | `forge build [request]`      | Simple project or feature start from ordinary text  |
+| `/forge continue`             | `forge continue`             | Continue one unfinished feature; ask on ambiguity   |
 | `/forge-new`                  | `forge new`                  | New-project foundation, once per project            |
 | `/forge-feature <slug> [sub]` | `forge feature <slug> [sub]` | Full feature lifecycle, including resume            |
 | —                             | `forge resume`               | Lists unfinished features / resumes the most recent |
 | —                             | `forge migrate build`        | Explicit v0.2 schema-v1 to v0.3 schema-v2 migration |
 
-The two command skills own their entire lifecycle, including resume, so a slash user never needs an
-off-menu CLI verb. `forge resume` is CLI sugar for the same lookup.
+The simple `forge` skill routes to the same lifecycle without asking a user for a slug or tier. The
+two expert Build skills still own the underlying lifecycle, including resume. `forge resume` keeps
+its existing expert lookup behavior; `forge continue` refuses to guess between multiple unfinished
+features.
 
 ## Phases
 

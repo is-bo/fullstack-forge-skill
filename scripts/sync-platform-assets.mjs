@@ -119,7 +119,7 @@ function validateManifest(value, platform) {
     assertSafeRelativePath(rel, "generated manifest path");
     const first = rel.split("/")[0] ?? "";
     if (
-      (first !== "fullstack-forge" && !first.startsWith("forge-")) ||
+      (first !== "fullstack-forge" && first !== "forge" && !first.startsWith("forge-")) ||
       typeof hash !== "string" ||
       !/^[a-f0-9]{64}$/u.test(hash)
     )
@@ -140,7 +140,7 @@ async function guardOwnedDestinations(root, previous, sourceFiles) {
   for (const file of await walk(root)) {
     const rel = relative(root, file).split(sep).join("/");
     const first = rel.split("/")[0] ?? "";
-    const managed = first === "fullstack-forge" || first.startsWith("forge-");
+    const managed = first === "fullstack-forge" || first === "forge" || first.startsWith("forge-");
     if (managed && !sourceFiles.has(rel) && !(rel in owned)) {
       throw new Error(`Refusing unknown managed platform file ${file}`);
     }

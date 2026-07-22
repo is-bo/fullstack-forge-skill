@@ -6,8 +6,8 @@
 `config/module-criteria.json` is the matching explicit inspection-criteria catalog.
 `config/build-guidance.json` is the matching hand-authored per-module build-discipline brief catalog
 (decide-before-coding prompts plus evidence-to-produce), and `config/build-commands.json` holds the
-metadata for the two build command skills. `src/fullstack-forge/` is the canonical Agent Skill. The
-generator renders `src/fullstack-forge/commands/forge-*/SKILL.md` and
+metadata for the simple router plus two expert Build command skills. `src/fullstack-forge/` is the
+canonical Agent Skill. The generator renders `src/fullstack-forge/commands/forge-*/SKILL.md` and
 `src/fullstack-forge/references/build/<slug>.md`, then copies the master and command skills into
 each verified platform root.
 
@@ -18,7 +18,7 @@ flowchart TD
   G --> K["Canonical command SKILL.md files"]
   CB["config/build-commands.json"] --> GB["generate-build.mjs"]
   BG["config/build-guidance.json"] --> GB
-  GB --> KB["forge-new / forge-feature SKILL.md"]
+  GB --> KB["forge / forge-new / forge-feature SKILL.md"]
   GB --> RB["references/build/&lt;slug&gt;.md briefs"]
   M["Canonical master + references + schemas"] --> S["sync-platform-assets.mjs"]
   K --> S
@@ -40,7 +40,7 @@ same principle.
 
 `generate-build.mjs` is a separate generator from `generate-modules.mjs`'s audit-module contract; it
 is wired into `npm run generate` alongside it. It validates `config/build-commands.json` against the
-authoritative `expectedBuildCommands` set (`forge-new`, `forge-feature`) and
+authoritative `expectedBuildCommands` set (`forge`, `forge-new`, `forge-feature`) and
 `config/build-guidance.json` against `expectedSlugs` (every brief slug must be a real audit-module
 slug; no unknown slug is accepted), then renders each command skill and each ≤60-line discipline
 brief. A dedicated test enforces exact slug-set equality between the guidance map and the 42 audit
@@ -60,6 +60,9 @@ flowchart TD
 ```
 
 - `constants.ts` contains closed module, tool, and platform allowlists.
+- `simple-cli.ts` parses the simple vocabulary, natural-language areas and feature IDs, menu model,
+  typo recovery, compact reports, install results, doctor output, and status without duplicating an
+  audit or Build engine.
 - `discovery.ts` produces the structured profile-v2 application and capability model.
 - `analyzers.ts` provides bounded compiler-API and structured-configuration analyzers.
 - `inspectors.ts` routes typed analyzers and retains text inventory as secondary discovery signals.
