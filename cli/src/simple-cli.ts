@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { FixResult } from "./fixes.js";
 import type { InstallAction } from "./installer.js";
+import type { AgentRecommendation } from "./agent-detection.js";
 import type { AuditReport } from "./report.js";
 import { assertValidSlug } from "./build-state.js";
 import { MODULE_SLUGS, VERSION, type ModuleSlug } from "./constants.js";
@@ -27,6 +28,7 @@ export type SimpleRoute =
   | { kind: "continue"; flags: string[] }
   | { kind: "status"; flags: string[] }
   | { kind: "default-audit"; flags: string[] }
+  | { kind: "audit-areas"; sections: ModuleSlug[]; flags: string[] }
   | { kind: "expert"; command: SimpleCommand; argv: string[] };
 
 type StatusSnapshot = {
@@ -40,7 +42,7 @@ type StatusSnapshot = {
 
 export type DoctorCheck = {
   name: string;
-  status: "PASS" | "FAIL" | "NOT_VERIFIED";
+  status: "PASS" | "WARNING" | "FAIL" | "NOT_VERIFIED";
   evidence: string;
   recovery?: string;
 };
@@ -143,7 +145,14 @@ export function parseSimpleRoute(argv: string[]): SimpleRoute {
 
   const area = words.join(" ").trim();
   if (command === "audit" && area.length === 0) return { kind: "default-audit", flags };
-  const section = area.length === 0 ? "all" : resolveAuditArea(area);
+  const sections =
+    area.length === 0
+      ? (["all"] as ModuleSlug[])
+      : command === "audit"
+        ? resolveAuditAreas(area)
+        : [resolveAuditArea(area)];
+  if (command === "audit" && sections.length > 1) return { kind: "audit-areas", sections, flags };
+  const section = sections[0] ?? "all";
   const mode = command;
   const normalizedFlags =
     command === "audit" && section === "all" && !hasValueFlag(flags, "--scope")
@@ -156,8 +165,38 @@ export function parseSimpleRoute(argv: string[]): SimpleRoute {
   };
 }
 
-export function resolveAuditArea(input: string): ModuleSlug {
+/**
+ * Resolves a plain-language audit request to one or more explicit disciplines.
+ *
+ * A conjunction is accepted only when every side independently resolves to one discipline. This
+ * makes `uploads and file storage` transparent (`uploads`, `storage`) without converting a compact
+ * but intrinsically multi-meaning alias such as `CI` into a silent choice.
+ */
+export function resolveAuditAreas(input: string): ModuleSlug[] {
   const normalized = normalizePhrase(input);
+  const conjuncts = normalized.split(/\s+(?:and|&)\s+/u).filter(Boolean);
+  if (conjuncts.length > 1) {
+    const resolved = conjuncts.map((part) => resolveSingleAuditArea(part, input));
+    const unique = [...new Set(resolved)];
+    if (unique.includes("all") && unique.length > 1)
+      throw new Error(
+        `Audit area '${input}' combines 'all' with a narrower discipline. Use 'forge audit all' or name only the narrower disciplines.`
+      );
+    return unique;
+  }
+  return [resolveSingleAuditArea(normalized, input)];
+}
+
+export function resolveAuditArea(input: string): ModuleSlug {
+  const sections = resolveAuditAreas(input);
+  if (sections.length > 1)
+    throw new Error(
+      `Audit area '${input}' names multiple disciplines: ${sections.join(", ")}. Use 'forge audit ${input}' to run them together.`
+    );
+  return sections[0] as ModuleSlug;
+}
+
+function resolveSingleAuditArea(normalized: string, originalInput: string): ModuleSlug {
   if (normalized === "all" || normalized === "everything") return "all";
   const exact = AUDITABLE_MODULES.find((slug) => normalizePhrase(slug) === normalized);
   if (exact !== undefined) return exact;
@@ -169,7 +208,7 @@ export function resolveAuditArea(input: string): ModuleSlug {
   if (candidates.size === 1) return [...candidates][0] as ModuleSlug;
   if (candidates.size > 1)
     throw new Error(
-      `Audit area '${input}' is ambiguous. Choose one: ${[...candidates].sort().join(", ")}.`
+      `Audit area '${originalInput}' is ambiguous. Choose one: ${[...candidates].sort().join(", ")}.`
     );
 
   const suggestion = closestSuggestion(normalized, [
@@ -177,7 +216,7 @@ export function resolveAuditArea(input: string): ModuleSlug {
     ...Object.keys(AREA_ALIASES)
   ]);
   throw new Error(
-    `Unknown audit area '${input}'.${suggestion === undefined ? "" : ` Did you mean '${suggestion}'?`} Run 'forge list' for every area.`
+    `Unknown audit area '${originalInput}'.${suggestion === undefined ? "" : ` Did you mean '${suggestion}'?`} Run 'forge list' for every area.`
   );
 }
 
@@ -239,7 +278,7 @@ Start here:
 
 Helpful commands:
   forge doctor                        Diagnose installation and project setup
-  forge init all                      Install every bundled skill in this project
+  forge init                          Detect agent configuration and install every bundled skill
   forge help advanced                 Show the complete expert CLI reference
 
 Safety: missing evidence never becomes PASS. JSON remains available with --json; use --details
@@ -408,7 +447,9 @@ export function renderInstallResult(
   selector: string,
   global: boolean,
   dryRun: boolean,
-  actions: InstallAction[]
+  actions: InstallAction[],
+  recommendations?: AgentRecommendation[],
+  detectionWarning?: string
 ): string {
   const counts = new Map<string, number>();
   for (const action of actions) counts.set(action.action, (counts.get(action.action) ?? 0) + 1);
@@ -436,8 +477,41 @@ export function renderInstallResult(
     `Skills: ${skills.size}`,
     `Files: ${actions.length}${actionSummary.length === 0 ? "" : ` (${actionSummary})`}`
   ];
+  if (recommendations !== undefined) {
+    if (detectionWarning !== undefined) {
+      lines.push("", `Agent detection: ${detectionWarning}`);
+    } else if (recommendations.length === 0) {
+      lines.push(
+        "",
+        "Agent detection: no existing agent-specific configuration was found.",
+        "Recommendation: keep selector 'all' for the broadest compatible project install."
+      );
+    } else {
+      lines.push("", "Detected compatible configuration before install:");
+      for (const recommendation of recommendations)
+        lines.push(
+          `  - ${recommendation.label}: ${recommendation.evidence.join(", ")} (selector '${recommendation.selector}')`
+        );
+      lines.push(
+        `Recommendation: use ${recommendations.map((item) => `'forge init ${item.selector}'`).join(" or ")} for a narrower future install.`
+      );
+    }
+  }
   if (operation !== "uninstall" && !dryRun)
-    lines.push("", "Next: run 'forge doctor', then 'forge help'.");
+    lines.push(
+      "",
+      "Check the installation:",
+      "  forge doctor",
+      "",
+      "Build something:",
+      "  /forge build",
+      "",
+      "Check an existing application:",
+      "  /forge audit",
+      "",
+      "See all commands:",
+      "  /forge help"
+    );
   if (operation === "uninstall" && actions.some((action) => action.action === "preserve-modified"))
     lines.push("", "Modified files were preserved. Review the paths in --json output.");
   return lines.join("\n");
@@ -446,10 +520,11 @@ export function renderInstallResult(
 export function renderDoctor(root: string, checks: DoctorCheck[]): string {
   const failed = checks.filter((check) => check.status === "FAIL");
   const unverified = checks.filter((check) => check.status === "NOT_VERIFIED");
+  const warnings = checks.filter((check) => check.status === "WARNING");
   const lines = [
     `Fullstack Forge doctor ${VERSION}`,
     `Project: ${root}`,
-    `Overall: ${failed.length > 0 ? "needs attention" : unverified.length > 0 ? "setup incomplete" : "ready"}`,
+    `Overall: ${failed.length > 0 ? "needs attention" : unverified.length > 0 ? "setup incomplete" : warnings.length > 0 ? "ready with warnings" : "ready"}`,
     ""
   ];
   for (const check of checks) {

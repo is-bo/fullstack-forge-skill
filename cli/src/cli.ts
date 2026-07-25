@@ -13,6 +13,7 @@ import {
   type ModuleSlug
 } from "./constants.js";
 import { runBuild } from "./build.js";
+import { detectAgentRecommendations } from "./agent-detection.js";
 import { listFeatures, loadFeature, loadProject } from "./build-state.js";
 import {
   ReportAuditLedger,
@@ -60,6 +61,7 @@ import {
   workingTreeRevision
 } from "./utils.js";
 import { verifyFindings } from "./verification.js";
+import { checkUpdateAvailability } from "./update-check.js";
 import {
   featureSlugFromRequest,
   featureSlugWithCollision,
@@ -138,6 +140,11 @@ export async function runCli(argv: string[]): Promise<number> {
   if (simpleRoute.kind === "build") return runSimpleBuild(simpleRoute.request, simpleRoute.flags);
   if (simpleRoute.kind === "continue") return runSimpleContinue(simpleRoute.flags);
   if (simpleRoute.kind === "status") return runSimpleStatus(simpleRoute.flags);
+  if (simpleRoute.kind === "audit-areas") {
+    const parsed = parseArguments(["all", "audit", ...simpleRoute.flags]);
+    parsed.options.simple = true;
+    return runModule("all", "audit", parsed.options, simpleRoute.sections);
+  }
   if (simpleRoute.kind === "default-audit") {
     argv = await defaultAuditArguments(simpleRoute.flags);
     simple = true;
@@ -175,6 +182,17 @@ export async function runCli(argv: string[]): Promise<number> {
     return 0;
   }
   if (command === "init" || command === "update") {
+    let recommendations: Awaited<ReturnType<typeof detectAgentRecommendations>> | undefined;
+    let detectionWarning: string | undefined;
+    if (command === "init" && positionals[0] === undefined && options.platform === undefined) {
+      try {
+        recommendations = await detectAgentRecommendations(options.cwd);
+      } catch {
+        recommendations = [];
+        detectionWarning =
+          "Automatic agent recommendation was unavailable; the compatibility selector 'all' was used.";
+      }
+    }
     const selector = selectPlatform(positionals[0], options.platform);
     const actions = await install(options.cwd, selector, {
       global: options.global,
@@ -182,8 +200,23 @@ export async function runCli(argv: string[]): Promise<number> {
     });
     printValue(
       options.json
-        ? { operation: command, selector, dry_run: options.dryRun, actions }
-        : renderInstallResult(command, selector, options.global, options.dryRun, actions),
+        ? {
+            operation: command,
+            selector,
+            dry_run: options.dryRun,
+            actions,
+            ...(recommendations === undefined ? {} : { agent_recommendations: recommendations }),
+            ...(detectionWarning === undefined ? {} : { agent_detection_warning: detectionWarning })
+          }
+        : renderInstallResult(
+            command,
+            selector,
+            options.global,
+            options.dryRun,
+            actions,
+            recommendations,
+            detectionWarning
+          ),
       options.json
     );
     return 0;
@@ -231,7 +264,12 @@ export async function runCli(argv: string[]): Promise<number> {
   return runModule(command, mode, options);
 }
 
-async function runModule(section: ModuleSlug, mode: string, options: CliOptions): Promise<number> {
+async function runModule(
+  section: ModuleSlug,
+  mode: string,
+  options: CliOptions,
+  requestedSections?: ModuleSlug[]
+): Promise<number> {
   const root = await canonicalDirectory(options.cwd);
   if (mode === "report") return reportMode(root, options);
   if (mode === "fix") {
@@ -288,9 +326,9 @@ async function runModule(section: ModuleSlug, mode: string, options: CliOptions)
   if (section === "all" && options.scope === "changed")
     changedScope = await analyzeChangedScope(root, profile, options.base);
   const decisions = decideModules({
-    candidates: candidateSections(section),
+    candidates: requestedSections ?? candidateSections(section),
     profile,
-    explicit: section !== "all",
+    explicit: section !== "all" || requestedSections !== undefined,
     ...(section === "all" && options.risk === "high"
       ? { riskAllowed: HIGH_RISK_MODULES, riskLabel: "high" }
       : {}),
@@ -369,7 +407,9 @@ async function runModule(section: ModuleSlug, mode: string, options: CliOptions)
     root,
     profile,
     findings,
-    options.scope ?? (section === "all" ? "applicable" : section),
+    requestedSections === undefined
+      ? (options.scope ?? (section === "all" ? "applicable" : section))
+      : `areas:${requestedSections.join(",")}`,
     orchestration.execution,
     [],
     [
@@ -497,7 +537,12 @@ async function verifySection(
     options.json
   );
   if (result.report.findings.some((finding) => finding.status === "FAIL")) return 1;
-  if (result.report.findings.some((finding) => finding.status === "BLOCKED")) return 2;
+  if (
+    result.report.findings.some(
+      (finding) => finding.status === "BLOCKED" || finding.status === "NOT_VERIFIED"
+    )
+  )
+    return 2;
   return 0;
 }
 
@@ -669,6 +714,25 @@ async function doctor(options: CliOptions): Promise<number> {
       recovery: "Install Git and make it available on PATH."
     });
   }
+  const update = await checkUpdateAvailability(root, options.offline);
+  checks.push({
+    name: "update availability",
+    status: update.status,
+    evidence: update.evidence,
+    ...(update.status === "PASS"
+      ? {}
+      : update.latestVersion === undefined
+        ? {
+            recovery: options.offline
+              ? "Run 'forge doctor' without --offline when network access is permitted."
+              : "Check network access, then rerun 'forge doctor'."
+          }
+        : {
+            recovery: options.global
+              ? `Run 'npm install --global github:thethunderbolt/fullstack-forge-skill#v${update.latestVersion}', then 'forge update all --global'.`
+              : `Run 'npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v${update.latestVersion}', then 'npx forge update all'.`
+          })
+  });
   for (const path of [
     "src/fullstack-forge/SKILL.md",
     "config/modules.json",
@@ -697,6 +761,27 @@ async function doctor(options: CliOptions): Promise<number> {
     ...(bundledSkills === 46
       ? {}
       : { recovery: "Reinstall the complete Fullstack Forge bundle; do not copy a partial tree." })
+  });
+  const generatedCopies = await runFile(
+    process.execPath,
+    [join(PACKAGE_ROOT, "scripts", "check-platform-assets.mjs")],
+    PACKAGE_ROOT,
+    120_000
+  );
+  checks.push({
+    name: "bundled generated copies",
+    status: generatedCopies.exitCode === 0 ? "PASS" : "FAIL",
+    evidence:
+      redactToString(generatedCopies.stdout || generatedCopies.stderr)
+        .replace(/\s+/gu, " ")
+        .trim()
+        .slice(0, 500) || `exit ${generatedCopies.exitCode}`,
+    ...(generatedCopies.exitCode === 0
+      ? {}
+      : {
+          recovery:
+            "Reinstall Fullstack Forge from a verified release; bundled generated copies are inconsistent."
+        })
   });
 
   const manifestRoot = options.global ? await canonicalDirectory(homedir()) : root;
@@ -738,7 +823,10 @@ async function doctor(options: CliOptions): Promise<number> {
       ...(integrityPass
         ? {}
         : {
-            recovery: `Review modified files, then run 'forge update all${options.global ? " --global" : ""}'. Forge will not overwrite changed or unowned files.`
+            recovery:
+              changed === 0
+                ? `Run 'forge update all${options.global ? " --global" : ""}' to resume or repair the incomplete installation.`
+                : `Review modified files, then run 'forge update all${options.global ? " --global" : ""}'. Forge will not overwrite changed or unowned files.`
           })
     });
     checks.push({
@@ -826,7 +914,7 @@ async function doctor(options: CliOptions): Promise<number> {
       ? {
           root,
           package_root: PACKAGE_ROOT,
-          ready: checks.every((check) => check.status === "PASS"),
+          ready: checks.every((check) => check.status === "PASS" || check.status === "WARNING"),
           checks
         }
       : renderDoctor(root, checks),

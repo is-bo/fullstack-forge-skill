@@ -115,7 +115,7 @@ release, registry, deployment, and production state still require separate direc
 
 ```bash
 forge init codex --dry-run
-forge init all
+forge init
 forge update claude
 forge uninstall cursor --dry-run
 forge doctor
@@ -126,8 +126,20 @@ Selectors: `claude`, `codex`, `antigravity`, `gemini`, `cursor`, `windsurf`, `gi
 project path but has its own global destination, `~/.gemini/config/skills/`; it is not a global
 generic-agent alias. Add `--global` for each product's documented user-level path.
 
-Install conflicts fail before writes. Pre-existing identical files are recorded as unowned and are
-left in place on uninstall. Modified owned files are preserved and reported.
+With no selector, `init` keeps the compatible `all` default, detects only finite known configuration
+markers and executable filenames on absolute `PATH` entries, and recommends narrower selectors
+without running an executable or claiming that a host application is installed. Detection failure is
+advisory and cannot block installation. Install conflicts fail before writes. Ownership for absent
+targets is atomically recorded before new managed content; updates atomically replace files while
+the old manifest hash remains recoverable. Re-running `forge update all` therefore resumes an
+interrupted install. Pre-existing identical files are recorded as unowned and left in place on
+uninstall. Modified owned files are preserved and reported.
+
+Doctor validates runtime and Git versions, the bundled canonical/generated catalog, installed
+ownership/integrity/destinations, project commands and Build state, optional rendered-UI support,
+repository state, report freshness, and update availability. The update lookup uses the fixed
+upstream Git URL. A newer release, `--offline`, or an unavailable lookup is an explicit advisory
+warning; required local checks can still be ready.
 
 ## General options
 
@@ -149,14 +161,16 @@ closed.
 
 ## Exit codes
 
-| Code | Meaning                                                            |
-| ---- | ------------------------------------------------------------------ |
-| `0`  | The command succeeded and every requested check produced evidence. |
-| `1`  | A `FAIL` finding was recorded, or the command itself errored.      |
-| `2`  | Nothing failed, but requested evidence could not be collected.     |
+| Code | Meaning                                                                      |
+| ---- | ---------------------------------------------------------------------------- |
+| `0`  | The required command outcome succeeded; advisory Doctor warnings may remain. |
+| `1`  | A `FAIL` finding was recorded, or the command itself errored.                |
+| `2`  | Nothing failed, but requested evidence could not be collected.               |
 
-Exit `2` is the fail-closed code. An audit that was asked for rendered evidence and could not
-produce it exits `2` rather than `0`: the run proved nothing about what it was asked to prove.
+Exit `2` is the fail-closed evidence code. An Audit or Verify operation that cannot collect
+requested evidence exits `2` rather than `0`: the run proved nothing about what it was asked to
+prove. Doctor also exits 2 for required setup evidence, while optional update-lookup warnings remain
+visible without making an otherwise healthy local installation unusable.
 
 ## Audit orchestration
 

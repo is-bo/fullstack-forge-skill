@@ -35,8 +35,8 @@ Forge:  Audit finished — evidence is incomplete.
 Node.js 24 or newer and Git are required. The reliable full-product route is:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.4.0
-npx forge init all
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.0
+npx forge init
 npx forge doctor
 ```
 
@@ -72,7 +72,7 @@ already exists, including work built in Build mode.
 | ----------------------------------- | ----- | -------------------------------------------- |
 | Start a new product or codebase     | Build | `/forge build` (`forge build`)               |
 | Build or continue one feature       | Build | `/forge build <request>` / `/forge continue` |
-| Inspect or harden existing behavior | Audit | `/forge audit [all                           | area]` |
+| Inspect or harden existing behavior | Audit | `/forge audit [all \| area]`                 |
 | Gate a release                      | Audit | `/forge ship` (`forge ship`)                 |
 
 A coherent project journey: `forge new` frames the product once; each feature then runs
@@ -126,9 +126,9 @@ Fullstack Forge is **not published to the npm registry**. The working npm-based 
 resolves the package directly from its Git tag:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.4.0
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.0
 npx forge init all --dry-run
-npx forge init all
+npx forge init
 ```
 
 #### After npm registry publication
@@ -142,8 +142,12 @@ form:
 npm install --save-dev fullstack-forge-skill
 ```
 
-The installer writes `.fullstack-forge/install-manifest.json`. It will not overwrite unowned or
-modified files, follows no destination symlinks, and uninstalls only unchanged files it owns.
+With no selector, the installer keeps the compatible `all` default while detecting finite existing
+agent-configuration markers and executable-name hints, then recommends any narrower matching
+selector. It never runs a detected executable or treats a hint as proof that a host is active. It
+writes `.fullstack-forge/install-manifest.json`, atomically records ownership before new managed
+files, resumes safely after interruption, will not overwrite unowned or modified files, follows no
+destination symlinks, and uninstalls only unchanged files it owns.
 
 ## Quick start
 
@@ -311,7 +315,7 @@ and [coverage policy](docs/COVERAGE.md).
 | GitHub Copilot         | `.github/skills/`   | `~/.copilot/skills/`          | name or auto-select     |
 | Generic Agent Skills   | `.agents/skills/`   | `~/.agents/skills/`           | agent-specific          |
 
-These paths were verified against current primary platform documentation on 2026-07-18. Some
+These paths were verified against current primary platform documentation on 2026-07-25. Some
 platforms also scan `.agents/skills/`. See [platform support](docs/PLATFORM_SUPPORT.md) for global
 paths, aliases, caveats, and primary sources.
 
@@ -325,8 +329,8 @@ drifts.
 See [architecture](docs/ARCHITECTURE.md), [development](docs/DEVELOPMENT.md),
 [release process](docs/RELEASING.md), the [traceability matrix](docs/TRACEABILITY_MATRIX.md) that
 maps every requirement to evidence, the
-[v0.4 gap classification](docs/AUDIT_CLASSIFICATION_v0.4.0.md), and the
-[v0.4 release verification record](docs/RELEASE_VERIFICATION_v0.4.0.md), which keeps local, CI,
+[v0.5 gap classification](docs/AUDIT_CLASSIFICATION_v0.5.0.md), and the
+[v0.5 release verification record](docs/RELEASE_VERIFICATION_v0.5.0.md), which keeps local, CI,
 publication, asset-download, and clean-room evidence distinct.
 
 ## Safety and limitations

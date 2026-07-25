@@ -1,6 +1,6 @@
 # Advanced CLI
 
-The v0.4 simple commands orchestrate the existing trusted engines; they do not replace them. Print
+The v0.5 simple commands orchestrate the existing trusted engines; they do not replace them. Print
 the complete built-in reference with:
 
 ```bash

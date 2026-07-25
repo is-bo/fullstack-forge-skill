@@ -8,20 +8,29 @@ export async function verifyFindings(rootInput, section, profile, options) {
     const previous = await readReport(root, join(root, ".forge", "report.json"));
     if ((await canonicalDirectory(previous.root)) !== root)
         throw new Error("The previous report root does not match the selected repository root.");
+    const revision = await workingTreeRevision(root);
+    const previousRevision = previous.revision;
+    const revisionChanged = previousRevision === undefined || previousRevision !== revision;
     const commands = await detectProjectCommands(root);
     const execution = [];
     const findings = [];
     for (const original of previous.findings) {
         if (section !== "all" && original.section !== section) {
-            findings.push(structuredClone(original));
+            const finding = structuredClone(original);
+            if (revisionChanged)
+                markStale(finding, previousRevision, revision);
+            findings.push(finding);
             continue;
         }
         const finding = structuredClone(original);
         const actions = finding.verification_plan?.actions ?? [];
         if (actions.length === 0) {
-            if (finding.status === "FAIL" || finding.status === "WARNING") {
+            if (revisionChanged || finding.status === "FAIL" || finding.status === "WARNING") {
+                const originalStatus = finding.status;
                 finding.status = "NOT_VERIFIED";
-                finding.evidence.push(`${utcNow()}: no finding-specific executable verification plan was recorded; the original evidence remains preserved.`);
+                finding.evidence.push(revisionChanged
+                    ? `${utcNow()}: prior status ${originalStatus} came from revision ${previousRevision ?? "legacy/unrecorded"}; current revision ${revision} differs and no finding-specific executable verification plan was recorded.`
+                    : `${utcNow()}: no finding-specific executable verification plan was recorded; the original evidence remains preserved.`);
             }
             findings.push(finding);
             continue;
@@ -33,9 +42,36 @@ export async function verifyFindings(rootInput, section, profile, options) {
         finding.status = combineStatuses(statuses);
         findings.push(finding);
     }
-    const report = createReport(root, profile, findings, `finding-specific verify ${section}`, execution, previous.assumptions, previous.residual_risk, previous.scope_evidence, previous.gate_evidence, previous.analyzer_coverage, await workingTreeRevision(root));
+    const report = createReport(root, profile, findings, `finding-specific verify ${section}`, execution, previous.assumptions, [
+        ...previous.residual_risk,
+        ...(revisionChanged
+            ? [
+                `The previous report revision (${previousRevision ?? "legacy/unrecorded"}) differs from the verified working-tree revision (${revision}); findings not directly rechecked were demoted to NOT_VERIFIED.`
+            ]
+            : [])
+    ], revisionChanged ? undefined : previous.scope_evidence, revisionChanged
+        ? previous.gate_evidence.map((evidence) => markGateEvidenceStale(evidence, previousRevision, revision))
+        : previous.gate_evidence, previous.analyzer_coverage, revision);
     const reportPaths = options.dryRun ? [] : await writeReport(report);
     return { report, report_paths: reportPaths };
+}
+function markStale(finding, previousRevision, revision) {
+    const originalStatus = finding.status;
+    finding.status = "NOT_VERIFIED";
+    finding.evidence.push(`${utcNow()}: prior status ${originalStatus} came from revision ${previousRevision ?? "legacy/unrecorded"}; section-specific Verify did not recheck it at current revision ${revision}.`);
+}
+function markGateEvidenceStale(evidence, previousRevision, revision) {
+    const stale = {
+        ...structuredClone(evidence),
+        status: "NOT_VERIFIED",
+        absence_proves_success: false,
+        limitations: [
+            ...evidence.limitations,
+            `Prior status ${evidence.status} came from report revision ${previousRevision ?? "legacy/unrecorded"}; Verify did not reproduce this gate evidence at current revision ${revision}.`
+        ]
+    };
+    delete stale.envelope;
+    return stale;
 }
 async function executeAction(action, finding, root, commands, options, execution) {
     const { allowRun, dryRun } = options;

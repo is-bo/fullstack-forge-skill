@@ -3,6 +3,7 @@ import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises"
 import { join } from "node:path";
 import test from "node:test";
 import { PACKAGE_ROOT } from "../src/constants.js";
+import { install } from "../src/installer.js";
 import { runFile } from "../src/utils.js";
 import { withTemporaryProject } from "./helpers.js";
 const cli = join(PACKAGE_ROOT, "build", "cli", "src", "index.js");
@@ -105,9 +106,32 @@ test("simple command mistakes receive actionable recovery", async () => {
     assert.equal(ambiguous.exitCode, 1);
     assert.match(ambiguous.stderr, /ambiguous.*deployment, supply-chain/iu);
 });
+test("a transparent composite audit request runs each named discipline", async () => {
+    await withTemporaryProject("simple-audit-composite", async (root) => {
+        const result = await runFile(process.execPath, [cli, "audit", "uploads and file storage", "--json", "--root", root], root);
+        assert.notEqual(result.exitCode, 1, result.stderr);
+        const parsed = JSON.parse(result.stdout);
+        assert.equal(parsed.report.scope, "areas:uploads,storage");
+        assert.deepEqual(parsed.report.module_decisions.map((decision) => decision.module), ["uploads", "storage"]);
+    });
+});
+test("verify exits incomplete when disappearance does not prove resolution", async () => {
+    await withTemporaryProject("simple-verify-not-verified", async (root) => {
+        const source = join(root, "server.ts");
+        await writeFile(source, "export async function handler(req) {\n  return db.query(`SELECT * FROM users WHERE id = ${req.params.id}`);\n}\n", "utf8");
+        const audit = await runFile(process.execPath, [cli, "audit", "security", "--root", root], root);
+        assert.equal(audit.exitCode, 1, audit.stderr);
+        await writeFile(source, "export const queryRemoved = true;\n", "utf8");
+        const verify = await runFile(process.execPath, [cli, "verify", "security", "--json", "--root", root], root);
+        assert.equal(verify.exitCode, 2, verify.stderr);
+        const parsed = JSON.parse(verify.stdout);
+        assert.ok(parsed.report.findings.some((finding) => finding.status === "NOT_VERIFIED"));
+        assert.ok(parsed.report.findings.some((finding) => finding.evidence.some((item) => item.includes("disappearance alone"))));
+    });
+});
 test("install success and doctor distinguish incomplete, ready, and modified states", async () => {
     await withTemporaryProject("simple-doctor", async (root) => {
-        const before = await runFile(process.execPath, [cli, "doctor", "--root", root], root);
+        const before = await runFile(process.execPath, [cli, "doctor", "--offline", "--root", root], root);
         assert.equal(before.exitCode, 2, before.stderr);
         assert.match(before.stdout, /Overall: setup incomplete/u);
         assert.match(before.stdout, /Fix: Run 'forge init all'/u);
@@ -115,18 +139,40 @@ test("install success and doctor distinguish incomplete, ready, and modified sta
         assert.equal(installed.exitCode, 0, installed.stderr);
         assert.match(installed.stdout, /Fullstack Forge .* is ready/u);
         assert.match(installed.stdout, /Skills: 46/u);
-        assert.match(installed.stdout, /Next: run 'forge doctor'/u);
-        const ready = await runFile(process.execPath, [cli, "doctor", "--root", root], root);
+        assert.match(installed.stdout, /Check the installation:\s+forge doctor/u);
+        assert.match(installed.stdout, /Build something:\s+\/forge build/u);
+        assert.match(installed.stdout, /Check an existing application:\s+\/forge audit/u);
+        assert.match(installed.stdout, /See all commands:\s+\/forge help/u);
+        const ready = await runFile(process.execPath, [cli, "doctor", "--offline", "--root", root], root);
         assert.equal(ready.exitCode, 0, ready.stderr);
-        assert.match(ready.stdout, /Overall: ready/u);
+        assert.match(ready.stdout, /Overall: ready with warnings/u);
+        assert.match(ready.stdout, /\[WARNING\] update availability/u);
+        assert.match(ready.stdout, /\[PASS\] bundled generated copies/u);
         assert.match(ready.stdout, /installed skill integrity: 46 skills/iu);
         const forgeSkill = join(root, ".agents", "skills", "forge", "SKILL.md");
         await writeFile(forgeSkill, `${await readFile(forgeSkill, "utf8")}\nmodified\n`, "utf8");
-        const modified = await runFile(process.execPath, [cli, "doctor", "--root", root], root);
+        const modified = await runFile(process.execPath, [cli, "doctor", "--offline", "--root", root], root);
         assert.equal(modified.exitCode, 1);
         assert.match(modified.stdout, /Overall: needs attention/u);
         assert.match(modified.stdout, /1 changed/u);
         assert.match(modified.stdout, /will not overwrite changed or unowned files/u);
+    });
+});
+test("doctor gives the exact resume command for an interrupted installation", async () => {
+    await withTemporaryProject("simple-doctor-interrupted", async (root) => {
+        await assert.rejects(install(root, "generic", {
+            global: false,
+            dryRun: false,
+            interruptAfter: 0
+        }), /interruption after ownership preparation/u);
+        const interrupted = await runFile(process.execPath, [cli, "doctor", "--offline", "--root", root], root);
+        assert.equal(interrupted.exitCode, 1, interrupted.stderr);
+        assert.match(interrupted.stdout, /[1-9]\d* missing/u);
+        assert.match(interrupted.stdout, /Run 'forge update all' to resume or repair the incomplete installation/u);
+        const repaired = await runFile(process.execPath, [cli, "update", "generic", "--root", root], root);
+        assert.equal(repaired.exitCode, 0, repaired.stderr);
+        const healthy = await runFile(process.execPath, [cli, "doctor", "--offline", "--root", root], root);
+        assert.equal(healthy.exitCode, 0, healthy.stderr);
     });
 });
 test("the quickstart demo completes audit, preview, safe fix, and verification", async () => {
@@ -149,6 +195,10 @@ test("the quickstart demo completes audit, preview, safe fix, and verification",
         const verified = await runFile(process.execPath, [cli, "verify", "frontend", "--root", root], root);
         assert.notEqual(verified.exitCode, 1, verified.stderr);
         assert.doesNotMatch(verified.stdout, /new-tab link can control/iu);
+        const shipped = await runFile(process.execPath, [cli, "ship", "--root", root], root);
+        assert.equal(shipped.exitCode, 2, shipped.stderr);
+        assert.match(shipped.stdout, /Ship finished.*evidence is incomplete/iu);
+        assert.match(shipped.stdout, /resolve the named gates/iu);
     });
 });
 //# sourceMappingURL=cli-simple.test.js.map

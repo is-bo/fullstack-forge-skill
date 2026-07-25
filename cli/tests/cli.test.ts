@@ -219,11 +219,20 @@ test("high-risk all audit and verify route through applicable focused modules", 
       [cli, "all", "verify", "--risk", "high", "--root", root, "--json"],
       root
     );
-    assert.equal(verify.exitCode, 0, verify.stderr);
+    assert.equal(
+      verify.exitCode,
+      2,
+      "risk-excluded NOT_VERIFIED evidence must keep Verify incomplete"
+    );
     const verified = JSON.parse(verify.stdout) as {
-      report: { findings: Array<{ section: string }> };
+      report: { findings: Array<{ section: string; status: string }> };
     };
     assert.ok(verified.report.findings.some((finding) => finding.section === "testing"));
+    assert.ok(
+      verified.report.findings.some(
+        (finding) => finding.section === "ui" && finding.status === "NOT_VERIFIED"
+      )
+    );
     assert.ok(!verified.report.findings.some((finding) => finding.section === "all"));
   });
 });

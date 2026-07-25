@@ -33,11 +33,11 @@ fix exists, and what to do next. Complete Markdown and JSON evidence is retained
 | `forge build`           | `forge new` when project state is absent; otherwise continue | Project questions stay agent-guided; framing is not proof.                      |
 | `forge build <request>` | safe slug + `forge feature <slug> --summary <request>`       | Redacts input, rejects reserved IDs, and adds a deterministic collision suffix. |
 | `forge continue`        | feature-state lookup + `forge feature <slug>`                | Continues only one unfinished item; asks or refuses on ambiguity.               |
-| `forge audit`           | `forge all audit --scope changed                             | full`                                                                           | Changed scope requires a reliable Git base; full is explicit fallback. |
+| `forge audit`           | `forge all audit --scope changed \| full`                    | Changed scope requires a reliable Git base; full is explicit fallback.          |
 | `forge audit all`       | `forge all audit --scope full`                               | Applicable modules still record not-applicable and missing evidence honestly.   |
 | `forge audit <area>`    | natural-language map + `forge <module> audit`                | Several plausible modules produce an error and choices, not a guess.            |
-| `forge fix [area]`      | `forge <module                                               | all> fix`                                                                       | Preview by default; only `--safe` executes registered bounded fixes.   |
-| `forge verify [area]`   | `forge <module                                               | all> verify`                                                                    | Preserves original findings and rechecks current evidence.             |
+| `forge fix [area]`      | `forge <module \| all> fix`                                  | Preview by default; only `--safe` executes registered bounded fixes.            |
+| `forge verify [area]`   | `forge <module \| all> verify`                               | Preserves original findings and rechecks current evidence.                      |
 | `forge ship`            | existing independent Ship gate                               | Build state and saved reports cannot satisfy a gate.                            |
 | `forge status`          | read install manifest, Build state, and latest report        | Read-only; does not imply a release decision.                                   |
 | `forge help`            | simple reference                                             | `forge help advanced` retains the full grammar.                                 |

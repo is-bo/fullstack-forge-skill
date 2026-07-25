@@ -17,7 +17,9 @@ npx forge audit "uploads and file storage"
 ```
 
 Natural-language areas map to existing specialist modules only when the mapping is clear. An
-ambiguous request lists the small set of choices and does not silently run a different audit.
+explicit conjunction such as `uploads and file storage` runs both named disciplines and reports that
+finite mapping. An intrinsically ambiguous compact phrase lists the small set of choices and does
+not silently run a different audit.
 
 The concise output separates confirmed failures, warnings, blocked checks, and behavior that was not
 verified. A result can be incomplete even when no defect was proven. Read the full evidence in

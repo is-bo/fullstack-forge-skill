@@ -1,5 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
-import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import {
   PACKAGE_ROOT,
@@ -62,8 +63,19 @@ function normalizePlatformsForScope(selector: string, global: boolean): Platform
 export async function install(
   rootInput: string,
   selector: string,
-  options: { global: boolean; dryRun: boolean; home?: string }
+  options: {
+    global: boolean;
+    dryRun: boolean;
+    home?: string;
+    /** Test-only fault injection. Production callers must omit this option. */
+    interruptAfter?: number;
+  }
 ): Promise<InstallAction[]> {
+  if (
+    options.interruptAfter !== undefined &&
+    (!Number.isSafeInteger(options.interruptAfter) || options.interruptAfter < 0)
+  )
+    throw new Error("Installer interruption point must be a non-negative safe integer.");
   const root = options.global
     ? await canonicalDirectory(options.home ?? homedir())
     : await canonicalDirectory(rootInput);
@@ -75,6 +87,7 @@ export async function install(
     target: string;
     bytes: Buffer;
     record: InstallFile;
+    previousHash?: string;
   }> = [];
 
   for (const platform of platforms) {
@@ -142,7 +155,8 @@ export async function install(
         source,
         target,
         bytes,
-        record: { hash, platform, owned }
+        record: { hash, platform, owned },
+        ...(existingHash === undefined ? {} : { previousHash: existingHash })
       });
     }
   }
@@ -155,10 +169,43 @@ export async function install(
     installedAt: utcNow(),
     files: { ...previous.files }
   };
+
+  // Claim every path that was absent during the complete preflight before creating any managed
+  // file. If the process is interrupted after this atomic manifest write, a retry can safely
+  // recreate missing owned files instead of mistaking partially installed files for pre-existing
+  // unowned content. Existing and update targets retain their prior records until their bytes are
+  // safely replaced, so either the old or new hash remains recoverable after a crash.
+  const created = planned.filter((item) => item.action.action === "create");
+  if (created.length > 0) {
+    const prepared: InstallManifest = {
+      ...next,
+      files: { ...next.files }
+    };
+    for (const item of created) prepared.files[item.action.path] = item.record;
+    await writeManifest(root, prepared);
+  }
+  if (options.interruptAfter === 0)
+    throw new Error("Injected installer interruption after ownership preparation.");
+
+  let processedWrites = 0;
   for (const item of planned) {
     if (item.action.action === "create" || item.action.action === "update") {
-      await mkdir(dirname(item.target), { recursive: true });
-      await writeFile(item.target, item.bytes);
+      const currentHash = await hashIfPresent(item.target);
+      const unchangedSincePreflight =
+        currentHash === item.record.hash ||
+        (item.action.action === "create"
+          ? currentHash === undefined
+          : currentHash === item.previousHash);
+      if (!unchangedSincePreflight)
+        throw new Error(
+          `Refusing to overwrite a file changed after preflight: ${item.action.path}`
+        );
+      if (currentHash !== item.record.hash) await atomicWrite(root, item.target, item.bytes);
+      processedWrites += 1;
+      if (options.interruptAfter !== undefined && processedWrites >= options.interruptAfter)
+        throw new Error(
+          `Injected installer interruption after ${processedWrites} managed write(s).`
+        );
     }
     next.files[item.action.path] = item.record;
   }
@@ -284,9 +331,30 @@ async function readManifest(root: string, required = false): Promise<InstallMani
 
 async function writeManifest(root: string, manifest: InstallManifest): Promise<void> {
   const path = resolveInside(root, MANIFEST_RELATIVE);
-  await assertNoSymlinkPath(root, path);
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  await atomicWrite(root, path, Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8"));
+}
+
+async function atomicWrite(root: string, target: string, bytes: Buffer): Promise<void> {
+  const temporary = join(dirname(target), `.fullstack-forge-${randomUUID()}.tmp`);
+  await assertNoSymlinkPath(root, target);
+  await assertNoSymlinkPath(root, temporary);
+  await mkdir(dirname(target), { recursive: true });
+  try {
+    await writeFile(temporary, bytes, { flag: "wx" });
+    await rename(temporary, target);
+  } catch (error) {
+    await unlink(temporary).catch(() => undefined);
+    throw error;
+  }
+}
+
+async function hashIfPresent(path: string): Promise<string | undefined> {
+  try {
+    return sha256(await readFile(path));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

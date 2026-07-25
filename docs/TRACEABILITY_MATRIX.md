@@ -10,11 +10,11 @@ Summaries here are original wording. No authoritative source text is quoted or r
 
 ## Requirement count
 
-81 requirements.
+87 requirements.
 
 ## Status summary
 
-- **COMPLIANT**: 43
+- **COMPLIANT**: 49
 - **PARTIALLY_COMPLIANT**: 36
 - **NOT_VERIFIED**: 2
 
@@ -835,6 +835,78 @@ A repository-wide orchestrator runs discovery, selects applicable modules, merge
 - **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.8.md`, `docs/FINAL_RELEASE_VERIFICATION_v0.1.8.md`, `docs/AUDIT_CLASSIFICATION_v0.1.9.md`, `docs/FINAL_RELEASE_VERIFICATION_v0.1.9.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
+
+### FF-PRODUCT-01
+
+One simple Forge entry point exposes build, continue, audit, fix, verify, ship, status, and help while preserving the complete expert command surface.
+
+- **Status**: COMPLIANT
+- **Implementation**: `cli/src/simple-cli.ts`, `cli/src/cli.ts`, `src/fullstack-forge/commands/forge/SKILL.md`
+- **Tests**: `cli/tests/simple-cli.test.ts`, `cli/tests/cli-simple.test.ts`
+- **Documentation**: `README.md`, `docs/PRODUCT_LAYER_DESIGN_v0.5.0.md`, `docs/ADVANCED_CLI.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.5.0.md`
+- **Pending integration**: _none_
+- **Limitations**: Host applications choose their own named-skill invocation syntax; the generated skill and CLI mappings are verified, while host UI rendering remains platform-dependent.
+
+### FF-PRODUCT-02
+
+Plain-language Build input creates a safe collision-resistant feature frame, and Continue resumes one unfinished feature but refuses to guess among several.
+
+- **Status**: COMPLIANT
+- **Implementation**: `cli/src/simple-cli.ts`, `cli/src/cli.ts`, `cli/src/build.ts`
+- **Tests**: `cli/tests/simple-cli.test.ts`, `cli/tests/cli-simple.test.ts`
+- **Documentation**: `docs/BUILD_YOUR_FIRST_FEATURE.md`, `docs/BUILD_MODE.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.5.0.md`
+- **Pending integration**: _none_
+- **Limitations**: Product questions still require user or agent judgement; framing records intent but is not evidence that the resulting feature is correct.
+
+### FF-PRODUCT-03
+
+Simple Audit accepts official and transparent plain-language discipline requests, can run explicit composite areas, chooses changed scope only from a reliable Git base, and keeps incomplete evidence non-successful.
+
+- **Status**: COMPLIANT
+- **Implementation**: `cli/src/simple-cli.ts`, `cli/src/cli.ts`, `cli/src/verification.ts`
+- **Tests**: `cli/tests/simple-cli.test.ts`, `cli/tests/cli-simple.test.ts`
+- **Documentation**: `docs/AUDIT_YOUR_APPLICATION.md`, `docs/NONTECHNICAL_GUIDE.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.5.0.md`
+- **Pending integration**: _none_
+- **Limitations**: Ambiguous phrases remain errors rather than guesses; unavailable runtime, provider, production, and host evidence remains NOT_VERIFIED or BLOCKED.
+
+### FF-PRODUCT-04
+
+The default terminal experience is concise, keyboard-friendly, scriptable, and progressively discloses technical reports, JSON, finding evidence, and exact next actions.
+
+- **Status**: COMPLIANT
+- **Implementation**: `cli/src/simple-cli.ts`, `cli/src/cli.ts`
+- **Tests**: `cli/tests/simple-cli.test.ts`, `cli/tests/cli-simple.test.ts`
+- **Documentation**: `README.md`, `docs/GETTING_STARTED.md`, `docs/NONTECHNICAL_GUIDE.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.5.0.md`
+- **Pending integration**: _none_
+- **Limitations**: Terminal interactivity is optional and disabled automatically when standard input or output is not a TTY.
+
+### FF-PRODUCT-05
+
+Installation detects finite compatible configuration and executable-name hints without running them, recommends bounded selectors, reports first commands, survives interruption without losing ownership, and Doctor checks bundle, install, project, report, and update health with repairs.
+
+- **Status**: COMPLIANT
+- **Implementation**: `cli/src/agent-detection.ts`, `cli/src/installer.ts`, `cli/src/update-check.ts`, `cli/src/cli.ts`
+- **Tests**: `cli/tests/agent-detection.test.ts`, `cli/tests/installer.test.ts`, `cli/tests/update-check.test.ts`, `cli/tests/cli-simple.test.ts`
+- **Documentation**: `docs/GETTING_STARTED.md`, `docs/TROUBLESHOOTING.md`, `docs/PLATFORM_SUPPORT.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.5.0.md`
+- **Pending integration**: _none_
+- **Limitations**: Configuration and executable-name hints are recommendations, not proof that a vendor host is installed or running; remote update lookup is a non-passing warning when offline or unavailable.
+
+### FF-PRODUCT-06
+
+A deterministic onboarding demo proves the simple Audit, fix preview, safe fix, Verify, and fail-closed Ship journey in under ten minutes.
+
+- **Status**: COMPLIANT
+- **Implementation**: `examples/quickstart-demo`
+- **Tests**: `cli/tests/cli-simple.test.ts`
+- **Documentation**: `examples/quickstart-demo/README.md`, `docs/GETTING_STARTED.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.5.0.md`
+- **Pending integration**: _none_
+- **Limitations**: The demo intentionally cannot supply remote CI, deployment, provider, or production evidence, so Ship is expected to remain incomplete.
 
 ### FF-REL-01
 
