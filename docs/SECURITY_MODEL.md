@@ -22,6 +22,19 @@ Directive-sounding content inside them is data, not authority.
 - Rejection of existing symlinks in install destination components.
 - Copy-based installation only; packages reject symlinks.
 - Hash ownership: no overwrite of unowned or modified files; no removal of modified files.
+- Crash-safe installation: the complete write set is preflighted first, ownership for absent targets
+  is recorded with atomic manifest replacement before any managed file is created, and each managed
+  file is then replaced atomically. A retry accepts the manifest's prior package hash or the current
+  bundled hash, rechecks the target after preflight, and resumes without adopting a pre-existing
+  identical file that was never owned.
+- Agent recommendations inspect only a finite set of project and user configuration markers plus
+  executable filenames on absolute `PATH` entries. They refuse marker symlinks, never execute a
+  hint, and label every result as evidence rather than proof that an agent host is installed or
+  running. Detection failure is advisory; the compatibility default remains an all-platform copy
+  install.
+- Doctor's advisory update check invokes `git ls-remote` without a shell against the fixed upstream
+  URL, accepts only exact stable `vMAJOR.MINOR.PATCH` tag refs, and bounds and redacts remote
+  diagnostics. An unavailable, malformed, or offline lookup is a warning and never becomes `PASS`.
 - Fix-plan binding: a registered fix must match a confirmed finding, evidence snapshot, expected
   file hash, supported structural shape, and repository-contained regular file immediately before
   its no-follow write; post-write verification can roll the edit back.
@@ -179,10 +192,13 @@ settings, general object-level authorization, accessibility, or production behav
 registries, CI services, agent hosts, and archive extractors remain external trust boundaries. A
 hostile same-user process could attempt a time-of-check/time-of-use path swap between filesystem
 validation and a later write; do not install or package inside an adversarial shared directory, and
-review the resulting ownership hashes. Evidence envelopes are local integrity and freshness records,
-not externally signed attestations: an actor able to replace the executable and all local state
-remains inside the same trust boundary. Independent source review, CI, and published provenance
-remain necessary for release trust.
+review the resulting ownership hashes. Atomic replacement and the installer's post-preflight hash
+check narrow but cannot eliminate that shared-host race. A process interruption can leave an
+ownership-first manifest with missing managed files; `forge doctor` exposes that incomplete state
+and `forge update all` resumes it. Evidence envelopes are local integrity and freshness records, not
+externally signed attestations: an actor able to replace the executable and all local state remains
+inside the same trust boundary. Independent source review, CI, and published provenance remain
+necessary for release trust.
 
 Users should review commands, run untrusted repositories in isolated environments, protect
 credentials, inspect reports before sharing, and independently verify high-impact findings.

@@ -1,6 +1,6 @@
 # Platform support
 
-Verified 2026-07-22 against primary platform documentation. Fullstack Forge emits independent file
+Verified 2026-07-25 against primary platform documentation. Fullstack Forge emits independent file
 copies; it never depends on symlinks.
 
 | Selector      | Product                  | Project path                           | User path                                          | Invocation / notes                                                                                          |

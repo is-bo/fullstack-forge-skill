@@ -9,13 +9,17 @@ Node.js 24 or newer and Git are required. Install the versioned package, then co
 the supported agent directories in this project:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.4.0
-npx forge init all
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.0
+npx forge init
 npx forge doctor
 ```
 
-The installer copies regular files, records ownership in `.fullstack-forge/install-manifest.json`,
-refuses destination links, and does not overwrite changed or unowned files.
+With no selector, Forge keeps the broad compatible install while detecting finite existing agent
+configuration markers and executable-name hints, then recommending a narrower selector when direct
+evidence exists. Detection never runs an executable and cannot block the install. The installer
+copies regular files, atomically records ownership in `.fullstack-forge/install-manifest.json`
+before new managed paths are written, resumes safely after interruption, refuses destination links,
+and does not overwrite changed or unowned files.
 
 For agent skills without the persistent CLI dependency, the verified third-party alternative is:
 

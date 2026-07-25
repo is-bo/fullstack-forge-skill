@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { BUILD_VERBS, MODULE_SLUGS, PACKAGE_ROOT, PLATFORM_ALIASES, PLATFORM_CONFIG, TOOL_NAMES, VERSION } from "./constants.js";
 import { runBuild } from "./build.js";
+import { detectAgentRecommendations } from "./agent-detection.js";
 import { listFeatures, loadFeature, loadProject } from "./build-state.js";
 import { ReportAuditLedger, orchestrateAudit } from "./audit-orchestration.js";
 import { detectProjectCommands, discoverProject, writeProjectArtifacts } from "./discovery.js";
@@ -20,6 +21,7 @@ import { coverageForProfile } from "./support.js";
 import { isForgePackageRoot, runTool } from "./tools.js";
 import { assertNoSymlinkPath, canonicalDirectory, resolveInside, runFile, sha256, workingTreeRevision } from "./utils.js";
 import { verifyFindings } from "./verification.js";
+import { checkUpdateAvailability } from "./update-check.js";
 import { featureSlugFromRequest, featureSlugWithCollision, menuChoiceToArgs, parseSimpleRoute, renderDoctor, renderInstallResult, renderPlainFix, renderPlainReport, renderSimpleHelp, renderSimpleMenu, renderStatus, suggestCommand } from "./simple-cli.js";
 const MODES = new Set(["audit", "fix", "verify", "report"]);
 const HIGH_RISK_MODULES = new Set([
@@ -87,6 +89,11 @@ export async function runCli(argv) {
         return runSimpleContinue(simpleRoute.flags);
     if (simpleRoute.kind === "status")
         return runSimpleStatus(simpleRoute.flags);
+    if (simpleRoute.kind === "audit-areas") {
+        const parsed = parseArguments(["all", "audit", ...simpleRoute.flags]);
+        parsed.options.simple = true;
+        return runModule("all", "audit", parsed.options, simpleRoute.sections);
+    }
     if (simpleRoute.kind === "default-audit") {
         argv = await defaultAuditArguments(simpleRoute.flags);
         simple = true;
@@ -122,14 +129,33 @@ export async function runCli(argv) {
         return 0;
     }
     if (command === "init" || command === "update") {
+        let recommendations;
+        let detectionWarning;
+        if (command === "init" && positionals[0] === undefined && options.platform === undefined) {
+            try {
+                recommendations = await detectAgentRecommendations(options.cwd);
+            }
+            catch {
+                recommendations = [];
+                detectionWarning =
+                    "Automatic agent recommendation was unavailable; the compatibility selector 'all' was used.";
+            }
+        }
         const selector = selectPlatform(positionals[0], options.platform);
         const actions = await install(options.cwd, selector, {
             global: options.global,
             dryRun: options.dryRun
         });
         printValue(options.json
-            ? { operation: command, selector, dry_run: options.dryRun, actions }
-            : renderInstallResult(command, selector, options.global, options.dryRun, actions), options.json);
+            ? {
+                operation: command,
+                selector,
+                dry_run: options.dryRun,
+                actions,
+                ...(recommendations === undefined ? {} : { agent_recommendations: recommendations }),
+                ...(detectionWarning === undefined ? {} : { agent_detection_warning: detectionWarning })
+            }
+            : renderInstallResult(command, selector, options.global, options.dryRun, actions, recommendations, detectionWarning), options.json);
         return 0;
     }
     if (command === "uninstall") {
@@ -172,7 +198,7 @@ export async function runCli(argv) {
         throw new Error(`Unknown mode '${mode}'. Expected audit, fix, verify, or report.`);
     return runModule(command, mode, options);
 }
-async function runModule(section, mode, options) {
+async function runModule(section, mode, options, requestedSections) {
     const root = await canonicalDirectory(options.cwd);
     if (mode === "report")
         return reportMode(root, options);
@@ -207,9 +233,9 @@ async function runModule(section, mode, options) {
     if (section === "all" && options.scope === "changed")
         changedScope = await analyzeChangedScope(root, profile, options.base);
     const decisions = decideModules({
-        candidates: candidateSections(section),
+        candidates: requestedSections ?? candidateSections(section),
         profile,
-        explicit: section !== "all",
+        explicit: section !== "all" || requestedSections !== undefined,
         ...(section === "all" && options.risk === "high"
             ? { riskAllowed: HIGH_RISK_MODULES, riskLabel: "high" }
             : {}),
@@ -272,7 +298,9 @@ async function runModule(section, mode, options) {
             .map(moduleDecisionFinding));
     }
     findings.push(...ledger.findings());
-    const report = createReport(root, profile, findings, options.scope ?? (section === "all" ? "applicable" : section), orchestration.execution, [], [
+    const report = createReport(root, profile, findings, requestedSections === undefined
+        ? (options.scope ?? (section === "all" ? "applicable" : section))
+        : `areas:${requestedSections.join(",")}`, orchestration.execution, [], [
         "Static inspection does not verify running application, production, provider, database, browser, or operator controls.",
         ...ledger.residualRisk()
     ], changedScope?.evidence, results.flatMap((result) => result.gate_evidence), results.flatMap((result) => result.analyzer_coverage), revision, captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION }), { module_decisions: decisions, ...ledger.ledgers() });
@@ -365,7 +393,7 @@ async function verifySection(section, root, profile, options) {
             : renderMarkdown(result.report), options.json);
     if (result.report.findings.some((finding) => finding.status === "FAIL"))
         return 1;
-    if (result.report.findings.some((finding) => finding.status === "BLOCKED"))
+    if (result.report.findings.some((finding) => finding.status === "BLOCKED" || finding.status === "NOT_VERIFIED"))
         return 2;
     return 0;
 }
@@ -506,6 +534,25 @@ async function doctor(options) {
             recovery: "Install Git and make it available on PATH."
         });
     }
+    const update = await checkUpdateAvailability(root, options.offline);
+    checks.push({
+        name: "update availability",
+        status: update.status,
+        evidence: update.evidence,
+        ...(update.status === "PASS"
+            ? {}
+            : update.latestVersion === undefined
+                ? {
+                    recovery: options.offline
+                        ? "Run 'forge doctor' without --offline when network access is permitted."
+                        : "Check network access, then rerun 'forge doctor'."
+                }
+                : {
+                    recovery: options.global
+                        ? `Run 'npm install --global github:thethunderbolt/fullstack-forge-skill#v${update.latestVersion}', then 'forge update all --global'.`
+                        : `Run 'npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v${update.latestVersion}', then 'npx forge update all'.`
+                })
+    });
     for (const path of [
         "src/fullstack-forge/SKILL.md",
         "config/modules.json",
@@ -533,6 +580,20 @@ async function doctor(options) {
         ...(bundledSkills === 46
             ? {}
             : { recovery: "Reinstall the complete Fullstack Forge bundle; do not copy a partial tree." })
+    });
+    const generatedCopies = await runFile(process.execPath, [join(PACKAGE_ROOT, "scripts", "check-platform-assets.mjs")], PACKAGE_ROOT, 120_000);
+    checks.push({
+        name: "bundled generated copies",
+        status: generatedCopies.exitCode === 0 ? "PASS" : "FAIL",
+        evidence: redactToString(generatedCopies.stdout || generatedCopies.stderr)
+            .replace(/\s+/gu, " ")
+            .trim()
+            .slice(0, 500) || `exit ${generatedCopies.exitCode}`,
+        ...(generatedCopies.exitCode === 0
+            ? {}
+            : {
+                recovery: "Reinstall Fullstack Forge from a verified release; bundled generated copies are inconsistent."
+            })
     });
     const manifestRoot = options.global ? await canonicalDirectory(homedir()) : root;
     const manifest = await readInstallManifest(manifestRoot);
@@ -578,7 +639,9 @@ async function doctor(options) {
             ...(integrityPass
                 ? {}
                 : {
-                    recovery: `Review modified files, then run 'forge update all${options.global ? " --global" : ""}'. Forge will not overwrite changed or unowned files.`
+                    recovery: changed === 0
+                        ? `Run 'forge update all${options.global ? " --global" : ""}' to resume or repair the incomplete installation.`
+                        : `Review modified files, then run 'forge update all${options.global ? " --global" : ""}'. Forge will not overwrite changed or unowned files.`
                 })
         });
         checks.push({
@@ -657,7 +720,7 @@ async function doctor(options) {
         ? {
             root,
             package_root: PACKAGE_ROOT,
-            ready: checks.every((check) => check.status === "PASS"),
+            ready: checks.every((check) => check.status === "PASS" || check.status === "WARNING"),
             checks
         }
         : renderDoctor(root, checks), options.json);

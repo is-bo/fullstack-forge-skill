@@ -8,7 +8,8 @@ npx forge doctor
 
 Doctor exits `0` when required local checks pass, `1` for a broken or changed installation, and `2`
 when setup is incomplete or evidence cannot be established. Each non-passing check includes an exact
-next action.
+next action. Update lookup is a non-passing warning rather than a false pass when `--offline` is set
+or the fixed upstream tag endpoint is unavailable.
 
 ## Forge is not installed for my agent
 
@@ -28,6 +29,20 @@ Forge does not overwrite unowned files or files changed since its ownership mani
 Keep the file, compare it with the generated source, and choose the intended content manually. Do
 not delete the ownership manifest to force an overwrite.
 
+## Installation was interrupted
+
+Run the ownership-aware update again:
+
+```bash
+npx forge update all
+npx forge doctor
+```
+
+Forge records ownership for new managed paths before writing their contents and replaces files
+atomically. A retry can therefore recreate missing owned files or finish an interrupted update
+without adopting pre-existing identical files. If Doctor reports changed files rather than missing
+files, review them first; Forge will not overwrite them.
+
 ## A report says blocked or not verified
 
 Read the named missing evidence in `.forge/report.md`. Common causes are a missing browser driver,
@@ -38,6 +53,11 @@ or evidence from an older revision. Do not translate this state into success.
 
 Run `npx forge help`. Common misspellings receive a suggestion but never execute automatically. Use
 `npx forge help advanced` for the complete legacy and expert grammar.
+
+If the shell rejects `froge`/`forget` or an agent host rejects `/froge` before any Forge output,
+Forge was never invoked and cannot supply its own suggestion. Correct the entry point to `forge` or
+`/forge`; once Forge is running, misspelled subcommands such as `autdit` and `biuld` receive bounded
+suggestions without executing.
 
 ## Build state is stale or interrupted
 

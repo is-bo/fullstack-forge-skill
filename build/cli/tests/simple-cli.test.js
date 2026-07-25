@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { featureSlugFromRequest, featureSlugWithCollision, menuChoiceToArgs, parseSimpleRoute, renderPlainFix, renderPlainReport, renderSimpleHelp, renderSimpleMenu, resolveAuditArea, suggestCommand } from "../src/simple-cli.js";
+import { featureSlugFromRequest, featureSlugWithCollision, menuChoiceToArgs, parseSimpleRoute, renderInstallResult, renderPlainFix, renderPlainReport, renderSimpleHelp, renderSimpleMenu, resolveAuditArea, resolveAuditAreas, suggestCommand } from "../src/simple-cli.js";
 test("simple command routing covers the public vocabulary", () => {
     assert.deepEqual(parseSimpleRoute(["build", "add", "customer", "login", "--json"]), {
         kind: "build",
@@ -16,6 +16,11 @@ test("simple command routing covers the public vocabulary", () => {
         kind: "expert",
         command: "audit",
         argv: ["all", "audit", "--scope", "full"]
+    });
+    assert.deepEqual(parseSimpleRoute(["audit", "uploads", "and", "file", "storage"]), {
+        kind: "audit-areas",
+        sections: ["uploads", "storage"],
+        flags: []
     });
     assert.deepEqual(parseSimpleRoute(["fix"]), {
         kind: "expert",
@@ -43,7 +48,9 @@ test("audit areas resolve exact names and transparent natural-language aliases",
     assert.equal(resolveAuditArea("check customer login"), "auth");
     assert.equal(resolveAuditArea("user interface"), "ui");
     assert.equal(resolveAuditArea("everything"), "all");
-    assert.throws(() => resolveAuditArea("uploads and file storage"), /storage, uploads|uploads, storage/iu);
+    assert.deepEqual(resolveAuditAreas("uploads and file storage"), ["uploads", "storage"]);
+    assert.throws(() => resolveAuditArea("uploads and file storage"), /multiple disciplines/iu);
+    assert.throws(() => resolveAuditAreas("all and security"), /combines 'all'/iu);
     assert.throws(() => resolveAuditArea("CI"), /ambiguous.*deployment, supply-chain/iu);
     assert.throws(() => resolveAuditArea("securty"), /Did you mean 'security'/u);
 });
@@ -97,6 +104,32 @@ test("plain fix output distinguishes preview from application", () => {
     const preview = renderPlainFix(result, false);
     assert.match(preview, /no files changed/u);
     assert.match(preview, /forge fix --safe/u);
+});
+test("install output gives first commands and labels evidence-based agent recommendations", () => {
+    const actions = [
+        {
+            action: "create",
+            path: ".cursor/skills/forge/SKILL.md",
+            platform: "cursor"
+        }
+    ];
+    const recommended = renderInstallResult("init", "all", false, false, actions, [
+        {
+            selector: "cursor",
+            platform: "cursor",
+            label: "Cursor",
+            evidence: ["project:.cursor"]
+        }
+    ]);
+    assert.match(recommended, /Cursor: project:\.cursor \(selector 'cursor'\)/u);
+    assert.match(recommended, /Build something:\s+\/forge build/u);
+    assert.match(recommended, /Check an existing application:\s+\/forge audit/u);
+    const noMarkers = renderInstallResult("init", "all", false, true, actions, []);
+    assert.match(noMarkers, /no existing agent-specific configuration/u);
+    assert.match(noMarkers, /keep selector 'all'/u);
+    const unavailable = renderInstallResult("init", "all", false, true, actions, [], "Automatic agent recommendation was unavailable; the compatibility selector 'all' was used.");
+    assert.match(unavailable, /Agent detection: Automatic agent recommendation was unavailable/u);
+    assert.doesNotMatch(unavailable, /no existing agent-specific configuration/u);
 });
 test("plain report gives a nontechnical summary while keeping technical details in files", () => {
     const report = {

@@ -179,7 +179,7 @@ try {
   await assertNoLinks(isolatedHome);
   const globalDoctor = await run(
     process.execPath,
-    [cli, "doctor", "--global", "--root", consumerRoot, "--json"],
+    [cli, "doctor", "--global", "--offline", "--root", consumerRoot, "--json"],
     consumerRoot,
     120_000,
     globalEnvironment

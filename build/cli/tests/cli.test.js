@@ -108,9 +108,10 @@ test("high-risk all audit and verify route through applicable focused modules", 
         assert.equal(uiDecision.selection_status, "EXCLUDED_BY_RISK");
         assert.notEqual(uiDecision.capability_status, "ABSENT", "excluding a module by risk must not be recorded as the capability being absent");
         const verify = await runFile(process.execPath, [cli, "all", "verify", "--risk", "high", "--root", root, "--json"], root);
-        assert.equal(verify.exitCode, 0, verify.stderr);
+        assert.equal(verify.exitCode, 2, "risk-excluded NOT_VERIFIED evidence must keep Verify incomplete");
         const verified = JSON.parse(verify.stdout);
         assert.ok(verified.report.findings.some((finding) => finding.section === "testing"));
+        assert.ok(verified.report.findings.some((finding) => finding.section === "ui" && finding.status === "NOT_VERIFIED"));
         assert.ok(!verified.report.findings.some((finding) => finding.section === "all"));
     });
 });

@@ -140,6 +140,53 @@ test("verification preserves typed gate evidence and analyzer coverage", async (
         assert.equal(result.report.revision, revision);
     });
 });
+test("verification demotes a stale positive finding that it cannot recheck", async () => {
+    await withTemporaryProject("verify-stale-pass", async (root) => {
+        const source = join(root, "source.ts");
+        await writeFile(source, "export const value = 1;\n", "utf8");
+        const profile = await discoverProject(root);
+        const revision = await workingTreeRevision(root);
+        const finding = {
+            id: "FF-TEST-STALE-001",
+            section: "testing",
+            title: "Prior structural check passed",
+            severity: "INFO",
+            confidence: "HIGH",
+            status: "PASS",
+            location: [{ path: "source.ts", line: 1 }],
+            evidence: ["The earlier revision contained the expected structure."],
+            impact: "A stale positive claim could hide changed behavior.",
+            recommendation: "Re-run a current evidence producer.",
+            safe_fix: false,
+            verification: ["Re-run the current evidence producer."],
+            standards: ["Fullstack Forge evidence protocol"]
+        };
+        const staleEvidence = {
+            evidence_type: "project-test",
+            producer: "stale-test-producer",
+            scope: ["repository"],
+            timestamp: new Date().toISOString(),
+            revision,
+            status: "PASS",
+            relevant_instance_ids: [],
+            absence_proves_success: true,
+            limitations: ["Fixture evidence applies only to the recorded revision."]
+        };
+        await writeReport(createReport(root, profile, [finding], "test audit", [], [], [], undefined, [staleEvidence], [], revision));
+        await writeFile(source, "export const value = 2;\n", "utf8");
+        const result = await verifyFindings(root, "testing", profile, {
+            allowRun: false,
+            dryRun: false
+        });
+        assert.equal(result.report.findings[0]?.status, "NOT_VERIFIED");
+        assert.ok(result.report.findings[0].evidence.some((item) => item.includes("prior status PASS") && item.includes("current revision")));
+        assert.ok(result.report.residual_risk.some((item) => item.includes("demoted")));
+        assert.equal(result.report.gate_evidence[0]?.status, "NOT_VERIFIED");
+        assert.equal(result.report.gate_evidence[0].absence_proves_success, false);
+        assert.ok(result.report.gate_evidence[0].limitations.some((item) => item.includes("did not reproduce")));
+        assert.notEqual(result.report.revision, revision);
+    });
+});
 const sqlFixture = `export async function handler(req) {
   return db.query(\`SELECT * FROM users WHERE id = \${req.params.id}\`);
 }

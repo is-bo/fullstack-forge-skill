@@ -886,6 +886,96 @@
       "limitations": []
     },
     {
+      "id": "FF-PRODUCT-01",
+      "summary": "One simple Forge entry point exposes build, continue, audit, fix, verify, ship, status, and help while preserving the complete expert command surface.",
+      "implementation": [
+        "cli/src/simple-cli.ts",
+        "cli/src/cli.ts",
+        "src/fullstack-forge/commands/forge/SKILL.md"
+      ],
+      "tests": ["cli/tests/simple-cli.test.ts", "cli/tests/cli-simple.test.ts"],
+      "documentation": ["README.md", "docs/PRODUCT_LAYER_DESIGN_v0.5.0.md", "docs/ADVANCED_CLI.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.5.0.md"],
+      "status": "COMPLIANT",
+      "limitations": [
+        "Host applications choose their own named-skill invocation syntax; the generated skill and CLI mappings are verified, while host UI rendering remains platform-dependent."
+      ]
+    },
+    {
+      "id": "FF-PRODUCT-02",
+      "summary": "Plain-language Build input creates a safe collision-resistant feature frame, and Continue resumes one unfinished feature but refuses to guess among several.",
+      "implementation": ["cli/src/simple-cli.ts", "cli/src/cli.ts", "cli/src/build.ts"],
+      "tests": ["cli/tests/simple-cli.test.ts", "cli/tests/cli-simple.test.ts"],
+      "documentation": ["docs/BUILD_YOUR_FIRST_FEATURE.md", "docs/BUILD_MODE.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.5.0.md"],
+      "status": "COMPLIANT",
+      "limitations": [
+        "Product questions still require user or agent judgement; framing records intent but is not evidence that the resulting feature is correct."
+      ]
+    },
+    {
+      "id": "FF-PRODUCT-03",
+      "summary": "Simple Audit accepts official and transparent plain-language discipline requests, can run explicit composite areas, chooses changed scope only from a reliable Git base, and keeps incomplete evidence non-successful.",
+      "implementation": ["cli/src/simple-cli.ts", "cli/src/cli.ts", "cli/src/verification.ts"],
+      "tests": ["cli/tests/simple-cli.test.ts", "cli/tests/cli-simple.test.ts"],
+      "documentation": ["docs/AUDIT_YOUR_APPLICATION.md", "docs/NONTECHNICAL_GUIDE.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.5.0.md"],
+      "status": "COMPLIANT",
+      "limitations": [
+        "Ambiguous phrases remain errors rather than guesses; unavailable runtime, provider, production, and host evidence remains NOT_VERIFIED or BLOCKED."
+      ]
+    },
+    {
+      "id": "FF-PRODUCT-04",
+      "summary": "The default terminal experience is concise, keyboard-friendly, scriptable, and progressively discloses technical reports, JSON, finding evidence, and exact next actions.",
+      "implementation": ["cli/src/simple-cli.ts", "cli/src/cli.ts"],
+      "tests": ["cli/tests/simple-cli.test.ts", "cli/tests/cli-simple.test.ts"],
+      "documentation": ["README.md", "docs/GETTING_STARTED.md", "docs/NONTECHNICAL_GUIDE.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.5.0.md"],
+      "status": "COMPLIANT",
+      "limitations": [
+        "Terminal interactivity is optional and disabled automatically when standard input or output is not a TTY."
+      ]
+    },
+    {
+      "id": "FF-PRODUCT-05",
+      "summary": "Installation detects finite compatible configuration and executable-name hints without running them, recommends bounded selectors, reports first commands, survives interruption without losing ownership, and Doctor checks bundle, install, project, report, and update health with repairs.",
+      "implementation": [
+        "cli/src/agent-detection.ts",
+        "cli/src/installer.ts",
+        "cli/src/update-check.ts",
+        "cli/src/cli.ts"
+      ],
+      "tests": [
+        "cli/tests/agent-detection.test.ts",
+        "cli/tests/installer.test.ts",
+        "cli/tests/update-check.test.ts",
+        "cli/tests/cli-simple.test.ts"
+      ],
+      "documentation": [
+        "docs/GETTING_STARTED.md",
+        "docs/TROUBLESHOOTING.md",
+        "docs/PLATFORM_SUPPORT.md"
+      ],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.5.0.md"],
+      "status": "COMPLIANT",
+      "limitations": [
+        "Configuration and executable-name hints are recommendations, not proof that a vendor host is installed or running; remote update lookup is a non-passing warning when offline or unavailable."
+      ]
+    },
+    {
+      "id": "FF-PRODUCT-06",
+      "summary": "A deterministic onboarding demo proves the simple Audit, fix preview, safe fix, Verify, and fail-closed Ship journey in under ten minutes.",
+      "implementation": ["examples/quickstart-demo"],
+      "tests": ["cli/tests/cli-simple.test.ts"],
+      "documentation": ["examples/quickstart-demo/README.md", "docs/GETTING_STARTED.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.5.0.md"],
+      "status": "COMPLIANT",
+      "limitations": [
+        "The demo intentionally cannot supply remote CI, deployment, provider, or production evidence, so Ship is expected to remain incomplete."
+      ]
+    },
+    {
       "id": "FF-BUILD-01",
       "summary": "Build project and feature state records a complete schema-versioned product frame, lifecycle, selection history, applicability, gates, and evidence without treating recorded planning as proof.",
       "implementation": [

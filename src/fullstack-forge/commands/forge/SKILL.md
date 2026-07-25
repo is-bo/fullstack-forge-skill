@@ -26,13 +26,13 @@ Discover the repository first. For a new product, ask only the essential product
 Load `.forge/build/` state, re-verify it, and continue the only unfinished feature from its latest safe phase. If several features are unfinished, show their plain names and phases and ask the user to choose; never silently guess.
 
 ### `/forge audit [all|area]`
-With no area, prefer changed scope only when a reliable Git base exists; otherwise audit the full applicable project and say why. `all` is explicitly full. Map a clear natural-language area to one module, state the mapping, and ask when several modules are plausible. Produce a short summary plus paths to the complete Markdown and JSON evidence.
+With no area, prefer changed scope only when a reliable Git base exists; otherwise audit the full applicable project and say why. `all` is explicitly full. Map a clear natural-language area to one module or an explicit conjunction to the named modules, state the mapping, and ask when a compact phrase remains ambiguous. Produce a short summary plus paths to the complete Markdown and JSON evidence.
 
 ### `/forge fix [area]`
 Start with a preview of registered bounded safe fixes. Show intended files and effects before editing. Apply only when the user requests the safe application step; risky, unsupported, policy, schema, identity, payment, tenant, or destructive decisions remain approval-bound. Inspect the diff and route to verification afterwards.
 
 ### `/forge verify [area]`
-Re-run finding-specific verification without erasing earlier evidence. Report confirmed resolutions, failures, blocks, and missing evidence separately.
+Re-run finding-specific verification without erasing earlier evidence. Report confirmed resolutions, failures, blocks, and missing evidence separately. If the report revision changed, demote every finding that was not directly rechecked instead of rebinding stale positive evidence.
 
 ### `/forge ship`
 Run the independent Ship gate. A local PASS still requires separate direct evidence for remote CI, publication, deployment, and production state.

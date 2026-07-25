@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { mkdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
+import { PACKAGE_ROOT, VERSION } from "../src/constants.js";
 import { install, readInstallManifest, uninstall } from "../src/installer.js";
+import { sha256 } from "../src/utils.js";
 import { withTemporaryProject } from "./helpers.js";
 
 test("dry-run, install, update, and uninstall honor ownership", async () => {
@@ -137,5 +139,121 @@ test("Antigravity and Gemini project/global destinations remain product-specific
       home: root
     });
     assert.ok(genericGlobal.some((action) => action.path.startsWith(".agents/skills/")));
+  });
+});
+
+test("an interruption after ownership preparation resumes without orphaning files", async () => {
+  await withTemporaryProject("interrupted-before-write", async (root) => {
+    await assert.rejects(
+      install(root, "generic", {
+        global: false,
+        dryRun: false,
+        interruptAfter: 0
+      }),
+      /interruption after ownership preparation/u
+    );
+    const prepared = await readInstallManifest(root);
+    assert.ok(prepared !== undefined);
+    assert.ok(Object.keys(prepared.files).length > 40);
+    assert.ok(Object.values(prepared.files).every((record) => record.owned));
+
+    const resumed = await install(root, "generic", { global: false, dryRun: false });
+    assert.ok(resumed.every((action) => action.action === "create"));
+    const master = join(root, ".agents", "skills", "fullstack-forge", "SKILL.md");
+    await stat(master);
+    const removed = await uninstall(root, "generic", { global: false, dryRun: false });
+    assert.ok(removed.some((action) => action.path.endsWith("fullstack-forge/SKILL.md")));
+    await assert.rejects(stat(master), { code: "ENOENT" });
+  });
+});
+
+test("an interruption after a managed write safely adopts only prepared owned paths", async () => {
+  await withTemporaryProject("interrupted-after-write", async (root) => {
+    await assert.rejects(
+      install(root, "generic", {
+        global: false,
+        dryRun: false,
+        interruptAfter: 1
+      }),
+      /interruption after 1 managed write/u
+    );
+    const prepared = await readInstallManifest(root);
+    assert.ok(prepared !== undefined);
+    assert.ok(Object.values(prepared.files).every((record) => record.owned));
+
+    const resumed = await install(root, "generic", { global: false, dryRun: false });
+    assert.ok(resumed.some((action) => action.action === "preserve-identical"));
+    assert.ok(resumed.some((action) => action.action === "create"));
+    const completed = await readInstallManifest(root);
+    assert.ok(completed !== undefined);
+    assert.ok(Object.values(completed.files).every((record) => record.owned));
+  });
+});
+
+test("crash recovery never adopts a pre-existing identical unowned file", async () => {
+  await withTemporaryProject("interrupted-unowned-identical", async (root) => {
+    const bundled = join(PACKAGE_ROOT, ".agents", "skills", "fullstack-forge", "SKILL.md");
+    const target = join(root, ".agents", "skills", "fullstack-forge", "SKILL.md");
+    await mkdir(join(root, ".agents", "skills", "fullstack-forge"), { recursive: true });
+    await writeFile(target, await readFile(bundled));
+
+    await assert.rejects(
+      install(root, "generic", {
+        global: false,
+        dryRun: false,
+        interruptAfter: 0
+      }),
+      /interruption after ownership preparation/u
+    );
+    const prepared = await readInstallManifest(root);
+    assert.ok(prepared !== undefined);
+    const relative = ".agents/skills/fullstack-forge/SKILL.md";
+    assert.equal(prepared.files[relative], undefined);
+
+    await install(root, "generic", { global: false, dryRun: false });
+    const completed = await readInstallManifest(root);
+    assert.equal(completed?.files[relative]?.owned, false);
+    await uninstall(root, "generic", { global: false, dryRun: false });
+    assert.match(await readFile(target, "utf8"), /# Fullstack Forge/u);
+  });
+});
+
+test("an interrupted previous-release update resumes from either the old or new hash", async () => {
+  await withTemporaryProject("interrupted-upgrade", async (root) => {
+    await install(root, "generic", { global: false, dryRun: false });
+    const relative = ".agents/skills/fullstack-forge/SKILL.md";
+    const target = join(root, ...relative.split("/"));
+    const manifestPath = join(root, ".fullstack-forge", "install-manifest.json");
+    const previousBytes = Buffer.from("# Fullstack Forge\n\nprevious release fixture\n", "utf8");
+    await writeFile(target, previousBytes);
+    const previous = await readInstallManifest(root);
+    assert.ok(previous !== undefined);
+    previous.packageVersion = "0.3.0";
+    previous.files[relative] = {
+      hash: sha256(previousBytes),
+      platform: "agents",
+      owned: true
+    };
+    await writeFile(manifestPath, `${JSON.stringify(previous, null, 2)}\n`, "utf8");
+
+    await assert.rejects(
+      install(root, "generic", {
+        global: false,
+        dryRun: false,
+        interruptAfter: 1
+      }),
+      /interruption after 1 managed write/u
+    );
+    assert.match(await readFile(target, "utf8"), /# Fullstack Forge/u);
+    assert.doesNotMatch(await readFile(target, "utf8"), /previous release fixture/u);
+    assert.equal((await readInstallManifest(root))?.packageVersion, "0.3.0");
+
+    const resumed = await install(root, "generic", { global: false, dryRun: false });
+    assert.ok(
+      resumed.some((action) => action.path === relative && action.action === "preserve-identical")
+    );
+    const completed = await readInstallManifest(root);
+    assert.equal(completed?.packageVersion, VERSION);
+    assert.equal(completed.files[relative]?.owned, true);
   });
 });

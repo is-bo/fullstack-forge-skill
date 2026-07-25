@@ -3,6 +3,47 @@
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic
 versioning.
 
+## [0.5.0] - 2026-07-25
+
+### Added — resilient onboarding and diagnostics
+
+- Read-only agent recommendations from finite configuration markers and executable-name hints, while
+  preserving `all` as the compatible install default and never executing a detected hint.
+- Bounded Doctor checks for generated-copy integrity and stable upstream release tags, with
+  offline/unavailable lookups reported as warnings and exact update actions.
+- Public v0.5 product requirements, gap classification, security model updates, and release evidence
+  covering the simple experience and installation recovery.
+
+### Changed
+
+- Explicit natural-language conjunctions such as `uploads and file storage` run each named
+  discipline through the existing Audit orchestrator; intrinsically ambiguous phrases still fail
+  closed.
+- Install success now presents Doctor, Build, Audit, and Help entry points in ordinary language.
+- The onboarding demo now exercises the independent Ship gate and asserts its honest incomplete
+  result when external release evidence is absent.
+
+### Fixed
+
+- `forge verify` now exits 2 whenever requested evidence remains `BLOCKED` or `NOT_VERIFIED`, while
+  proven findings retain exit 1.
+- Verify no longer rebinds stale positive findings, scope evidence, or typed gate evidence to a new
+  revision without reproducing the relevant check.
+- Installation now preflights the complete write set, atomically records ownership for absent
+  targets before creation, atomically replaces managed files, and safely resumes after interruption
+  without adopting pre-existing identical files.
+- Public Markdown command tables and the documented composite-audit example now match actual
+  rendering and behavior.
+
+### Compatibility and security
+
+- All 42 Audit modules, Build schema 2, report schema 2, finding identifiers, advanced commands,
+  installer selectors, generated platform roots, and Ship independence remain compatible.
+- Agent hints are advisory; inaccessible detection cannot block installation. Remote tag output is
+  strictly parsed, bounded, redacted, and invoked without a shell.
+- Missing, stale, unsupported, offline, provider, production, and host-UI evidence still cannot
+  become `PASS`.
+
 ## [0.4.0] - 2026-07-25
 
 ### Added — simple product experience
@@ -654,7 +695,8 @@ executable evidence rather than documentation.
 - Deterministic ZIP archives, SHA-256 checksums, ownership manifests, clean-install smoke tests,
   fixtures, CI, research attribution, and original branding.
 
-[Unreleased]: https://github.com/thethunderbolt/fullstack-forge-skill/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/thethunderbolt/fullstack-forge-skill/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.5.0
 [0.4.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.4.0
 [0.3.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.3.0
 [0.2.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.2.0

@@ -145,8 +145,14 @@ forge package
 ```
 
 Use `--global` for the documented user-level target. Installation is an offline copy from bundled
-assets; it creates no symlinks. Unowned conflicts fail before writes. Pre-existing identical files
-remain unowned, and modified owned files are preserved during update or uninstall.
+assets; it creates no symlinks. With no selector, `forge init` detects finite configuration markers
+and executable-name hints without running them, recommends matching targets, and preserves `all` as
+the compatibility default. Detection is advisory and cannot block installation. Unowned conflicts
+fail before writes. Ownership preparation and same-directory atomic replacement make interrupted
+installs resumable with `forge update all`. Pre-existing identical files remain unowned, and
+modified owned files are preserved during update or uninstall. Doctor also checks bundled generated
+copies and bounded upstream update availability; offline/unavailable lookups are explicit warnings,
+not passes.
 
 ## Release gate
 

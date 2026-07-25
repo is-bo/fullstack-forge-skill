@@ -10,6 +10,8 @@ export declare function install(rootInput: string, selector: string, options: {
     global: boolean;
     dryRun: boolean;
     home?: string;
+    /** Test-only fault injection. Production callers must omit this option. */
+    interruptAfter?: number;
 }): Promise<InstallAction[]>;
 export declare function uninstall(rootInput: string, selector: string, options: {
     global: boolean;
