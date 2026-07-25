@@ -50,6 +50,14 @@ pending until an authorized tagged release workflow completes.
 - Boundary analyzers exclude conventional test sources from production-flow findings. Secret
   inspection still scans tests and ignores only low-confidence values explicitly marked as
   synthetic; recognizable credential signatures remain findings in every source class.
+- Forge self-release identity is bound to the canonical executing package root rather than a package
+  name or script. Its application-runtime gates are inapplicable only at that trusted root; unknown
+  capability evidence in ordinary projects remains required and `NOT_VERIFIED`.
+- Runtime pattern inspection excludes generated platform skills and other non-application evidence
+  by classified path role, while secret, CI, and configuration scanners retain their intended
+  broader coverage.
+- The lockfile includes `brace-expansion` 5.0.8, resolving GHSA-mh99-v99m-4gvg in ESLint's
+  transitive development dependency tree.
 
 ## Install
 
@@ -75,8 +83,3 @@ not install a persistent Forge CLI or use Forge's ownership manifest.
   verified; the first-party installer remains authoritative for Forge-specific lifecycle safety.
 - Browser, assistive technology, database, provider, deployment, production, and human policy
   evidence still requires the corresponding environment. Absence never becomes `PASS`.
-- The local self-Ship run executes all thirteen registered release commands successfully but remains
-  `BLOCKED`: Forge's own audit-rule implementation triggers ambiguous application-capability
-  discovery, leaving authorization, tenancy, upload, application-security, and migration evidence
-  `NOT_VERIFIED`. Public v0.4.0 tagging and publication are therefore a no-go until that independent
-  applicability issue is resolved or directly verified without weakening the gate.

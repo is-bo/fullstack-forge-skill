@@ -45,6 +45,17 @@ export type ShipGateResult = {
 };
 export declare function runShipGates(root: string, profile: ProjectProfile, previous: AuditReport | undefined, commands: CommandDefinition[], allowRun: boolean, policy?: PolicyContext): Promise<ShipGateResult>;
 export declare function evaluateGateOutcome(gates: ShipGate[]): "PASS" | "FAIL" | "BLOCKED";
+type CapabilityApplicability = {
+    status: "APPLICABLE" | "ABSENT" | "UNKNOWN";
+    reasons: string[];
+};
+/**
+ * Decides whether a capability gate may be dismissed as NOT_APPLICABLE.
+ *
+ * Persisted module decisions are never inputs. Only discovery performed in the current stable
+ * Ship revision can make a capability gate applicable or inapplicable.
+ */
+export declare function capabilityApplicability(gateId: string, profile: ProjectProfile, forgeOwned?: boolean): CapabilityApplicability;
 export type ShipInspection = {
     findings: Finding[];
     evidence: GateEvidence[];
@@ -54,3 +65,4 @@ export type ShipInspection = {
  * Persisted report records never enter this function.
  */
 export declare function deriveShipInspection(root: string, profile: ProjectProfile, revision: string): Promise<ShipInspection>;
+export {};

@@ -4,8 +4,9 @@ import { join } from "node:path";
 import test from "node:test";
 import { discoverProject } from "../src/discovery.js";
 import { FORGE_GATE_REGISTRY, runShipGates, type ShipGate } from "../src/gates.js";
-import { inspectSection } from "../src/inspectors.js";
+import { inspectSection, inspectWithTool } from "../src/inspectors.js";
 import { createReport } from "../src/report.js";
+import { isForgePackageRoot } from "../src/tools.js";
 import type { Finding } from "../src/types.js";
 import { workingTreeRevision } from "../src/utils.js";
 import { withTemporaryProject } from "./helpers.js";
@@ -171,19 +172,129 @@ test("Forge self-release gates are not applicable to an ordinary application", a
 });
 
 test("Forge self-release gates remain applicable to the Forge repository", async () => {
+  const root = process.cwd();
+  assert.equal(await isForgePackageRoot(root), true);
+  const profile = await discoverProject(root);
+  const result = await runShipGates(root, profile, undefined, [], false, {
+    offline: false,
+    forgeOwned: true
+  });
+
+  const platforms = gateById(result.gates, "FF-GATE-PLATFORMS");
+  assert.notEqual(
+    platforms.status,
+    "NOT_APPLICABLE",
+    "the executing Forge package must still hold itself to its own release checks"
+  );
+  assert.equal(platforms.required, true);
+  for (const gateId of [
+    "FF-GATE-AUTH-EVAL",
+    "FF-GATE-TENANT-EVAL",
+    "FF-GATE-UPLOAD-EVAL",
+    "FF-GATE-SECURITY-EVAL",
+    "FF-GATE-MIGRATIONS"
+  ]) {
+    const gate = gateById(result.gates, gateId);
+    assert.equal(gate.status, "NOT_APPLICABLE", `${gateId} targets an application runtime`);
+    assert.equal(gate.required, false);
+  }
+});
+
+test("a package name cannot impersonate the executing Forge package", async () => {
   await withTemporaryProject("gate-forge-self", async (root) => {
     await writePackage(root, "fullstack-forge-skill");
+    assert.equal(await isForgePackageRoot(root), false);
     const profile = await discoverProject(root);
     const previous = createReport(root, profile, [], "audit");
     const result = await runShipGates(root, profile, previous, [], false);
 
     const platforms = gateById(result.gates, "FF-GATE-PLATFORMS");
-    assert.notEqual(
+    assert.equal(
       platforms.status,
       "NOT_APPLICABLE",
-      "Forge must still hold itself to its own release checks"
+      "a package name alone must not enable Forge self-release rules"
     );
-    assert.equal(platforms.required, true);
+    assert.equal(platforms.required, false);
+  });
+});
+
+test("generated skill text leaves an application capability unknown rather than inapplicable", async () => {
+  await withTemporaryProject("gate-generated-skill-text", async (root) => {
+    await writePackage(root, "ordinary-project");
+    const skillRoot = join(root, ".github", "skills", "forge-uploads");
+    await mkdir(skillRoot, { recursive: true });
+    await writeFile(
+      join(skillRoot, "SKILL.md"),
+      "Inspect `multer({ storage })` upload boundaries.\n",
+      "utf8"
+    );
+    const profile = await discoverProject(root);
+    const inspection = await inspectSection("uploads", root, profile);
+    const result = await runShipGates(root, profile, undefined, [], false);
+
+    assert.equal(
+      inspection.observations.some((observation) => observation.path.startsWith(".github/skills/")),
+      false
+    );
+    const uploads = gateById(result.gates, "FF-GATE-UPLOAD-EVAL");
+    assert.equal(uploads.required, true);
+    assert.equal(uploads.status, "NOT_VERIFIED");
+    assert.ok(uploads.evidence.join(" ").includes("could not prove this capability absent"));
+  });
+});
+
+test("application scans retain unclassified runtime formats and exclude test copies", async () => {
+  await withTemporaryProject("inspector-source-roles", async (root) => {
+    await writePackage(root, "ordinary-project");
+    await mkdir(join(root, "src"));
+    await mkdir(join(root, "tests"));
+    await mkdir(join(root, "infra"));
+    await writeFile(
+      join(root, "src", "routes.svelte"),
+      'router.get("/health", handler);\n',
+      "utf8"
+    );
+    await writeFile(
+      join(root, "tests", "routes.test.ts"),
+      'router.get("/synthetic", handler);\n',
+      "utf8"
+    );
+    await writeFile(join(root, "infra", "main.tf"), 'readiness = "enabled"\n', "utf8");
+
+    const routes = await inspectWithTool("inspect-routes", root);
+    assert.ok(routes.observations.some((observation) => observation.path === "src/routes.svelte"));
+    assert.equal(
+      routes.observations.some((observation) => observation.path.startsWith("tests/")),
+      false
+    );
+
+    const deployment = await inspectWithTool("inspect-deployment-config", root);
+    assert.ok(deployment.observations.some((observation) => observation.path === "infra/main.tf"));
+  });
+});
+
+test("an API route without an authorization control keeps the auth gate required", async () => {
+  await withTemporaryProject("gate-route-without-authz", async (root) => {
+    await writePackage(root, "ordinary-project", { express: "0.0.0-fixture" });
+    await writeFile(
+      join(root, "routes.js"),
+      [
+        'app.get("/documents/:id", async (req, res) => {',
+        "  const document = await db.document.findUnique({ where: { id: req.params.id } });",
+        "  res.send(document);",
+        "});",
+        ""
+      ].join("\n"),
+      "utf8"
+    );
+
+    const profile = await discoverProject(root);
+    const result = await runShipGates(root, profile, undefined, [], false);
+    const authorization = gateById(result.gates, "FF-GATE-AUTH-EVAL");
+
+    assert.equal(authorization.required, true);
+    assert.equal(authorization.status, "NOT_VERIFIED");
+    assert.ok(authorization.evidence.join(" ").includes("application route"));
   });
 });
 
