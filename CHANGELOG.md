@@ -3,7 +3,7 @@
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic
 versioning.
 
-## [0.4.0] - 2026-07-22
+## [0.4.0] - 2026-07-25
 
 ### Added — simple product experience
 
@@ -33,6 +33,13 @@ versioning.
 - Boundary analyzers no longer interpret conventional test sources as production behavior. Secret
   inspection continues to scan tests, suppressing only low-confidence values explicitly marked as
   synthetic while retaining high-confidence credential signatures.
+- Forge self-release identity is now derived from the canonical executing package root. Package
+  names and familiar scripts grant no release authority; only application-runtime gates become
+  inapplicable for Forge itself, while ordinary unknown capability evidence remains fail-closed.
+- Application-runtime pattern scans exclude generated platform copies and other classified
+  non-runtime evidence without narrowing secret, CI, or configuration inspection.
+- The lockfile resolves `brace-expansion` to 5.0.8, fixing GHSA-mh99-v99m-4gvg in the development
+  dependency tree.
 
 ## [0.3.0] - 2026-07-22
 

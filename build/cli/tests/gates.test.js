@@ -142,7 +142,10 @@ test("each required Forge release command failure maps to a failing explicit gat
                     source: "package.json",
                     definition: "synthetic failing gate"
                 };
-                const result = await runShipGates(root, profile, previous, [command], true);
+                const result = await runShipGates(root, profile, previous, [command], true, {
+                    offline: false,
+                    forgeOwned: true
+                });
                 assert.equal(result.status, "FAIL");
                 assert.equal(gateById(result.gates, gateId).status, "FAIL");
             });

@@ -6,9 +6,9 @@ Local validation status: PASS
 
 Remote publication status: PENDING
 
-Release recommendation: NO-GO
+Release recommendation: GO FOR REMOTE CI AND TAGGING
 
-This tagged-source record covers the local v0.4.0 candidate validated on 2026-07-22. Remote CI,
+This tagged-source record covers the local v0.4.0 candidate validated on 2026-07-25. Remote CI,
 tagging, publication, provenance, immutability, and post-publication installation cannot be proven
 in tagged source and remain pending for the release workflow.
 
@@ -18,7 +18,7 @@ in tagged source and remain pending for the release workflow.
 | ------------------ | ------------------------------ |
 | Baseline           | public v0.3.0 `main`           |
 | Previous release   | `v0.3.0`                       |
-| Integration branch | `codex/v0.4.0-product-layer`   |
+| Integration branch | `codex/v0.4.0-release-gate`    |
 | OS                 | Windows 10 Pro 10.0.19045, x64 |
 | Node.js            | v24.14.1                       |
 | npm                | 11.11.0                        |
@@ -34,29 +34,27 @@ disposition are in `PRODUCT_GAP_REPORT_v0.4.0.md`.
 
 All completed rows passed against candidate content. One Windows symlink test is expected to skip
 where the host lacks symbolic-link privileges; clean installs separately proved zero reparse points.
-The full suite was rerun with a task-owned temporary directory on `D:` after the system temporary
-volume produced `ENOSPC`; the storage failure was environmental, not a test failure.
 
-| Command or evidence                              | Result  | Decisive output                                                                         |
-| ------------------------------------------------ | ------- | --------------------------------------------------------------------------------------- |
-| `npm run format:check`                           | PASS    | all candidate files matched Prettier                                                    |
-| `npm run lint`                                   | PASS    | zero ESLint errors                                                                      |
-| `npm run typecheck`                              | PASS    | TypeScript no-emit check completed                                                      |
-| `npm test`                                       | PASS    | 681 tests; 680 passed, 0 failed, 1 expected Windows symlink skip                        |
-| `npm run test:evals:v030`                        | PASS    | 44/44 legacy Build and prevention evaluations                                           |
-| `npm run test:coverage`                          | PASS    | lines 93.98%, branches 82.78%, functions 93.41%                                         |
-| `npm run validate`                               | PASS    | 46 canonical skills validated                                                           |
-| `npm run check:platforms`                        | PASS    | 106 generated files synchronized across six roots                                       |
-| `npm audit --ignore-scripts`                     | PASS    | zero known vulnerabilities                                                              |
-| `npm run scan:secrets`                           | PASS    | 1,322 files scanned with zero findings                                                  |
-| `npm run smoke:install`                          | PASS    | packed v0.4.0 lifecycle; 46 skills, zero symlinks                                       |
-| `npm run offline:install`                        | PASS    | cache-only install; 46 skills in each root; clean uninstall                             |
-| quickstart demo end-to-end test                  | PASS    | Audit → preview → safe fix → Verify; Ship remained honestly blocked                     |
-| two consecutive `npm run package:platforms` runs | PASS    | every archive, checksum, and manifest reproduced byte-for-byte                          |
-| `npm run validate:dist`                          | PASS    | exact archive set, safe inventory, deterministic metadata                               |
-| `npm pack --dry-run --json --ignore-scripts`     | PASS    | declared npm inventory only; demo included; local/private paths excluded                |
-| final `npm run check`                            | PASS    | complete fail-closed repository gate passed after the last authored edit                |
-| `forge ship --allow-run --json`                  | BLOCKED | all 13 registered commands passed; five application-runtime gates remain `NOT_VERIFIED` |
+| Command or evidence                              | Result | Decisive output                                                           |
+| ------------------------------------------------ | ------ | ------------------------------------------------------------------------- |
+| `npm run format:check`                           | PASS   | all candidate files matched Prettier                                      |
+| `npm run lint`                                   | PASS   | zero ESLint errors                                                        |
+| `npm run typecheck`                              | PASS   | TypeScript no-emit check completed                                        |
+| `npm test`                                       | PASS   | 685 tests; 684 passed, 0 failed, 1 expected Windows symlink skip          |
+| `npm run test:evals:v030`                        | PASS   | 44/44 legacy Build and prevention evaluations                             |
+| `npm run test:coverage`                          | PASS   | lines 94.17%, branches 83.33%, functions 93.60%                           |
+| `npm run validate`                               | PASS   | 46 canonical skills validated                                             |
+| `npm run check:platforms`                        | PASS   | 106 generated files synchronized across six roots                         |
+| `npm audit --ignore-scripts`                     | PASS   | zero known vulnerabilities                                                |
+| `npm run scan:secrets`                           | PASS   | 1,322 files scanned with zero findings                                    |
+| `npm run smoke:install`                          | PASS   | packed v0.4.0 lifecycle; 46 skills, zero symlinks                         |
+| `npm run offline:install`                        | PASS   | cache-only install; 46 skills in each root; clean uninstall               |
+| quickstart demo end-to-end test                  | PASS   | Audit → preview → safe fix → Verify; unsupported evidence remained closed |
+| two consecutive `npm run package:platforms` runs | PASS   | every archive, checksum, and manifest reproduced byte-for-byte            |
+| `npm run validate:dist`                          | PASS   | exact archive set, safe inventory, deterministic metadata                 |
+| `npm pack --dry-run --json --ignore-scripts`     | PASS   | declared npm inventory only; demo included; local/private paths excluded  |
+| final `npm run check`                            | PASS   | complete fail-closed repository gate passed after the last authored edit  |
+| `forge ship --allow-run --json`                  | PASS   | 13/13 commands exited 0; every required local release gate passed         |
 
 Archive digests are not embedded here because this document is itself archived. The generated
 `dist/SHA256SUMS.txt` and `dist/manifest.json` bind the final candidate bytes; the release workflow
@@ -96,6 +94,12 @@ must independently download and compare future published assets.
 ## Security and compatibility review
 
 - The simple router adds no evidence producer and no alternative route to `PASS`.
+- Forge self-release authority now comes only from a canonical package-root comparison. A package
+  name or familiar script cannot impersonate Forge, and ordinary projects with unknown capability
+  evidence retain required `NOT_VERIFIED` gates.
+- Application-runtime pattern scans exclude generated platform copies, fixtures, tests, examples,
+  and documentation by classified path role. Secret and dedicated configuration/CI inspections keep
+  their deliberately broader source coverage.
 - Feature text is redacted before slugging or persistence; path containment, link refusal, ownership
   manifests, hashes, and safe-fix authority remain enforced.
 - Repository walks exclude private local `.audit`, `.audit-work`, and `.codex` state before report
@@ -113,10 +117,6 @@ must independently download and compare future published assets.
   requires the corresponding environment. Missing evidence never becomes `PASS`.
 - The third-party skills installer is time-sensitive; v1.5.20 was the version directly inspected and
   tested. The first-party ownership-manifest installer remains authoritative for lifecycle safety.
-- The self-Ship inspector cannot yet distinguish Forge's audit-rule implementation from an audited
-  application's authentication, tenancy, upload, security, and migration boundaries. It therefore
-  keeps five high-risk gates `NOT_VERIFIED` even though every registered release command passes. The
-  release remains a no-go; this limitation was not accepted or downgraded.
 
 ## Pending remote steps
 

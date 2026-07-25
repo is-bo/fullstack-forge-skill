@@ -14,6 +14,7 @@ import {
   type PolicyContext
 } from "./offline-policy.js";
 import type { AuditReport, ExecutionRecord } from "./report.js";
+import { classifyEvidencePath } from "./discovery-evidence.js";
 import type {
   CommandDefinition,
   Finding,
@@ -24,6 +25,7 @@ import type {
 } from "./types.js";
 import type { ModuleSlug } from "./constants.js";
 import { redactError, redactToString } from "./redaction.js";
+import { capabilityStatusFor } from "./scope.js";
 import { runFile, sha256, utcNow, workingTreeRevision } from "./utils.js";
 
 export type GateStatus = Extract<
@@ -227,9 +229,9 @@ export async function runShipGates(
     preflight = [schemaGate(root, inspection.findings), openFindingsGate(inspection.findings)];
   }
   const ledgerByName = new Map(ledger.map((record) => [record.name, record] as const));
-  const isForgeRepository =
-    currentProfile.repository.name === "fullstack-forge-skill" ||
-    commands.some((command) => command.name === "check:platforms");
+  // The CLI derives this authority by canonical package-root comparison. Project names and
+  // familiar scripts never enter the decision.
+  const forgeOwned = policy.forgeOwned;
   const gates: ShipGate[] = [];
 
   gates.push(...preflight);
@@ -244,12 +246,19 @@ export async function runShipGates(
       continue;
     if (definition.category === "capability") {
       gates.push(
-        await capabilityGate(root, definition, currentProfile, inspection.evidence, revision)
+        await capabilityGate(
+          root,
+          definition,
+          currentProfile,
+          inspection.evidence,
+          revision,
+          forgeOwned
+        )
       );
       continue;
     }
     // Forge self-release gates are genuinely inapplicable to an audited application.
-    if (definition.applicability === "forge-self" && !isForgeRepository) {
+    if (definition.applicability === "forge-self" && !forgeOwned) {
       gates.push({
         gate_id: definition.gate_id,
         name: definition.name,
@@ -630,12 +639,25 @@ async function evidenceGate(
 }
 
 /** Modules whose applicability decision governs each capability gate. */
-const GATE_MODULES: Record<string, string[]> = {
+const GATE_MODULES: Record<string, ModuleSlug[]> = {
   "FF-GATE-AUTH-EVAL": ["auth", "authorization"],
   "FF-GATE-TENANT-EVAL": ["tenancy"],
   "FF-GATE-UPLOAD-EVAL": ["uploads"],
   "FF-GATE-SECURITY-EVAL": ["security"],
   "FF-GATE-MIGRATIONS": ["database", "deployment"]
+};
+
+const NON_APPLICATION_ROUTE_EVIDENCE_CLASSES = new Set([
+  "documentation",
+  "example",
+  "fixture",
+  "generated",
+  "test"
+]);
+
+type CapabilityApplicability = {
+  status: "APPLICABLE" | "ABSENT" | "UNKNOWN";
+  reasons: string[];
 };
 
 /**
@@ -644,25 +666,63 @@ const GATE_MODULES: Record<string, string[]> = {
  * Persisted module decisions are never inputs. Only discovery performed in the current stable
  * Ship revision can make a capability gate applicable or inapplicable.
  */
-function capabilityApplicability(
+export function capabilityApplicability(
   gateId: string,
-  profile: ProjectProfile
-): { applicable: boolean; reasons: string[] } {
-  const discovered: Record<string, boolean> = {
-    "FF-GATE-AUTH-EVAL": profile.authentication.length > 0 || profile.authorization.length > 0,
-    "FF-GATE-TENANT-EVAL": profile.tenant_boundaries.length > 0,
-    "FF-GATE-UPLOAD-EVAL": profile.upload_pipelines.length > 0,
-    "FF-GATE-SECURITY-EVAL": true,
-    "FF-GATE-MIGRATIONS": profile.databases.length > 0 || profile.deployment.length > 0
-  };
-  if (discovered[gateId] === true)
-    return { applicable: true, reasons: ["Current project discovery found the capability."] };
+  profile: ProjectProfile,
+  forgeOwned = false
+): CapabilityApplicability {
+  if (forgeOwned)
+    return {
+      status: "ABSENT",
+      reasons: [
+        "The audited root is the executing Fullstack Forge CLI and skill package, not an application runtime.",
+        "Forge self-release, project-native, dependency, secret, license, and finding gates remain required."
+      ]
+    };
+
+  const modules = GATE_MODULES[gateId] ?? [];
+  const decisions = modules.map((module) => ({
+    module,
+    ...capabilityStatusFor(module, profile)
+  }));
+  if (decisions.some((decision) => decision.status === "PRESENT"))
+    return {
+      status: "APPLICABLE",
+      reasons: decisions.flatMap((decision) => decision.evidence)
+    };
+  if (decisions.some((decision) => decision.status === "UNKNOWN"))
+    return {
+      status: "UNKNOWN",
+      reasons: decisions.flatMap((decision) => decision.evidence)
+    };
+  if (gateId === "FF-GATE-AUTH-EVAL" && hasApplicationRoute(profile))
+    return {
+      status: "UNKNOWN",
+      reasons: [
+        "Current discovery found an application route but no authentication or authorization boundary, so absence is unproven.",
+        ...decisions.flatMap((decision) => decision.evidence)
+      ]
+    };
   return {
-    applicable: false,
-    reasons: [
-      `Current project discovery found no applicable capability for: ${(GATE_MODULES[gateId] ?? []).join(", ")}.`
-    ]
+    status: "ABSENT",
+    reasons:
+      decisions.length === 0
+        ? [`No capability mapping is registered for ${gateId}.`]
+        : decisions.flatMap((decision) => decision.evidence)
   };
+}
+
+function hasApplicationRoute(profile: ProjectProfile): boolean {
+  return profile.routes.some((route) => {
+    const paths = [route.location, ...route.evidence].filter(
+      (value): value is string => value !== undefined
+    );
+    return paths.some((value) => {
+      if (value.startsWith("adapter:")) return false;
+      const path = value.replace(/:\d+$/u, "");
+      return !NON_APPLICATION_ROUTE_EVIDENCE_CLASSES.has(classifyEvidencePath(path).evidence_class);
+    });
+  });
 }
 
 async function capabilityGate(
@@ -670,10 +730,11 @@ async function capabilityGate(
   definition: GateDefinition,
   profile: ProjectProfile,
   currentInspectionEvidence: GateEvidence[],
-  revision: string
+  revision: string,
+  forgeOwned: boolean
 ): Promise<ShipGate> {
-  const applicability = capabilityApplicability(definition.gate_id, profile);
-  if (!applicability.applicable) {
+  const applicability = capabilityApplicability(definition.gate_id, profile, forgeOwned);
+  if (applicability.status === "ABSENT") {
     return {
       gate_id: definition.gate_id,
       name: definition.name,
@@ -684,6 +745,19 @@ async function capabilityGate(
       evidence_records: []
     };
   }
+  if (applicability.status === "UNKNOWN")
+    return {
+      gate_id: definition.gate_id,
+      name: definition.name,
+      category: definition.category,
+      required: true,
+      status: "NOT_VERIFIED",
+      evidence: [
+        "Current discovery could not prove this capability absent, so the release gate remains required.",
+        ...applicability.reasons
+      ],
+      evidence_records: []
+    };
   const gate = await evidenceGate(root, definition, currentInspectionEvidence, [], revision);
   return { ...gate, evidence: [...applicability.reasons, ...gate.evidence] };
 }

@@ -2,6 +2,7 @@ import { readdir } from "node:fs/promises";
 import { basename, extname, join, relative } from "node:path";
 import { runAnalyzers, type AnalyzerScope } from "./analyzers.js";
 import { MODULE_SLUGS, SECTION_CAPABILITY, type ModuleSlug, type ToolName } from "./constants.js";
+import { classifyEvidencePath } from "./discovery-evidence.js";
 import type {
   Finding,
   GateEvidence,
@@ -210,7 +211,14 @@ export async function inspectWithTool(
     return inspectNamedFiles(root, tool, isCiFile, "CI configuration", scope);
   if (tool === "inspect-platform-skills") return inspectPlatformSkills(root, scope);
   const patterns = TOOL_PATTERNS[tool];
-  if (patterns !== undefined) return scanPatterns(root, tool, patterns, scope);
+  if (patterns !== undefined)
+    return scanPatterns(
+      root,
+      tool,
+      patterns,
+      scope,
+      tool === "inspect-deployment-config" ? "configuration" : "runtime"
+    );
   return emptyResult(tool, root);
 }
 
@@ -296,10 +304,11 @@ async function scanPatterns(
   root: string,
   tool: string,
   patterns: Pattern[],
-  scope?: AnalyzerScope
+  scope?: AnalyzerScope,
+  sourceMode: SourceMode = "runtime"
 ): Promise<InspectionResult> {
   const observations: Observation[] = [];
-  const files = await sourceFiles(root, scope);
+  const files = await sourceFiles(root, scope, sourceMode);
   const inputPaths: string[] = [];
   for (const file of files) {
     const content = await readTextIfPresent(file);
@@ -326,7 +335,7 @@ async function inspectEnvTemplates(root: string, scope?: AnalyzerScope): Promise
   const observations: Observation[] = [];
   const findings: Finding[] = [];
   const inputPaths: string[] = [];
-  const files = (await sourceFiles(root, scope)).filter((file) =>
+  const files = (await sourceFiles(root, scope, "configuration")).filter((file) =>
     /(?:^|[\\/])\.env(?:\.(?:example|sample|template|defaults))?$|\.env\.example$/iu.test(file)
   );
   for (const file of files) {
@@ -395,7 +404,7 @@ async function scanSecretPatterns(root: string, scope?: AnalyzerScope): Promise<
       confidence: "LOW" as const
     }
   ];
-  const files = await sourceFiles(root, scope);
+  const files = await sourceFiles(root, scope, "all");
   for (const file of files) {
     const content = await readTextIfPresent(file);
     if (content === undefined) continue;
@@ -543,7 +552,7 @@ async function inspectNamedFiles(
   detail: string,
   scope?: AnalyzerScope
 ): Promise<InspectionResult> {
-  const files = await sourceFiles(root, scope);
+  const files = await sourceFiles(root, scope, "all");
   const observations = files
     .map((file) => toPosix(relative(root, file)))
     .filter(predicate)
@@ -619,7 +628,33 @@ async function inspectPlatformSkills(
   return result("inspect-platform-skills", root, observations, findings, [], inputPaths);
 }
 
-async function sourceFiles(root: string, scope?: AnalyzerScope): Promise<string[]> {
+type SourceMode = "runtime" | "configuration" | "all";
+
+const NON_APPLICATION_EVIDENCE_CLASSES = new Set([
+  "documentation",
+  "example",
+  "fixture",
+  "generated",
+  "test"
+]);
+
+function isApplicationInput(path: string, mode: SourceMode): boolean {
+  if (mode === "all") return true;
+  // CI workflows and generated platform assets describe delivery or the audit tool, not an
+  // application's own runtime boundaries. Their dedicated inspectors still receive them.
+  if (path.startsWith(".github/")) return false;
+  const evidenceClass = classifyEvidencePath(path).evidence_class;
+  if (NON_APPLICATION_EVIDENCE_CLASSES.has(evidenceClass)) return false;
+  // Some executable or deployable formats intentionally remain "unknown" to capability
+  // activation (for example Svelte components and Terraform). Preserve them for inspection.
+  return mode === "configuration" || !["configuration", "manifest"].includes(evidenceClass);
+}
+
+async function sourceFiles(
+  root: string,
+  scope?: AnalyzerScope,
+  mode: SourceMode = "runtime"
+): Promise<string[]> {
   return (
     await walkFiles(root, {
       exclude: EXCLUDED,
@@ -634,6 +669,7 @@ async function sourceFiles(root: string, scope?: AnalyzerScope): Promise<string[
     const path = toPosix(relative(root, file));
     return (
       (scope === undefined || scope.has(path)) &&
+      isApplicationInput(path, mode) &&
       (TEXT_EXTENSIONS.has(extension) ||
         /^(?:Dockerfile|Makefile|Procfile|Jenkinsfile|\.env(?:\..+)?)$/u.test(name))
     );

@@ -2,6 +2,7 @@ import { readdir } from "node:fs/promises";
 import { basename, extname, join, relative } from "node:path";
 import { runAnalyzers } from "./analyzers.js";
 import { MODULE_SLUGS, SECTION_CAPABILITY } from "./constants.js";
+import { classifyEvidencePath } from "./discovery-evidence.js";
 import { isTestSourcePath, lineNumber, readTextIfPresent, toPosix, utcNow, walkFiles } from "./utils.js";
 const EXCLUDED = new Set([
     ".git",
@@ -186,7 +187,7 @@ export async function inspectWithTool(tool, root, scope) {
         return inspectPlatformSkills(root, scope);
     const patterns = TOOL_PATTERNS[tool];
     if (patterns !== undefined)
-        return scanPatterns(root, tool, patterns, scope);
+        return scanPatterns(root, tool, patterns, scope, tool === "inspect-deployment-config" ? "configuration" : "runtime");
     return emptyResult(tool, root);
 }
 export async function inspectSection(section, root, profile, scope) {
@@ -242,9 +243,9 @@ export async function inspectSection(section, root, profile, scope) {
         ? mergeInspectionResults(base, await scanSecretPatterns(root, scope))
         : base;
 }
-async function scanPatterns(root, tool, patterns, scope) {
+async function scanPatterns(root, tool, patterns, scope, sourceMode = "runtime") {
     const observations = [];
-    const files = await sourceFiles(root, scope);
+    const files = await sourceFiles(root, scope, sourceMode);
     const inputPaths = [];
     for (const file of files) {
         const content = await readTextIfPresent(file);
@@ -272,7 +273,7 @@ async function inspectEnvTemplates(root, scope) {
     const observations = [];
     const findings = [];
     const inputPaths = [];
-    const files = (await sourceFiles(root, scope)).filter((file) => /(?:^|[\\/])\.env(?:\.(?:example|sample|template|defaults))?$|\.env\.example$/iu.test(file));
+    const files = (await sourceFiles(root, scope, "configuration")).filter((file) => /(?:^|[\\/])\.env(?:\.(?:example|sample|template|defaults))?$|\.env\.example$/iu.test(file));
     for (const file of files) {
         const content = await readTextIfPresent(file);
         if (content === undefined)
@@ -321,7 +322,7 @@ async function scanSecretPatterns(root, scope) {
             confidence: "LOW"
         }
     ];
-    const files = await sourceFiles(root, scope);
+    const files = await sourceFiles(root, scope, "all");
     for (const file of files) {
         const content = await readTextIfPresent(file);
         if (content === undefined)
@@ -418,7 +419,7 @@ async function inspectDependencies(root) {
     return result("inspect-dependencies", root, observations, [], [], inputPaths);
 }
 async function inspectNamedFiles(root, tool, predicate, detail, scope) {
-    const files = await sourceFiles(root, scope);
+    const files = await sourceFiles(root, scope, "all");
     const observations = files
         .map((file) => toPosix(relative(root, file)))
         .filter(predicate)
@@ -474,7 +475,28 @@ async function inspectPlatformSkills(root, scope) {
     }
     return result("inspect-platform-skills", root, observations, findings, [], inputPaths);
 }
-async function sourceFiles(root, scope) {
+const NON_APPLICATION_EVIDENCE_CLASSES = new Set([
+    "documentation",
+    "example",
+    "fixture",
+    "generated",
+    "test"
+]);
+function isApplicationInput(path, mode) {
+    if (mode === "all")
+        return true;
+    // CI workflows and generated platform assets describe delivery or the audit tool, not an
+    // application's own runtime boundaries. Their dedicated inspectors still receive them.
+    if (path.startsWith(".github/"))
+        return false;
+    const evidenceClass = classifyEvidencePath(path).evidence_class;
+    if (NON_APPLICATION_EVIDENCE_CLASSES.has(evidenceClass))
+        return false;
+    // Some executable or deployable formats intentionally remain "unknown" to capability
+    // activation (for example Svelte components and Terraform). Preserve them for inspection.
+    return mode === "configuration" || !["configuration", "manifest"].includes(evidenceClass);
+}
+async function sourceFiles(root, scope, mode = "runtime") {
     return (await walkFiles(root, {
         exclude: EXCLUDED,
         maxBytes: 768 * 1024,
@@ -486,6 +508,7 @@ async function sourceFiles(root, scope) {
         const name = basename(file);
         const path = toPosix(relative(root, file));
         return ((scope === undefined || scope.has(path)) &&
+            isApplicationInput(path, mode) &&
             (TEXT_EXTENSIONS.has(extension) ||
                 /^(?:Dockerfile|Makefile|Procfile|Jenkinsfile|\.env(?:\..+)?)$/u.test(name)));
     });
