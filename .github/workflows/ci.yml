@@ -59,6 +59,33 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  verify-ubuntu:
+    name: Verify (ubuntu-latest)
+    if: always()
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm verification matrix passed
+        run: test "${{ needs.verify.result }}" = success
+
+  verify-windows:
+    name: Verify (windows-latest)
+    if: always()
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm verification matrix passed
+        run: test "${{ needs.verify.result }}" = success
+
+  verify-macos:
+    name: Verify (macos-latest)
+    if: always()
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm verification matrix passed
+        run: test "${{ needs.verify.result }}" = success
+
   dependency-review:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
