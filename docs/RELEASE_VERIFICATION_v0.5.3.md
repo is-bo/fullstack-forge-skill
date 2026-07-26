@@ -8,7 +8,8 @@ Remote publication status: PENDING
 
 Remote CI status: PASS (PR #45)
 
-Release recommendation: REVIEW, MERGE, THEN VERIFY THE PUBLIC TAG, RELEASE ASSETS, AND ATTESTATIONS BEFORE PUBLISHING
+Release recommendation: REVIEW, MERGE, THEN VERIFY THE PUBLIC TAG, RELEASE ASSETS, AND ATTESTATIONS
+BEFORE PUBLISHING
 
 ## Scope
 
@@ -32,8 +33,8 @@ Release recommendation: REVIEW, MERGE, THEN VERIFY THE PUBLIC TAG, RELEASE ASSET
 | v0.5.2 upgrade and Codex update             | PASS   | Upgrade from public `is-bo` v0.5.2, `update codex`, Doctor, and clean uninstall passed.                                                                     |
 | Cache-only offline installation             | PASS   | Six platform roots installed from cache against an unreachable registry; zero symlinks.                                                                     |
 | Dependency audit                            | PASS   | Zero known vulnerabilities.                                                                                                                                 |
-| Pull-request CI                             | PASS   | PR #45 passed Ubuntu (2m30s), macOS (3m24s), Windows (7m12s), and dependency review (6s).                                                                  |
-| CodeQL                                      | PASS   | JavaScript/TypeScript analysis passed (51s) and the CodeQL check passed (3s).                                                                              |
+| Pull-request CI                             | PASS   | PR #45 passed Ubuntu (2m30s), macOS (3m24s), Windows (7m12s), and dependency review (6s).                                                                   |
+| CodeQL                                      | PASS   | JavaScript/TypeScript analysis passed (51s) and the CodeQL check passed (3s).                                                                               |
 
 Candidate Ship is run from a clean committed copy before pull-request handoff. Remote CI is recorded
 above; publication proof remains separate from this tagged-source record.
