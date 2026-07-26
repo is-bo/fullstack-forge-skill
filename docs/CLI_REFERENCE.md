@@ -1,6 +1,7 @@
 # CLI reference
 
-The CLI is deterministic support for the AI agent. It does not replace agent reasoning.
+The CLI is deterministic support for the AI agent. It does not replace agent reasoning, and its
+syntax is independent of host-specific `$forge`, `/forge`, skill-manager, or mention forms.
 
 ## Product surface
 
@@ -49,6 +50,9 @@ forge ux review|audit|improve|verify
 `review` normalizes to `audit`; `improve` normalizes to the bounded fix preview. A scoped `build`
 prints the selected modules, progressive references, and workflow with evidence status
 `NOT_VERIFIED`; it does not mutate code or claim a render occurred.
+
+`forge audit queries` is the executable equivalent of `$forge audit queries` or
+`/forge audit queries` on hosts that support those skill-selection forms.
 
 ## Tools
 

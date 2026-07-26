@@ -30,6 +30,13 @@ The installed project instruction activates this flow. Direct repository evidenc
 selection; generated Forge content, fixtures, examples, and dependency names are not final
 capability evidence.
 
+The always-loaded `fullstack-forge/SKILL.md` is a concise router and operating contract. It loads
+workflow details progressively: Audit for formal inspection, Fix for finding remediation, Verify for
+retests, Report for formal findings, Build for substantial recorded features, and Ship only for
+release gating. A small change does not load those full workflows merely because automatic
+activation occurred. Shared evidence, safe-fix, and applicability-aware completion policies each
+have one canonical owner under `src/fullstack-forge/references/`.
+
 ## Coverage modes
 
 - `light`: small low-risk edits with focused evidence.
@@ -50,11 +57,13 @@ component, framework, performance, motion, forms, data, mobile, review, and anti
 Each reference declares when it must and must not be loaded.
 
 Natural-language activation lives in `cli/src/frontend-routing.ts`; generated skill disclosure lives
-in `config/frontend-system.json`. The first selects runtime modules and references, while the second
-describes the agent workflow and public command surface. A validator keeps reference ownership,
-orchestrator size, scenario coverage, and obvious long-bullet duplication bounded. Detailed
-accessibility, localization, search, performance, and offline rules remain in their existing modules
-to prevent competing sources of truth.
+in `config/frontend-system.json`. Routing combines explicit intent, application type, affected
+paths, workspace/framework evidence, project profile, changed files, strong interface terms, and
+backend-only evidence. Ambiguous words such as `page`, `table`, `form`, `component`, `layout`, and
+`state` require supporting evidence. The selection is deterministic but never claims inspection
+occurred. A validator keeps reference ownership, orchestrator size, scenario coverage, and
+shared-policy duplication bounded. Detailed accessibility, localization, search, performance, and
+offline rules remain in their existing modules to prevent competing sources of truth.
 
 ## Installation ownership
 

@@ -13,8 +13,8 @@
   "areas": {
     "frontend": {
       "signals": [
-        "React, Next.js, Vue, Svelte, React Native, or Expo",
-        "components, pages, layouts, forms, tables, charts, browser state, rendering, hydration, bundles, or responsive implementation"
+        "Strong request signals such as React, Next.js, Vue, Svelte, JSX, TSX, browser, CSS, responsive layout, hydration, client component, landing page, mobile interface, React Native, or Expo",
+        "Ambiguous page, table, form, component, layout, state, dashboard, or chart terms only when affected paths, application type, workspace, framework, project profile, changed files, or another strong signal supports frontend work"
       ],
       "commands": ["build", "audit", "fix", "verify"],
       "references": [
@@ -36,8 +36,8 @@
     },
     "ui": {
       "signals": [
-        "visual design, redesign, styling, layout, spacing, typography, color, or design systems",
-        "component states, consistency, themes, icons, motion, landing pages, dashboards, or polish"
+        "Strong visual intent such as UI, visual design, redesign, styling, spacing, typography, color, design systems, landing pages, or visual polish",
+        "Ambiguous component, layout, state, table, dashboard, chart, or interface terms only with supporting human-facing or repository evidence"
       ],
       "commands": ["build", "review", "audit", "fix"],
       "references": [
@@ -52,8 +52,8 @@
     },
     "ux": {
       "signals": [
-        "user flows, usability, navigation, forms, booking, onboarding, or task completion",
-        "feedback, errors, recovery, empty states, decision complexity, conversion, or friction"
+        "Strong experience intent such as UX, user experience, user flows, usability, navigation, onboarding, task completion, feedback, information architecture, conversion, or friction",
+        "Ambiguous form, booking, recovery, error, state, or flow terms only with supporting human-facing or repository evidence"
       ],
       "commands": ["review", "audit", "improve", "verify"],
       "references": [

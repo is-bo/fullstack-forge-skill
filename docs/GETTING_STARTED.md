@@ -17,6 +17,9 @@ npx forge doctor
 Continue working with your AI agent normally. Forge activates automatically for software-engineering
 tasks.
 
+Restart or reopen the agent only if it does not refresh newly installed project skills
+automatically.
+
 `forge init` detects project and user agent markers, installs the relevant skills, writes managed
 automatic-activation instructions, and records ownership in
 `.fullstack-forge/install-manifest.json`. Use `forge init all` only when every platform is wanted.
@@ -49,7 +52,10 @@ $forge verify
 $forge ship
 ```
 
-Use explicit commands to force an audit area or gate. See [COMMANDS.md](COMMANDS.md).
+Use explicit commands only to force or narrow a workflow. `$forge` is the Agent Skills form where
+supported; slash, mention, and skill-manager forms vary by host. The executable equivalent is
+`npx forge audit security`. See [COMMANDS.md](COMMANDS.md) and
+[PLATFORM_SUPPORT.md](PLATFORM_SUPPORT.md).
 
 ## Update or uninstall
 

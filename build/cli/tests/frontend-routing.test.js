@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeFrontendWorkflow, routeFrontendRequest } from "../src/frontend-routing.js";
+import { assessCompletionApplicability, normalizeFrontendWorkflow, routeFrontendRequest } from "../src/frontend-routing.js";
 const scenarios = [
     {
         request: "Build a healthcare SaaS dashboard",
-        modules: ["frontend", "ui", "accessibility", "security"],
+        evidence: { applicationType: "fullstack", affectedPaths: ["apps/web/dashboard.tsx"] },
+        modules: ["frontend", "ui", "ux", "accessibility", "security"],
         references: ["product-and-ux", "dashboards-and-data-visualization"],
         excluded: ["mobile-react-native"],
         workflow: "build",
@@ -12,7 +13,7 @@ const scenarios = [
     },
     {
         request: "Create a responsive startup landing page",
-        modules: ["frontend", "ui", "accessibility", "seo"],
+        modules: ["frontend", "ui", "ux", "accessibility", "seo"],
         references: ["visual-direction", "responsive-layout"],
         excluded: ["mobile-react-native", "dashboards-and-data-visualization"],
         workflow: "build",
@@ -20,7 +21,8 @@ const scenarios = [
     },
     {
         request: "Design an inventory and POS desktop interface",
-        modules: ["ui", "accessibility"],
+        evidence: { applicationType: "frontend" },
+        modules: ["frontend", "ui", "ux", "accessibility"],
         references: ["dashboards-and-data-visualization", "responsive-layout"],
         excluded: ["mobile-react-native"],
         workflow: "build",
@@ -36,11 +38,12 @@ const scenarios = [
     },
     {
         request: "Review a dense admin table with filters and bulk actions",
-        modules: ["frontend", "accessibility"],
+        evidence: { affectedPaths: ["src/components/AdminTable.tsx"] },
+        modules: ["frontend", "ui", "ux", "accessibility", "authorization", "security", "queries"],
         references: ["forms-and-data-entry", "dashboards-and-data-visualization", "design-review"],
         excluded: ["mobile-react-native"],
         workflow: "audit",
-        scale: "standard"
+        scale: "high-risk"
     },
     {
         request: "Improve an existing React app with inconsistent styling",
@@ -60,7 +63,7 @@ const scenarios = [
     },
     {
         request: "Build a React Native Expo application",
-        modules: ["frontend", "offline", "performance", "accessibility"],
+        modules: ["frontend", "ui", "ux", "offline", "performance", "accessibility"],
         references: ["mobile-react-native", "motion-and-interactions"],
         excluded: ["dashboards-and-data-visualization"],
         workflow: "build",
@@ -68,7 +71,7 @@ const scenarios = [
     },
     {
         request: "Implement an Arabic RTL and French interface",
-        modules: ["ui", "i18n", "accessibility"],
+        modules: ["frontend", "ui", "i18n", "accessibility"],
         references: ["responsive-layout", "accessibility-integration"],
         excluded: ["mobile-react-native", "dashboards-and-data-visualization"],
         workflow: "build",
@@ -76,53 +79,143 @@ const scenarios = [
     },
     {
         request: "Accessibility review of a form",
-        modules: ["ux", "accessibility"],
+        modules: ["frontend", "ui", "ux", "accessibility"],
         references: ["forms-and-data-entry", "design-review"],
         excluded: ["mobile-react-native", "dashboards-and-data-visualization"],
         workflow: "audit",
         scale: "standard"
     },
     {
-        request: "Make a small one-component styling change",
+        request: "Change the primary button spacing",
         modules: ["frontend", "ui", "accessibility"],
-        references: ["component-architecture"],
         excluded: ["mobile-react-native", "dashboards-and-data-visualization"],
         workflow: "build",
         scale: "small"
     },
     {
-        request: "Improve an existing UI but preserve functionality",
-        modules: ["ui", "accessibility"],
-        references: ["design-review", "anti-patterns"],
-        excluded: ["mobile-react-native", "dashboards-and-data-visualization"],
+        request: "Add sorting and bulk actions to the React appointments table",
+        modules: ["frontend", "ui", "ux", "accessibility", "queries"],
+        references: ["react-nextjs", "dashboards-and-data-visualization"],
+        excluded: ["mobile-react-native"],
+        workflow: "build",
+        scale: "standard"
+    },
+    {
+        request: "Create a responsive booking page",
+        modules: ["frontend", "ui", "ux", "accessibility"],
+        references: ["responsive-layout", "forms-and-data-entry"],
+        workflow: "build",
+        scale: "standard"
+    },
+    {
+        request: "Update the Next.js appointment component",
+        modules: ["frontend", "accessibility"],
+        references: ["component-architecture", "react-nextjs"],
+        workflow: "build",
+        scale: "standard"
+    },
+    {
+        request: "Improve the plain HTML interface",
+        modules: ["frontend", "ui", "accessibility"],
+        references: ["component-architecture", "design-review"],
         workflow: "fix",
         scale: "standard"
+    },
+    {
+        request: "Add a button that lets administrators delete a patient",
+        modules: [
+            "frontend",
+            "ui",
+            "ux",
+            "accessibility",
+            "authorization",
+            "security",
+            "database",
+            "recovery"
+        ],
+        workflow: "build",
+        scale: "high-risk"
+    },
+    {
+        request: "Audit an internal server library",
+        area: "frontend",
+        modules: ["frontend", "accessibility"],
+        workflow: "audit",
+        scale: "standard"
+    },
+    {
+        request: "Review the React admin interface user flow, visual design, accessibility, permissions, and sensitive data handling",
+        modules: ["frontend", "ui", "ux", "accessibility", "authorization", "security"],
+        workflow: "audit",
+        scale: "high-risk"
     }
 ];
+// Explicit frontend selection is represented by the scenario with area: "frontend" above.
 for (const scenario of scenarios) {
     test(`routes scenario proportionately: ${scenario.request}`, () => {
-        const route = routeFrontendRequest(scenario.request);
+        const route = routeFrontendRequest(scenario.request, scenario.area, scenario.evidence);
         assert.equal(route.active, true);
         assert.equal(route.workflow, scenario.workflow);
         assert.equal(route.scale, scenario.scale);
         for (const module of scenario.modules)
             assert.ok(route.modules.includes(module), `missing module ${module}`);
-        for (const reference of scenario.references)
+        for (const reference of scenario.references ?? [])
             assert.ok(route.references.includes(reference), `missing reference ${reference}`);
-        for (const reference of scenario.excluded)
+        for (const reference of scenario.excluded ?? [])
             assert.ok(!route.references.includes(reference), `unexpected reference ${reference}`);
         assert.ok(route.reasons.length > 0);
     });
 }
-test("does not activate for backend-only work", () => {
-    assert.deepEqual(routeFrontendRequest("Change a database migration with no frontend impact"), {
-        active: false,
-        modules: [],
-        references: [],
-        workflow: "audit",
-        scale: "standard",
-        reasons: []
+for (const request of [
+    "Change the database table schema for appointment status",
+    "Increase the API page size",
+    "Update a backend form parser",
+    "Refactor a React-independent component in a server library",
+    "Change a backend-only service"
+]) {
+    test(`does not route backend ambiguity to frontend: ${request}`, () => {
+        assert.deepEqual(routeFrontendRequest(request), {
+            active: false,
+            modules: [],
+            references: [],
+            workflow: "audit",
+            scale: "standard",
+            reasons: []
+        });
     });
+}
+test("uses affected path and project profile evidence to support ambiguous terms", () => {
+    const route = routeFrontendRequest("Update the appointment table", undefined, {
+        applicationType: "fullstack",
+        affectedPaths: ["apps/web/components/Appointments.tsx"]
+    });
+    assert.equal(route.active, true);
+    assert.ok(route.modules.includes("frontend"));
+    assert.ok(route.modules.includes("ui"));
+});
+test("keeps a small visual completion contract proportional", () => {
+    const route = routeFrontendRequest("Change the primary button spacing");
+    const completion = assessCompletionApplicability("Change the primary button spacing", route);
+    assert.equal(completion.accessibility.status, "REQUIRED");
+    assert.equal(completion["runtime-rendered"].status, "REQUIRED");
+    assert.equal(completion.database.status, "NOT_APPLICABLE");
+    assert.equal(completion["authentication-authorization"].status, "NOT_APPLICABLE");
+    assert.notEqual(completion.database.status, "PASS");
+    assert.ok(completion.database.reason.length > 0);
+});
+test("requires sensitive protected-workflow completion evidence", () => {
+    const request = "Add a button that lets administrators delete a patient";
+    const completion = assessCompletionApplicability(request);
+    assert.equal(completion["authentication-authorization"].status, "REQUIRED");
+    assert.equal(completion.database.status, "REQUIRED");
+    assert.equal(completion["workflow-states"].status, "REQUIRED");
+    assert.equal(completion.security.status, "REQUIRED");
+});
+test("requires persisted-data and reachable failure-state completion conditions", () => {
+    const dataRequest = "Add sorting and bulk actions to the React appointments table";
+    assert.equal(assessCompletionApplicability(dataRequest).database.status, "REQUIRED");
+    const stateRequest = "Add an error state to the React appointment form";
+    assert.equal(assessCompletionApplicability(stateRequest)["workflow-states"].status, "REQUIRED");
 });
 test("normalizes scoped command aliases without widening modes", () => {
     assert.equal(normalizeFrontendWorkflow("frontend", "build"), "build");

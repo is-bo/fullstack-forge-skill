@@ -39,31 +39,31 @@ Then ask the user to choose a number, name an action, or describe what they want
 Recognize ordinary requests without requiring command grammar. Route “build a login system” to Build, “continue my last feature” to Continue, “audit this project” to the default changed/full Audit decision, “audit the authentication” to `forge-auth`, “check security and uploads” to both named specialists, “preview fixes” to a no-write Fix preview, “apply safe fixes” to the explicit bounded `--safe` path, “verify the fixes” to Verify, “is this ready to ship” to Ship, “show me the status” to Status, and “show help” to Help. Preserve ambiguity handling: for example, “audit data” should ask a small clarifying question offering database, privacy, storage, analytics, or queries, while “audit database and queries” should route to both without asking.
 
 ### `/forge build [request]`
-Discover the repository first. For a new product, ask only the essential product questions: who it serves, the durable outcome, critical rules, sensitive boundaries, expected scale, and constraints. Confirm the understood request in plain language, record decisions and unresolved questions, derive a safe feature ID automatically, then use `/forge-new` and `/forge-feature` as applicable. Do not ask the user to invent a slug, tier, module list, or evidence vocabulary.
+Discover the repository first. For a substantial recorded feature, load `fullstack-forge/references/workflows/build.md`. For a new product, ask only the essential product questions: who it serves, the durable outcome, critical rules, sensitive boundaries, expected scale, and constraints. Confirm the understood request in plain language, record decisions and unresolved questions, derive a safe feature ID automatically, then use `/forge-new` and `/forge-feature` as applicable. Do not ask the user to invent a slug, tier, module list, or evidence vocabulary.
 
 ### `/forge continue`
-Load `.forge/build/` state, re-verify it, and continue the only unfinished feature from its latest safe phase. If several features are unfinished, show their plain names and phases and ask the user to choose; never silently guess.
+Load `.forge/build/` state and `fullstack-forge/references/workflows/build.md`, re-verify it, and continue the only unfinished feature from its latest safe phase. If several features are unfinished, show their plain names and phases and ask the user to choose; never silently guess.
 
 ### `/forge audit [all|area]`
-With no area, prefer changed scope only when a reliable Git base exists; otherwise audit the full applicable project and say why. `all` is explicitly full. Map a clear natural-language area to one module or an explicit conjunction to the named modules, state the mapping, and ask when a compact phrase remains ambiguous. Produce a short summary plus paths to the complete Markdown and JSON evidence.
+Load `fullstack-forge/references/workflows/audit.md` and `fullstack-forge/references/PROTOCOL.md`. With no area, prefer changed scope only when a reliable Git base exists; otherwise audit the full applicable project and say why. `all` is explicitly full. Map a clear natural-language area to one module or an explicit conjunction to the named modules, state the mapping, and ask when a compact phrase remains ambiguous. Produce a short summary plus paths to the complete Markdown and JSON evidence.
 
 ### `/forge fix [area]`
-Start with a preview of registered bounded safe fixes. Show intended files and effects before editing. Apply only when the user requests the safe application step; risky, unsupported, policy, schema, identity, payment, tenant, or destructive decisions remain approval-bound. Inspect the diff and route to verification afterwards.
+Load `fullstack-forge/references/SAFE_FIX_POLICY.md` and `fullstack-forge/references/workflows/fix.md`. Start with a preview of registered bounded safe fixes. Show intended files and effects before editing. Apply only when the user requests the safe application step; risky, unsupported, policy, schema, identity, payment, tenant, or destructive decisions remain approval-bound. Inspect the diff and route to verification afterwards.
 
 ### `/forge verify [area]`
-Re-run finding-specific verification without erasing earlier evidence. Report confirmed resolutions, failures, blocks, and missing evidence separately. If the report revision changed, demote every finding that was not directly rechecked instead of rebinding stale positive evidence.
+Load `fullstack-forge/references/workflows/verify.md`. Re-run finding-specific verification without erasing earlier evidence. Report confirmed resolutions, failures, blocks, and missing evidence separately. If the report revision changed, demote every finding that was not directly rechecked instead of rebinding stale positive evidence.
 
 ### `/forge ship`
-Run the independent Ship gate. A local PASS still requires separate direct evidence for remote CI, publication, deployment, and production state.
+Load `fullstack-forge/references/workflows/ship.md` and run the independent Ship gate. A local PASS still requires separate direct evidence for remote CI, publication, deployment, and production state.
 
 ### `/forge status` and `/forge help`
 Status reports installed scope, Build state, unfinished work, latest report identity, evidence gaps, and one safe next command. Help is simple-first and links to expert commands only after the primary examples.
 
 ### Frontend, UI, and UX routing
 
-For components, pages, layouts, browser state, responsive behavior, React, Next.js, Vue, Svelte, React Native, or Expo, load `forge-frontend`. Add `forge-ui` for visual direction, styling, layout, type, color, systems, consistency, themes, icons, motion, dashboards, landing pages, or polish. Add `forge-ux` for journeys, navigation, forms, booking, onboarding, feedback, recovery, empty states, decision complexity, conversion, or friction. Human-facing work also loads `forge-accessibility`; add i18n, SEO, performance, offline, or security owners only from matching evidence.
+Treat request words as candidate signals, not proof. Combine explicit intent, detected application type, affected paths, active workspace, framework evidence, project profile, changed files, and backend-only evidence. React, Next.js, Vue, Svelte, JSX/TSX, browser, CSS, responsive layout, hydration, client component, landing page, mobile interface, and visual redesign are strong signals. Ambiguous words such as page, table, form, component, layout, and state require supporting frontend evidence; `table` plus a Prisma migration is database work, while `table` plus a React component is interface work. Routing is an initial selection aid and never claims inspection occurred.
 
-Support `$forge frontend`, `$forge ui`, and `$forge ux`, plus scoped forms. Frontend accepts `build`, `audit`, `fix`, and `verify`; UI accepts `build`, `review`, `audit`, and `fix`; UX accepts `review`, `audit`, `improve`, and `verify`. `review` preserves audit semantics. `improve` begins with a fix preview. `build` selects the proportional agent-led workflow and does not claim that implementation or rendered verification occurred. Load progressive rules only from `fullstack-forge/references/frontend/` when their stated condition matches.
+Support `$forge frontend`, `$forge ui`, and `$forge ux`, plus scoped forms; explicit commands win. Frontend accepts `build`, `audit`, `fix`, and `verify`; UI accepts `build`, `review`, `audit`, and `fix`; UX accepts `review`, `audit`, `improve`, and `verify`. Human-facing work composes accessibility. Add i18n, SEO, performance, offline, data, authorization, security, or recovery owners only from matching evidence. Load progressive rules only from `fullstack-forge/references/frontend/` when their stated condition matches.
 
 ## CLI behavior and fallback
 
@@ -83,17 +83,6 @@ Ask a question only when the answer changes product behavior, authority, or a sa
 
 ## Completion contract
 
-Never declare a feature complete merely because code was written. A task is complete only when:
-
-1. The requested behavior is implemented.
-2. Relevant workflows work end to end.
-3. Authentication and authorization are verified.
-4. Database behavior is reviewed.
-5. Loading, empty, error, and success states exist.
-6. Applicable accessibility requirements are addressed.
-7. Automated checks pass.
-8. Security-sensitive changes receive security review.
-9. Performance-sensitive changes receive performance review.
-10. Remaining risks, skipped checks, and assumptions are reported.
+A task is complete only when the requested behavior is implemented and every applicable completion condition is satisfied. Follow `fullstack-forge/references/shared/completion.md`; conditions outside the affected boundary remain outside a non-audit plan or receive a reasoned `NOT_APPLICABLE`, never `PASS`.
 
 Never hide failed checks or claim that an operation ran when it did not.

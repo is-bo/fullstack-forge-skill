@@ -64,14 +64,12 @@ Stack-specific guidance:
 
 ## Evidence to collect
 
-- Cite repository-relative files and 1-based lines for source evidence.
-- Record exact commands, exit codes, relevant output summaries, and execution time.
-- Record URL, viewport, role, input method, and observed state for running-interface evidence.
-- Name each test and demonstrate that it exercises the claimed behavior.
-- Use `NOT_VERIFIED` for unavailable production, provider, browser, database, or operator evidence.
-- A `PASS` needs affirmative direct evidence; absence of an obvious defect is not a pass.
-- Agent findings use a supported producer, evidence type, explanation, safe-fix classification,
-  revision, commands executed, and remaining limitations.
+Follow the installed bundle's `fullstack-forge/references/PROTOCOL.md` only when this module is
+auditing, verifying, or producing formal findings. For this module specifically:
+
+- Cite the module's inspected source, configuration, runtime boundary, and relevant tests.
+- Capture exact project commands and direct runtime observations that support the claimed status.
+- Record module-specific limitations from unavailable providers, environments, roles, or tools.
 
 Primary standards used as criteria, not proof of compliance:
 
@@ -131,44 +129,37 @@ evidence by itself.
 - Namespace incomplete keys and add bounded TTLs where semantics are established
 - Add cache hit/miss and fallback telemetry without sensitive values
 
-Safe fixes still require a clean scope, an adversarial diff review, and verification after the last
-edit. Never broaden `--safe` into an architectural or policy decision.
+Before mutation, follow `fullstack-forge/references/SAFE_FIX_POLICY.md`. An explicit finding
+remediation also loads `fullstack-forge/references/workflows/fix.md`.
 
 ## Approval-required changes
 
 - Introducing Redis or changing consistency and invalidation semantics
 
-Also require approval for destructive data changes, secret rotation, production mutation, reduced
-security controls, public-contract changes, or any change outside the requested repository scope.
+The canonical safe-fix policy owns cross-module approval boundaries; these bullets add only this
+module's specialist decisions.
 
 ## Verification
 
 - Exercise hit, miss, stale, invalidated, stampede, and cache-down paths
 - Confirm cross-user and cross-tenant isolation
 
-Re-run the original reproduction and all relevant gates after the final edit. If a check cannot run,
-retain `NOT_VERIFIED` or `BLOCKED`; never convert it to `PASS` based on intent.
+For finding retests, load `fullstack-forge/references/workflows/verify.md`. Preserve the original
+observation and append current module-specific evidence.
 
 ## Completion contract
 
-Never declare a feature complete merely because code was written. A task is complete only when:
-
-1. The requested behavior is implemented.
-2. Relevant workflows work end to end.
-3. Authentication and authorization are verified.
-4. Database behavior is reviewed.
-5. Loading, empty, error, and success states exist.
-6. Applicable accessibility requirements are addressed.
-7. Automated checks pass.
-8. Security-sensitive changes receive security review.
-9. Performance-sensitive changes receive performance review.
-10. Remaining risks, skipped checks, and assumptions are reported.
+A task is complete only when the requested behavior is implemented and every applicable completion
+condition is satisfied. Follow
+`fullstack-forge/references/shared/completion.md`; conditions outside the affected boundary remain
+outside a non-audit plan or receive a reasoned `NOT_APPLICABLE`, never `PASS`.
 
 Never hide failed checks or claim that an operation ran when it did not.
 
 ## Known limitations
 
 - Cache value requires workload measurements
+- Cache-key resolution is bounded to local static expressions; cross-file helpers, dynamic computed properties, and non-linear reassignment remain NOT_VERIFIED
 
 The module guides agent reasoning and uses deterministic automation where supported. It cannot by
 itself prove production, provider, human-policy, or unsupported framework behavior.

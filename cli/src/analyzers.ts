@@ -6,6 +6,7 @@ import type {
   Finding,
   FindingLocation,
   Severity,
+  Status,
   TraceEvidence
 } from "./types.js";
 import {
@@ -60,6 +61,7 @@ type IssueSpec = {
 type Issue = {
   spec: IssueSpec;
   file: SourceRecord;
+  status?: Status;
   node?: ts.Node;
   start: number;
   end?: number;
@@ -471,6 +473,23 @@ const SPECS = {
     ["Re-run the js-ts-queries-cache analyzer", "Run same-ID tests in two tenants"],
     ["OWASP Multi Tenant Security Cheat Sheet"]
   ),
+  cacheUnresolved: spec(
+    "FF-CACHE-KEY-NOT-VERIFIED-001",
+    "js-ts-queries-cache",
+    "cache",
+    "Cache-key construction could not be verified",
+    "MEDIUM",
+    "Cache isolation cannot be established until the unresolved key construction is inspected.",
+    "Inspect the local helper or dynamic assignment and add two-user and two-tenant isolation evidence.",
+    false,
+    false,
+    [
+      "Re-run the js-ts-queries-cache analyzer after making key construction locally resolvable",
+      "Run two-user and two-tenant cache-isolation tests"
+    ],
+    ["OWASP ASVS 5.0", "OWASP Multi Tenant Security Cheat Sheet"],
+    "LOW"
+  ),
   aiPrompt: spec(
     "FF-AI-PROMPT-001",
     "js-ts-ai",
@@ -688,6 +707,7 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
   for (const file of files) {
     const labelIds = collectLabelIds(file.sourceFile);
     const functions = collectFunctionRanges(file.sourceFile);
+    const cacheKeys = createCacheKeyResolver(file.sourceFile);
     const taint = buildTaintModel(file.sourceFile);
     visit(file.sourceFile, [], (node, ancestors) => {
       if (ts.isCallExpression(node)) {
@@ -751,7 +771,7 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
           )
             issues.push(issue(SPECS.paginationOrder, file, node, "pagination options", name));
         }
-        if (isCacheSink(name)) analyzeCacheCall(issues, file, node, name, functions);
+        if (isCacheSink(name)) analyzeCacheCall(issues, file, node, name, functions, cacheKeys);
         if (isObjectLookup(name) && requestControlled) {
           if (!hasObjectAuthorization(node, file, taint))
             issues.push(issue(SPECS.objectAuth, file, node, flowSource(flow, argumentText), name));
@@ -1203,14 +1223,431 @@ function analyzeCacheCall(
   file: SourceRecord,
   node: ts.CallExpression,
   name: string,
-  functions: Array<{ start: number; end: number; text: string }>
+  functions: Array<{ start: number; end: number; text: string }>,
+  cacheKeys: CacheKeyResolver
 ): void {
   const context = enclosingText(node, file, functions);
-  const first = node.arguments[0]?.getText(file.sourceFile) ?? "";
-  if (/\buserId\b/u.test(context) && !/userId|user\.id|session\.user/u.test(first))
+  const first = node.arguments[0];
+  if (first === undefined) return;
+  const requiresUser = /\buserId\b/u.test(context);
+  const requiresTenant = /\btenantId\b|\borganizationId\b/u.test(context);
+  if (!requiresUser && !requiresTenant) return;
+
+  const resolved = cacheKeys.resolve(first);
+  const hasUser = /\buserId\b|\buser\.id\b|\bsession\.user\b/u.test(resolved.text);
+  const hasTenant = /\btenantId\b|\borganizationId\b/u.test(resolved.text);
+  const missingUser = requiresUser && !hasUser;
+  const missingTenant = requiresTenant && !hasTenant;
+  if (!missingUser && !missingTenant) return;
+
+  if (!resolved.complete) {
+    const unresolved =
+      [...new Set(resolved.identifiers)].join(", ") || first.getText(file.sourceFile);
+    const reason = [...new Set(resolved.reasons)].join("; ") || "the reaching value is dynamic";
+    const candidate = issue(SPECS.cacheUnresolved, file, node, unresolved, name);
+    candidate.status = "NOT_VERIFIED";
+    candidate.evidence = `Cache sink ${name} uses unresolved key input '${unresolved}' at ${file.path}:${lineNumber(file.content, node.getStart(file.sourceFile))}; scope could not be proven because ${reason}. Inspect the reaching definition or helper and run two-user and two-tenant isolation tests. This is not a confirmed cross-user or cross-tenant leak.`;
+    issues.push(candidate);
+    return;
+  }
+
+  if (missingUser)
     issues.push(issue(SPECS.cacheUser, file, node, "authenticated user-specific data", name));
-  if (/\btenantId\b|\borganizationId\b/u.test(context) && !/tenantId|organizationId/u.test(first))
+  if (missingTenant)
     issues.push(issue(SPECS.cacheTenant, file, node, "tenant-specific data", name));
+}
+
+const CACHE_ALIAS_DEPTH = 12;
+
+type CacheKeyResolution = {
+  complete: boolean;
+  text: string;
+  identifiers: string[];
+  reasons: string[];
+};
+
+type CacheAssignment = {
+  position: number;
+  expression?: ts.Expression;
+  linear: boolean;
+  propertyMutation: boolean;
+};
+
+type CacheBinding = {
+  id: number;
+  name: string;
+  declaration: ts.VariableDeclaration | ts.BindingElement;
+  readyAt: number;
+  scope: ts.Node;
+  mutable: boolean;
+  initializer?: ts.Expression;
+  destructuredProperty?: string;
+  assignments: CacheAssignment[];
+};
+
+type CacheKeyResolver = {
+  resolve(expression: ts.Expression): CacheKeyResolution;
+};
+
+function createCacheKeyResolver(sourceFile: ts.SourceFile): CacheKeyResolver {
+  const bindingsByName = new Map<string, CacheBinding[]>();
+  let nextBindingId = 1;
+
+  visit(sourceFile, [], (node) => {
+    if (!ts.isVariableDeclaration(node)) return;
+    const declarationList = node.parent;
+    if (!ts.isVariableDeclarationList(declarationList)) return;
+    const mutable = (declarationList.flags & ts.NodeFlags.Const) === 0;
+    const scope = lexicalScope(node, sourceFile);
+    if (ts.isIdentifier(node.name)) {
+      addBinding({
+        id: nextBindingId++,
+        name: node.name.text,
+        declaration: node,
+        readyAt: node.getEnd(),
+        scope,
+        mutable,
+        ...(node.initializer === undefined ? {} : { initializer: node.initializer }),
+        assignments: []
+      });
+      return;
+    }
+    if (!ts.isObjectBindingPattern(node.name) || node.initializer === undefined) return;
+    for (const element of node.name.elements) {
+      if (!ts.isIdentifier(element.name) || element.dotDotDotToken !== undefined) continue;
+      const property = bindingPropertyName(element);
+      if (property === undefined) continue;
+      addBinding({
+        id: nextBindingId++,
+        name: element.name.text,
+        declaration: element,
+        readyAt: node.getEnd(),
+        scope,
+        mutable,
+        initializer: node.initializer,
+        destructuredProperty: property,
+        assignments: []
+      });
+    }
+  });
+
+  visit(sourceFile, [], (node) => {
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+      const root = assignmentRootIdentifier(node.left);
+      if (root === undefined) return;
+      const binding = visibleBinding(root.text, root.getStart(sourceFile));
+      if (binding === undefined) return;
+      binding.assignments.push({
+        position: node.getStart(sourceFile),
+        ...(ts.isIdentifier(node.left) ? { expression: node.right } : {}),
+        linear: isLinearAssignment(node, binding.scope),
+        propertyMutation: !ts.isIdentifier(node.left)
+      });
+      return;
+    }
+    if (ts.isPostfixUnaryExpression(node) || ts.isPrefixUnaryExpression(node)) {
+      if (
+        node.operator !== ts.SyntaxKind.PlusPlusToken &&
+        node.operator !== ts.SyntaxKind.MinusMinusToken
+      )
+        return;
+      const root = assignmentRootIdentifier(node.operand);
+      if (root === undefined) return;
+      const binding = visibleBinding(root.text, root.getStart(sourceFile));
+      binding?.assignments.push({
+        position: node.getStart(sourceFile),
+        linear: false,
+        propertyMutation: true
+      });
+    }
+  });
+
+  for (const entries of bindingsByName.values())
+    for (const binding of entries)
+      binding.assignments.sort((left, right) => left.position - right.position);
+
+  return {
+    resolve(expression) {
+      return resolveExpression(expression, 0, new Set<number>());
+    }
+  };
+
+  function addBinding(binding: CacheBinding): void {
+    const current = bindingsByName.get(binding.name) ?? [];
+    current.push(binding);
+    bindingsByName.set(binding.name, current);
+  }
+
+  function visibleBinding(name: string, position: number): CacheBinding | undefined {
+    return (bindingsByName.get(name) ?? [])
+      .filter(
+        (binding) =>
+          binding.readyAt < position &&
+          binding.scope.pos <= position &&
+          binding.scope.end >= position
+      )
+      .sort(
+        (left, right) =>
+          left.scope.end - left.scope.pos - (right.scope.end - right.scope.pos) ||
+          right.readyAt - left.readyAt
+      )[0];
+  }
+
+  function resolveExpression(
+    expression: ts.Expression,
+    depth: number,
+    visited: Set<number>
+  ): CacheKeyResolution {
+    if (depth > CACHE_ALIAS_DEPTH)
+      return unresolved(expression, "the local alias-depth limit was exceeded");
+    const value = unwrapCacheExpression(expression);
+    if (ts.isStringLiteralLike(value) || ts.isNumericLiteral(value)) return resolved(value.text);
+    if (ts.isIdentifier(value)) {
+      if (isCacheScopeComponent(value.text)) return resolved(value.text);
+      const binding = visibleBinding(value.text, value.getStart(sourceFile));
+      if (binding === undefined)
+        return unresolved(
+          value,
+          `identifier '${value.text}' has no supported local reaching definition`
+        );
+      if (visited.has(binding.id))
+        return unresolved(value, `identifier '${value.text}' participates in an alias cycle`);
+      const nextVisited = new Set(visited);
+      nextVisited.add(binding.id);
+      return resolveBinding(binding, value.getStart(sourceFile), depth + 1, nextVisited);
+    }
+    if (ts.isPropertyAccessExpression(value)) {
+      const direct = value.getText(sourceFile);
+      if (/^(?:user\.id|session\.user(?:\.id)?)$/u.test(direct)) return resolved(direct);
+      return resolveStaticProperty(
+        value.expression,
+        value.name.text,
+        value.getStart(sourceFile),
+        depth + 1,
+        visited
+      );
+    }
+    if (ts.isElementAccessExpression(value)) {
+      const property = staticElementName(value.argumentExpression);
+      if (property === undefined)
+        return unresolved(value, "the cache-key object uses a dynamic computed property");
+      return resolveStaticProperty(
+        value.expression,
+        property,
+        value.getStart(sourceFile),
+        depth + 1,
+        visited
+      );
+    }
+    if (ts.isTemplateExpression(value)) {
+      const parts = [resolved(value.head.text)];
+      for (const span of value.templateSpans) {
+        parts.push(resolveExpression(span.expression, depth + 1, visited));
+        parts.push(resolved(span.literal.text));
+      }
+      return combine(parts);
+    }
+    if (ts.isBinaryExpression(value) && value.operatorToken.kind === ts.SyntaxKind.PlusToken)
+      return combine([
+        resolveExpression(value.left, depth + 1, visited),
+        resolveExpression(value.right, depth + 1, visited)
+      ]);
+    if (ts.isCallExpression(value)) {
+      const helper = value.expression.getText(sourceFile);
+      return unresolved(value, `helper '${helper}' is outside bounded local analysis`, helper);
+    }
+    return unresolved(
+      value,
+      `expression kind '${ts.SyntaxKind[value.kind]}' is outside bounded cache-key analysis`
+    );
+  }
+
+  function resolveBinding(
+    binding: CacheBinding,
+    usagePosition: number,
+    depth: number,
+    visited: Set<number>
+  ): CacheKeyResolution {
+    const priorAssignments = binding.assignments.filter(
+      (assignment) => assignment.position < usagePosition
+    );
+    if (priorAssignments.some((assignment) => !assignment.linear || assignment.propertyMutation))
+      return unresolved(
+        binding.declaration,
+        `identifier '${binding.name}' is mutated through dynamic control flow or an object property`,
+        binding.name
+      );
+    if (!binding.mutable && priorAssignments.length > 0)
+      return unresolved(
+        binding.declaration,
+        `immutable identifier '${binding.name}' has an unexpected reassignment`,
+        binding.name
+      );
+    const latest = priorAssignments.at(-1)?.expression;
+    const reaching = latest ?? binding.initializer;
+    if (reaching === undefined)
+      return unresolved(
+        binding.declaration,
+        `identifier '${binding.name}' has no initialized reaching value`,
+        binding.name
+      );
+    if (binding.destructuredProperty !== undefined)
+      return resolveStaticProperty(
+        reaching,
+        binding.destructuredProperty,
+        usagePosition,
+        depth + 1,
+        visited
+      );
+    return resolveExpression(reaching, depth + 1, visited);
+  }
+
+  function resolveStaticProperty(
+    objectExpression: ts.Expression,
+    property: string,
+    usagePosition: number,
+    depth: number,
+    visited: Set<number>
+  ): CacheKeyResolution {
+    if (depth > CACHE_ALIAS_DEPTH)
+      return unresolved(objectExpression, "the local alias-depth limit was exceeded");
+    const object = unwrapCacheExpression(objectExpression);
+    if (ts.isIdentifier(object)) {
+      const binding = visibleBinding(object.text, object.getStart(sourceFile));
+      if (binding === undefined)
+        return unresolved(
+          object,
+          `object '${object.text}' has no supported local reaching definition`,
+          object.text
+        );
+      if (visited.has(binding.id))
+        return unresolved(
+          object,
+          `object '${object.text}' participates in an alias cycle`,
+          object.text
+        );
+      const nextVisited = new Set(visited);
+      nextVisited.add(binding.id);
+      const priorAssignments = binding.assignments.filter(
+        (assignment) => assignment.position < usagePosition
+      );
+      if (priorAssignments.some((assignment) => !assignment.linear || assignment.propertyMutation))
+        return unresolved(
+          object,
+          `object '${object.text}' is reassigned or mutated before the cache sink`,
+          object.text
+        );
+      const reaching = priorAssignments.at(-1)?.expression ?? binding.initializer;
+      if (reaching === undefined)
+        return unresolved(object, `object '${object.text}' has no initialized value`, object.text);
+      return resolveStaticProperty(reaching, property, usagePosition, depth + 1, nextVisited);
+    }
+    if (!ts.isObjectLiteralExpression(object))
+      return unresolved(object, "the cache-key property does not come from a local object literal");
+    for (const member of object.properties) {
+      const name = objectPropertyName(member.name);
+      if (name !== property) continue;
+      if (ts.isPropertyAssignment(member))
+        return resolveExpression(member.initializer, depth + 1, visited);
+      if (ts.isShorthandPropertyAssignment(member))
+        return resolveExpression(member.name, depth + 1, visited);
+      return unresolved(member, `object property '${property}' is not a static value`);
+    }
+    return unresolved(object, `object property '${property}' is not statically present`);
+  }
+}
+
+function lexicalScope(node: ts.Node, sourceFile: ts.SourceFile): ts.Node {
+  let current = node.parent;
+  while (!ts.isSourceFile(current)) {
+    if (
+      ts.isBlock(current) ||
+      ts.isCaseBlock(current) ||
+      ts.isForStatement(current) ||
+      ts.isForInStatement(current) ||
+      ts.isForOfStatement(current)
+    )
+      return current;
+    current = current.parent;
+  }
+  return sourceFile;
+}
+
+function isLinearAssignment(node: ts.BinaryExpression, scope: ts.Node): boolean {
+  return ts.isExpressionStatement(node.parent) && node.parent.parent === scope;
+}
+
+function assignmentRootIdentifier(expression: ts.Expression): ts.Identifier | undefined {
+  let current = unwrapCacheExpression(expression);
+  while (ts.isPropertyAccessExpression(current) || ts.isElementAccessExpression(current))
+    current = unwrapCacheExpression(current.expression);
+  return ts.isIdentifier(current) ? current : undefined;
+}
+
+function unwrapCacheExpression(expression: ts.Expression): ts.Expression {
+  let current = expression;
+  while (
+    ts.isParenthesizedExpression(current) ||
+    ts.isAsExpression(current) ||
+    ts.isTypeAssertionExpression(current) ||
+    ts.isNonNullExpression(current) ||
+    ts.isSatisfiesExpression(current)
+  )
+    current = current.expression;
+  return current;
+}
+
+function bindingPropertyName(element: ts.BindingElement): string | undefined {
+  if (element.propertyName === undefined)
+    return ts.isIdentifier(element.name) ? element.name.text : undefined;
+  return staticPropertyName(element.propertyName);
+}
+
+function objectPropertyName(name: ts.PropertyName | undefined): string | undefined {
+  if (name === undefined) return undefined;
+  if (ts.isComputedPropertyName(name)) return staticElementName(name.expression);
+  return staticPropertyName(name);
+}
+
+function staticPropertyName(name: ts.PropertyName): string | undefined {
+  if (ts.isIdentifier(name) || ts.isPrivateIdentifier(name)) return name.text;
+  if (ts.isStringLiteralLike(name) || ts.isNumericLiteral(name)) return name.text;
+  return undefined;
+}
+
+function staticElementName(expression: ts.Expression | undefined): string | undefined {
+  if (expression === undefined) return undefined;
+  const value = unwrapCacheExpression(expression);
+  return ts.isStringLiteralLike(value) || ts.isNumericLiteral(value) ? value.text : undefined;
+}
+
+function isCacheScopeComponent(value: string): boolean {
+  return /^(?:userId|tenantId|organizationId)$/u.test(value);
+}
+
+function resolved(text: string): CacheKeyResolution {
+  return { complete: true, text, identifiers: [], reasons: [] };
+}
+
+function unresolved(node: ts.Node, reason: string, identifier?: string): CacheKeyResolution {
+  return {
+    complete: false,
+    text: "",
+    identifiers: [identifier ?? (ts.isIdentifier(node) ? node.text : node.getText())],
+    reasons: [reason]
+  };
+}
+
+function combine(parts: CacheKeyResolution[]): CacheKeyResolution {
+  return {
+    complete: parts.every((part) => part.complete),
+    text: parts
+      .map((part) => part.text)
+      .join("")
+      .slice(0, 4096),
+    identifiers: parts.flatMap((part) => part.identifiers),
+    reasons: parts.flatMap((part) => part.reasons)
+  };
 }
 
 function mergeIssues(issues: Issue[]): Finding[] {
@@ -1247,7 +1684,7 @@ function mergeIssues(issues: Issue[]): Finding[] {
         title: candidate.spec.title,
         severity: candidate.spec.severity,
         confidence: candidate.spec.confidence,
-        status: "FAIL",
+        status: candidate.status ?? "FAIL",
         location: [location],
         evidence: [candidate.evidence],
         impact: candidate.spec.impact,
