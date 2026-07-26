@@ -53,6 +53,46 @@
       "items": { "type": "string", "minLength": 1 }
     },
     "standards": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "module": { "type": "string", "minLength": 1 },
+    "producer": {
+      "enum": [
+        "forge-analyzer",
+        "forge-command",
+        "agent-reviewed-source",
+        "agent-runtime-verification",
+        "external-tool",
+        "human-decision"
+      ]
+    },
+    "evidence_type": {
+      "enum": [
+        "source-review",
+        "runtime-verification",
+        "command-output",
+        "external-tool-output",
+        "human-decision"
+      ]
+    },
+    "explanation": { "type": "string", "minLength": 1 },
+    "safe_fix_classification": { "enum": ["safe", "approval-required", "unsupported"] },
+    "revision": { "type": "string", "minLength": 1 },
+    "commands_executed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command", "exit_code"],
+        "properties": {
+          "command": { "type": "string", "minLength": 1 },
+          "exit_code": { "type": "integer" },
+          "output_summary": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "remaining_limitations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
     "analyzer_id": { "type": "string", "minLength": 1 },
     "fix_attempts": {
       "type": "array",
@@ -153,5 +193,51 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "producer": { "enum": ["agent-reviewed-source", "agent-runtime-verification"] }
+        },
+        "required": ["producer"]
+      },
+      "then": {
+        "required": [
+          "module",
+          "evidence_type",
+          "explanation",
+          "safe_fix_classification",
+          "revision",
+          "commands_executed",
+          "remaining_limitations"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": { "producer": { "const": "agent-reviewed-source" } },
+        "required": ["producer"]
+      },
+      "then": { "properties": { "evidence_type": { "const": "source-review" } } }
+    },
+    {
+      "if": {
+        "properties": { "producer": { "const": "agent-runtime-verification" } },
+        "required": ["producer"]
+      },
+      "then": { "properties": { "evidence_type": { "const": "runtime-verification" } } }
+    },
+    {
+      "if": { "properties": { "safe_fix": { "const": true } }, "required": ["safe_fix"] },
+      "then": { "properties": { "safe_fix_classification": { "const": "safe" } } }
+    },
+    {
+      "if": {
+        "properties": { "safe_fix_classification": { "const": "safe" } },
+        "required": ["safe_fix_classification"]
+      },
+      "then": { "properties": { "safe_fix": { "const": true } } }
+    }
+  ]
 }

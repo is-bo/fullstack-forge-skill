@@ -41,6 +41,8 @@ jobs:
         run: npm run package:platforms
       - name: Smoke-install the packed npm artifact
         run: npm run smoke:install
+      - name: Verify development-preview update and uninstall
+        run: npm run smoke:upgrade
       - name: Verify offline installation from bundled assets
         run: npm run offline:install
       - name: Upload release candidates

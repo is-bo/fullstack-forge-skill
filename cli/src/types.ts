@@ -18,6 +18,31 @@ export type Severity = (typeof SEVERITIES)[number];
 export const CONFIDENCES = ["HIGH", "MEDIUM", "LOW"] as const;
 export type Confidence = (typeof CONFIDENCES)[number];
 
+export const FINDING_PRODUCERS = [
+  "forge-analyzer",
+  "forge-command",
+  "agent-reviewed-source",
+  "agent-runtime-verification",
+  "external-tool",
+  "human-decision"
+] as const;
+export type FindingProducer = (typeof FINDING_PRODUCERS)[number];
+
+export const FINDING_EVIDENCE_TYPES = [
+  "source-review",
+  "runtime-verification",
+  "command-output",
+  "external-tool-output",
+  "human-decision"
+] as const;
+export type FindingEvidenceType = (typeof FINDING_EVIDENCE_TYPES)[number];
+
+export type FindingCommand = {
+  command: string;
+  exit_code: number;
+  output_summary?: string;
+};
+
 export type FindingLocation = {
   path: string;
   line?: number;
@@ -85,6 +110,14 @@ export type Finding = {
   safe_fix: boolean;
   verification: string[];
   standards: string[];
+  module?: string;
+  producer?: FindingProducer;
+  evidence_type?: FindingEvidenceType;
+  explanation?: string;
+  safe_fix_classification?: "safe" | "approval-required" | "unsupported";
+  revision?: string;
+  commands_executed?: FindingCommand[];
+  remaining_limitations?: string[];
   analyzer_id?: string;
   /**
    * Stable per-occurrence identity: `<rule id>:<hash>`. The rule-level `id` is preserved for
@@ -372,6 +405,7 @@ export type InstallFile = {
   hash: string;
   platform: string;
   owned: boolean;
+  management?: "file" | "section";
 };
 
 export type InstallManifest = {
@@ -379,5 +413,7 @@ export type InstallManifest = {
   packageVersion: string;
   root: string;
   installedAt: string;
+  agent_first: boolean;
+  automatic_activation: boolean;
   files: Record<string, InstallFile>;
 };

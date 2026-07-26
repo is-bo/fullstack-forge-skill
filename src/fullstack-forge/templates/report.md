@@ -13,8 +13,9 @@ Summarize detected applications, boundaries, confidence, and evidence.
 
 ## Findings
 
-For each finding include ID, section, title, severity, confidence, status, locations, evidence,
-impact, recommendation, safe-fix classification, verification, and standards.
+For each finding include ID, module, producer, evidence type, title, severity, confidence, status,
+locations, evidence, explanation, impact, recommendation, safe-fix classification, verification,
+revision, commands executed, remaining limitations, and standards.
 
 ## Prioritized remediation
 

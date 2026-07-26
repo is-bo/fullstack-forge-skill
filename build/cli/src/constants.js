@@ -1,6 +1,6 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-export const VERSION = "0.5.3";
+export const VERSION = "0.1.0";
 export const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 export const MODULE_SLUGS = [
     "discover",
@@ -129,6 +129,7 @@ export const TOOL_NAMES = [
     "inspect-platform-skills",
     "inspect-rendered-ui",
     "generate-report",
+    "ingest-agent-findings",
     "validate-finding-schema",
     "validate-skill",
     "sync-platform-assets",

@@ -1,8 +1,6 @@
 {
   "canonical_owner": "is-bo",
   "canonical_repository": "is-bo/fullstack-forge-skill",
-  "migration_documentation": {
-    "CHANGELOG.md": 1
-  },
+  "migration_documentation": {},
   "compatibility_allowlist": []
 }

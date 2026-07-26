@@ -2,11 +2,11 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { MODULE_SLUGS, PACKAGE_ROOT, TOOL_NAMES, type ToolName } from "./constants.js";
 import { detectProjectCommands, discoverProject, writeProjectArtifacts } from "./discovery.js";
-import { assertFindings, validateFinding } from "./finding.js";
+import { assertAgentFindings, assertFindings, validateFinding } from "./finding.js";
 import { inspectWithTool } from "./inspectors.js";
 import { decideCommandExecution, ledgerRecord } from "./offline-policy.js";
 import { inspectRenderedUi } from "./rendered-ui.js";
-import { createReport, writeReport } from "./report.js";
+import { createReport, readReport, writeReport } from "./report.js";
 import type { CliOptions, ProjectProfile } from "./types.js";
 import { canonicalDirectory, resolveInside, runFile, workingTreeRevision } from "./utils.js";
 
@@ -108,6 +108,48 @@ export async function runTool(
           report,
           options.output === undefined ? undefined : resolveInside(root, options.output)
         );
+    return {
+      value: { report, paths, dry_run: options.dryRun },
+      exitCode: findings.some((finding) => finding.status === "FAIL") ? 1 : 0
+    };
+  }
+  if (nameInput === "ingest-agent-findings") {
+    const input = args[0];
+    if (input === undefined)
+      throw new Error("ingest-agent-findings requires a JSON path under the project root");
+    const parsed = JSON.parse(await readFile(resolveInside(root, input), "utf8")) as unknown;
+    const findings = extractFindings(parsed);
+    assertAgentFindings(findings);
+    const profile = await loadOrDiscoverProfile(root);
+    let previous;
+    try {
+      previous = await readReport(root, join(root, ".forge", "report.json"));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    const report = createReport(
+      root,
+      previous?.profile ?? profile,
+      [...(previous?.findings ?? []), ...findings],
+      previous === undefined ? "agent findings" : `${previous.scope}; agent findings ingested`,
+      previous?.execution ?? [],
+      previous?.assumptions ?? [],
+      previous?.residual_risk ?? [],
+      previous?.scope_evidence,
+      previous?.gate_evidence ?? [],
+      previous?.analyzer_coverage ?? [],
+      await workingTreeRevision(root),
+      previous?.environment,
+      previous === undefined
+        ? {}
+        : {
+            tools: previous.tools,
+            planned_checks: previous.planned_checks,
+            runtime_evidence: previous.runtime_evidence,
+            module_decisions: previous.module_decisions
+          }
+    );
+    const paths = options.dryRun ? [] : await writeReport(report);
     return {
       value: { report, paths, dry_run: options.dryRun },
       exitCode: findings.some((finding) => finding.status === "FAIL") ? 1 : 0
@@ -239,8 +281,8 @@ export async function validateBundledSkills(): Promise<{
       ) {
         errors.push(`${path}: invalid or duplicate inspection criteria`);
       } else {
-        if (!content.includes("## Required inspection criteria"))
-          errors.push(`${path}: missing required inspection criteria heading`);
+        if (!content.includes("## Missing-control checks"))
+          errors.push(`${path}: missing missing-control checks heading`);
         for (const criterion of criteria)
           if (!content.includes(`- ${criterion}`))
             errors.push(`${path}: missing inspection criterion ${criterion}`);

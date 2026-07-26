@@ -20,6 +20,13 @@ contains these findings is described in [report schema](REPORT_SCHEMA.md).
 | `verification`   | Exact checks that can close or confirm the finding                        |
 | `standards`      | Relevant versioned criteria; never a compliance claim                     |
 
+Supported `producer` values are `forge-analyzer`, `forge-command`, `agent-reviewed-source`,
+`agent-runtime-verification`, `external-tool`, and `human-decision`.
+
+Agent-authored findings also require `module`, `producer`, `evidence_type`, `explanation`,
+`safe_fix_classification`, `revision`, `commands_executed`, and `remaining_limitations`. Every
+source location includes a 1-based line. `safe_fix_classification` must agree with `safe_fix`.
+
 Analyzer findings may additionally contain:
 
 - `analyzer_id`: the stable named analyzer that produced the finding;
@@ -30,8 +37,9 @@ Analyzer findings may additionally contain:
 - `fix_attempts`: instance-specific planned, applied, blocked, or rolled-back remediation evidence.
 
 Analyzer verification actions carry `instance_id` and repository-relative `scope_paths` when the
-source report provides them. Legacy v0.1.3 reports without those fields remain readable, but new
-reports and every fix/rollback update prefer exact instance identity over the rule-level fallback.
+source report provides them. Legacy development-preview reports without those fields remain
+readable, but new reports and every fix/rollback update prefer exact instance identity over the
+rule-level fallback.
 
 Severity and confidence are independent. A critical low-confidence signal remains critical pending
 triage. Verification appends evidence and preserves the original identifier, observation, and

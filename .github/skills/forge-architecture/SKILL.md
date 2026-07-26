@@ -1,6 +1,6 @@
 ---
 name: forge-architecture
-description: Evaluate system boundaries, dependency direction, failure domains, and the fitness of the current topology. Use for multi-component applications.
+description: Evaluate system boundaries, dependency direction, failure domains, and the fitness of the current topology. Activate automatically for multi-component applications when that concern is relevant to a software-engineering request.
 ---
 
 # forge-architecture: Architecture
@@ -9,39 +9,39 @@ description: Evaluate system boundaries, dependency direction, failure domains, 
 
 Evaluate system boundaries, dependency direction, failure domains, and the fitness of the current topology.
 
-Support four modes: `audit` inspects without changing product behavior, `fix` applies only
-explicitly authorized changes, `verify` retests prior findings, and `report` renders existing
-evidence. If no mode is supplied, use `audit`.
+This is an agent playbook, not a claim of standalone analyzer coverage. The agent supplies reasoning
+and implementation; deterministic CLI support is used only where named below.
 
-## Trigger conditions
+## Automatic activation signals
 
-Use this module when a request names `forge-architecture`, asks about architecture, or
-discovery finds an applicable boundary. Run it from the repository root after project discovery.
-
-## When it applies
+Activate when a request or direct repository evidence involves architecture, when
+the user explicitly names `forge-architecture`, or when discovery proves an applicable boundary.
 
 - Multi-component applications
 - Material structural changes
 - Scale or reliability reviews
 
-## When it does not apply
+## When not to activate
 
 - A single isolated script with no service or data boundary
 
-Do not silently skip it. Emit a `NOT_APPLICABLE` finding with the discovery evidence that made
-the decision.
+Do not activate from generated Forge files, examples, fixtures, or a dependency name alone. Record
+`NOT_APPLICABLE` only when a requested audit requires an explicit applicability decision.
 
-## Inputs from project discovery
+## Automated support
+
+Support four explicit modes: `audit`, `fix`, `verify`, and `report`. Automatic feature work
+uses the same guidance without requiring a Forge command. Relevant discovery inputs are:
 
 - architecture map
 - dependency manifests
 - runtime and deployment configuration
 
-Prefer `.forge/project-profile.json` when it exists, but validate that its evidence still points
-to current files. Read `../fullstack-forge/references/PROTOCOL.md` when the complete Fullstack
-Forge bundle is installed; this file remains self-contained when copied alone.
+Available deterministic support, where present:
 
-## Inspection procedure
+- Use `discover-project` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+
+## Agent inspection procedure
 
 1. Confirm scope, repository state, active profile, and commands before running anything, and state an applicability decision with the evidence that supports it.
 2. Build the dependency graph between modules or packages and record direction violations, cycles, and layering breaks with file evidence.
@@ -55,13 +55,38 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 Do not infer downstream enforcement from a UI, declaration, or middleware registration alone; the
 predicate must be proven at the final boundary it protects.
 
-### Concrete checks
+Manual inspection requirements:
+
+- Validate context boundaries and ownership with maintainers
+- Review unavailable runtime dependencies and organization constraints
+
+Stack-specific guidance:
+
+- Respect framework composition boundaries before introducing custom layers
+
+## Evidence to collect
+
+- Cite repository-relative files and 1-based lines for source evidence.
+- Record exact commands, exit codes, relevant output summaries, and execution time.
+- Record URL, viewport, role, input method, and observed state for running-interface evidence.
+- Name each test and demonstrate that it exercises the claimed behavior.
+- Use `NOT_VERIFIED` for unavailable production, provider, browser, database, or operator evidence.
+- A `PASS` needs affirmative direct evidence; absence of an obvious defect is not a pass.
+- Agent findings use a supported producer, evidence type, explanation, safe-fix classification,
+  revision, commands executed, and remaining limitations.
+
+Primary standards used as criteria, not proof of compliance:
+
+- C4 model concepts
+- NIST SSDF
+
+## Common production failures
 
 - Trace one critical request end to end across UI, API, jobs, data, and integrations
 - Detect cycles, boundary leakage, shared mutable state, and single points of failure
 - Compare complexity and operational cost with demonstrated requirements
 
-## Required inspection criteria
+## Missing-control checks
 
 For every applicable criterion below, attach direct evidence or record a reasoned
 `NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
@@ -87,10 +112,10 @@ evidence by itself.
 - Maintainability
 - Underengineering and overengineering
 
-## Safe executable checks
+## Commands and tools
 
 - Run `forge architecture audit --json` or `fullstack-forge architecture audit --json` when
-  the CLI is installed.
+  an explicit audit is requested and the CLI is installed. Normal feature work does not require it.
 - Use `discover-project` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
@@ -98,36 +123,7 @@ evidence by itself.
 - Keep raw output in the report evidence or a referenced artifact. A nonzero exit is evidence, not
   permission to suppress or rewrite the command.
 
-## Manual inspection requirements
-
-- Validate context boundaries and ownership with maintainers
-- Review unavailable runtime dependencies and organization constraints
-
-## Evidence requirements
-
-- Cite repository-relative file and 1-based line for code or configuration evidence.
-- Record exact command and exit code for an automated check.
-- Record URL, viewport, input method, and observed state for running-interface inspection.
-- Name the test and demonstrate that it exercises the claimed behavior.
-- Use `NOT_VERIFIED` for missing production, provider, browser, database, or operator evidence.
-- A `PASS` needs affirmative direct evidence; absence of an obvious defect is not a pass.
-
-## Finding identifiers and severity
-
-Use IDs `FF-ARCH-001`, `FF-ARCH-002`, and so on. Preserve an ID across
-verification and report formats.
-
-- `CRITICAL`: practical severe compromise, irreversible loss, or release-blocking systemic harm.
-- `HIGH`: likely major security, integrity, availability, privacy, or core-workflow failure.
-- `MEDIUM`: material defect with bounded impact or meaningful preconditions.
-- `LOW`: localized robustness, maintainability, or user-impact defect.
-- `INFO`: verified context or improvement with no current defect.
-
-Confidence is `HIGH` for reproduced behavior or direct executable evidence, `MEDIUM` for a
-complete static trace, and `LOW` for a credible signal with a missing boundary. Severity and
-confidence are independent.
-
-## Safe automatic fixes
+## Safe fixes
 
 - Add or update an architecture decision record
 - Clarify module ownership and dependency rules
@@ -135,46 +131,20 @@ confidence are independent.
 Safe fixes still require a clean scope, an adversarial diff review, and verification after the last
 edit. Never broaden `--safe` into an architectural or policy decision.
 
-## Risky changes requiring approval
+## Approval-required changes
 
 - Splitting services, changing data ownership, or replacing core infrastructure
 
 Also require approval for destructive data changes, secret rotation, production mutation, reduced
 security controls, public-contract changes, or any change outside the requested repository scope.
 
-## Verification procedure
+## Verification
 
 - Re-run dependency and boundary checks
 - Exercise the traced critical flow after structural changes
 
 Re-run the original reproduction and all relevant gates after the final edit. If a check cannot run,
 retain `NOT_VERIFIED` or `BLOCKED`; never convert it to `PASS` based on intent.
-
-## Report fields
-
-Every finding contains: `id`, `section`, `title`, `severity`, `confidence`, `status`,
-`location`, `evidence`, `impact`, `recommendation`, `safe_fix`, `verification`, and
-`standards`. Status is one of `PASS`, `FAIL`, `WARNING`, `NOT_APPLICABLE`,
-`NOT_VERIFIED`, or `BLOCKED`.
-
-## Primary standards
-
-- C4 model concepts
-- NIST SSDF
-
-Treat standards as audit criteria, not proof of compliance or legal advice. Record the version or
-retrieval date for time-sensitive guidance.
-
-## Stack-specific guidance
-
-- Respect framework composition boundaries before introducing custom layers
-
-Adapt filenames and commands to detected evidence. Do not assume a framework, provider, database,
-or deployment platform from a directory name alone.
-
-## Known limitations
-
-- Production traffic shape and organizational coupling require external evidence
 
 ## Completion contract
 
@@ -192,3 +162,10 @@ Never declare a feature complete merely because code was written. A task is comp
 10. Remaining risks, skipped checks, and assumptions are reported.
 
 Never hide failed checks or claim that an operation ran when it did not.
+
+## Known limitations
+
+- Production traffic shape and organizational coupling require external evidence
+
+The module guides agent reasoning and uses deterministic automation where supported. It cannot by
+itself prove production, provider, human-policy, or unsupported framework behavior.

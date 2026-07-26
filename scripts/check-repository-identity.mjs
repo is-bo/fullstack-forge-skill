@@ -84,7 +84,13 @@ const files = execFileSync(
 const legacyCounts = new Map();
 let generatedCanonicalReference = false;
 for (const path of files) {
-  const content = await readFile(join(projectRoot, ...path.split("/")));
+  let content;
+  try {
+    content = await readFile(join(projectRoot, ...path.split("/")));
+  } catch (error) {
+    if (error?.code === "ENOENT") continue;
+    throw error;
+  }
   const text = content.toString("utf8");
   const matches = text.match(new RegExp(legacyOwner, "giu"))?.length ?? 0;
   if (matches > 0) legacyCounts.set(path, matches);

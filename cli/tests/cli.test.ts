@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { PACKAGE_ROOT, VERSION } from "../src/constants.js";
@@ -16,7 +16,69 @@ test("compiled CLI exposes version, list, and blocked command execution", async 
   assert.equal(list.exitCode, 0);
   const parsed = JSON.parse(list.stdout) as { modules: string[]; tools: string[] };
   assert.equal(parsed.modules.length, 42);
-  assert.equal(parsed.tools.length, 25);
+  assert.equal(parsed.tools.length, 26);
+});
+
+test("compiled CLI ingests validated agent findings into both official report formats", async () => {
+  await withTemporaryProject("agent-findings", async (root) => {
+    await mkdir(join(root, ".forge"), { recursive: true });
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "auth.ts"), "export const reset = true;\n", "utf8");
+    const input = join(root, ".forge", "agent-findings.json");
+    await writeFile(
+      input,
+      JSON.stringify([
+        {
+          id: "FF-AUTH-900",
+          section: "auth",
+          module: "auth",
+          title: "Reset tokens remain reusable",
+          severity: "HIGH",
+          confidence: "HIGH",
+          status: "FAIL",
+          producer: "agent-reviewed-source",
+          evidence_type: "source-review",
+          location: [{ path: "src/auth.ts", line: 1 }],
+          evidence: ["The reviewed reset path has no one-time-use transition."],
+          explanation: "The reset path accepts the same token more than once.",
+          impact: "A captured token can reset the account repeatedly.",
+          recommendation: "Atomically consume the reset token on first use.",
+          safe_fix: false,
+          safe_fix_classification: "approval-required",
+          verification: ["Replay one token twice and require the second request to fail."],
+          revision: "fixture-revision",
+          commands_executed: [{ command: "node --test auth", exit_code: 1 }],
+          remaining_limitations: ["No production mail-provider evidence was available."],
+          standards: ["OWASP ASVS 5.0"]
+        }
+      ]),
+      "utf8"
+    );
+    const result = await runFile(
+      process.execPath,
+      [
+        cli,
+        "tool",
+        "ingest-agent-findings",
+        ".forge/agent-findings.json",
+        "--root",
+        root,
+        "--json"
+      ],
+      root
+    );
+    assert.equal(result.exitCode, 1, result.stderr);
+    const report = JSON.parse(await readFile(join(root, ".forge", "report.json"), "utf8")) as {
+      findings: Array<{ producer: string; explanation: string }>;
+    };
+    const [finding] = report.findings;
+    assert.ok(finding);
+    assert.equal(finding.producer, "agent-reviewed-source");
+    assert.match(finding.explanation, /accepts the same token/u);
+    const markdown = await readFile(join(root, ".forge", "report.md"), "utf8");
+    assert.match(markdown, /agent-reviewed-source/u);
+    assert.match(markdown, /No production mail-provider evidence was available/u);
+  });
 });
 
 test("compiled CLI performs discovery and writes evidence artifacts", async () => {

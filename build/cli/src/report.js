@@ -474,14 +474,19 @@ function renderFinding(finding) {
     return `### ${finding.id}: ${finding.title}
 
 - Section: ${finding.section}
+- Module / producer: ${finding.module ?? finding.section} / ${finding.producer ?? (finding.analyzer_id === undefined ? "legacy/unspecified" : "forge-analyzer")}
+- Evidence type / revision: ${finding.evidence_type ?? "legacy/unspecified"} / ${finding.revision ?? "legacy/unspecified"}
 - Rule / instance: ${finding.id} / ${finding.instance_id ?? "legacy report (no instance ID)"}
 - Severity / confidence / status: **${finding.severity} / ${finding.confidence} / ${finding.status}**
 - Location: ${locations || "No code location"}
 - Evidence: ${finding.evidence.join("; ")}
+- Explanation: ${finding.explanation ?? finding.title}
 - Impact: ${finding.impact}
 - Recommendation: ${finding.recommendation}
-- Safe automatic fix: ${finding.safe_fix ? "yes" : "no"}
+- Safe automatic fix: ${finding.safe_fix ? "yes" : "no"} (${finding.safe_fix_classification ?? "legacy boolean classification"})
 - Verification: ${finding.verification.join("; ")}
+- Commands executed: ${finding.commands_executed?.map((entry) => `${entry.command} (exit ${entry.exit_code})`).join("; ") || "None recorded"}
+- Remaining limitations: ${finding.remaining_limitations?.join("; ") || "None recorded"}
 - Standards: ${finding.standards.join(", ") || "None"}`;
 }
 function deduplicateFindings(findings) {

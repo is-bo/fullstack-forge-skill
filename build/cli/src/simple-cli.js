@@ -403,7 +403,7 @@ export function renderInstallResult(operation, selector, global, dryRun, actions
         }
     }
     if (operation !== "uninstall" && !dryRun)
-        lines.push("", "Check the installation:", "  forge doctor", "", "Build something:", "  /forge build", "", "Check an existing application:", "  /forge audit", "", "See all commands:", "  /forge help");
+        lines.push("", "Check the installation:", "  forge doctor", "", "Continue working with your AI agent normally.", "Forge activates automatically for software-engineering tasks.", "", "Optional explicit workflows:", "  /forge audit security", "  /forge verify", "  /forge ship", "  /forge help");
     if (operation === "uninstall" && actions.some((action) => action.action === "preserve-modified"))
         lines.push("", "Modified files were preserved. Review the paths in --json output.");
     return lines.join("\n");

@@ -176,8 +176,8 @@ test("install output gives first commands and labels evidence-based agent recomm
     }
   ]);
   assert.match(recommended, /Cursor: project:\.cursor \(selector 'cursor'\)/u);
-  assert.match(recommended, /Build something:\s+\/forge build/u);
-  assert.match(recommended, /Check an existing application:\s+\/forge audit/u);
+  assert.match(recommended, /Forge activates automatically/u);
+  assert.match(recommended, /Optional explicit workflows/u);
 
   const noMarkers = renderInstallResult("init", "all", false, true, actions, []);
   assert.match(noMarkers, /no existing agent-specific configuration/u);
