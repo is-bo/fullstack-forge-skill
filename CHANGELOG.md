@@ -19,6 +19,11 @@ All notable supported changes are documented here.
   `VERIFY`, `REPORT` workflow with light, standard, and high-risk behavior.
 - Rebuilt all 42 specialist modules with consistent automatic-activation, inspection, evidence,
   failure, safe-fix, approval, verification, completion, and limitation contracts.
+- Rebuilt frontend, UI, and UX as an automatic experience system with a 221-line frontend
+  orchestrator, 14 progressively loaded references, optional design/review templates, and 12
+  scenario-tested natural-language routes.
+- Added scoped frontend/UI/UX build, review, audit, improve, fix, and verify routing while
+  preserving existing audit/fix/verify/report semantics.
 
 ### Installation and evidence
 
@@ -26,6 +31,8 @@ All notable supported changes are documented here.
   update conflict protection, and owned-content-only uninstall behavior.
 - Added validated agent-authored findings and official report ingestion with structured producer,
   evidence, revision, command, limitation, and safe-fix metadata.
+- Added `agent-rendered-review` and structured screenshot, viewport, accessibility-tree, and browser
+  console observations without treating source review as visual proof.
 - Preserved optional explicit Build, Audit, Fix, Verify, Ship, Status, and Help commands.
 
 ### Release reset

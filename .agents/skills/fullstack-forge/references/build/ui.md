@@ -2,7 +2,8 @@
 
 ## Decide before coding
 
-- Read DESIGN.md's direction before choosing layout, density, and component patterns; do not default to whatever the last feature looked like without checking it still applies.
+- Inspect the project's actual brand assets, tokens, component library, screenshots, and nearest visual precedent before choosing layout, density, or component patterns; do not assume a DESIGN.md exists.
+- For substantial new or redesigned UI, state the product-specific visual direction and rationale before coding; do not impose this ceremony on a bounded token or component correction.
 - Decide every state this view needs: loading, empty, error, success, permission-denied, and disabled, not only the happy path.
 - Decide the responsive behavior: what changes at narrow, medium, and wide viewports, not just that content shrinks.
 - Decide what feedback the user gets for every action that takes time or can fail.

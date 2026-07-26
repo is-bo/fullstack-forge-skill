@@ -131,7 +131,11 @@
     "Representative running routes",
     "Desktop, tablet, and mobile screenshots",
     "Repeated-component comparison",
-    "Recorded visual evidence and cleanup of started processes"
+    "Recorded visual evidence and cleanup of started processes",
+    "Product-specific visual direction with rationale",
+    "Preservation of existing brand and component conventions",
+    "Light and dark theme state parity",
+    "Truthful content and non-fabricated credibility signals"
   ],
   "ux": [
     "Navigation clarity",
@@ -164,7 +168,11 @@
     "Search, filter, open, and return journey",
     "Upload, validation, processing, and confirmation journey",
     "Expired-session login and resume journey",
-    "Failed-payment retry and permission-denial recovery journeys"
+    "Failed-payment retry and permission-denial recovery journeys",
+    "Named user, task, environment, and consequence of failure",
+    "Partial, stale, offline, and interruption states",
+    "Input preservation across validation, timeout, and session renewal",
+    "Expert-review hypotheses distinguished from observed user evidence"
   ],
   "accessibility": [
     "WCAG 2.2 AA scope",
@@ -264,7 +272,12 @@
     "Offline behavior",
     "Image loading",
     "Font loading",
-    "Dependency weight"
+    "Dependency weight",
+    "Progressive reference selection",
+    "Detected framework and version",
+    "Existing component and styling precedent",
+    "Rendered review or explicit visual NOT_VERIFIED status",
+    "Production-build behavior"
   ],
   "api": [
     "Contract consistency",

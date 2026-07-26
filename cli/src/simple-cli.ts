@@ -281,6 +281,9 @@ Start here:
 Helpful commands:
   forge doctor                        Diagnose installation and project setup
   forge init                          Detect agent configuration and install every bundled skill
+  forge frontend build                Select the agent-led interface build workflow
+  forge ui review                     Run the UI audit workflow
+  forge ux review                     Run the UX audit workflow
   forge help advanced                 Show the complete expert CLI reference
 
 Safety: missing evidence never becomes PASS. JSON remains available with --json; use --details

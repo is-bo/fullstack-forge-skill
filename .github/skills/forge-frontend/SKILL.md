@@ -1,13 +1,13 @@
 ---
 name: forge-frontend
-description: Inspect rendering, state, network, hydration, browser security, and bundle behavior in frontend applications. Activate automatically for browser applications when that concern is relevant to a software-engineering request.
+description: Use automatically for frontend implementation and review, including components, pages, layouts, responsive behavior, React, Next.js, browser state, rendering, hydration, network behavior, and measured frontend performance. Activate automatically for browser, react native, and expo application work when that concern is relevant to a software-engineering request.
 ---
 
 # forge-frontend: Frontend engineering
 
 ## Purpose
 
-Inspect rendering, state, network, hydration, browser security, and bundle behavior in frontend applications.
+Use automatically for frontend implementation and review, including components, pages, layouts, responsive behavior, React, Next.js, browser state, rendering, hydration, network behavior, and measured frontend performance.
 
 This is an agent playbook, not a claim of standalone analyzer coverage. The agent supplies reasoning
 and implementation; deterministic CLI support is used only where named below.
@@ -17,8 +17,8 @@ and implementation; deterministic CLI support is used only where named below.
 Activate when a request or direct repository evidence involves frontend engineering, when
 the user explicitly names `forge-frontend`, or when discovery proves an applicable boundary.
 
-- Browser applications
-- Hybrid server/client rendered frontends
+- Browser, React Native, and Expo application work
+- React, Next.js, Vue, Svelte, and hybrid server/client rendered frontends
 
 ## When not to activate
 
@@ -40,17 +40,56 @@ uses the same guidance without requiring a Forge command. Relevant discovery inp
 Available deterministic support, where present:
 
 - Use the detected project commands and direct manual evidence for this module; do not claim a dedicated inspector ran when none exists.
+## Experience workflow and progressive references
+
+Automatic activation signals include:
+
+- React, Next.js, Vue, Svelte, React Native, or Expo
+- components, pages, layouts, forms, tables, charts, browser state, rendering, hydration, bundles, or responsive implementation
+
+Explicit agent shortcuts are `$forge frontend build`, `$forge frontend audit`, `$forge frontend fix`, `$forge frontend verify`. `review` routes to evidence-preserving `audit`;
+`improve` routes to a fix preview unless safe application is explicitly authorized. Normal feature
+requests do not require a command.
+
+Use this proportional workflow: `UNDERSTAND` → `INSPECT` → `SELECT` → `DEFINE` → `IMPLEMENT` → `RENDER` → `VALIDATE` → `REFINE` → `REPORT`.
+For a small bounded change, keep the same order but record decisions inline; optional templates must
+not become ceremony.
+
+Load only the references selected by the request and repository evidence:
+
+- `product-and-ux` — load the installed bundle file `fullstack-forge/references/frontend/product-and-ux.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `visual-direction` — load the installed bundle file `fullstack-forge/references/frontend/visual-direction.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `design-system` — load the installed bundle file `fullstack-forge/references/frontend/design-system.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `responsive-layout` — load the installed bundle file `fullstack-forge/references/frontend/responsive-layout.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `accessibility-integration` — load the installed bundle file `fullstack-forge/references/frontend/accessibility-integration.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `component-architecture` — load the installed bundle file `fullstack-forge/references/frontend/component-architecture.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `react-nextjs` — load the installed bundle file `fullstack-forge/references/frontend/react-nextjs.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `frontend-performance` — load the installed bundle file `fullstack-forge/references/frontend/frontend-performance.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `motion-and-interactions` — load the installed bundle file `fullstack-forge/references/frontend/motion-and-interactions.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `forms-and-data-entry` — load the installed bundle file `fullstack-forge/references/frontend/forms-and-data-entry.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `dashboards-and-data-visualization` — load the installed bundle file `fullstack-forge/references/frontend/dashboards-and-data-visualization.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `mobile-react-native` — load the installed bundle file `fullstack-forge/references/frontend/mobile-react-native.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `design-review` — load the installed bundle file `fullstack-forge/references/frontend/design-review.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `anti-patterns` — load the installed bundle file `fullstack-forge/references/frontend/anti-patterns.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+
+Accessibility rules remain owned by `forge-accessibility`; localization by `forge-i18n`;
+performance proof by `forge-performance`; public-search behavior by `forge-seo`. Compose those
+owners instead of copying their rules here. Never load mobile, chart, motion, or framework guidance
+without matching evidence.
+
 
 ## Agent inspection procedure
 
 1. Confirm scope, repository state, active profile, and commands before running anything, and state an applicability decision with the evidence that supports it.
-2. Map component and data-fetching boundaries, identify server/client splits, and trace one interactive flow from route load to rendered state.
-3. Profile network behavior for fetch waterfalls, duplicate requests, and missing caching on repeat navigation.
-4. Inspect state management for stale-state, race, and error-boundary gaps: determine what happens when a slow response returns after navigation.
-5. Measure bundle composition and record the heaviest dependencies, missing code splitting, and unused code on the initial route.
-6. Check cleanup paths for listeners, observers, timers, and subscriptions on unmount, and hydration consistency for server-rendered markup.
-7. Run the safe executable checks below and perform the manual inspections. Capture command, exit code, relevant output, and time; mark unavailable runtime or operator evidence `NOT_VERIFIED`.
-8. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location. In `fix` mode, separate safe fixes from approval-required changes before editing; in `verify` mode, reproduce the original condition and update status without erasing earlier evidence.
+2. Inspect the actual framework, version, rendering mode, styling system, routes, shared components, state and data libraries, tests, translations, and existing interface conventions.
+3. Route only matching progressive references, then define the user task, system states, responsive behavior, accessibility needs, component reuse, framework boundary, and evidence plan proportionately.
+4. Map component and data-fetching boundaries, identify server/client splits, and trace one interactive flow from route load through loading, failure, recovery, and rendered state.
+5. Inspect network behavior for waterfalls, duplicate requests, cancellation, stale results, optimistic rollback, and behavior on slow or unreliable networks.
+6. Inspect component APIs and state management for boolean-prop conflicts, duplicated derived state, unnecessary effects, rerender causes, error boundaries, and cleanup ownership.
+7. Use a production build and measured evidence for bundle, hydration, rendering, media, font, or list-performance claims; do not infer speed from source shape.
+8. Render and compare the affected routes when tools are available, run focused project checks, refine confirmed defects, and report every unverified browser, device, user, or production claim.
+9. Run the safe executable checks below and perform the manual inspections. Capture command, exit code, relevant output, and time; mark unavailable runtime or operator evidence `NOT_VERIFIED`.
+10. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location. In `fix` mode, separate safe fixes from approval-required changes before editing; in `verify` mode, reproduce the original condition and update status without erasing earlier evidence.
 
 Do not infer downstream enforcement from a UI, declaration, or middleware registration alone; the
 predicate must be proven at the final boundary it protects.
@@ -116,6 +155,11 @@ evidence by itself.
 - Image loading
 - Font loading
 - Dependency weight
+- Progressive reference selection
+- Detected framework and version
+- Existing component and styling precedent
+- Rendered review or explicit visual NOT_VERIFIED status
+- Production-build behavior
 
 ## Commands and tools
 

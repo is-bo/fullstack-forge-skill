@@ -39,4 +39,9 @@ test("canonical skills encode automatic use, proportional execution, and agent f
   );
   assert.match(main, /Small, low-risk change/u);
   assert.match(main, /agent-reviewed-source/u);
+  assert.match(main, /agent-rendered-review/u);
+  assert.match(router, /\$forge frontend/u);
+  assert.match(router, /\$forge ui/u);
+  assert.match(router, /\$forge ux/u);
+  assert.match(main, /Do not load React Native, charts, motion, or framework\s+guidance/iu);
 });

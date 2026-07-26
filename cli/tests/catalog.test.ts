@@ -57,12 +57,12 @@ const EXPECTED_CRITERIA_COUNTS = {
   requirements: 19,
   architecture: 19,
   code: 22,
-  ui: 30,
-  ux: 31,
+  ui: 34,
+  ux: 35,
   accessibility: 28,
   i18n: 22,
   seo: 19,
-  frontend: 23,
+  frontend: 28,
   api: 27,
   jobs: 19,
   integrations: 19,
@@ -102,12 +102,15 @@ const CRITERIA_SENTINELS = {
   requirements: ["Requirement-to-test traceability", "Irreversible actions"],
   architecture: ["Premature microservices", "Underengineering and overengineering"],
   code: ["Unhandled promises", "Generated-code boundaries"],
-  ui: ["Browser-console errors", "Desktop, tablet, and mobile screenshots"],
-  ux: ["Back-button behavior", "Failed-payment retry and permission-denial recovery journeys"],
+  ui: ["Browser-console errors", "Product-specific visual direction with rationale"],
+  ux: [
+    "Back-button behavior",
+    "Input preservation across validation, timeout, and session renewal"
+  ],
   accessibility: ["WCAG 2.2 AA scope", "Screen-reader navigation"],
   i18n: ["Mixed LTR and RTL content", "Arabic, French, and English compatibility"],
   seo: ["Conditional applicability for public web pages", "Structured data"],
-  frontend: ["Data-fetching waterfalls", "Hydration issues"],
+  frontend: ["Data-fetching waterfalls", "Progressive reference selection"],
   api: ["GraphQL complexity", "Request-size limits"],
   jobs: ["Poison messages", "Safe deployment while jobs run"],
   integrations: ["Replay prevention", "Out-of-order events"],
@@ -226,7 +229,7 @@ test("explicit inspection criteria cover every module and render into canonical 
         `${slug}: unknown tool ${match[1]}`
       );
   }
-  assert.equal(totalCriteria, 957);
+  assert.equal(totalCriteria, 970);
 });
 
 test("all bundled skills satisfy the structural validator", async () => {

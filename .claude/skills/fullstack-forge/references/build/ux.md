@@ -2,6 +2,7 @@
 
 ## Decide before coding
 
+- Name the primary user, task, environment, frequency, and consequence of failure before changing the journey; for a tiny behavior-preserving correction, record this proportionately inline.
 - Enumerate every state this flow needs before coding it: loading, empty, error, success, and permission-denied, not only the happy path.
 - Decide how a user recovers from each error state: what they are told, what they can retry, and what happens to the data they already entered.
 - Decide that destructive or irreversible actions require an explicit confirmation step naming the consequence, before wiring the action handler.

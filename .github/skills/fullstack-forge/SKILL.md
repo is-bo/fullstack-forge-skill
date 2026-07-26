@@ -73,6 +73,15 @@ Scale the workflow to risk:
   stronger modules and evidence, identify approval-required decisions, and block unsupported
   completion claims.
 
+For frontend, UI, and UX requests, `forge-frontend` is the experience orchestrator. It automatically
+combines `forge-ui`, `forge-ux`, and `forge-accessibility`, then adds `forge-i18n`, `forge-seo`,
+`forge-performance`, `forge-offline`, or security modules only when request or repository evidence
+makes them relevant. Its focused references live under `references/frontend/`; load only the files
+whose **Load when** conditions match. Do not load React Native, charts, motion, or framework
+guidance by default. Substantial interface work uses UNDERSTAND, INSPECT, SELECT, DEFINE, IMPLEMENT,
+RENDER, VALIDATE, REFINE, REPORT; a small bounded change keeps that order inline without template
+ceremony.
+
 Do not treat every task as high risk, introduce infrastructure without evidence, repeatedly run the
 full suite, or expand into unrelated improvements. Explicit commands remain available by intent:
 
@@ -178,12 +187,14 @@ For each applicable module:
 5. Create findings using [schemas/finding.schema.json](schemas/finding.schema.json).
 6. Use stable IDs across audit, fix, verify, Markdown, and JSON.
 
-Agent-authored findings are official report inputs. Use producer `agent-reviewed-source` or
-`agent-runtime-verification` and include module, severity, confidence, status, evidence type, source
-locations with lines, explanation, impact, recommendation, safe-fix classification, verification,
-revision, commands executed, and remaining limitations. Other supported producers are
-`forge-analyzer`, `forge-command`, `external-tool`, and `human-decision`. Validate and merge agent
-findings with `forge tool ingest-agent-findings <path>`.
+Agent-authored findings are official report inputs. Use producer `agent-reviewed-source`,
+`agent-rendered-review`, or `agent-runtime-verification` and include module, severity, confidence,
+status, evidence type, source locations with lines, explanation, impact, recommendation, safe-fix
+classification, verification, revision, commands executed, and remaining limitations. Rendered
+reviews also attach the captured artifact or viewport observation; never use that producer for a
+source-only inference. Other supported producers are `forge-analyzer`, `forge-command`,
+`external-tool`, and `human-decision`. Validate and merge agent findings with
+`forge tool ingest-agent-findings <path>`.
 
 Use repository-relative locations with 1-based lines. Record running-app URL, viewport, role, input,
 and observed state for interface evidence. Keep assertions about production or provider state

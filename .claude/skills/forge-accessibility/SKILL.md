@@ -1,13 +1,13 @@
 ---
 name: forge-accessibility
-description: Audit conformance with WCAG 2.2 AA using automated evidence plus keyboard and assistive-technology reasoning. Activate automatically for any user or operator interface when that concern is relevant to a software-engineering request.
+description: Use automatically for human-facing interface work and audit WCAG 2.2 AA with automated evidence plus keyboard and assistive-technology reasoning. Activate automatically for any user or operator interface when that concern is relevant to a software-engineering request.
 ---
 
 # forge-accessibility: Accessibility
 
 ## Purpose
 
-Audit conformance with WCAG 2.2 AA using automated evidence plus keyboard and assistive-technology reasoning.
+Use automatically for human-facing interface work and audit WCAG 2.2 AA with automated evidence plus keyboard and assistive-technology reasoning.
 
 This is an agent playbook, not a claim of standalone analyzer coverage. The agent supplies reasoning
 and implementation; deterministic CLI support is used only where named below.

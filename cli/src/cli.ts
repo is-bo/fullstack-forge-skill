@@ -73,6 +73,11 @@ import {
 import { verifyFindings } from "./verification.js";
 import { checkUpdateAvailability } from "./update-check.js";
 import {
+  normalizeFrontendWorkflow,
+  routeFrontendRequest,
+  type FrontendArea
+} from "./frontend-routing.js";
+import {
   featureSlugFromRequest,
   featureSlugWithCollision,
   menuChoiceToArgs,
@@ -268,7 +273,36 @@ export async function runCli(argv: string[]): Promise<number> {
       `Unknown command or section '${command}'.${suggestCommand(command) === undefined ? "" : ` Did you mean '${suggestCommand(command)}'?`} Run 'forge help'.`
     );
   if (command === "ship") return ship(options);
-  const mode = positionals[0] ?? "audit";
+  const requestedMode = positionals[0] ?? "audit";
+  if (["frontend", "ui", "ux"].includes(command) && requestedMode !== "report") {
+    const area = command as FrontendArea;
+    const mode = normalizeFrontendWorkflow(area, requestedMode);
+    if (mode === "build") {
+      const request = positionals.slice(1).join(" ").trim() || `${area} interface work`;
+      const route = { ...routeFrontendRequest(request, area), workflow: mode };
+      printValue(
+        options.json
+          ? {
+              area,
+              request,
+              ...route,
+              execution: "agent-guided",
+              evidence_status: "NOT_VERIFIED"
+            }
+          : [
+              `Forge ${area} build workflow selected.`,
+              `Modules: ${route.modules.join(", ")}.`,
+              `Progressive references: ${route.references.join(", ")}.`,
+              "Workflow: UNDERSTAND -> INSPECT -> SELECT -> DEFINE -> IMPLEMENT -> RENDER -> VALIDATE -> REFINE -> REPORT.",
+              "No implementation or rendered verification has run; continue through the installed agent skill."
+            ].join("\n"),
+        options.json
+      );
+      return 0;
+    }
+    return runModule(command, mode, options);
+  }
+  const mode = requestedMode;
   if (!MODES.has(mode))
     throw new Error(`Unknown mode '${mode}'. Expected audit, fix, verify, or report.`);
   return runModule(command, mode, options);
@@ -1387,6 +1421,9 @@ Usage:
 
   Audit mode:
   forge <section> <audit|fix|verify|report> [options]
+  forge frontend <build|audit|fix|verify> [request] [options]
+  forge ui <build|review|audit|fix> [request] [options]
+  forge ux <review|audit|improve|verify> [options]
   forge all audit [--scope full|changed] [--base origin/main] [--risk high]
   forge all audit --allow-run [--check lint --check test] [--skip-check build]
   forge all audit --url http://127.0.0.1:3000 --allow-run [--evidence-dir .forge/evidence]

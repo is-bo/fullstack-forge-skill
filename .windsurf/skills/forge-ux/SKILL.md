@@ -1,13 +1,13 @@
 ---
 name: forge-ux
-description: Evaluate real task flows for clarity, feedback, recovery, accessibility, and avoidance of user harm. Activate automatically for interactive products when that concern is relevant to a software-engineering request.
+description: Use automatically for user-flow and usability work, including information architecture, navigation, forms, onboarding, feedback, errors, recovery, empty states, decision complexity, and task completion. Activate automatically for interactive products when that concern is relevant to a software-engineering request.
 ---
 
 # forge-ux: User experience
 
 ## Purpose
 
-Evaluate real task flows for clarity, feedback, recovery, accessibility, and avoidance of user harm.
+Use automatically for user-flow and usability work, including information architecture, navigation, forms, onboarding, feedback, errors, recovery, empty states, decision complexity, and task completion.
 
 This is an agent playbook, not a claim of standalone analyzer coverage. The agent supplies reasoning
 and implementation; deterministic CLI support is used only where named below.
@@ -40,17 +40,45 @@ uses the same guidance without requiring a Forge command. Relevant discovery inp
 Available deterministic support, where present:
 
 - Use `inspect-rendered-ui` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+## Experience workflow and progressive references
+
+Automatic activation signals include:
+
+- user flows, usability, navigation, forms, booking, onboarding, or task completion
+- feedback, errors, recovery, empty states, decision complexity, conversion, or friction
+
+Explicit agent shortcuts are `$forge ux review`, `$forge ux audit`, `$forge ux improve`, `$forge ux verify`. `review` routes to evidence-preserving `audit`;
+`improve` routes to a fix preview unless safe application is explicitly authorized. Normal feature
+requests do not require a command.
+
+Use this proportional workflow: `UNDERSTAND` → `INSPECT` → `SELECT` → `DEFINE` → `IMPLEMENT` → `RENDER` → `VALIDATE` → `REFINE` → `REPORT`.
+For a small bounded change, keep the same order but record decisions inline; optional templates must
+not become ceremony.
+
+Load only the references selected by the request and repository evidence:
+
+- `product-and-ux` — load the installed bundle file `fullstack-forge/references/frontend/product-and-ux.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `accessibility-integration` — load the installed bundle file `fullstack-forge/references/frontend/accessibility-integration.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `forms-and-data-entry` — load the installed bundle file `fullstack-forge/references/frontend/forms-and-data-entry.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `design-review` — load the installed bundle file `fullstack-forge/references/frontend/design-review.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+
+Accessibility rules remain owned by `forge-accessibility`; localization by `forge-i18n`;
+performance proof by `forge-performance`; public-search behavior by `forge-seo`. Compose those
+owners instead of copying their rules here. Never load mobile, chart, motion, or framework guidance
+without matching evidence.
+
 
 ## Agent inspection procedure
 
 1. Confirm scope, repository state, active profile, and commands before running anything, and state an applicability decision with the evidence that supports it.
-2. Select the product's critical journeys from discovery (registration, core object create/edit/delete, search, upload, payment) and execute each end to end.
-3. At every step record what the user must know, what feedback appears, and how the user recovers from an error without losing entered data.
-4. Exercise interruption paths: expired session mid-form, back button, refresh during submission, and permission denial, and record where work is lost or the user dead-ends.
-5. Check destructive actions for confirmation, undo, and clarity about the scope of loss.
-6. Measure friction: count fields, steps, and decisions per journey and flag steps that exist for the system's benefit rather than the user's.
-7. Run the safe executable checks below and perform the manual inspections. Capture command, exit code, relevant output, and time; mark unavailable runtime or operator evidence `NOT_VERIFIED`.
-8. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location. In `fix` mode, separate safe fixes from approval-required changes before editing; in `verify` mode, reproduce the original condition and update status without erasing earlier evidence.
+2. Name the user, primary task, frequency, environment, consequence of failure, essential information, risky actions, and success outcome before changing the flow.
+3. Select the product's primary and adverse journeys from discovery and execute each end to end with realistic content.
+4. At every step record what the user must know, which decision is required, what feedback appears, and how the user recovers without losing entered data.
+5. Exercise interruption paths including expired session, back, refresh during submission, duplicate action, slow or offline network, partial data, and permission denial.
+6. Check destructive actions for clear scope, confirmation, cancellation, undo or recovery, and the absence of coercive or misleading choices.
+7. Identify fields, steps, and decisions that exist for the system rather than the user; treat expert usability conclusions as hypotheses when user research was not performed.
+8. Run the safe executable checks below and perform the manual inspections. Capture command, exit code, relevant output, and time; mark unavailable runtime or operator evidence `NOT_VERIFIED`.
+9. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location. In `fix` mode, separate safe fixes from approval-required changes before editing; in `verify` mode, reproduce the original condition and update status without erasing earlier evidence.
 
 Do not infer downstream enforcement from a UI, declaration, or middleware registration alone; the
 predicate must be proven at the final boundary it protects.
@@ -123,6 +151,10 @@ evidence by itself.
 - Upload, validation, processing, and confirmation journey
 - Expired-session login and resume journey
 - Failed-payment retry and permission-denial recovery journeys
+- Named user, task, environment, and consequence of failure
+- Partial, stale, offline, and interruption states
+- Input preservation across validation, timeout, and session renewal
+- Expert-review hypotheses distinguished from observed user evidence
 
 ## Commands and tools
 

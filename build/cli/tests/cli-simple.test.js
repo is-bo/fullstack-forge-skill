@@ -34,6 +34,29 @@ test("no-argument menu is read-only and makes one next choice explicit", async (
         assert.deepEqual(after, before, "the no-action menu must not create Build or Audit state");
     });
 });
+test("frontend, UI, and UX scoped commands route without false execution claims", async () => {
+    await withTemporaryProject("frontend-scoped-routes", async (root) => {
+        const build = await runFile(process.execPath, [cli, "frontend", "build", "a responsive booking form", "--json", "--root", root], root);
+        assert.equal(build.exitCode, 0, build.stderr);
+        const route = JSON.parse(build.stdout);
+        assert.equal(route.workflow, "build");
+        assert.ok(route.modules.includes("frontend"));
+        assert.ok(route.references.includes("forms-and-data-entry"));
+        assert.equal(route.execution, "agent-guided");
+        assert.equal(route.evidence_status, "NOT_VERIFIED");
+        await assert.rejects(readFile(join(root, ".forge", "build", "project.json")), /ENOENT/u);
+        for (const [area, mode] of [
+            ["frontend", "audit"],
+            ["ui", "review"],
+            ["ux", "review"]
+        ]) {
+            const reviewed = await runFile(process.execPath, [cli, area, mode, "--json", "--root", root], root);
+            assert.equal(reviewed.exitCode, 0, reviewed.stderr);
+            const parsed = JSON.parse(reviewed.stdout);
+            assert.equal(parsed.report.scope, area);
+        }
+    });
+});
 test("plain-language build creates a safe feature and continue resumes the only unfinished item", async () => {
     await withTemporaryProject("simple-build", async (root) => {
         const built = await runFile(process.execPath, [cli, "build", "add customer login", "--root", root], root);

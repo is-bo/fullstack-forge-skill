@@ -1,4 +1,5 @@
 import { classifyEvidencePath } from "./discovery-evidence.js";
+import { routeFrontendRequest } from "./frontend-routing.js";
 import type { ModuleSlug } from "./constants.js";
 import { capabilityStatusFor } from "./scope.js";
 import type { Confidence, ProjectProfile } from "./types.js";
@@ -141,6 +142,14 @@ export function deriveBuildApplicability(input: BuildApplicabilityInput): BuildA
 
   if (input.risk_baseline === "high")
     require("security", "HIGH", ["The recorded project or feature risk baseline is high."]);
+
+  const interfaceRoute = routeFrontendRequest(text);
+  if (interfaceRoute.active) {
+    for (const discipline of interfaceRoute.modules)
+      require(discipline, "MEDIUM", [
+        `The requested interface work selected '${discipline}': ${interfaceRoute.reasons.join(" ")}`
+      ]);
+  }
 
   for (const current of RULES) {
     const matchingPaths = activatingPaths.filter((path) =>

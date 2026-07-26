@@ -57,7 +57,9 @@ export function validateCommandCatalog(catalog, expectedNames) {
       entry.description.trim().length === 0 ||
       /[\r\n]/u.test(entry.description) ||
       typeof entry.purpose !== "string" ||
-      entry.purpose.trim().length === 0
+      entry.purpose.trim().length === 0 ||
+      (entry.frontendRouting !== undefined &&
+        (typeof entry.frontendRouting !== "string" || entry.frontendRouting.trim().length === 0))
     )
       throw new Error(`Invalid build command metadata at index ${index}`);
     if (!Array.isArray(entry.sections) || entry.sections.length !== middleHeadings.length)
@@ -84,6 +86,8 @@ export function renderCommandSkill(entry) {
   const parts = ["## Purpose", "", entry.purpose, ""];
   for (const section of entry.sections) {
     parts.push(`## ${section.heading}`, "", section.body, "");
+    if (section.heading === "Workflow" && entry.frontendRouting !== undefined)
+      parts.push(entry.frontendRouting, "");
   }
   parts.push("## Completion contract", "", COMPLETION_CONTRACT);
   const body = parts.join("\n");

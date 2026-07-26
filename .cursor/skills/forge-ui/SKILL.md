@@ -1,13 +1,13 @@
 ---
 name: forge-ui
-description: Inspect rendered interfaces for responsive behavior, hierarchy, state clarity, consistency, and visual defects. Activate automatically for web, mobile, or desktop interfaces when that concern is relevant to a software-engineering request.
+description: Use automatically for visual-interface creation and improvement, including direction, typography, color, spacing, layout, systems, states, consistency, motion, and polish while preserving usability, accessibility, and established brand conventions. Activate automatically for web, mobile, or desktop interface creation and review when that concern is relevant to a software-engineering request.
 ---
 
 # forge-ui: User interface
 
 ## Purpose
 
-Inspect rendered interfaces for responsive behavior, hierarchy, state clarity, consistency, and visual defects.
+Use automatically for visual-interface creation and improvement, including direction, typography, color, spacing, layout, systems, states, consistency, motion, and polish while preserving usability, accessibility, and established brand conventions.
 
 This is an agent playbook, not a claim of standalone analyzer coverage. The agent supplies reasoning
 and implementation; deterministic CLI support is used only where named below.
@@ -17,8 +17,8 @@ and implementation; deterministic CLI support is used only where named below.
 Activate when a request or direct repository evidence involves user interface, when
 the user explicitly names `forge-ui`, or when discovery proves an applicable boundary.
 
-- Web, mobile, or desktop interfaces
-- Component libraries
+- Web, mobile, or desktop interface creation and review
+- Visual styling, redesigns, component libraries, design systems, themes, dashboards, and landing pages
 
 ## When not to activate
 
@@ -40,18 +40,49 @@ uses the same guidance without requiring a Forge command. Relevant discovery inp
 Available deterministic support, where present:
 
 - Use `inspect-rendered-ui` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+## Experience workflow and progressive references
+
+Automatic activation signals include:
+
+- visual design, redesign, styling, layout, spacing, typography, color, or design systems
+- component states, consistency, themes, icons, motion, landing pages, dashboards, or polish
+
+Explicit agent shortcuts are `$forge ui build`, `$forge ui review`, `$forge ui audit`, `$forge ui fix`. `review` routes to evidence-preserving `audit`;
+`improve` routes to a fix preview unless safe application is explicitly authorized. Normal feature
+requests do not require a command.
+
+Use this proportional workflow: `UNDERSTAND` → `INSPECT` → `SELECT` → `DEFINE` → `IMPLEMENT` → `RENDER` → `VALIDATE` → `REFINE` → `REPORT`.
+For a small bounded change, keep the same order but record decisions inline; optional templates must
+not become ceremony.
+
+Load only the references selected by the request and repository evidence:
+
+- `visual-direction` — load the installed bundle file `fullstack-forge/references/frontend/visual-direction.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `design-system` — load the installed bundle file `fullstack-forge/references/frontend/design-system.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `responsive-layout` — load the installed bundle file `fullstack-forge/references/frontend/responsive-layout.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `motion-and-interactions` — load the installed bundle file `fullstack-forge/references/frontend/motion-and-interactions.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `dashboards-and-data-visualization` — load the installed bundle file `fullstack-forge/references/frontend/dashboards-and-data-visualization.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `design-review` — load the installed bundle file `fullstack-forge/references/frontend/design-review.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+- `anti-patterns` — load the installed bundle file `fullstack-forge/references/frontend/anti-patterns.md` only when its **Load when** condition matches; obey its **Do not load when** exclusions.
+
+Accessibility rules remain owned by `forge-accessibility`; localization by `forge-i18n`;
+performance proof by `forge-performance`; public-search behavior by `forge-seo`. Compose those
+owners instead of copying their rules here. Never load mobile, chart, motion, or framework guidance
+without matching evidence.
+
 
 ## Agent inspection procedure
 
 1. Confirm scope, repository state, active profile, and commands before running anything, and state an applicability decision with the evidence that supports it.
-2. Start or attach to the running application and enumerate representative routes from router or navigation evidence.
-3. Inspect each representative screen at small, medium, and wide viewports, recording URL, viewport, and observed layout for every check.
-4. Force loading, empty, error, success, and disabled states through data or network manipulation and record each state's rendering.
-5. Compare repeated components (buttons, forms, tables, dialogs) across screens for token, spacing, and typography drift.
-6. Capture browser console output on every inspected route and treat errors and warnings as findings, not noise.
-7. When no running application is reachable, mark every rendered-state criterion `NOT_VERIFIED` and state exactly which routes were not exercised.
-8. Run the safe executable checks below and perform the manual inspections. Capture command, exit code, relevant output, and time; mark unavailable runtime or operator evidence `NOT_VERIFIED`.
-9. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location. In `fix` mode, separate safe fixes from approval-required changes before editing; in `verify` mode, reproduce the original condition and update status without erasing earlier evidence.
+2. Inspect the product goal, existing brand assets, design tokens, component library, styling mechanism, and nearest visual precedent before proposing a direction.
+3. For substantial work, state the intended character, typography, color, density, layout, shape, imagery, icon, and motion choices with a product-specific rationale.
+4. Start or attach to the running application and enumerate representative routes and states from router or navigation evidence.
+5. Inspect each representative screen at failure-driven small, medium, and wide viewports, recording URL, viewport, theme, locale, input method, and observed layout.
+6. Force loading, partial, empty, error, success, permission, disabled, focus, hover or press, destructive, and long-content states that can occur.
+7. Compare repeated components for semantic-token, state, spacing, typography, icon, and responsive drift; preserve established conventions unless direct evidence shows harm.
+8. Capture browser console and accessibility output on inspected routes; when rendering is unavailable, mark visual behavior `NOT_VERIFIED` rather than inferring it from source.
+9. Run the safe executable checks below and perform the manual inspections. Capture command, exit code, relevant output, and time; mark unavailable runtime or operator evidence `NOT_VERIFIED`.
+10. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location. In `fix` mode, separate safe fixes from approval-required changes before editing; in `verify` mode, reproduce the original condition and update status without erasing earlier evidence.
 
 Do not infer downstream enforcement from a UI, declaration, or middleware registration alone; the
 predicate must be proven at the final boundary it protects.
@@ -124,6 +155,10 @@ evidence by itself.
 - Desktop, tablet, and mobile screenshots
 - Repeated-component comparison
 - Recorded visual evidence and cleanup of started processes
+- Product-specific visual direction with rationale
+- Preservation of existing brand and component conventions
+- Light and dark theme state parity
+- Truthful content and non-fabricated credibility signals
 
 ## Commands and tools
 

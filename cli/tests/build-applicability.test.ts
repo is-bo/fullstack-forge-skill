@@ -100,6 +100,17 @@ test("a high project risk floor requires security without inventing an applicati
   assert.ok(!result.required.includes("payments"));
 });
 
+test("natural-language interface intent activates the proportional specialist set", () => {
+  const result = deriveBuildApplicability({
+    profile: profile(),
+    summary: "Build an Arabic RTL appointment booking form in Next.js"
+  });
+  for (const discipline of ["frontend", "ux", "accessibility", "i18n"])
+    assert.ok(result.required.includes(discipline), `${discipline} must be required`);
+  assert.ok(!result.required.includes("offline"));
+  assert.ok(!result.required.includes("seo"));
+});
+
 test("documentation, test, fixture, and generated path signals cannot activate a discipline", () => {
   const result = deriveBuildApplicability({
     profile: profile(),

@@ -33,10 +33,18 @@ The agent should discover the existing implementation, select only relevant play
 feature, consider permissions, query bounds, CSV escaping, UX, and tests, run focused verification,
 and report limitations. No Forge command is required.
 
+For example, “Create a mobile-friendly appointment booking flow” automatically composes frontend,
+UI, UX, and accessibility guidance, then adds forms, responsive, framework, offline, performance,
+i18n, SEO, or security guidance only when the request or repository makes it relevant. Significant
+new UI gets a short product and visual-direction decision; a one-component correction stays small.
+
 ## Optional explicit use
 
 ```text
 $forge audit security
+$forge frontend audit
+$forge ui review
+$forge ux review
 $forge verify
 $forge ship
 ```

@@ -41,9 +41,11 @@ Never include secrets, raw credentials, full personal records, or unnecessary pa
 value without erasing the fact that the value was observed.
 
 Findings may be produced by `forge-analyzer`, `forge-command`, `agent-reviewed-source`,
-`agent-runtime-verification`, `external-tool`, or `human-decision`. Agent findings must bind their
-source lines, revision, commands, limitations, and verification procedure and must be validated
-before ingestion into both official report formats.
+`agent-rendered-review`, `agent-runtime-verification`, `external-tool`, or `human-decision`. Agent
+findings must bind their source lines, revision, commands, limitations, and verification procedure
+and must be validated before ingestion into both official report formats. A rendered-review finding
+also binds the actual artifact or viewport observation; when rendered evidence was not captured, use
+source review and keep visual behavior `NOT_VERIFIED`.
 
 Release-significant Audit and Ship evidence uses the v0.3 typed envelope. A record is eligible only
 when its domain, registered producer/version/contract, exact criterion/status, canonical root,

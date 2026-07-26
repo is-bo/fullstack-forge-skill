@@ -15,6 +15,9 @@ Conceptual reference repositories and their observed licenses at the researched 
   concepts only.
 - Trail of Bits skills — CC BY-SA 4.0. Used for concepts only; no adaptation of protected text.
 
+Microsoft Skills, AccessLint Claude Marketplace, Expo Skills, shadcn/ui, and Vercel web interface
+guidelines are MIT or repository-stated MIT and were used for concepts only.
+
 The Agent Skills specification and platform names are owned by their respective projects and
 vendors. This project is independent and is not endorsed by OpenAI, Anthropic, Google, Cursor,
 Windsurf/Devin, GitHub, OWASP, NIST, W3C, or the referenced repositories.
