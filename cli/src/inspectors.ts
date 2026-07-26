@@ -2,13 +2,15 @@ import { readdir } from "node:fs/promises";
 import { basename, extname, join, relative } from "node:path";
 import { runAnalyzers, type AnalyzerScope } from "./analyzers.js";
 import { inventoryRepository, type RepositoryInventory } from "./repository-inventory.js";
-import { MODULE_SLUGS, SECTION_CAPABILITY, type ModuleSlug, type ToolName } from "./constants.js";
+import { MODULE_SLUGS, type ModuleSlug, type ToolName } from "./constants.js";
 import { classifyEvidencePath } from "./discovery-evidence.js";
+import { decideModules } from "./scope.js";
 import type {
   Finding,
   GateEvidence,
   GateEvidenceType,
   InspectionResult,
+  ModuleDecision,
   Observation,
   ProjectProfile
 } from "./types.js";
@@ -199,18 +201,31 @@ export async function inspectWithTool(
   return emptyResult(tool, root);
 }
 
+/**
+ * Runs one module's inspection.
+ *
+ * Applicability is decided once, by `decideModules`, and handed in as `decision`. Execution and
+ * reporting therefore cannot disagree: this function never re-derives applicability from the
+ * legacy `profile.capabilities` presence map, because that map records *control* discovery and
+ * would suppress analysis of exactly the risk surfaces that lack a control.
+ *
+ * `decision` is optional only so that callers holding a single module can omit it; in that case
+ * the canonical decision is computed here from the same `decideModules` entry point rather than
+ * from a second applicability model.
+ */
 export async function inspectSection(
   section: ModuleSlug,
   root: string,
   profile: ProjectProfile,
   scope?: AnalyzerScope,
-  repositoryInventory?: RepositoryInventory
+  repositoryInventory?: RepositoryInventory,
+  decision?: ModuleDecision
 ): Promise<InspectionResult> {
-  const capability = SECTION_CAPABILITY[section];
-  if (capability !== undefined && profile.capabilities[capability] === undefined) {
+  const applicability = resolveApplicability(section, profile, decision);
+  if (applicability.status === "NOT_APPLICABLE") {
     return {
       ...emptyResult(`inspect-${section}`, root),
-      findings: [notApplicableFinding(section, capability)]
+      findings: [notApplicableFinding(section, applicability.evidence)]
     };
   }
   const analyzerSections = new Set<ModuleSlug>([
@@ -228,8 +243,14 @@ export async function inspectSection(
     "tenancy",
     "uploads"
   ]);
+  // The ownership boundary discovery inferred for this project drives tenant-scope proof, so a
+  // domain-named key such as `clinicId` is analysed exactly like `tenantId`.
+  const tenantKeys = [
+    ...(profile.tenancy?.key === undefined ? [] : [profile.tenancy.key]),
+    ...(profile.tenancy?.candidates ?? [])
+  ];
   const analyzerRuns = analyzerSections.has(section)
-    ? await runAnalyzers(section, root, scope, repositoryInventory)
+    ? await runAnalyzers(section, root, scope, repositoryInventory, tenantKeys)
     : [];
   const analyzerFindings = analyzerRuns.flatMap((run) => run.findings);
   const analyzerObservations: Observation[] = analyzerRuns
@@ -717,20 +738,46 @@ function isExplicitlySyntheticTestValue(value: string, path: string): boolean {
   );
 }
 
-function notApplicableFinding(section: ModuleSlug, capability: string): Finding {
+/**
+ * Resolves the single canonical applicability verdict for a module.
+ *
+ * The supplied decision always wins. When none is supplied the decision is derived through
+ * `decideModules`, so there is exactly one applicability model in the product rather than a
+ * separate execution-time heuristic.
+ */
+function resolveApplicability(
+  section: ModuleSlug,
+  profile: ProjectProfile,
+  decision?: ModuleDecision
+): { status: "APPLICABLE" | "APPLICABLE_UNPROVEN" | "NOT_APPLICABLE"; evidence: string[] } {
+  const resolved =
+    decision ?? decideModules({ candidates: [section], profile, explicit: false })[0];
+  if (resolved === undefined) return { status: "APPLICABLE_UNPROVEN", evidence: [] };
+  // Older profiles predate `applicability_status`; fall back to the risk axis, never to control
+  // presence, so a missing control can still not suppress analysis.
+  const status =
+    resolved.applicability_status ??
+    (resolved.capability_status === "ABSENT" ? "NOT_APPLICABLE" : "APPLICABLE_UNPROVEN");
+  return { status, evidence: [...resolved.reasons, ...resolved.evidence] };
+}
+
+function notApplicableFinding(section: ModuleSlug, evidence: readonly string[]): Finding {
   return {
     id: `FF-${section.toUpperCase()}-001`,
     section,
-    title: `${section} module is not applicable to detected scope`,
+    title: `${section} module is not applicable in the bounded scanned scope`,
     severity: "INFO",
     confidence: "MEDIUM",
     status: "NOT_APPLICABLE",
     location: [{ path: ".forge/project-profile.json" }],
-    evidence: [`Discovery did not detect the ${capability} capability.`],
-    impact: "No audit impact within the detected scope.",
+    evidence:
+      evidence.length > 0
+        ? [...evidence]
+        : ["No risk surface for this module was observed in the bounded scanned scope."],
+    impact: "No audit impact within the bounded scanned scope.",
     recommendation: "Re-run discovery if the repository or runtime boundary changes.",
     safe_fix: false,
-    verification: [`Add direct ${capability} evidence and re-run forge ${section} audit.`],
+    verification: [`Widen scope or add direct evidence and re-run forge ${section} audit.`],
     standards: ["Fullstack Forge evidence protocol"]
   };
 }

@@ -283,7 +283,10 @@ export function createReport(
   environment?: ReportEnvironment,
   ledgers: ReportLedgers = {}
 ): AuditReport {
-  assertNoContradictoryApplicability(findings);
+  // One logical conclusion per scope: retract synthetic non-applicability before asserting, so a
+  // report can never publish both "module does not apply" and a verdict produced by that module.
+  const reconciled = reconcileApplicabilityConclusions(findings);
+  assertNoContradictoryApplicability(reconciled);
   return {
     schema_version: REPORT_SCHEMA_VERSION,
     generated_at: utcNow(),
@@ -291,7 +294,7 @@ export function createReport(
     scope,
     ...(environment === undefined ? {} : { environment }),
     profile,
-    findings: sortFindings(deduplicateFindings(findings)),
+    findings: sortFindings(deduplicateFindings(reconciled)),
     execution,
     assumptions,
     residual_risk: residualRisk,
@@ -306,17 +309,61 @@ export function createReport(
   };
 }
 
+/** True for the synthetic "this module does not apply" finding, whatever produced it. */
+function isSyntheticApplicabilityFinding(finding: Finding): boolean {
+  return (
+    finding.status === "NOT_APPLICABLE" &&
+    /module.*not applicable|applicability/iu.test(finding.title)
+  );
+}
+
+/**
+ * True when a finding demonstrates that its module was actually inspected.
+ *
+ * Any concrete verdict — a defect, a warning, or an explicit coverage limitation — proves the
+ * module applied, because a module that does not apply is never analysed.
+ */
+function provesApplicability(finding: Finding): boolean {
+  if (finding.status === "SUPERSEDED") return false;
+  return ["FAIL", "WARNING", "NOT_VERIFIED", "PASS", "BLOCKED"].includes(finding.status);
+}
+
+/**
+ * Retracts a synthetic non-applicability verdict when the same report proves the module applied.
+ *
+ * This is the report-wide form of the supersession rule already applied to ingested agent
+ * findings: for one logical conclusion in one scope there may be exactly one active verdict. The
+ * retracted entry is preserved as `SUPERSEDED` so the history stays auditable, and distinct
+ * findings that merely share a section are never touched.
+ */
+function reconcileApplicabilityConclusions(findings: Finding[]): Finding[] {
+  const reconciled = findings.map((finding) => structuredClone(finding));
+  for (const section of new Set(reconciled.map((finding) => finding.section))) {
+    const scoped = reconciled.filter((finding) => finding.section === section);
+    const synthetic = scoped.filter(isSyntheticApplicabilityFinding);
+    if (synthetic.length === 0) continue;
+    const proof = scoped.find(
+      (finding) => !isSyntheticApplicabilityFinding(finding) && provesApplicability(finding)
+    );
+    if (proof === undefined) continue;
+    for (const finding of synthetic) {
+      finding.status = "SUPERSEDED";
+      finding.superseded_by = proof.instance_id ?? proof.id;
+      finding.retraction_reason = `The ${section} module was inspected in this run, so a non-applicability verdict cannot remain active.`;
+    }
+  }
+  return reconciled;
+}
+
 function assertNoContradictoryApplicability(findings: Finding[]): void {
   const active = findings.filter((finding) => finding.status !== "SUPERSEDED");
   for (const section of new Set(active.map((finding) => finding.section))) {
     const scoped = active.filter((finding) => finding.section === section);
     if (
+      scoped.some(isSyntheticApplicabilityFinding) &&
       scoped.some(
-        (finding) =>
-          finding.status === "NOT_APPLICABLE" &&
-          /module.*not applicable|applicability/iu.test(finding.title)
-      ) &&
-      scoped.some((finding) => finding.status === "FAIL")
+        (finding) => !isSyntheticApplicabilityFinding(finding) && provesApplicability(finding)
+      )
     )
       throw new Error(
         `Contradictory active applicability conclusions for '${section}'; supersede the weaker finding before reporting.`
