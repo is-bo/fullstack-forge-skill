@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { PACKAGE_ROOT, VERSION } from "../src/constants.js";
-import { runFile } from "../src/utils.js";
+import { runFile, sha256, workingTreeRevision } from "../src/utils.js";
 import { copyFixture, withTemporaryProject } from "./helpers.js";
 const cli = join(PACKAGE_ROOT, "build", "cli", "src", "index.js");
 test("compiled CLI exposes version, list, and blocked command execution", async () => {
@@ -14,13 +14,15 @@ test("compiled CLI exposes version, list, and blocked command execution", async 
     assert.equal(list.exitCode, 0);
     const parsed = JSON.parse(list.stdout);
     assert.equal(parsed.modules.length, 42);
-    assert.equal(parsed.tools.length, 26);
+    assert.equal(parsed.tools.length, 27);
 });
 test("compiled CLI ingests validated agent findings into both official report formats", async () => {
     await withTemporaryProject("agent-findings", async (root) => {
         await mkdir(join(root, ".forge"), { recursive: true });
         await mkdir(join(root, "src"), { recursive: true });
-        await writeFile(join(root, "src", "auth.ts"), "export const reset = true;\n", "utf8");
+        const source = "export const reset = true;\n";
+        await writeFile(join(root, "src", "auth.ts"), source, "utf8");
+        const revision = await workingTreeRevision(root);
         const input = join(root, ".forge", "agent-findings.json");
         await writeFile(input, JSON.stringify([
             {
@@ -41,7 +43,15 @@ test("compiled CLI ingests validated agent findings into both official report fo
                 safe_fix: false,
                 safe_fix_classification: "approval-required",
                 verification: ["Replay one token twice and require the second request to fail."],
-                revision: "fixture-revision",
+                revision,
+                evidence_snapshot: [
+                    {
+                        path: "src/auth.ts",
+                        line: 1,
+                        sha256: sha256(source),
+                        excerpt_hash: sha256("export const reset = true;")
+                    }
+                ],
                 commands_executed: [{ command: "node --test auth", exit_code: 1 }],
                 remaining_limitations: ["No production mail-provider evidence was available."],
                 standards: ["OWASP ASVS 5.0"]

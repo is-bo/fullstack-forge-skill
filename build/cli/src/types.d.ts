@@ -1,7 +1,7 @@
-import type { CapabilityAssessment } from "./discovery-evidence.js";
+import type { CapabilityAssessment, RiskEvidence } from "./discovery-evidence.js";
 import type { EvidenceArtifact, EvidenceCommand, EvidenceEnvelope } from "./evidence-envelope.js";
 import type { RepositoryInventoryDiagnostics } from "./repository-inventory.js";
-export declare const STATUSES: readonly ["PASS", "FAIL", "WARNING", "NOT_APPLICABLE", "NOT_VERIFIED", "BLOCKED"];
+export declare const STATUSES: readonly ["PASS", "FAIL", "WARNING", "NOT_APPLICABLE", "NOT_VERIFIED", "BLOCKED", "SUPERSEDED"];
 export type Status = (typeof STATUSES)[number];
 export declare const SEVERITIES: readonly ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"];
 export type Severity = (typeof SEVERITIES)[number];
@@ -39,6 +39,8 @@ export type EvidenceSnapshot = {
     line?: number;
     excerpt_hash?: string;
 };
+export declare const FINDING_BINDING_STATES: readonly ["EXACT", "EXACT_DIRTY", "REBASED", "STALE", "INVALID"];
+export type FindingBindingState = (typeof FINDING_BINDING_STATES)[number];
 export type TraceEvidence = {
     source: string;
     sink: string;
@@ -111,6 +113,10 @@ export type Finding = {
     evidence_snapshot?: EvidenceSnapshot[];
     verification_plan?: VerificationPlan;
     fix_attempts?: FixAttempt[];
+    binding_state?: FindingBindingState;
+    supersedes?: string[];
+    superseded_by?: string;
+    retraction_reason?: string;
 };
 export type Detection = {
     name: string;
@@ -128,6 +134,13 @@ export type ProfileRecord = {
 export type RouteRecord = ProfileRecord & {
     visibility: "public" | "authenticated" | "admin" | "internal" | "unknown";
 };
+export type TenancyProfile = {
+    status: "PRESENT" | "ABSENT" | "UNKNOWN";
+    key?: string;
+    candidates: string[];
+    confidence: Confidence;
+    evidence: string[];
+};
 export type ProjectProfile = {
     schema_version: 2;
     root: string;
@@ -139,6 +152,9 @@ export type ProjectProfile = {
      * compatibility with profiles written before evidence classification existed.
      */
     capability_assessments?: CapabilityAssessment[];
+    /** Bounded application behavior that can make specialist concerns applicable. */
+    risk_evidence?: RiskEvidence[];
+    tenancy?: TenancyProfile;
     /** Bounded repository inventory used to produce this profile. Optional for old profiles. */
     inventory?: RepositoryInventoryDiagnostics;
     repository: ProfileRecord;
@@ -245,8 +261,17 @@ export declare const MODULE_CAPABILITY_STATUSES: readonly ["PRESENT", "ABSENT", 
 export type ModuleCapabilityStatus = (typeof MODULE_CAPABILITY_STATUSES)[number];
 export declare const MODULE_SELECTION_STATUSES: readonly ["SELECTED", "OUT_OF_CHANGED_SCOPE", "EXCLUDED_BY_RISK", "NOT_REQUESTED"];
 export type ModuleSelectionStatus = (typeof MODULE_SELECTION_STATUSES)[number];
+export declare const MODULE_APPLICABILITY_STATUSES: readonly ["APPLICABLE", "APPLICABLE_UNPROVEN", "NOT_APPLICABLE"];
+export type ModuleApplicabilityStatus = (typeof MODULE_APPLICABILITY_STATUSES)[number];
+export declare const ANALYZER_SUPPORT_STATUSES: readonly ["EXECUTABLE", "PARTIAL", "NONE"];
+export type AnalyzerSupportStatus = (typeof ANALYZER_SUPPORT_STATUSES)[number];
 export type ModuleDecision = {
     module: string;
+    risk_status?: ModuleCapabilityStatus;
+    control_status?: ModuleCapabilityStatus;
+    applicability_status?: ModuleApplicabilityStatus;
+    analyzer_support?: AnalyzerSupportStatus;
+    /** Legacy projection retained for schema-v2 report readers; equals risk_status. */
     capability_status: ModuleCapabilityStatus;
     selection_status: ModuleSelectionStatus;
     reasons: string[];

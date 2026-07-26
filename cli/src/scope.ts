@@ -1,9 +1,14 @@
 import { basename, dirname, extname, join, relative } from "node:path";
 import type { ModuleSlug } from "./constants.js";
 import { ALWAYS_APPLICABLE, SECTION_CAPABILITY } from "./constants.js";
-import { CAPABILITY_RULES } from "./discovery-evidence.js";
+import { CAPABILITY_RULES, capabilityKindFor } from "./discovery-evidence.js";
 import { appendModuleDecision } from "./ledger.js";
-import type { ModuleCapabilityStatus, ModuleDecision, ProjectProfile } from "./types.js";
+import type {
+  AnalyzerSupportStatus,
+  ModuleCapabilityStatus,
+  ModuleDecision,
+  ProjectProfile
+} from "./types.js";
 import {
   assertSafeRelative,
   canonicalDirectory,
@@ -114,6 +119,74 @@ export function capabilityStatusFor(
   };
 }
 
+/** Risk surfaces select modules; control presence never suppresses them. */
+export function riskStatusFor(
+  section: ModuleSlug,
+  profile: ProjectProfile
+): { status: ModuleCapabilityStatus; evidence: string[] } {
+  if (ALWAYS_APPLICABLE.has(section))
+    return {
+      status: "PRESENT",
+      evidence: [`The ${section} concern applies to every executable project in bounded scope.`]
+    };
+  const direct = (profile.risk_evidence ?? []).filter((item) => item.modules.includes(section));
+  if (direct.length > 0)
+    return {
+      status: "PRESENT",
+      evidence: direct.map(
+        (item) =>
+          `${item.risk} at ${item.path}${item.line === undefined ? "" : `:${item.line}`} (${item.confidence}): ${item.reason}.`
+      )
+    };
+  const capability = SECTION_CAPABILITY[section];
+  if (capability !== undefined && capabilityKindFor(capability) === "surface")
+    return capabilityStatusFor(section, profile);
+  if (profile.inventory?.status === "PARTIAL")
+    return {
+      status: "UNKNOWN",
+      evidence: [
+        `The bounded inventory was partial and observed no ${section} risk signature; applicability remains unverified.`
+      ]
+    };
+  return {
+    status: "ABSENT",
+    evidence: [
+      `No ${section} risk signature was observed in the bounded scanned scope: ${profile.inventory?.files_inspected ?? "unknown"} source files inspected.`
+    ]
+  };
+}
+
+function controlStatusFor(
+  section: ModuleSlug,
+  profile: ProjectProfile
+): { status: ModuleCapabilityStatus; evidence: string[] } {
+  const capability = SECTION_CAPABILITY[section];
+  if (capability === undefined || capabilityKindFor(capability) !== "control")
+    return {
+      status: "UNKNOWN",
+      evidence: [`No standalone ${section} control-presence signature is modeled.`]
+    };
+  return capabilityStatusFor(section, profile);
+}
+
+function analyzerSupportFor(section: ModuleSlug): AnalyzerSupportStatus {
+  if (
+    [
+      "security",
+      "authorization",
+      "tenancy",
+      "uploads",
+      "accessibility",
+      "queries",
+      "cache"
+    ].includes(section)
+  )
+    return "PARTIAL";
+  if (["auth", "frontend", "payments", "integrations", "ai", "deployment"].includes(section))
+    return "PARTIAL";
+  return "NONE";
+}
+
 /** Capabilities the v0.1.10 evidence layer actually models. */
 const MODELED_CAPABILITIES: ReadonlySet<string> = new Set(
   CAPABILITY_RULES.map((rule) => rule.capability)
@@ -191,18 +264,31 @@ export type ModuleDecisionInput = {
 export function decideModules(input: ModuleDecisionInput): ModuleDecision[] {
   let decisions: ModuleDecision[] = [];
   for (const section of input.candidates) {
-    const capability = capabilityStatusFor(section, input.profile);
+    const risk = riskStatusFor(section, input.profile);
+    const control = controlStatusFor(section, input.profile);
+    const applicability =
+      risk.status === "PRESENT"
+        ? "APPLICABLE"
+        : risk.status === "UNKNOWN"
+          ? "APPLICABLE_UNPROVEN"
+          : "NOT_APPLICABLE";
     const reasons: string[] = [];
     const always = ALWAYS_APPLICABLE.has(section);
-    if (capability.status === "PRESENT")
+    if (risk.status === "PRESENT")
       reasons.push(
         always
-          ? "The module is always applicable and is never gated on a detected capability."
-          : "Discovery detected the capability this module audits."
+          ? "The module is always applicable and is never gated on a detected control."
+          : "Bounded discovery observed a risk surface this module inspects."
       );
-    else if (capability.status === "UNKNOWN")
-      reasons.push("The capability could not be determined; absence is not proven.");
-    else reasons.push("Discovery proved the capability this module audits does not exist.");
+    else if (risk.status === "UNKNOWN")
+      reasons.push("The risk surface could not be determined; applicability remains unverified.");
+    else reasons.push("No matching risk surface was observed in the bounded scanned scope.");
+    if (control.status === "ABSENT")
+      reasons.push(
+        "No matching control was observed; this increases concern and does not suppress the module."
+      );
+    else if (control.status === "UNKNOWN")
+      reasons.push("Control presence remains unknown and does not determine applicability.");
 
     const riskExcluded =
       input.riskAllowed !== undefined && !input.riskAllowed.has(section) && !input.explicit;
@@ -213,7 +299,7 @@ export function decideModules(input: ModuleDecisionInput): ModuleDecision[] {
     if (input.explicit) {
       selection = "SELECTED";
       reasons.push("An operator selected this module explicitly.");
-      if (capability.status !== "PRESENT")
+      if (risk.status !== "PRESENT")
         reasons.push(
           "The module was audited on explicit request even though its capability was not confirmed."
         );
@@ -222,15 +308,10 @@ export function decideModules(input: ModuleDecisionInput): ModuleDecision[] {
       reasons.push(
         `A risk filter${input.riskLabel === undefined ? "" : ` (--risk ${input.riskLabel})`} narrowed this run and excluded this module. It was not audited and its state is unknown.`
       );
-    } else if (capability.status === "ABSENT") {
-      selection = "NOT_REQUESTED";
-      reasons.push("The module was not selected because its capability is genuinely absent.");
-    } else if (capability.status === "UNKNOWN") {
-      // Unknown is not absence. The module is left unaudited and reported as unverified, never as
-      // inapplicable, because discovery never proved the capability missing.
+    } else if (applicability === "NOT_APPLICABLE") {
       selection = "NOT_REQUESTED";
       reasons.push(
-        "The module was not selected because its capability could not be determined. Its state is unknown, not proven inapplicable."
+        "The module was not selected because the bounded scan observed no matching risk surface."
       );
     } else if (changedExcluded) {
       selection = "OUT_OF_CHANGED_SCOPE";
@@ -250,10 +331,14 @@ export function decideModules(input: ModuleDecisionInput): ModuleDecision[] {
 
     decisions = appendModuleDecision(decisions, {
       module: section,
-      capability_status: capability.status,
+      risk_status: risk.status,
+      control_status: control.status,
+      applicability_status: applicability,
+      analyzer_support: analyzerSupportFor(section),
+      capability_status: risk.status,
       selection_status: selection,
       reasons,
-      evidence: capability.evidence,
+      evidence: [...risk.evidence, ...control.evidence],
       ...(input.explicit ? { explicitly_selected: true } : {})
     });
   }
@@ -270,7 +355,11 @@ export function decisionFindingStatus(
   decision: ModuleDecision
 ): "SELECTED" | "NOT_APPLICABLE" | "NOT_VERIFIED" {
   if (decision.selection_status === "SELECTED") return "SELECTED";
-  return decision.capability_status === "ABSENT" ? "NOT_APPLICABLE" : "NOT_VERIFIED";
+  return (decision.applicability_status ??
+    (decision.capability_status === "ABSENT" ? "NOT_APPLICABLE" : "APPLICABLE_UNPROVEN")) ===
+    "NOT_APPLICABLE"
+    ? "NOT_APPLICABLE"
+    : "NOT_VERIFIED";
 }
 
 export async function analyzeChangedScope(

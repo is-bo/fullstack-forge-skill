@@ -13,6 +13,7 @@ import {
   type ModuleSlug
 } from "./constants.js";
 import { runBuild } from "./build.js";
+import { deriveApplicationInspection } from "./application-inspection.js";
 import { detectAgentRecommendations } from "./agent-detection.js";
 import { listFeatures, loadFeature, loadProject } from "./build-state.js";
 import {
@@ -32,7 +33,7 @@ import { executeFixes } from "./fixes.js";
 import { runShipGates } from "./gates.js";
 import { inventoryLimitationFinding } from "./inventory-evidence.js";
 import { hashInstalledRecord, install, readInstallManifest, uninstall } from "./installer.js";
-import { inspectSection, isModuleSlug } from "./inspectors.js";
+import { isModuleSlug } from "./inspectors.js";
 import { redactToString } from "./redaction.js";
 import {
   captureEnvironment,
@@ -205,10 +206,15 @@ export async function runCli(argv: string[]): Promise<number> {
       } catch {
         recommendations = [];
         detectionWarning =
-          "Automatic agent recommendation was unavailable; the compatibility selector 'all' was used.";
+          "Automatic agent detection was unavailable; the generic Agent Skills host was selected.";
       }
     }
-    const selector = selectPlatform(positionals[0], options.platform);
+    let selector = selectPlatform(positionals[0], options.platform);
+    if (command === "init" && positionals[0] === undefined && options.platform === undefined)
+      selector =
+        recommendations !== undefined && recommendations.length > 0
+          ? [...new Set(recommendations.map((item) => item.selector))].join(",")
+          : "agents";
     const actions = await install(options.cwd, selector, {
       global: options.global,
       dryRun: options.dryRun
@@ -411,15 +417,17 @@ async function runModule(
       .map((outcome) => outcome.id.slice("module:".length))
   );
   selected = selected.filter((slug) => executedModules.has(slug));
-  const results = await Promise.all(
-    selected.map((slug) => inspectSection(slug, root, profile, changedScope?.files, inventory))
-  );
+  const applicationInspection = await deriveApplicationInspection({
+    root,
+    profile,
+    inventory,
+    revision,
+    modules: selected,
+    ...(changedScope === undefined ? {} : { scope: changedScope.files })
+  });
+  const results = applicationInspection.results;
   for (const [index, result] of results.entries()) {
     const selectedModule = selected[index];
-    result.gate_evidence = result.gate_evidence.map((evidence) => ({
-      ...evidence,
-      revision
-    }));
     result.analyzer_coverage =
       selectedModule !== undefined && ADAPTER_MODULES.has(selectedModule)
         ? coverageForProfile(selectedModule, profile)
@@ -751,12 +759,19 @@ function candidateSections(section: ModuleSlug): ModuleSlug[] {
 async function doctor(options: CliOptions): Promise<number> {
   const root = await canonicalDirectory(options.cwd);
   const checks: DoctorCheck[] = [];
-  const major = Number.parseInt(process.versions.node.split(".")[0] ?? "0", 10);
+  const [major = 0, minor = 0] = process.versions.node
+    .split(".")
+    .slice(0, 2)
+    .map((part) => Number.parseInt(part, 10));
+  const supportedNode =
+    major >= 24 || (major === 22 && minor >= 13) || (major === 20 && minor >= 19);
   checks.push({
     name: "Node.js runtime",
-    status: major >= 24 ? "PASS" : "FAIL",
-    evidence: `${process.version} (requires 24 or newer)`,
-    ...(major >= 24 ? {} : { recovery: "Install Node.js 24 or newer, then rerun forge doctor." })
+    status: supportedNode ? "PASS" : "FAIL",
+    evidence: `${process.version} (requires Node.js 20.19+, 22.13+, or 24+)`,
+    ...(supportedNode
+      ? {}
+      : { recovery: "Install Node.js 20.19+, 22.13+, or 24+, then rerun forge doctor." })
   });
   try {
     const git = await runFile("git", ["--version"], root, 10_000);
@@ -1205,29 +1220,31 @@ function coverageFinding(section: ModuleSlug, observations: number, detail: stri
 function moduleDecisionFinding(decision: ModuleDecision): Finding {
   const section = decision.module as ModuleSlug;
   const status = decisionFindingStatus(decision);
-  const applicable = status === "NOT_APPLICABLE";
+  const notApplicable = status === "NOT_APPLICABLE";
   const base = coverageFinding(section, 0, decision.reasons.join(" "));
   return {
     ...base,
     id: `FF-${section.toUpperCase()}-001`,
-    title: applicable
-      ? `${section} module is not applicable: the capability does not exist`
+    title: notApplicable
+      ? `${section} module is not applicable in the bounded scanned scope`
       : `${section} module was not audited in this run`,
-    status: applicable ? "NOT_APPLICABLE" : "NOT_VERIFIED",
-    severity: applicable ? "INFO" : "LOW",
+    status: notApplicable ? "NOT_APPLICABLE" : "NOT_VERIFIED",
+    severity: notApplicable ? "INFO" : "LOW",
     evidence: [
-      `Capability status: ${decision.capability_status}. Selection status: ${decision.selection_status}.`,
+      `Risk status: ${decision.risk_status ?? decision.capability_status}. Control status: ${decision.control_status ?? "UNKNOWN"}. Applicability: ${decision.applicability_status ?? "legacy-unrecorded"}. Analyzer support: ${decision.analyzer_support ?? "legacy-unrecorded"}. Selection status: ${decision.selection_status}.`,
       ...decision.evidence,
       ...decision.reasons
     ],
-    impact: applicable
-      ? "No audit impact: the capability this module audits does not exist in the project."
+    impact: notApplicable
+      ? "No matching risk surface was observed in the bounded scanned scope; this conclusion does not cover excluded or unsupported behavior."
       : "The module exists or may exist but produced no evidence in this run, so its state is unknown.",
-    recommendation: applicable
-      ? `Re-run forge ${section} if the project later gains this capability.`
+    recommendation: notApplicable
+      ? `Re-run forge ${section} if the scanned scope or project behavior changes.`
       : `Re-run forge ${section} (or widen the scope or risk filter) to obtain evidence for this module.`,
-    verification: applicable
-      ? ["Confirm through discovery that the capability is still absent."]
+    verification: notApplicable
+      ? [
+          "Repeat bounded discovery and confirm the inspected scope still contains no matching risk surface."
+        ]
       : [`Run forge ${section} audit against the full scope and attach direct evidence.`]
   };
 }

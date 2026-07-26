@@ -1,4 +1,4 @@
-import { CONFIDENCES, FINDING_EVIDENCE_TYPES, FINDING_PRODUCERS, FIX_ATTEMPT_STATUSES, SEVERITIES, STATUSES } from "./types.js";
+import { CONFIDENCES, FINDING_EVIDENCE_TYPES, FINDING_BINDING_STATES, FINDING_PRODUCERS, FIX_ATTEMPT_STATUSES, SEVERITIES, STATUSES } from "./types.js";
 export function validateFinding(value) {
     const errors = [];
     if (!isRecord(value))
@@ -137,6 +137,15 @@ export function validateFinding(value) {
             }
         }
     }
+    if ("binding_state" in value && !FINDING_BINDING_STATES.includes(value.binding_state))
+        errors.push("invalid binding_state");
+    if ("supersedes" in value &&
+        (!Array.isArray(value.supersedes) ||
+            value.supersedes.some((item) => typeof item !== "string" || item.length === 0)))
+        errors.push("supersedes must be an array of non-empty instance IDs");
+    for (const field of ["superseded_by", "retraction_reason"])
+        if (field in value && (typeof value[field] !== "string" || value[field].length === 0))
+            errors.push(`${field} must be a non-empty string`);
     if ("verification_plan" in value) {
         if (!isRecord(value.verification_plan) || !Array.isArray(value.verification_plan.actions)) {
             errors.push("verification_plan must contain an actions array");
@@ -192,6 +201,9 @@ function validateAgentAuthoredFinding(value, errors) {
         errors.push("remaining_limitations must be an array of non-empty strings for agent-authored findings");
     if (value.producer === "agent-reviewed-source" && value.evidence_type !== "source-review")
         errors.push("agent-reviewed-source requires evidence_type=source-review");
+    if (value.producer === "agent-reviewed-source" &&
+        (!Array.isArray(value.evidence_snapshot) || value.evidence_snapshot.length === 0))
+        errors.push("agent-reviewed-source requires at least one evidence_snapshot");
     if (value.producer === "agent-rendered-review") {
         if (value.evidence_type !== "rendered-review")
             errors.push("agent-rendered-review requires evidence_type=rendered-review");

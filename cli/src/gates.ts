@@ -4,9 +4,9 @@ import {
   verifyEvidenceEnvelope,
   type EvidenceArtifact
 } from "./evidence-envelope.js";
+import { deriveApplicationInspection } from "./application-inspection.js";
 import { discoverProjectWithInventory } from "./discovery.js";
 import { validateFinding } from "./finding.js";
-import { inspectSection } from "./inspectors.js";
 import {
   decideCommandExecution,
   ledgerRecord,
@@ -696,11 +696,6 @@ export function capabilityApplicability(
       status: "APPLICABLE",
       reasons: decisions.flatMap((decision) => decision.evidence)
     };
-  if (decisions.some((decision) => decision.status === "UNKNOWN"))
-    return {
-      status: "UNKNOWN",
-      reasons: decisions.flatMap((decision) => decision.evidence)
-    };
   if (gateId === "FF-GATE-AUTH-EVAL" && hasApplicationRoute(profile))
     return {
       status: "UNKNOWN",
@@ -708,6 +703,11 @@ export function capabilityApplicability(
         "Current discovery found an application route but no authentication or authorization boundary, so absence is unproven.",
         ...decisions.flatMap((decision) => decision.evidence)
       ]
+    };
+  if (decisions.some((decision) => decision.status === "UNKNOWN"))
+    return {
+      status: "UNKNOWN",
+      reasons: decisions.flatMap((decision) => decision.evidence)
     };
   return {
     status: "ABSENT",
@@ -768,16 +768,6 @@ async function capabilityGate(
   return { ...gate, evidence: [...applicability.reasons, ...gate.evidence] };
 }
 
-const SHIP_INSPECTION_MODULES = [
-  "security",
-  "supply-chain",
-  "authorization",
-  "tenancy",
-  "uploads",
-  "database",
-  "deployment"
-] as const satisfies readonly ModuleSlug[];
-
 export type ShipInspection = {
   findings: Finding[];
   evidence: GateEvidence[];
@@ -821,11 +811,14 @@ export async function deriveShipInspection(
   revision: string,
   repositoryInventory?: RepositoryInventory
 ): Promise<ShipInspection> {
-  const results = await Promise.all(
-    SHIP_INSPECTION_MODULES.map((module) =>
-      inspectSection(module, root, profile, undefined, repositoryInventory)
-    )
-  );
+  const inventory = repositoryInventory ?? (await discoverProjectWithInventory(root)).inventory;
+  const application = await deriveApplicationInspection({
+    root,
+    profile,
+    inventory,
+    revision
+  });
+  const results = application.results;
   const limitation = inventoryLimitationFinding(profile, "ship");
   const evidence: GateEvidence[] = [];
   for (const result of results) {

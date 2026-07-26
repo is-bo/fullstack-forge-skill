@@ -24,6 +24,7 @@ Legacy analyzer findings remain readable. New agent findings must contain:
 - evidence, explanation, impact, recommendation, and standards;
 - `safe_fix` plus `safe_fix_classification` (`safe`, `approval-required`, or `unsupported`);
 - verification procedure and revision;
+- a content hash snapshot for source-review evidence;
 - commands executed with exit codes;
 - remaining limitations.
 
@@ -39,5 +40,7 @@ forge tool ingest-agent-findings .forge/agent-findings.json
 ```
 
 Ingestion validates agent provenance, merges with an existing report, preserves report ledgers, and
-rewrites Markdown and JSON together. Missing, stale, unavailable, or unsupported evidence remains
-`NOT_VERIFIED` or `BLOCKED`; it never becomes `PASS` by inference.
+rewrites Markdown and JSON together. It binds exact or unchanged-ancestor snapshots, rejects invalid
+revision claims, demotes changed snapshots, and retains superseded historical findings separately
+from active remediation. Missing, stale, unavailable, or unsupported evidence remains `NOT_VERIFIED`
+or `BLOCKED`; it never becomes `PASS` by inference.

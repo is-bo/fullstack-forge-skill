@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 import { ACTIVATION_THRESHOLD, ACTIVATION_WEIGHTS, EVIDENCE_CLASSES, activationWeightFor, assessProjectCapabilities, classifyEvidencePath, isWeakContext, workspaceForPath } from "../src/discovery-evidence.js";
 import { discoverProject } from "../src/discovery.js";
+import { decideModules } from "../src/scope.js";
 import { withTemporaryProject } from "./helpers.js";
 async function writeProject(root, files) {
     for (const [relative, content] of Object.entries(files)) {
@@ -297,6 +298,116 @@ test("the project profile publishes classified evidence in its JSON output", asy
         assert.ok(profile.capabilities.runtime);
         for (const assessment of assessments)
             assert.ok(["PRESENT", "ABSENT", "UNKNOWN"].includes(assessment.status));
+    });
+});
+test("zero control evidence remains UNKNOWN while zero surface evidence may be ABSENT", async () => {
+    await withTemporaryProject("control-kind-zero", async (root) => {
+        await writeProject(root, { "site.html": "<main>Static documentation</main>" });
+        const assessments = await assessProjectCapabilities(root);
+        const authorization = find(assessments, "authorization");
+        const uploads = find(assessments, "uploads");
+        assert.equal(authorization.kind, "control");
+        assert.equal(authorization.status, "UNKNOWN");
+        assert.equal(uploads.kind, "surface");
+        assert.equal(uploads.status, "ABSENT");
+    });
+});
+test("bounded risk discovery activates concerns from behavior even when controls are missing", async () => {
+    await withTemporaryProject("risk-destructive-route", async (root) => {
+        await writeProject(root, {
+            "routes/patients.ts": `router.delete("/admin/patients/:id", async (req, res) => {
+  await prisma.patient.delete({ where: { id: req.params.id } });
+  res.sendStatus(204);
+});`,
+            "unused.ts": "export function requireRole() { return (_req, _res, next) => next(); }"
+        });
+        const profile = await discoverProject(root);
+        const modules = new Set((profile.risk_evidence ?? []).flatMap((evidence) => evidence.modules));
+        assert.ok(modules.has("authorization"));
+        assert.ok(modules.has("security"));
+        assert.ok(modules.has("observability"));
+        const authorization = decideModules({
+            candidates: ["authorization"],
+            profile,
+            explicit: false
+        })[0];
+        assert.ok(authorization);
+        assert.equal(authorization.risk_status, "PRESENT");
+        assert.equal(authorization.control_status, "UNKNOWN");
+        assert.equal(authorization.applicability_status, "APPLICABLE");
+        assert.equal(authorization.selection_status, "SELECTED");
+    });
+});
+test("risk signatures cover payment webhooks, uploads, and tenant background jobs", async () => {
+    await withTemporaryProject("risk-signature-matrix", async (root) => {
+        await writeProject(root, {
+            "webhook.ts": 'app.post("/webhooks/payment", async (req) => refund(req.body.amount));',
+            "upload.ts": 'app.post("/patients/documents", upload.single("file"), handler);',
+            "jobs/reminders.ts": "export const reminderJob = defineJob(async (clinicId) => db.patient.findMany({ where: { clinicId } }));"
+        });
+        const profile = await discoverProject(root);
+        const modules = new Set((profile.risk_evidence ?? []).flatMap((evidence) => evidence.modules));
+        for (const module of [
+            "integrations",
+            "payments",
+            "uploads",
+            "storage",
+            "authorization",
+            "privacy",
+            "jobs",
+            "reliability",
+            "tenancy"
+        ])
+            assert.ok(modules.has(module), module);
+    });
+});
+test("a static site has no authorization risk surface in the bounded scope", async () => {
+    await withTemporaryProject("risk-static-site", async (root) => {
+        await writeProject(root, {
+            "index.html": "<main><h1>Documentation</h1></main>",
+            "styles.css": "main { max-width: 60rem; }"
+        });
+        const profile = await discoverProject(root);
+        assert.ok(!(profile.risk_evidence ?? []).some((item) => item.modules.includes("authorization")));
+    });
+});
+test("Prisma relationships and authenticated context infer a domain tenant key", async () => {
+    await withTemporaryProject("tenancy-structural-inference", async (root) => {
+        await writeProject(root, {
+            "prisma/schema.prisma": `model Patient {
+  id String @id
+  clinicId String
+}
+model Appointment {
+  id String @id
+  clinicId String
+}`,
+            "routes/patients.ts": "export const list = (req) => prisma.patient.findMany({ where: { clinicId: req.session.user.clinicId } });"
+        });
+        const profile = await discoverProject(root);
+        const tenancy = profile.tenancy;
+        assert.ok(tenancy);
+        assert.equal(tenancy.status, "PRESENT");
+        assert.equal(tenancy.key, "clinicId");
+        assert.equal(tenancy.confidence, "HIGH");
+    });
+});
+test("ambiguous ownership keys remain UNKNOWN and entity IDs are not guessed", async () => {
+    await withTemporaryProject("tenancy-ambiguous-inference", async (root) => {
+        await writeProject(root, {
+            "prisma/schema.prisma": `model Record {
+  id String @id
+  clinicId String
+  accountId String
+  userId String
+}`
+        });
+        const profile = await discoverProject(root);
+        const tenancy = profile.tenancy;
+        assert.ok(tenancy);
+        assert.equal(tenancy.status, "UNKNOWN");
+        assert.deepEqual(tenancy.candidates, ["accountId", "clinicId"]);
+        assert.ok(!tenancy.candidates.includes("userId"));
     });
 });
 //# sourceMappingURL=discovery-evidence.test.js.map

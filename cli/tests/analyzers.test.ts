@@ -284,11 +284,277 @@ export const pay = (req) => stripe.paymentIntents.create({ amount: req.body.amou
   });
 });
 
+test("SQL sink analysis distinguishes SQL structure from bound values", async () => {
+  const cases = [
+    {
+      name: "unsafe-template",
+      source:
+        "export const run = (req) => pool.query(`SELECT * FROM users WHERE name = '${req.query.term}'`);",
+      expected: "FAIL"
+    },
+    {
+      name: "safe-positional",
+      source:
+        'export const run = (req) => pool.query("SELECT * FROM users WHERE name = $1", [req.query.term]);',
+      expected: "CLEAN"
+    },
+    {
+      name: "safe-ilike-template-value",
+      source:
+        'export const run = (req) => pool.query("SELECT * FROM users WHERE name ILIKE $1", [`%${req.query.term}%`]);',
+      expected: "CLEAN"
+    },
+    {
+      name: "safe-client",
+      source:
+        'export const run = (req) => client.query("SELECT * FROM users WHERE name = $1", [req.query.term]);',
+      expected: "CLEAN"
+    },
+    {
+      name: "safe-execute",
+      source:
+        'export const run = (req) => db.execute("SELECT * FROM users WHERE name = ?", [req.query.term]);',
+      expected: "CLEAN"
+    },
+    {
+      name: "safe-prisma-tag",
+      source:
+        "export const run = (req) => prisma.$queryRaw`SELECT * FROM users WHERE name = ${req.query.term}`;",
+      expected: "CLEAN"
+    },
+    {
+      name: "unsafe-prisma-raw",
+      source:
+        "export const run = (req) => prisma.$queryRawUnsafe(`SELECT * FROM users WHERE name = '${req.query.term}'`);",
+      expected: "FAIL"
+    },
+    {
+      name: "unknown-wrapper",
+      source:
+        "export const run = (req) => customDb.search('SELECT * FROM users WHERE name = ?', [req.query.term]);",
+      expected: "NOT_VERIFIED"
+    }
+  ] as const;
+  for (const fixture of cases) {
+    const findings = await analyzerFindings(`sql-${fixture.name}`, fixture.source, "security");
+    const sql = findings.filter((finding) => finding.id.startsWith("FF-SEC-SQL"));
+    const validation = findings.filter((finding) => finding.id === "FF-SEC-VALIDATION-001");
+    if (fixture.expected === "CLEAN") {
+      assert.deepEqual(sql, [], fixture.name);
+      assert.deepEqual(validation, [], fixture.name);
+    } else if (fixture.expected === "FAIL") {
+      assert.ok(
+        sql.some((finding) => finding.id === "FF-SEC-SQL-001" && finding.status === "FAIL"),
+        fixture.name
+      );
+    } else {
+      assert.ok(
+        sql.some(
+          (finding) =>
+            finding.id === "FF-SEC-SQL-NOT-VERIFIED-001" && finding.status === "NOT_VERIFIED"
+        ),
+        fixture.name
+      );
+    }
+  }
+});
+
+test("tenant scope maps raw SQL placeholders to authenticated tenant context", async () => {
+  const safe = await analyzerFindings(
+    "tenant-safe-raw",
+    `export async function load(req) {
+  return pool.query("SELECT id FROM patients WHERE clinicId = $1", [req.session.user.clinicId]);
+}`,
+    "tenancy"
+  );
+  assert.ok(!safe.some((finding) => finding.id.startsWith("FF-TENANT-SCOPE")));
+
+  const unsafe = await analyzerFindings(
+    "tenant-unsafe-raw",
+    `export async function load(req, clinicId) {
+  return pool.query("SELECT id FROM patients WHERE id = $1", [req.params.id]);
+}`,
+    "tenancy"
+  );
+  assert.ok(unsafe.some((finding) => finding.id === "FF-TENANT-SCOPE-001"));
+
+  const unresolved = await analyzerFindings(
+    "tenant-unresolved-raw",
+    `export async function load(req) {
+  const clinicId = resolveClinic(req);
+  return pool.query("SELECT id FROM patients WHERE clinicId = $1", [clinicId]);
+}`,
+    "tenancy"
+  );
+  assert.ok(
+    unresolved.some(
+      (finding) =>
+        finding.id === "FF-TENANT-SCOPE-NOT-VERIFIED-001" && finding.status === "NOT_VERIFIED"
+    )
+  );
+  assert.ok(!unresolved.some((finding) => finding.id === "FF-TENANT-SCOPE-001"));
+});
+
+test("common domain tenant keys preserve raw SQL scope outcomes", async () => {
+  for (const key of [
+    "tenantId",
+    "clinicId",
+    "cabinetId",
+    "practiceId",
+    "hospitalId",
+    "accountId",
+    "merchantId",
+    "schoolId",
+    "workspaceId"
+  ]) {
+    const findings = await analyzerFindings(
+      `tenant-key-${key}`,
+      `export async function load(req) {
+  return pool.query("SELECT id FROM records WHERE ${key} = $1", [req.session.user.${key}]);
+}`,
+      "tenancy"
+    );
+    assert.ok(!findings.some((finding) => finding.id.startsWith("FF-TENANT-SCOPE")), key);
+  }
+});
+
+test("sensitive Express routes require resolvable authorization", async () => {
+  const unprotected = await analyzerFindings(
+    "authz-route-unprotected",
+    `router.delete("/admin/patients/:id", async (req, res) => {
+  await prisma.patient.delete({ where: { id: req.params.id } });
+  res.sendStatus(204);
+});`,
+    "authorization"
+  );
+  assert.ok(unprotected.some((finding) => finding.id === "FF-AUTHZ-ROUTE-001"));
+
+  const protectedRoute = await analyzerFindings(
+    "authz-route-protected",
+    `router.delete("/admin/patients/:id", requireRole("admin"), async (req, res) => {
+  await prisma.patient.delete({ where: { id: req.params.id } });
+  res.sendStatus(204);
+});`,
+    "authorization"
+  );
+  assert.ok(!protectedRoute.some((finding) => finding.id === "FF-AUTHZ-ROUTE-001"));
+
+  const publicRoute = await analyzerFindings(
+    "authz-route-public",
+    'router.get("/health", (_req, res) => res.sendStatus(200));',
+    "authorization"
+  );
+  assert.deepEqual(publicRoute, []);
+
+  const unresolved = await analyzerFindings(
+    "authz-route-unresolved",
+    `router.use(globalGuard);
+router.delete("/admin/patients/:id", deletePatient);`,
+    "authorization"
+  );
+  assert.ok(
+    unresolved.some(
+      (finding) => finding.id === "FF-AUTHZ-NOT-VERIFIED-001" && finding.status === "NOT_VERIFIED"
+    )
+  );
+});
+
+test("accessibility analyzer covers image alternatives and keyboard semantics", async () => {
+  const unsafe = await analyzerFindings(
+    "a11y-structural-unsafe",
+    `export const Card = () => <><img src="doctor.png" /><div onClick={open}>Open</div></>;`,
+    "accessibility",
+    "view.tsx"
+  );
+  assert.ok(unsafe.some((finding) => finding.id === "FF-A11Y-ALT-001"));
+  assert.ok(unsafe.some((finding) => finding.id === "FF-A11Y-INTERACTION-001"));
+
+  for (const [name, source] of [
+    ["meaningful", 'export const View = () => <img src="doctor.png" alt="Doctor profile" />;'],
+    ["decorative", 'export const View = () => <img src="line.png" alt="" />;'],
+    ["presentation", 'export const View = () => <img src="line.png" role="presentation" />;'],
+    ["button", "export const View = () => <button onClick={open}>Open</button>;"],
+    [
+      "complete-custom",
+      'export const View = () => <div role="button" tabIndex={0} onClick={open} onKeyDown={key}>Open</div>;'
+    ]
+  ] as const) {
+    assert.deepEqual(
+      await analyzerFindings(`a11y-${name}`, source, "accessibility", "view.tsx"),
+      [],
+      name
+    );
+  }
+});
+
+test("every upload rule fires and a supported hardened flow stays clean", async () => {
+  const cases = [
+    ["any", "FF-UPLOAD-ANY-001", "app.post('/upload', upload.any(), handler);"],
+    [
+      "extension",
+      "FF-UPLOAD-EXTENSION-001",
+      "app.post('/upload', upload.single('file'), (req) => req.file.originalname.endsWith('.pdf'));"
+    ],
+    [
+      "mime",
+      "FF-UPLOAD-MIME-001",
+      "app.post('/upload', upload.single('file'), (req) => req.file.mimetype === 'application/pdf');"
+    ],
+    [
+      "public",
+      "FF-UPLOAD-PUBLIC-001",
+      "app.post('/upload', upload.single('file'), async (req) => { await save('public/' + req.file.filename, req.file.buffer); await scanner.scan(req.file.buffer); });"
+    ],
+    ["scan", "FF-UPLOAD-SCAN-001", "app.post('/upload', upload.single('file'), handler);"],
+    [
+      "scan-error",
+      "FF-UPLOAD-SCAN-ERROR-001",
+      "app.post('/upload', upload.single('file'), async (req, res) => { try { await scanner.scan(req.file.buffer); } catch {} res.send({ url: release(req.file) }); });"
+    ],
+    [
+      "filename",
+      "FF-UPLOAD-FILENAME-001",
+      "app.post('/upload', upload.single('file'), async (req) => save(req.file.originalname, req.file.buffer));"
+    ],
+    ["limits", "FF-UPLOAD-LIMITS-001", "app.post('/upload', upload.single('file'), handler);"]
+  ] as const;
+  for (const [name, id, source] of cases) {
+    const findings = await analyzerFindings(`upload-${name}`, source, "uploads");
+    assert.ok(
+      findings.some((finding) => finding.id === id),
+      name
+    );
+  }
+
+  const hardened = await analyzerFindings(
+    "upload-hardened",
+    `const upload = multer({ limits: { fileSize: maxBytes, files: 1 } });
+app.post('/upload', requireRole('member'), upload.single('file'), async (req) => {
+  const detected = await fileTypeFromBuffer(req.file.buffer);
+  if (detected?.mime !== 'application/pdf') throw new Error('invalid signature');
+  const scan = await scanner.scan(req.file.buffer);
+  if (!scan.clean) throw new Error('quarantine');
+  await privateBucket.put(randomUUID(), req.file.buffer);
+});`,
+    "uploads"
+  );
+  assert.deepEqual(hardened, []);
+});
+
 async function findingIds(root: string, section: string): Promise<Set<string>> {
   const findings = (await runAnalyzers(section, root)).flatMap((run) => run.findings);
   assert.ok(findings.every((finding) => finding.location[0]?.line !== undefined));
   assert.ok(findings.every((finding) => finding.trace && finding.trace.length > 0));
   return new Set(findings.map((finding) => finding.id));
+}
+
+async function analyzerFindings(name: string, source: string, section: string, file = "route.ts") {
+  let findings: Awaited<ReturnType<typeof runAnalyzers>>[number]["findings"] = [];
+  await withTemporaryProject(name, async (root) => {
+    await writeFile(join(root, file), source, "utf8");
+    findings = (await runAnalyzers(section, root)).flatMap((run) => run.findings);
+  });
+  return findings;
 }
 
 async function cacheFindings(name: string, source: string) {

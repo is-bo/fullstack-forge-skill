@@ -218,6 +218,47 @@ test("uses affected path and project profile evidence to support ambiguous terms
   assert.ok(route.modules.includes("ui"));
 });
 
+for (const request of [
+  "The booking page overflows on mobile.",
+  "The buttons do not fit on smaller screens.",
+  "The text is cut off.",
+  "There is horizontal scrolling on my phone.",
+  "The appointment form is difficult to use."
+]) {
+  test(`routes corroborated user-interface symptom language: ${request}`, () => {
+    const route = routeFrontendRequest(request, undefined, {
+      applicationType: "fullstack",
+      frameworks: ["React"],
+      affectedPaths: ["src/components/Booking.tsx"]
+    });
+    assert.equal(route.active, true);
+    assert.ok(route.modules.includes("frontend"));
+    assert.ok(route.modules.includes("ui"));
+    assert.ok(route.modules.includes("accessibility"));
+    if (/booking|form|difficult to use/iu.test(request)) assert.ok(route.modules.includes("ux"));
+  });
+}
+
+for (const request of [
+  "Fix an integer overflow in the backend.",
+  "Increase the database page size.",
+  "Update the server-side form parser.",
+  "Review the dependency component graph."
+]) {
+  test(`negative backend evidence suppresses symptom-like ambiguity: ${request}`, () => {
+    assert.equal(routeFrontendRequest(request).active, false);
+  });
+}
+
+test("symptom language without repository UI evidence stays inactive", () => {
+  assert.equal(
+    routeFrontendRequest("The text is cut off on my phone.", undefined, {
+      applicationType: "backend"
+    }).active,
+    false
+  );
+});
+
 test("keeps a small visual completion contract proportional", () => {
   const route = routeFrontendRequest("Change the primary button spacing");
   const completion = assessCompletionApplicability("Change the primary button spacing", route);

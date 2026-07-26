@@ -141,5 +141,5 @@ test("a summary-only unsupported signal stays unresolved and direct ABSENT suppo
   const uploads = excluded.decisions.find((entry) => entry.discipline === "uploads");
   if (uploads === undefined) throw new Error("uploads decision unexpectedly missing");
   assert.equal(uploads.status, "EXCLUDED");
-  assert.match(uploads.exclusion_reason ?? "", /directly proved/u);
+  assert.match(uploads.exclusion_reason ?? "", /bounded scanned scope/u);
 });

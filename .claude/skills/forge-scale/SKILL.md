@@ -9,8 +9,13 @@ description: Assess growth limits, contention, partitioning, quotas, backpressur
 
 Assess growth limits, contention, partitioning, quotas, backpressure, and cost against explicit demand scenarios.
 
-This is an agent playbook, not a claim of standalone analyzer coverage. The agent supplies reasoning
-and implementation; deterministic CLI support is used only where named below.
+This is an agent playbook, not a claim of standalone analyzer coverage. Apply
+
+`fullstack-forge/references/shared/module-contract.md`
+
+for common applicability, evidence, command-safety, mutation, verification, and completion rules.
+
+Never hide failed checks or claim that an operation ran when it did not.
 
 ## Automatic activation signals
 
@@ -23,13 +28,9 @@ the user explicitly names `forge-scale`, or when discovery proves an applicable 
 
 - No scale requirement beyond measured current capacity
 
-Do not activate from generated Forge files, examples, fixtures, or a dependency name alone. Record
-`NOT_APPLICABLE` only when a requested audit requires an explicit applicability decision.
-
 ## Automated support
 
-Support four explicit modes: `audit`, `fix`, `verify`, and `report`. Automatic feature work
-uses the same guidance without requiring a Forge command. Relevant discovery inputs are:
+Relevant discovery inputs are:
 
 - architecture and performance evidence
 - capacity targets
@@ -42,17 +43,11 @@ Available deterministic support, where present:
 
 ## Agent inspection procedure
 
-1. Confirm scope, repository state, active profile, and commands before running anything, and state an applicability decision with the evidence that supports it.
-2. State the demand scenario first: expected users, concurrency, and data growth; without one, record the assumptions explicitly.
-3. Find the first bottleneck: connection limits, stateful servers, shared filesystems, hot rows or hot tenants, and single-writer constraints.
-4. Verify horizontal-scaling readiness: session placement, sticky state, file locality, and job distribution.
-5. Check backpressure and load shedding: determine what happens at the queue, pool, and API layer when demand exceeds capacity.
-6. Project storage, log, and cost growth against the scenario, and reject infrastructure additions (microservices, Kubernetes, Redis, queues) not justified by this evidence.
-7. Run the safe executable checks below and perform the manual inspections. Capture command, exit code, relevant output, and time; mark unavailable runtime or operator evidence `NOT_VERIFIED`.
-8. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location. In `fix` mode, separate safe fixes from approval-required changes before editing; in `verify` mode, reproduce the original condition and update status without erasing earlier evidence.
-
-Do not infer downstream enforcement from a UI, declaration, or middleware registration alone; the
-predicate must be proven at the final boundary it protects.
+1. State the demand scenario first: expected users, concurrency, and data growth; without one, record the assumptions explicitly.
+2. Find the first bottleneck: connection limits, stateful servers, shared filesystems, hot rows or hot tenants, and single-writer constraints.
+3. Verify horizontal-scaling readiness: session placement, sticky state, file locality, and job distribution.
+4. Check backpressure and load shedding: determine what happens at the queue, pool, and API layer when demand exceeds capacity.
+5. Project storage, log, and cost growth against the scenario, and reject infrastructure additions (microservices, Kubernetes, Redis, queues) not justified by this evidence.
 
 Manual inspection requirements:
 
@@ -65,12 +60,8 @@ Stack-specific guidance:
 
 ## Evidence to collect
 
-Follow the installed bundle's `fullstack-forge/references/PROTOCOL.md` only when this module is
-auditing, verifying, or producing formal findings. For this module specifically:
-
-- Cite the module's inspected source, configuration, runtime boundary, and relevant tests.
-- Capture exact project commands and direct runtime observations that support the claimed status.
-- Record module-specific limitations from unavailable providers, environments, roles, or tools.
+For formal findings, also follow `fullstack-forge/references/PROTOCOL.md`. Record the module's
+inspected boundary, relevant tests, direct observations, and unavailable evidence.
 
 Primary standards used as criteria, not proof of compliance:
 
@@ -113,49 +104,26 @@ evidence by itself.
 
 - Run `forge scale audit --json` or `fullstack-forge scale audit --json` when
   an explicit audit is requested and the CLI is installed. Normal feature work does not require it.
-- Use `detect-project-commands` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
-- Use `run-project-command` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
-- Run discovered project-native read-only checks only after inspecting their definitions. Never
-  execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
-  audit shortcut.
-- Keep raw output in the report evidence or a referenced artifact. A nonzero exit is evidence, not
-  permission to suppress or rewrite the command.
+- Use the deterministic support named above only for its documented bounded evidence.
 
 ## Safe fixes
 
 - Add explicit bounds, batching, backpressure, and capacity telemetry
 - Document measured limits
 
-Before mutation, follow `fullstack-forge/references/SAFE_FIX_POLICY.md`. An explicit finding
-remediation also loads `fullstack-forge/references/workflows/fix.md`.
-
 ## Approval-required changes
 
 - Introducing services, sharding, queues, caches, or multi-region topology
-
-The canonical safe-fix policy owns cross-module approval boundaries; these bullets add only this
-module's specialist decisions.
 
 ## Verification
 
 - Run staged load tests through saturation and recovery
 - Confirm correctness and tenant fairness under contention
 
-For finding retests, load `fullstack-forge/references/workflows/verify.md`. Preserve the original
-observation and append current module-specific evidence.
-
 ## Completion contract
 
-A task is complete only when the requested behavior is implemented and every applicable completion
-condition is satisfied. Follow
-`fullstack-forge/references/shared/completion.md`; conditions outside the affected boundary remain
-outside a non-audit plan or receive a reasoned `NOT_APPLICABLE`, never `PASS`.
-
-Never hide failed checks or claim that an operation ran when it did not.
+Apply the shared module contract and the module-specific limitations below.
 
 ## Known limitations
 
 - Capacity projections are only as credible as workload evidence
-
-The module guides agent reasoning and uses deterministic automation where supported. It cannot by
-itself prove production, provider, human-policy, or unsupported framework behavior.

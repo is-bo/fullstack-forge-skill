@@ -4,7 +4,8 @@ export const STATUSES = [
     "WARNING",
     "NOT_APPLICABLE",
     "NOT_VERIFIED",
-    "BLOCKED"
+    "BLOCKED",
+    "SUPERSEDED"
 ];
 export const SEVERITIES = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"];
 export const CONFIDENCES = ["HIGH", "MEDIUM", "LOW"];
@@ -24,6 +25,13 @@ export const FINDING_EVIDENCE_TYPES = [
     "command-output",
     "external-tool-output",
     "human-decision"
+];
+export const FINDING_BINDING_STATES = [
+    "EXACT",
+    "EXACT_DIRTY",
+    "REBASED",
+    "STALE",
+    "INVALID"
 ];
 export const FIX_ATTEMPT_STATUSES = ["PLANNED", "APPLIED", "BLOCKED", "ROLLED_BACK"];
 export const GATE_EVIDENCE_TYPES = [
@@ -54,6 +62,12 @@ export const MODULE_SELECTION_STATUSES = [
     "EXCLUDED_BY_RISK",
     "NOT_REQUESTED"
 ];
+export const MODULE_APPLICABILITY_STATUSES = [
+    "APPLICABLE",
+    "APPLICABLE_UNPROVEN",
+    "NOT_APPLICABLE"
+];
+export const ANALYZER_SUPPORT_STATUSES = ["EXECUTABLE", "PARTIAL", "NONE"];
 export const PLANNED_CHECK_STATUSES = ["RUN", "NOT_RUN", "BLOCKED", "NOT_APPLICABLE"];
 export const NETWORK_POLICIES = ["OFFLINE_SAFE", "NETWORK_REQUIRED", "UNKNOWN"];
 export const RUNTIME_EVIDENCE_STATUSES = ["PASS", "FAIL", "BLOCKED", "NOT_VERIFIED"];

@@ -85,7 +85,7 @@ test("one workspace proving PRESENT is enough for the whole project", () => {
 test("only a proven-absent capability yields NOT_APPLICABLE downstream", () => {
   const cases: Array<[CapabilityAssessment["status"], string]> = [
     ["ABSENT", "NOT_APPLICABLE"],
-    ["UNKNOWN", "NOT_VERIFIED"]
+    ["UNKNOWN", "SELECTED"]
   ];
   for (const [status, expected] of cases) {
     const decisions = decideModules({
@@ -112,7 +112,7 @@ test("documentation-, test-, fixture- and generated-only signals cannot activate
   assert.ok(decision);
   assert.notEqual(decision.capability_status, "PRESENT");
   assert.notEqual(decision.capability_status, "ABSENT");
-  assert.equal(decisionFindingStatus(decision), "NOT_VERIFIED");
+  assert.equal(decisionFindingStatus(decision), "SELECTED");
 });
 
 test("a profile without assessments still uses the legacy presence map", () => {

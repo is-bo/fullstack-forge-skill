@@ -130,6 +130,7 @@ export const TOOL_NAMES = [
     "inspect-rendered-ui",
     "generate-report",
     "ingest-agent-findings",
+    "snapshot-evidence",
     "validate-finding-schema",
     "validate-skill",
     "sync-platform-assets",

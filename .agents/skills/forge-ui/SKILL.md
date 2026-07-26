@@ -9,8 +9,13 @@ description: Use automatically for visual-interface creation and improvement, in
 
 Use automatically for visual-interface creation and improvement, including direction, typography, color, spacing, layout, systems, states, consistency, motion, and polish while preserving usability, accessibility, and established brand conventions.
 
-This is an agent playbook, not a claim of standalone analyzer coverage. The agent supplies reasoning
-and implementation; deterministic CLI support is used only where named below.
+This is an agent playbook, not a claim of standalone analyzer coverage. Apply
+
+`fullstack-forge/references/shared/module-contract.md`
+
+for common applicability, evidence, command-safety, mutation, verification, and completion rules.
+
+Never hide failed checks or claim that an operation ran when it did not.
 
 ## Automatic activation signals
 
@@ -24,13 +29,9 @@ the user explicitly names `forge-ui`, or when discovery proves an applicable bou
 
 - Headless services with no operator or user interface
 
-Do not activate from generated Forge files, examples, fixtures, or a dependency name alone. Record
-`NOT_APPLICABLE` only when a requested audit requires an explicit applicability decision.
-
 ## Automated support
 
-Support four explicit modes: `audit`, `fix`, `verify`, and `report`. Automatic feature work
-uses the same guidance without requiring a Forge command. Relevant discovery inputs are:
+Relevant discovery inputs are:
 
 - frontend applications
 - routes
@@ -73,19 +74,13 @@ without matching evidence.
 
 ## Agent inspection procedure
 
-1. Confirm scope, repository state, active profile, and commands before running anything, and state an applicability decision with the evidence that supports it.
-2. Inspect the product goal, existing brand assets, design tokens, component library, styling mechanism, and nearest visual precedent before proposing a direction.
-3. For substantial work, state the intended character, typography, color, density, layout, shape, imagery, icon, and motion choices with a product-specific rationale.
-4. Start or attach to the running application and enumerate representative routes and states from router or navigation evidence.
-5. Inspect each representative screen at failure-driven small, medium, and wide viewports, recording URL, viewport, theme, locale, input method, and observed layout.
-6. Force loading, partial, empty, error, success, permission, disabled, focus, hover or press, destructive, and long-content states that can occur.
-7. Compare repeated components for semantic-token, state, spacing, typography, icon, and responsive drift; preserve established conventions unless direct evidence shows harm.
-8. Capture browser console and accessibility output on inspected routes; when rendering is unavailable, mark visual behavior `NOT_VERIFIED` rather than inferring it from source.
-9. Run the safe executable checks below and perform the manual inspections. Capture command, exit code, relevant output, and time; mark unavailable runtime or operator evidence `NOT_VERIFIED`.
-10. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location. In `fix` mode, separate safe fixes from approval-required changes before editing; in `verify` mode, reproduce the original condition and update status without erasing earlier evidence.
-
-Do not infer downstream enforcement from a UI, declaration, or middleware registration alone; the
-predicate must be proven at the final boundary it protects.
+1. Inspect the product goal, existing brand assets, design tokens, component library, styling mechanism, and nearest visual precedent before proposing a direction.
+2. For substantial work, state the intended character, typography, color, density, layout, shape, imagery, icon, and motion choices with a product-specific rationale.
+3. Start or attach to the running application and enumerate representative routes and states from router or navigation evidence.
+4. Inspect each representative screen at failure-driven small, medium, and wide viewports, recording URL, viewport, theme, locale, input method, and observed layout.
+5. Force loading, partial, empty, error, success, permission, disabled, focus, hover or press, destructive, and long-content states that can occur.
+6. Compare repeated components for semantic-token, state, spacing, typography, icon, and responsive drift; preserve established conventions unless direct evidence shows harm.
+7. Capture browser console and accessibility output on inspected routes; when rendering is unavailable, mark visual behavior `NOT_VERIFIED` rather than inferring it from source.
 
 Manual inspection requirements:
 
@@ -98,12 +93,8 @@ Stack-specific guidance:
 
 ## Evidence to collect
 
-Follow the installed bundle's `fullstack-forge/references/PROTOCOL.md` only when this module is
-auditing, verifying, or producing formal findings. For this module specifically:
-
-- Cite the module's inspected source, configuration, runtime boundary, and relevant tests.
-- Capture exact project commands and direct runtime observations that support the claimed status.
-- Record module-specific limitations from unavailable providers, environments, roles, or tools.
+For formal findings, also follow `fullstack-forge/references/PROTOCOL.md`. Record the module's
+inspected boundary, relevant tests, direct observations, and unavailable evidence.
 
 Primary standards used as criteria, not proof of compliance:
 
@@ -162,48 +153,26 @@ evidence by itself.
 
 - Run `forge ui audit --json` or `fullstack-forge ui audit --json` when
   an explicit audit is requested and the CLI is installed. Normal feature work does not require it.
-- Use `inspect-rendered-ui` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
-- Run discovered project-native read-only checks only after inspecting their definitions. Never
-  execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
-  audit shortcut.
-- Keep raw output in the report evidence or a referenced artifact. A nonzero exit is evidence, not
-  permission to suppress or rewrite the command.
+- Use the deterministic support named above only for its documented bounded evidence.
 
 ## Safe fixes
 
 - Add missing accessible labels or non-breaking responsive constraints
 - Correct token use and layout-shift-causing dimensions
 
-Before mutation, follow `fullstack-forge/references/SAFE_FIX_POLICY.md`. An explicit finding
-remediation also loads `fullstack-forge/references/workflows/fix.md`.
-
 ## Approval-required changes
 
 - Changing the product's visual language or interaction model
-
-The canonical safe-fix policy owns cross-module approval boundaries; these bullets add only this
-module's specialist decisions.
 
 ## Verification
 
 - Reinspect changed screens at 320, 375, 768, 1024, and 1440 CSS pixels
 - Confirm keyboard focus and no unintended horizontal overflow
 
-For finding retests, load `fullstack-forge/references/workflows/verify.md`. Preserve the original
-observation and append current module-specific evidence.
-
 ## Completion contract
 
-A task is complete only when the requested behavior is implemented and every applicable completion
-condition is satisfied. Follow
-`fullstack-forge/references/shared/completion.md`; conditions outside the affected boundary remain
-outside a non-audit plan or receive a reasoned `NOT_APPLICABLE`, never `PASS`.
-
-Never hide failed checks or claim that an operation ran when it did not.
+Apply the shared module contract and the module-specific limitations below.
 
 ## Known limitations
 
 - Do not claim browser or device inspection unless it actually ran
-
-The module guides agent reasoning and uses deterministic automation where supported. It cannot by
-itself prove production, provider, human-policy, or unsupported framework behavior.

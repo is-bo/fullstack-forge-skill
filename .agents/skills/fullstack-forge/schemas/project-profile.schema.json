@@ -53,6 +53,45 @@
       "type": "array",
       "items": { "type": "object" }
     },
+    "risk_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["risk", "modules", "path", "confidence", "reason"],
+        "properties": {
+          "risk": { "type": "string", "minLength": 1 },
+          "modules": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "path": { "type": "string", "minLength": 1 },
+          "line": { "type": "integer", "minimum": 1 },
+          "confidence": { "enum": ["HIGH", "MEDIUM", "LOW"] },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "tenancy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "candidates", "confidence", "evidence"],
+      "properties": {
+        "status": { "enum": ["PRESENT", "ABSENT", "UNKNOWN"] },
+        "key": { "type": "string", "minLength": 1 },
+        "candidates": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "confidence": { "enum": ["HIGH", "MEDIUM", "LOW"] },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "inventory": { "$ref": "#/$defs/inventory" },
     "repository": { "$ref": "#/$defs/record" },
     "workspaces": { "$ref": "#/$defs/records" },

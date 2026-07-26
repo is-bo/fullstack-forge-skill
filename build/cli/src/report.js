@@ -164,6 +164,7 @@ function assertReportLedgers(report) {
     assertModuleDecisions(report.module_decisions);
 }
 export function createReport(root, profile, findings, scope, execution = [], assumptions = [], residualRisk = [], scopeEvidence, gateEvidence = [], analyzerCoverage = [], revision, environment, ledgers = {}) {
+    assertNoContradictoryApplicability(findings);
     return {
         schema_version: REPORT_SCHEMA_VERSION,
         generated_at: utcNow(),
@@ -184,6 +185,16 @@ export function createReport(root, profile, findings, scope, execution = [], ass
         module_decisions: structuredClone(ledgers.module_decisions ?? []),
         ...(revision === undefined ? {} : { revision })
     };
+}
+function assertNoContradictoryApplicability(findings) {
+    const active = findings.filter((finding) => finding.status !== "SUPERSEDED");
+    for (const section of new Set(active.map((finding) => finding.section))) {
+        const scoped = active.filter((finding) => finding.section === section);
+        if (scoped.some((finding) => finding.status === "NOT_APPLICABLE" &&
+            /module.*not applicable|applicability/iu.test(finding.title)) &&
+            scoped.some((finding) => finding.status === "FAIL"))
+            throw new Error(`Contradictory active applicability conclusions for '${section}'; supersede the weaker finding before reporting.`);
+    }
 }
 /**
  * Captures only directly observable facts about the current process. `forge` reads the packaged
@@ -231,8 +242,11 @@ export function renderMarkdown(report) {
         counts.set(finding.status, (counts.get(finding.status) ?? 0) + 1);
     const summary = [...counts.entries()].map(([status, count]) => `- ${status}: ${count}`).join("\n") ||
         "- No findings were recorded.";
-    const findings = report.findings.map(renderFinding).join("\n\n") ||
+    const activeFindings = report.findings.filter((finding) => finding.status !== "SUPERSEDED");
+    const supersededFindings = report.findings.filter((finding) => finding.status === "SUPERSEDED");
+    const findings = activeFindings.map(renderFinding).join("\n\n") ||
         "No findings were recorded. This is not evidence of a pass.";
+    const superseded = supersededFindings.map(renderFinding).join("\n\n") || "No superseded findings were recorded.";
     const execution = report.execution
         .map((record) => {
         const timing = [
@@ -305,6 +319,10 @@ ${changedScope}
 
 ${findings}
 
+## Superseded historical findings
+
+${superseded}
+
 ## Prioritized remediation plan
 
 ${remediation || "- No FAIL or WARNING finding requires remediation in this report."}
@@ -369,8 +387,11 @@ function renderMigration(report) {
 function renderModuleDecision(decision) {
     const applicability = decision.selection_status === "SELECTED"
         ? "audited in this run"
-        : decision.capability_status === "ABSENT"
-            ? "genuinely not applicable (the capability does not exist)"
+        : (decision.applicability_status ??
+            (decision.capability_status === "ABSENT"
+                ? "NOT_APPLICABLE"
+                : "APPLICABLE_UNPROVEN")) === "NOT_APPLICABLE"
+            ? "not applicable in the bounded scanned scope"
             : "NOT audited in this run — this is not evidence that the module is inapplicable";
     return `- **${decision.module}** — capability ${decision.capability_status}; selection ${decision.selection_status}${decision.explicitly_selected === true ? " (explicitly selected)" : ""}; ${applicability}. Reasons: ${decision.reasons.join("; ")}. Evidence: ${decision.evidence.join("; ") || "none recorded"}`;
 }
@@ -476,7 +497,9 @@ function renderFinding(finding) {
 - Section: ${finding.section}
 - Module / producer: ${finding.module ?? finding.section} / ${finding.producer ?? (finding.analyzer_id === undefined ? "legacy/unspecified" : "forge-analyzer")}
 - Evidence type / revision: ${finding.evidence_type ?? "legacy/unspecified"} / ${finding.revision ?? "legacy/unspecified"}
+- Binding state: ${finding.binding_state ?? "legacy/unrecorded"}
 - Rule / instance: ${finding.id} / ${finding.instance_id ?? "legacy report (no instance ID)"}
+- Supersession: supersedes ${finding.supersedes?.join(", ") || "none"}; superseded by ${finding.superseded_by ?? "none"}; reason ${finding.retraction_reason ?? "none"}
 - Severity / confidence / status: **${finding.severity} / ${finding.confidence} / ${finding.status}**
 - Location: ${locations || "No code location"}
 - Evidence: ${finding.evidence.join("; ")}

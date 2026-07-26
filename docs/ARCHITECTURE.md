@@ -47,6 +47,13 @@ have one canonical owner under `src/fullstack-forge/references/`.
 Build evidence and historical reports never satisfy Ship. Current, root- and revision-bound evidence
 is required at each enforcement boundary.
 
+Applicability keeps four independent facts: bounded risk status, control status, module
+applicability, and executable analyzer support. Risk selects work; a missing control never makes the
+risk disappear. An unknown relevant risk remains selected as `APPLICABLE_UNPROVEN`, while
+`NOT_APPLICABLE` requires bounded evidence that the surface is absent. Audit and Ship call the same
+application-inspection pipeline, so identical source and scope produce identical analyzer finding
+identities; Ship adds its independent release gates around that shared evidence.
+
 ## Frontend experience system
 
 `forge-frontend` is the sole interface-work orchestrator. It composes `forge-ui`, `forge-ux`, and
@@ -70,4 +77,6 @@ offline rules remain in their existing modules to prevent competing sources of t
 The project manifest records installed files, platform, digest, ownership, file/section management,
 package version, `agent_first`, and `automatic_activation`. Section-managed root instructions allow
 user content outside the Forge markers to change safely. Symlinked destinations and path escapes are
-refused.
+refused. A selector-free `forge init` installs only hosts supported by finite project, user, or PATH
+markers and falls back to generic Agent Skills when none are detected. `forge init all` remains an
+explicit compatibility choice; `forge update all` safely upgrades older all-platform manifests.

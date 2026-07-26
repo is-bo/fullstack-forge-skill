@@ -14,7 +14,7 @@ updates:
       - dependency-name: typescript
         update-types:
           - version-update:semver-major
-      # Keep ambient APIs within the package's declared Node.js 24 baseline.
+      # Keep ambient APIs within the package's declared Node.js 20/22/24 support matrix.
       - dependency-name: "@types/node"
         update-types:
           - version-update:semver-major

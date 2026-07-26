@@ -24,11 +24,14 @@ function normalizePlatformsForScope(selector, global) {
         copilot: "github",
         windsurf: "windsurf"
     };
-    const platform = selectors[normalized];
-    if (platform === undefined) {
-        throw new Error(`Unknown platform '${selector}'. Expected claude, codex, antigravity, gemini, cursor, windsurf, github, generic, agents, or all.`);
-    }
-    return [platform];
+    const requested = normalized
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
+    const platforms = requested.map((value) => selectors[value]);
+    if (requested.length === 0 || platforms.some((platform) => platform === undefined))
+        throw new Error(`Unknown platform selector '${selector}'. Expected a comma-separated subset of claude, codex, antigravity, gemini, cursor, windsurf, github, generic, agents, or all.`);
+    return [...new Set(platforms)];
 }
 export async function install(rootInput, selector, options) {
     if (options.interruptAfter !== undefined &&

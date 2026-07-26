@@ -181,7 +181,7 @@ test("install output gives first commands and labels evidence-based agent recomm
 
   const noMarkers = renderInstallResult("init", "all", false, true, actions, []);
   assert.match(noMarkers, /no existing agent-specific configuration/u);
-  assert.match(noMarkers, /keep selector 'all'/u);
+  assert.match(noMarkers, /generic Agent Skills host was installed/u);
 
   const unavailable = renderInstallResult(
     "init",

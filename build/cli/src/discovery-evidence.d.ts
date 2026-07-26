@@ -1,3 +1,4 @@
+import type { ModuleSlug } from "./constants.js";
 import type { Confidence } from "./types.js";
 import { type RepositoryInventory } from "./repository-inventory.js";
 /**
@@ -13,6 +14,8 @@ export declare const EVIDENCE_CLASSES: readonly ["manifest", "implementation", "
 export type EvidenceClass = (typeof EVIDENCE_CLASSES)[number];
 export declare const CAPABILITY_STATUSES: readonly ["PRESENT", "ABSENT", "UNKNOWN"];
 export type CapabilityStatus = (typeof CAPABILITY_STATUSES)[number];
+export declare const CAPABILITY_KINDS: readonly ["control", "surface"];
+export type CapabilityKind = (typeof CAPABILITY_KINDS)[number];
 export type DiscoveryEvidence = {
     evidence_class: EvidenceClass;
     path: string;
@@ -24,12 +27,23 @@ export type DiscoveryEvidence = {
 };
 export type CapabilityAssessment = {
     capability: string;
+    /** Explicit in current profiles; optional only for historical schema-v2 compatibility. */
+    kind?: CapabilityKind;
     workspace: string;
     status: CapabilityStatus;
     score: number;
     evidence: DiscoveryEvidence[];
     reasons: string[];
 };
+export type RiskEvidence = {
+    risk: string;
+    modules: ModuleSlug[];
+    path: string;
+    line?: number;
+    confidence: Confidence;
+    reason: string;
+};
+export declare function capabilityKindFor(capability: string): CapabilityKind;
 /**
  * Activation weight per evidence class.
  *
@@ -103,7 +117,7 @@ export type CapabilityEvidence = {
  */
 export declare function assessCapabilities(tagged: readonly CapabilityEvidence[], capabilities: readonly string[], workspaces?: readonly string[]): CapabilityAssessment[];
 /** Applies the activation policy to one capability in one workspace. */
-export declare function decideCapability(capability: string, workspace: string, evidence: readonly DiscoveryEvidence[]): CapabilityAssessment;
+export declare function decideCapability(capability: string, workspace: string, evidence: readonly DiscoveryEvidence[], kind?: CapabilityKind): CapabilityAssessment;
 /**
  * Scans a repository and returns one assessment per capability per workspace.
  *
@@ -114,4 +128,6 @@ export declare function decideCapability(capability: string, workspace: string, 
 export declare function assessProjectCapabilities(rootInput: string, workspaceRoots?: readonly string[], sharedInventory?: RepositoryInventory): Promise<CapabilityAssessment[]>;
 /** Collects classified, capability-tagged evidence for a file list. Deterministic by path. */
 export declare function collectEvidence(root: string, files: readonly string[], workspaceRoots: readonly string[], contentByFile?: ReadonlyMap<string, string>): Promise<CapabilityEvidence[]>;
+/** Derives bounded risk-surface evidence from the inventory used by project discovery. */
+export declare function discoverRiskEvidence(inventory: RepositoryInventory): RiskEvidence[];
 export {};

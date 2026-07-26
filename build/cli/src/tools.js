@@ -3,11 +3,12 @@ import { join } from "node:path";
 import { MODULE_SLUGS, PACKAGE_ROOT, TOOL_NAMES } from "./constants.js";
 import { detectProjectCommands, discoverProject, writeProjectArtifacts } from "./discovery.js";
 import { assertAgentFindings, assertFindings, validateFinding } from "./finding.js";
+import { bindAgentFindings, reconcileFindings } from "./agent-findings.js";
 import { inspectWithTool } from "./inspectors.js";
 import { decideCommandExecution, ledgerRecord } from "./offline-policy.js";
 import { inspectRenderedUi } from "./rendered-ui.js";
 import { createReport, readReport, writeReport } from "./report.js";
-import { canonicalDirectory, resolveInside, runFile, workingTreeRevision } from "./utils.js";
+import { canonicalDirectory, resolveInside, runFile, sha256, toPosix, workingTreeRevision } from "./utils.js";
 export async function runTool(nameInput, args, options) {
     if (!isToolName(nameInput))
         throw new Error(`Unknown tool '${nameInput}'. Run 'forge list' for valid tools.`);
@@ -107,6 +108,7 @@ export async function runTool(nameInput, args, options) {
         const parsed = JSON.parse(await readFile(resolveInside(root, input), "utf8"));
         const findings = extractFindings(parsed);
         assertAgentFindings(findings);
+        const boundFindings = await bindAgentFindings(root, findings);
         const profile = await loadOrDiscoverProfile(root);
         let previous;
         try {
@@ -116,7 +118,7 @@ export async function runTool(nameInput, args, options) {
             if (error.code !== "ENOENT")
                 throw error;
         }
-        const report = createReport(root, previous?.profile ?? profile, [...(previous?.findings ?? []), ...findings], previous === undefined ? "agent findings" : `${previous.scope}; agent findings ingested`, previous?.execution ?? [], previous?.assumptions ?? [], previous?.residual_risk ?? [], previous?.scope_evidence, previous?.gate_evidence ?? [], previous?.analyzer_coverage ?? [], await workingTreeRevision(root), previous?.environment, previous === undefined
+        const report = createReport(root, previous?.profile ?? profile, reconcileFindings(previous?.findings ?? [], boundFindings), previous === undefined ? "agent findings" : `${previous.scope}; agent findings ingested`, previous?.execution ?? [], previous?.assumptions ?? [], previous?.residual_risk ?? [], previous?.scope_evidence, previous?.gate_evidence ?? [], previous?.analyzer_coverage ?? [], await workingTreeRevision(root), previous?.environment, previous === undefined
             ? {}
             : {
                 tools: previous.tools,
@@ -127,7 +129,25 @@ export async function runTool(nameInput, args, options) {
         const paths = options.dryRun ? [] : await writeReport(report);
         return {
             value: { report, paths, dry_run: options.dryRun },
-            exitCode: findings.some((finding) => finding.status === "FAIL") ? 1 : 0
+            exitCode: boundFindings.some((finding) => finding.status === "FAIL") ? 1 : 0
+        };
+    }
+    if (nameInput === "snapshot-evidence") {
+        const input = args[0];
+        if (input === undefined)
+            throw new Error("snapshot-evidence requires a repository-relative source path");
+        const line = args[1] === undefined ? undefined : Number.parseInt(args[1], 10);
+        if (line !== undefined && (!Number.isInteger(line) || line < 1))
+            throw new Error("snapshot-evidence line must be a positive integer");
+        const content = await readFile(resolveInside(root, input), "utf8");
+        const excerpt = line === undefined ? undefined : (content.split(/\r?\n/u)[line - 1] ?? "");
+        return {
+            value: {
+                path: toPosix(input),
+                sha256: sha256(content),
+                ...(line === undefined ? {} : { line, excerpt_hash: sha256(excerpt ?? "") })
+            },
+            exitCode: 0
         };
     }
     if (nameInput === "validate-finding-schema") {

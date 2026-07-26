@@ -3,6 +3,10 @@
 Fullstack Forge installs independent files with no symlinks. Project installation uses each host's
 existing skill discovery path plus its supported instruction mechanism.
 
+With no selector, `forge init` installs the finite detected host set; if detection finds no marker,
+it installs generic Agent Skills. Use `forge init all` only for an intentional all-platform
+footprint. Explicit comma-separated selectors are accepted internally for the detected set.
+
 | Selector                       | Product                                          | Project skills      | Managed automatic instruction                          |
 | ------------------------------ | ------------------------------------------------ | ------------------- | ------------------------------------------------------ |
 | `codex` / `agents` / `generic` | Codex, generic Agent Skills, Antigravity project | `.agents/skills/`   | `AGENTS.md` section                                    |

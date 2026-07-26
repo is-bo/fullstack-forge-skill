@@ -360,7 +360,7 @@ test("a module whose capability is proven absent keeps its gate inapplicable", a
             module: "uploads",
             capability_status: "ABSENT",
             selection_status: "NOT_REQUESTED",
-            reasons: ["Discovery proved no upload pipeline exists."],
+            reasons: ["No upload risk surface was observed in the bounded scanned scope."],
             evidence: ["no upload capability among: api, frontend"]
           }
         ]

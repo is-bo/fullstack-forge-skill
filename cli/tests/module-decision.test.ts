@@ -64,7 +64,7 @@ const withFrontendAndPayments = profileWith({
   payments: detection("stripe client")
 });
 
-test("a genuinely absent capability is the only case that yields NOT_APPLICABLE", () => {
+test("an absent bounded risk surface is the only case that yields NOT_APPLICABLE", () => {
   const decisions = decideModules({
     candidates: ["ui", "payments"] as ModuleSlug[],
     profile: withFrontendAndPayments,
@@ -104,7 +104,7 @@ test("a present but unchanged capability is out of changed scope, never inapplic
   assert.equal(decisionFor(decisions, "payments").selection_status, "SELECTED");
 });
 
-test("an undetermined capability is UNKNOWN and never reported as absent", () => {
+test("an undetermined risk is APPLICABLE_UNPROVEN and runs proportionately", () => {
   const decisions = decideModules({
     candidates: ["payments"] as ModuleSlug[],
     profile: profileWith({}),
@@ -112,11 +112,10 @@ test("an undetermined capability is UNKNOWN and never reported as absent", () =>
   });
   const payments = decisionFor(decisions, "payments");
   assert.equal(payments.capability_status, "UNKNOWN");
-  assert.equal(
-    decisionFindingStatus(payments),
-    "NOT_VERIFIED",
-    "discovery that observed nothing cannot prove a capability missing"
-  );
+  assert.equal(payments.risk_status, "UNKNOWN");
+  assert.equal(payments.applicability_status, "APPLICABLE_UNPROVEN");
+  assert.equal(payments.selection_status, "SELECTED");
+  assert.equal(decisionFindingStatus(payments), "SELECTED");
 });
 
 test("a risk-filtered module records EXCLUDED_BY_RISK with its capability intact", () => {

@@ -1,4 +1,5 @@
 import { basename, relative } from "node:path";
+import type { ModuleSlug } from "./constants.js";
 import type { Confidence } from "./types.js";
 import { inventoryRepository, type RepositoryInventory } from "./repository-inventory.js";
 import { canonicalDirectory, readTextIfPresent, toPosix } from "./utils.js";
@@ -30,6 +31,9 @@ export type EvidenceClass = (typeof EVIDENCE_CLASSES)[number];
 export const CAPABILITY_STATUSES = ["PRESENT", "ABSENT", "UNKNOWN"] as const;
 export type CapabilityStatus = (typeof CAPABILITY_STATUSES)[number];
 
+export const CAPABILITY_KINDS = ["control", "surface"] as const;
+export type CapabilityKind = (typeof CAPABILITY_KINDS)[number];
+
 export type DiscoveryEvidence = {
   evidence_class: EvidenceClass;
   path: string;
@@ -42,12 +46,29 @@ export type DiscoveryEvidence = {
 
 export type CapabilityAssessment = {
   capability: string;
+  /** Explicit in current profiles; optional only for historical schema-v2 compatibility. */
+  kind?: CapabilityKind;
   workspace: string;
   status: CapabilityStatus;
   score: number;
   evidence: DiscoveryEvidence[];
   reasons: string[];
 };
+
+export type RiskEvidence = {
+  risk: string;
+  modules: ModuleSlug[];
+  path: string;
+  line?: number;
+  confidence: Confidence;
+  reason: string;
+};
+
+const CONTROL_CAPABILITIES = new Set(["authentication", "authorization", "observability"]);
+
+export function capabilityKindFor(capability: string): CapabilityKind {
+  return CONTROL_CAPABILITIES.has(capability) ? "control" : "surface";
+}
 
 /**
  * Activation weight per evidence class.
@@ -483,7 +504,7 @@ export function assessCapabilities(
             (a.line ?? 0) - (b.line ?? 0) ||
             a.evidence_class.localeCompare(b.evidence_class)
         );
-      assessments.push(decide(capability, workspace, scoped));
+      assessments.push(decide(capability, capabilityKindFor(capability), workspace, scoped));
     }
   return assessments;
 }
@@ -492,13 +513,15 @@ export function assessCapabilities(
 export function decideCapability(
   capability: string,
   workspace: string,
-  evidence: readonly DiscoveryEvidence[]
+  evidence: readonly DiscoveryEvidence[],
+  kind: CapabilityKind = capabilityKindFor(capability)
 ): CapabilityAssessment {
-  return decide(capability, workspace, evidence);
+  return decide(capability, kind, workspace, evidence);
 }
 
 function decide(
   capability: string,
+  kind: CapabilityKind,
   workspace: string,
   evidence: readonly DiscoveryEvidence[]
 ): CapabilityAssessment {
@@ -507,8 +530,12 @@ function decide(
   const reasons: string[] = [];
   let status: CapabilityStatus;
   if (evidence.length === 0) {
-    status = "ABSENT";
-    reasons.push("No signal for this capability was observed in this workspace.");
+    status = kind === "control" ? "UNKNOWN" : "ABSENT";
+    reasons.push(
+      kind === "control"
+        ? "No matching control was observed in the bounded scanned source; control presence remains unknown."
+        : "No matching risk surface was observed in the bounded scanned source for this workspace."
+    );
   } else if (score >= ACTIVATION_THRESHOLD) {
     status = "PRESENT";
     reasons.push(
@@ -530,7 +557,7 @@ function decide(
       reasons.push(`${neutralized} evidence carries zero activation weight by policy.`);
   if (classes.includes("example"))
     reasons.push("Example applications are separated from active applications.");
-  return { capability, workspace, status, score, evidence: [...evidence], reasons };
+  return { capability, kind, workspace, status, score, evidence: [...evidence], reasons };
 }
 
 function round(value: number): number {
@@ -608,7 +635,10 @@ export async function collectEvidence(
       let seenWeak = false;
       let seenStrong = false;
       for (const match of content.matchAll(global)) {
-        const weak = isWeakContext(content, match.index, evidence_class);
+        const weak =
+          isWeakContext(content, match.index, evidence_class) ||
+          (capabilityKindFor(rule.capability) === "control" &&
+            isControlDeclaration(content, match.index));
         if (weak ? seenWeak : seenStrong) continue;
         if (weak) seenWeak = true;
         else seenStrong = true;
@@ -630,5 +660,155 @@ export async function collectEvidence(
       a.capability.localeCompare(b.capability) ||
       a.evidence.path.localeCompare(b.evidence.path) ||
       (a.evidence.line ?? 0) - (b.evidence.line ?? 0)
+  );
+}
+
+function isControlDeclaration(content: string, index: number): boolean {
+  const lineStart = content.lastIndexOf("\n", index - 1) + 1;
+  const prefix = content.slice(lineStart, index);
+  return /\b(?:function|class)\s+|\b(?:const|let|var)\s+$/u.test(prefix);
+}
+
+type RiskRule = {
+  risk: string;
+  pattern: RegExp;
+  modules: ModuleSlug[];
+  confidence: Confidence;
+  reason: string;
+};
+
+const RISK_RULES: readonly RiskRule[] = [
+  {
+    risk: "request-boundary",
+    pattern:
+      /\b(?:app|router)\.(?:get|post|put|patch|delete)\s*\(|\b(?:GET|POST|PUT|PATCH|DELETE)\s+\//iu,
+    modules: ["api", "security"],
+    confidence: "HIGH",
+    reason: "recognizable request-handling route"
+  },
+  {
+    risk: "destructive-or-administrative-route",
+    pattern:
+      /\b(?:app|router)\.(?:delete|put|patch)\s*\(|["'`]\/(?:admin|internal|manage|ops|sudo)(?:\/|["'`])/iu,
+    modules: ["authorization", "security", "observability"],
+    confidence: "HIGH",
+    reason: "destructive HTTP method or administrative route segment"
+  },
+  {
+    risk: "object-access",
+    pattern: /:\w*[Ii]d\b[\s\S]{0,800}\.(?:findUnique|findFirst|findById|update|delete)\s*\(/u,
+    modules: ["authorization", "security"],
+    confidence: "MEDIUM",
+    reason: "dynamic route identifier near a data access or mutation sink"
+  },
+  {
+    risk: "personal-or-medical-data",
+    pattern:
+      /\b(?:email|phone|address|dateOfBirth|diagnosis|prescription|medicalRecord|nationalId)\b/iu,
+    modules: ["privacy", "security"],
+    confidence: "MEDIUM",
+    reason: "personal or medical data field in application source or schema"
+  },
+  {
+    risk: "upload-ingress",
+    pattern:
+      /\bmultipart\/form-data\b|\bupload\.(?:any|array|fields|single)\s*\(|\bcreatePresignedPost\b|<input[^>]+type=["']file["']/iu,
+    modules: ["uploads", "storage", "authorization", "privacy", "security"],
+    confidence: "HIGH",
+    reason: "recognizable upload or presigned-ingress boundary"
+  },
+  {
+    risk: "webhook-or-callback",
+    pattern:
+      /["'`]\/[^"'`]*(?:webhooks?|hooks|callback)[^"'`]*["'`]|\b(?:signature|x-signature|providerEvent)\b/iu,
+    modules: ["integrations", "security"],
+    confidence: "HIGH",
+    reason: "webhook, callback, or provider-signature boundary"
+  },
+  {
+    risk: "financial-behaviour",
+    pattern: /\b(?:amount|currency|price|invoice|charge|refund|payment|subscription|deposit)\b/iu,
+    modules: ["payments", "security", "observability"],
+    confidence: "MEDIUM",
+    reason: "financial amount, transaction, invoice, or subscription behavior"
+  },
+  {
+    risk: "background-execution",
+    pattern:
+      /\bnew\s+(?:Queue|Worker)\s*\(|\bcron\.schedule\s*\(|\bdefineJob\s*\(|\b(?:job|worker|queue|scheduled)\w*\s*(?:=|\()/iu,
+    modules: ["jobs", "reliability"],
+    confidence: "HIGH",
+    reason: "queue, worker, cron, or scheduled execution boundary"
+  },
+  {
+    risk: "realtime-channel",
+    pattern:
+      /\b(?:WebSocketServer|EventSource|socket\.io|io\.on\s*\([^)]*connection|text\/event-stream)\b/iu,
+    modules: ["realtime", "authorization"],
+    confidence: "HIGH",
+    reason: "WebSocket, SSE, subscription, or channel boundary"
+  },
+  {
+    risk: "ai-boundary",
+    pattern:
+      /\b(?:openai|anthropic)\.(?:chat|messages|completions|responses)|\bchat\.completions\.create\s*\(|\btool[_ -]?call\b/iu,
+    modules: ["ai", "security", "cost"],
+    confidence: "HIGH",
+    reason: "model inference, prompt construction, or tool-execution boundary"
+  }
+];
+
+/** Derives bounded risk-surface evidence from the inventory used by project discovery. */
+export function discoverRiskEvidence(inventory: RepositoryInventory): RiskEvidence[] {
+  const evidence: RiskEvidence[] = [];
+  for (const entry of inventory.entries) {
+    if (entry.status !== "INSPECTED" || entry.content === undefined) continue;
+    if (["documentation", "example", "fixture", "generated", "test"].includes(entry.evidence_class))
+      continue;
+    for (const rule of RISK_RULES) {
+      const match = rule.pattern.exec(entry.content);
+      if (match === null) continue;
+      const modules = [...rule.modules];
+      const hasTenant =
+        /\b(?:tenant|clinic|cabinet|practice|hospital|account|merchant|school|workspace|org|organization|company|site|store|project)(?:Id|_id)\b/iu.test(
+          entry.content
+        );
+      const hasSensitive =
+        /\b(?:email|phone|address|dateOfBirth|diagnosis|prescription|medicalRecord|nationalId)\b/iu.test(
+          entry.content
+        );
+      if (
+        hasTenant &&
+        [
+          "object-access",
+          "background-execution",
+          "realtime-channel",
+          "personal-or-medical-data"
+        ].includes(rule.risk)
+      )
+        modules.push("tenancy");
+      if (hasSensitive && rule.risk === "ai-boundary") modules.push("privacy");
+      if (
+        rule.risk === "webhook-or-callback" &&
+        /\b(?:amount|currency|price|invoice|charge|refund|payment|subscription)\b/iu.test(
+          entry.content
+        )
+      )
+        modules.push("payments");
+      evidence.push({
+        risk: rule.risk,
+        modules: [...new Set(modules)].sort(),
+        path: entry.path,
+        line: lineForIndex(entry.content, match.index),
+        confidence: rule.confidence,
+        reason: rule.reason
+      });
+    }
+  }
+  return evidence.sort(
+    (left, right) =>
+      left.path.localeCompare(right.path) ||
+      (left.line ?? 0) - (right.line ?? 0) ||
+      left.risk.localeCompare(right.risk)
   );
 }

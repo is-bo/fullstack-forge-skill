@@ -13,6 +13,7 @@ const NON_APPLICATION_SOURCE_CLASSES = new Set([
 ]);
 const SPECS = {
     sql: spec("FF-SEC-SQL-001", "js-ts-security", "security", "Request-controlled data reaches an interpolated SQL execution sink", "HIGH", "Request input can alter the query structure and read or modify unintended data.", "Use the database driver's parameter binding and add a negative injection regression test.", false, false, ["Re-run the js-ts-security analyzer", "Run a hostile-input query regression test"], ["OWASP ASVS 5.0", "CWE-89"]),
+    sqlUnresolved: spec("FF-SEC-SQL-NOT-VERIFIED-001", "js-ts-security", "security", "Database wrapper SQL argument shape could not be established", "MEDIUM", "Request-controlled data reaches a database-like wrapper whose SQL-text and values positions are unknown.", "Document or adapt the wrapper's parameterization contract, then rerun the analyzer.", false, false, ["Inspect the wrapper implementation", "Run a hostile-input query regression test"], ["OWASP ASVS 5.0", "CWE-89"]),
     nosql: spec("FF-SEC-NOSQL-001", "js-ts-security", "security", "Request-controlled object reaches a NoSQL filter sink", "HIGH", "Request-supplied operators can change query meaning or bypass intended filters.", "Validate an allowlisted scalar filter schema and construct the final query server-side.", false, false, ["Re-run the js-ts-security analyzer", "Run negative operator-injection tests"], ["OWASP ASVS 5.0", "CWE-943"]),
     shell: spec("FF-SEC-SHELL-001", "js-ts-security", "security", "Request-controlled data reaches shell execution", "CRITICAL", "An attacker may execute commands with the application process privileges.", "Remove the shell boundary or use an allowlisted executable with a validated argument array.", false, false, ["Re-run the js-ts-security analyzer", "Run hostile metacharacter regression tests"], ["OWASP ASVS 5.0", "CWE-78"]),
     redirect: spec("FF-SEC-REDIRECT-001", "js-ts-security", "security", "Request-controlled redirect target is not constrained", "HIGH", "An attacker can send users to an untrusted origin and support phishing or token leakage.", "Map redirect choices to server-owned relative destinations or an explicit origin allowlist.", false, false, ["Re-run the js-ts-security analyzer", "Test absolute, protocol-relative, and encoded targets"], ["OWASP Unvalidated Redirects and Forwards Cheat Sheet", "CWE-601"]),
@@ -38,8 +39,14 @@ const SPECS = {
     authCookie: spec("FF-AUTH-COOKIE-001", "js-ts-auth", "auth", "Session cookie is issued with weakened security attributes", "HIGH", "Disabling HttpOnly or Secure exposes the session credential to script access or cleartext transport.", "Set httpOnly and secure on session cookies and choose a SameSite value that fits the login flow.", false, false, ["Re-run the js-ts-auth analyzer", "Inspect Set-Cookie attributes in a real login response"], ["OWASP Session Management Cheat Sheet", "CWE-614", "CWE-1004"]),
     authSessionValue: spec("FF-AUTH-SESSION-001", "js-ts-auth", "auth", "Session identifier is derived from request-controlled input", "CRITICAL", "A caller can forge or predict another user's session credential and bypass authentication.", "Issue an opaque high-entropy server-generated session identifier bound to server-side state.", false, false, ["Re-run the js-ts-auth analyzer", "Prove a forged cookie value cannot authenticate"], ["OWASP Session Management Cheat Sheet", "CWE-384", "CWE-330"]),
     objectAuth: spec("FF-AUTHZ-OBJECT-001", "js-ts-authorization", "authorization", "Object lookup lacks a demonstrated subject/object authorization predicate", "HIGH", "An authenticated caller may read or modify another subject's object by changing its identifier.", "Bind the final lookup to the authenticated subject or enforce a per-object policy before release.", false, false, ["Re-run the js-ts-authorization analyzer", "Run negative tests with another user's object ID"], ["OWASP API Security Top 10 2023 API1", "CWE-639"]),
+    authzRoute: spec("FF-AUTHZ-ROUTE-001", "js-ts-authorization", "authorization", "Sensitive route has no demonstrated authorization predicate", "HIGH", "A caller may reach an administrative, destructive, or protected mutation without the required permission.", "Enforce a resolvable authorization predicate on the route and add an unauthorized request regression test.", false, false, [
+        "Re-run the js-ts-authorization analyzer",
+        "Exercise the route with a minimally privileged principal"
+    ], ["OWASP API Security Top 10 2023 API5", "CWE-862"]),
+    authzUnresolved: spec("FF-AUTHZ-NOT-VERIFIED-001", "js-ts-authorization", "authorization", "Sensitive route authorization could not be resolved", "MEDIUM", "A middleware or handler boundary may enforce authorization, but bounded source analysis could not prove it.", "Trace the middleware and handler to the protected sink and add an explicit denied-principal test.", false, false, ["Inspect the middleware definition", "Run an unauthorized route test"], ["OWASP API Security Top 10 2023 API5", "CWE-862"]),
     tenantInput: spec("FF-TENANT-INPUT-001", "js-ts-tenancy", "tenancy", "Tenant context is accepted from untrusted request input", "CRITICAL", "A caller can select another tenant's data boundary.", "Derive tenant context from authenticated identity and pass it through trusted server context.", false, false, ["Re-run the js-ts-tenancy analyzer", "Run a negative cross-tenant identifier test"], ["OWASP Multi Tenant Security Cheat Sheet", "CWE-639"]),
     tenantScope: spec("FF-TENANT-SCOPE-001", "js-ts-tenancy", "tenancy", "Tenant-owned query is not scoped by authenticated tenant identity", "CRITICAL", "Records can cross tenant boundaries at the final data-access sink.", "Include the authenticated tenant predicate in the final query and enforce it in negative tests.", false, false, ["Re-run the js-ts-tenancy analyzer", "Run same-ID tests in two tenants"], ["OWASP Multi Tenant Security Cheat Sheet", "CWE-284"]),
+    tenantScopeUnresolved: spec("FF-TENANT-SCOPE-NOT-VERIFIED-001", "js-ts-tenancy", "tenancy", "Tenant scope at the data sink could not be verified", "MEDIUM", "The query appears tenant-owned, but bounded analysis could not prove the placeholder or helper resolves to authenticated tenant context.", "Trace the tenant value to authenticated context or use a supported explicit tenant predicate.", false, false, ["Re-run the js-ts-tenancy analyzer", "Run same-ID tests in two tenants"], ["OWASP Multi Tenant Security Cheat Sheet", "CWE-284"]),
     tenantBackground: spec("FF-TENANT-BACKGROUND-001", "js-ts-tenancy", "tenancy", "Background or export access is unscoped for tenant-owned data", "HIGH", "Asynchronous work can aggregate or disclose records across tenants.", "Persist trusted tenant context with the job/export and require it in every data query.", false, false, ["Re-run the js-ts-tenancy analyzer", "Run a multi-tenant job/export isolation test"], ["OWASP Multi Tenant Security Cheat Sheet"]),
     uploadAny: spec("FF-UPLOAD-ANY-001", "js-ts-uploads", "uploads", "Upload middleware accepts unrestricted file fields", "HIGH", "Attackers can submit unbounded file counts and unexpected file types.", "Replace upload.any() with explicit fields and existing policy-backed count and byte limits.", false, false, ["Re-run the js-ts-uploads analyzer", "Test excess fields, counts, and bytes"], ["OWASP File Upload Cheat Sheet", "CWE-434"]),
     uploadExtension: spec("FF-UPLOAD-EXTENSION-001", "js-ts-uploads", "uploads", "Upload acceptance relies on filename extension", "HIGH", "A renamed active or malformed file can pass the content policy.", "Validate decoded content and file signatures against an allowlisted type.", false, false, ["Re-run the js-ts-uploads analyzer", "Test extension/content mismatches"], ["OWASP File Upload Cheat Sheet"]),
@@ -71,6 +78,8 @@ const SPECS = {
     webhookDuplicate: spec("FF-INTEGRATION-DUPLICATE-001", "js-ts-payments", "integrations", "Duplicate webhook delivery can repeat a side effect", "HIGH", "Provider retries can duplicate fulfillment, notification, ledger, or entitlement changes.", "Make side effects conditional on an atomically claimed durable event identifier.", false, false, ["Re-run the js-ts-payments analyzer", "Replay the same provider event"], ["OWASP Third Party Payment Gateway Integration Cheat Sheet"]),
     clientAmount: spec("FF-PAY-AMOUNT-001", "js-ts-payments", "payments", "Client-controlled amount reaches a payment request", "CRITICAL", "A caller can alter the charged amount or currency outside server-owned pricing rules.", "Resolve the amount and currency from server-owned product or invoice records.", false, false, ["Re-run the js-ts-payments analyzer", "Tamper with amount and currency inputs"], ["OWASP Third Party Payment Gateway Integration Cheat Sheet"]),
     missingLabel: spec("FF-A11Y-LABEL-001", "js-ts-accessibility", "accessibility", "Form control has no structurally detectable accessible name", "HIGH", "Screen-reader and voice-control users may be unable to identify the field.", "Associate a visible label or an appropriate accessible name with the control.", false, true, ["Re-run the js-ts-accessibility analyzer", "Inspect the browser accessibility tree"], ["WCAG 2.2 SC 1.3.1", "WCAG 2.2 SC 4.1.2"]),
+    missingAlt: spec("FF-A11Y-ALT-001", "js-ts-accessibility", "accessibility", "Image has no structurally detectable text alternative", "HIGH", "Screen-reader users may miss content or purpose conveyed by the image.", "Provide contextual alt text, or explicitly mark a decorative image with empty alt, presentation role, or aria-hidden.", false, true, ["Re-run the js-ts-accessibility analyzer", "Inspect the browser accessibility tree"], ["WCAG 2.2 SC 1.1.1"]),
+    clickableNonInteractive: spec("FF-A11Y-INTERACTION-001", "js-ts-accessibility", "accessibility", "Non-interactive element has pointer-only click behavior", "HIGH", "Keyboard and assistive-technology users may be unable to operate the control.", "Use a native button or link, or provide the complete role, focus, and keyboard interaction contract.", false, true, ["Re-run the js-ts-accessibility analyzer", "Complete the interaction using keyboard only"], ["WCAG 2.2 SC 2.1.1", "WCAG 2.2 SC 4.1.2"]),
     blankRel: spec("FF-FRONTEND-BLANK-001", "js-ts-frontend-safety", "frontend", "target=_blank link lacks noopener and noreferrer", "MEDIUM", "The opened page can retain opener access or receive referrer data.", 'Add rel="noopener noreferrer" to the proven target=_blank link.', true, true, ["Re-run the js-ts-frontend-safety analyzer", "Parse the link and confirm both rel tokens"], ["OWASP Reverse Tabnabbing guidance"]),
     envTemplate: spec("FF-ENV-TEMPLATE-001", "structured-config-safety", "security", "Environment template contains an actual-looking credential", "HIGH", "Published templates can disclose a credential.", "Replace the template value with an explicit placeholder and rotate it if it was ever valid.", true, false, ["Re-run the structured-config-safety analyzer", "Verify provider-side rotation manually"], ["OWASP Secrets Management Cheat Sheet"]),
     secureHeader: spec("FF-DEPLOY-HEADER-001", "structured-config-safety", "deployment", "Existing global Vercel header rule omits X-Content-Type-Options", "MEDIUM", "Browsers may MIME-sniff responses contrary to the declared content type.", "Add the deterministic nosniff header to the existing global rule.", true, true, [
@@ -123,13 +132,25 @@ function analyzeScripts(files) {
                 // satisfy the generic validation sub-finding, but it never suppresses structural SQL,
                 // shell, redirect, or network findings by itself.
                 const validated = argumentsHaveProtection(node, file, taint, ["validated", "allowlisted"]);
-                if (isSqlSink(name) &&
-                    requestControlled &&
-                    (hasInterpolation(node.arguments, file.sourceFile) ||
-                        flowPassedThroughInterpolation(flow))) {
-                    issues.push(issue(SPECS.sql, file, node, flowSource(flow, argumentText), name));
-                    if (!validated)
-                        issues.push(issue(SPECS.validation, file, node, flowSource(flow, argumentText), name));
+                const sqlShape = sqlSinkShape(name, node);
+                if (sqlShape !== undefined) {
+                    const sqlText = sqlTextExpression(node, sqlShape);
+                    const sqlFlow = sqlText === undefined ? undefined : resolveExpressionTaint(sqlText, file, taint);
+                    const sqlTextValue = sqlText?.getText(file.sourceFile) ?? "";
+                    if (sqlText !== undefined &&
+                        (sqlFlow !== undefined || containsRequestData(sqlTextValue)) &&
+                        (hasInterpolation(sqlText, file.sourceFile) || flowPassedThroughInterpolation(sqlFlow))) {
+                        issues.push(issue(SPECS.sql, file, node, flowSource(sqlFlow, sqlTextValue), name));
+                        if (!expressionHasProtection(sqlText, file, taint, ["validated", "allowlisted"]))
+                            issues.push(issue(SPECS.validation, file, node, flowSource(sqlFlow, sqlTextValue), name));
+                    }
+                }
+                else if (looksLikeUnknownSqlWrapper(name, node, requestControlled)) {
+                    const unresolved = issue(SPECS.sqlUnresolved, file, node, flowSource(flow, argumentText), name);
+                    unresolved.status = "NOT_VERIFIED";
+                    unresolved.evidence +=
+                        " The wrapper's SQL-text and bound-values argument positions are not registered; this is not a confirmed injection defect.";
+                    issues.push(unresolved);
                 }
                 if (isNoSqlSink(name) &&
                     requestControlled &&
@@ -168,20 +189,26 @@ function analyzeScripts(files) {
                     if (!hasObjectAuthorization(node, file, taint))
                         issues.push(issue(SPECS.objectAuth, file, node, flowSource(flow, argumentText), name));
                 }
-                if (isQuerySink(name) &&
-                    /(?:tenant|organization)(?:Id|_id)?\s*:\s*req\.(?:params|query|body)/u.test(argumentText)) {
+                if (isQuerySink(name) && requestSuppliesTenantKey(argumentText)) {
                     issues.push(issue(SPECS.tenantInput, file, node, flowSource(flow, argumentText), name));
                     issues.push(issue(SPECS.tenantScope, file, node, flowSource(flow, argumentText), name));
                 }
                 const queryContext = isQuerySink(name) ? enclosingText(node, file, functions) : "";
-                if (isQuerySink(name) &&
-                    /\b(?:tenant|organization)(?:Id|_id)?\b/u.test(queryContext) &&
-                    !/(?:tenant|organization)(?:Id|_id)?\s*:/u.test(argumentText)) {
-                    issues.push(issue(SPECS.tenantScope, file, node, "tenant-owned query context", name));
+                if (isQuerySink(name) && !requestSuppliesTenantKey(argumentText)) {
+                    const tenantScope = assessTenantScope(node, name, file, queryContext);
+                    if (tenantScope === "MISSING")
+                        issues.push(issue(SPECS.tenantScope, file, node, "tenant-owned query context", name));
+                    else if (tenantScope === "UNRESOLVED") {
+                        const unresolved = issue(SPECS.tenantScopeUnresolved, file, node, "unresolved tenant predicate value", name);
+                        unresolved.status = "NOT_VERIFIED";
+                        unresolved.evidence +=
+                            " A tenant predicate was observed, but its value could not be bound to authenticated tenant context.";
+                        issues.push(unresolved);
+                    }
                 }
                 if (isQuerySink(name) &&
                     isBackgroundExecutionContext(node, file) &&
-                    !/(?:tenant|organization)(?:Id|_id)?\s*:/u.test(argumentText))
+                    assessTenantScope(node, name, file, queryContext) !== "PROVEN")
                     issues.push(issue(SPECS.tenantBackground, file, node, "background/export context", name));
                 if (isModelSink(name) &&
                     requestControlled &&
@@ -237,8 +264,18 @@ function analyzeScripts(files) {
                     issues.push(issue(SPECS.missingLabel, file, node, `<${tag}>`, "accessible-name computation"));
                 if (tag === "a" && hasJsxAttribute(node, "target", "_blank") && !hasRelTokens(node))
                     issues.push(issue(SPECS.blankRel, file, node, 'target="_blank"', "browser link navigation"));
+                if (["img", "image"].includes(tag) &&
+                    !hasJsxAttributeName(node, "alt") &&
+                    !hasJsxAttribute(node, "role", "presentation") &&
+                    !hasJsxAttribute(node, "aria-hidden", "true"))
+                    issues.push(issue(SPECS.missingAlt, file, node, `<${tag}>`, "text alternative"));
+                if (hasPointerOnlyClick(node, tag))
+                    issues.push(issue(SPECS.clickableNonInteractive, file, node, `<${tag}> with onClick`, "keyboard-operable control semantics"));
             }
+            if (ts.isTaggedTemplateExpression(node))
+                analyzeTaggedSql(issues, file, node, taint);
         });
+        analyzeAuthorizationRoutes(issues, file);
         analyzeUploadFile(issues, file);
         analyzeAiFile(issues, file);
         analyzeWebhookFile(issues, file);
@@ -347,6 +384,60 @@ function loadSources(scope, inventory) {
         });
     }
     return records;
+}
+function analyzeTaggedSql(issues, file, node, taint) {
+    const name = callName(node.tag);
+    if (!/(?:^|\.)(?:\$queryRaw|\$executeRaw|sql)$/u.test(name))
+        return;
+    // These are known parameterizing tagged-template APIs. Interpolations are values, not SQL
+    // structure, so they must not inherit the raw-call SQL or request-validation findings.
+    if (!extractTenantKeys(node.template.getText(file.sourceFile)).length)
+        return;
+    if (!ts.isTemplateExpression(node.template))
+        return;
+    const trusted = node.template.templateSpans.some((span) => isTrustedTenantValue(span.expression, node, file.sourceFile));
+    if (!trusted) {
+        const unresolved = issue(SPECS.tenantScopeUnresolved, file, node, flowSource(taint.resolve(node.template.templateSpans[0]?.expression ?? node.template), node.getText(file.sourceFile)), name);
+        unresolved.status = "NOT_VERIFIED";
+        issues.push(unresolved);
+    }
+}
+function analyzeAuthorizationRoutes(issues, file) {
+    const hasUnresolvedGlobalGuard = /\b(?:router|app)\.use\s*\(\s*[A-Za-z_$][\w$]*\s*\)/u.test(file.content);
+    visit(file.sourceFile, [], (node) => {
+        if (!ts.isCallExpression(node))
+            return;
+        const name = callName(node.expression);
+        const method = /\.(delete|put|patch|post|get)$/iu.exec(name)?.[1]?.toLowerCase();
+        if (method === undefined)
+            return;
+        const route = node.arguments[0];
+        if (route === undefined || !ts.isStringLiteralLike(route))
+            return;
+        const routePath = route.text;
+        const sensitive = method === "delete" ||
+            ["put", "patch"].includes(method) ||
+            /(?:^|\/)(?:admin|internal|manage|ops|sudo)(?:\/|$)/iu.test(routePath) ||
+            /patient|medical|record|account|invoice|payment|document/iu.test(routePath);
+        if (!sensitive || /(?:^|\/)(?:health|status|ready|live)(?:\/|$)/iu.test(routePath))
+            return;
+        const handlerText = node.arguments
+            .slice(1)
+            .map((argument) => argument.getText(file.sourceFile))
+            .join(" ");
+        if (/\b(?:requireRole|requirePermission|hasPermission|authorize|enforcePolicy|assertCanAccess)\b/iu.test(handlerText))
+            return;
+        const inlineHandler = node.arguments
+            .slice(1)
+            .some((argument) => ts.isArrowFunction(argument) || ts.isFunctionExpression(argument));
+        const candidate = issue(inlineHandler && !hasUnresolvedGlobalGuard ? SPECS.authzRoute : SPECS.authzUnresolved, file, node, `${method.toUpperCase()} ${routePath}`, name);
+        if (!inlineHandler || hasUnresolvedGlobalGuard) {
+            candidate.status = "NOT_VERIFIED";
+            candidate.evidence +=
+                " Bounded analysis could not resolve the referenced handler or global middleware to a route-specific permission predicate.";
+        }
+        issues.push(candidate);
+    });
 }
 function analyzeUploadFile(issues, file) {
     const content = file.content;
@@ -1037,14 +1128,47 @@ function callName(expression) {
         return `${callName(expression.expression)}.${expression.argumentExpression.getText()}`;
     return expression.getText();
 }
-function hasInterpolation(argumentsValue, sourceFile) {
-    return argumentsValue.some((argument) => ts.isTemplateExpression(argument) ||
-        (ts.isBinaryExpression(argument) &&
-            argument.operatorToken.kind === ts.SyntaxKind.PlusToken) ||
-        /\$\{|\+\s*req\./u.test(argument.getText(sourceFile)));
+function hasInterpolation(argument, sourceFile) {
+    return (ts.isTemplateExpression(argument) ||
+        (ts.isBinaryExpression(argument) && argument.operatorToken.kind === ts.SyntaxKind.PlusToken) ||
+        /\$\{|\+\s*(?:req|request)\./u.test(argument.getText(sourceFile)));
+}
+function sqlSinkShape(name, node) {
+    if (/(?:^|\.)(?:\$queryRawUnsafe|\$executeRawUnsafe)$/u.test(name))
+        return { textArgument: 0 };
+    if (/(?:^|\.)knex\.raw$|^knex\.raw$/iu.test(name))
+        return { textArgument: 0, valuesArgument: 1 };
+    if (/(?:^|\.)(?:pool|client|connection|conn|db|database|sqlite|knex|trx|tx)\.(?:query|execute|all|get|run|raw)$/iu.test(name)) {
+        const first = node.arguments[0];
+        return first !== undefined && ts.isObjectLiteralExpression(first)
+            ? { textArgument: 0, objectTextProperty: "text" }
+            : { textArgument: 0, valuesArgument: 1 };
+    }
+    return undefined;
+}
+function sqlTextExpression(node, shape) {
+    const argument = node.arguments[shape.textArgument];
+    if (argument === undefined || shape.objectTextProperty === undefined)
+        return argument;
+    if (!ts.isObjectLiteralExpression(argument))
+        return undefined;
+    for (const property of argument.properties) {
+        if (!ts.isPropertyAssignment(property))
+            continue;
+        if (property.name.getText(node.getSourceFile()).replace(/["']/gu, "") === shape.objectTextProperty)
+            return property.initializer;
+    }
+    return undefined;
 }
 function isSqlSink(name) {
-    return /(?:^|\.)(?:query|execute|raw|\$queryRawUnsafe|\$executeRawUnsafe)$/u.test(name);
+    return (/(?:^|\.)(?:\$queryRawUnsafe|\$executeRawUnsafe)$/u.test(name) ||
+        /(?:^|\.)(?:pool|client|connection|conn|db|database|sqlite|knex|trx|tx)\.(?:query|execute|all|get|run|raw)$/iu.test(name));
+}
+function looksLikeUnknownSqlWrapper(name, node, requestControlled) {
+    return (requestControlled &&
+        node.arguments.length > 0 &&
+        /(?:db|database|sql|query|repository|repo)/iu.test(name) &&
+        /(?:search|query|execute|raw|run)$/iu.test(name));
 }
 function isNoSqlSink(name) {
     // Unambiguous ORM/driver methods: the name alone identifies a data-access call.
@@ -1077,7 +1201,7 @@ function isCacheSink(name) {
     return /(?:^|\.)(?:get|set|mget|mset|del|invalidate)$/u.test(name) && /redis|cache/u.test(name);
 }
 function isObjectLookup(name) {
-    return /(?:^|\.)(?:findUnique|findFirst|findOne|findById)$/u.test(name);
+    return /(?:^|\.)(?:findUnique|findFirst|findOne|findById|delete|deleteMany|update|updateMany)$/u.test(name);
 }
 function isHttpClientSink(name) {
     if (name === "fetch")
@@ -1139,6 +1263,16 @@ function resolveArgumentTaint(node, file, taint) {
     }
     void file;
     return undefined;
+}
+function resolveExpressionTaint(expression, file, taint) {
+    void file;
+    return taint.resolve(expression);
+}
+function expressionHasProtection(expression, file, taint, kinds) {
+    const relevant = collectTaintedValueExpressions(expression, file.sourceFile, taint);
+    if (relevant.length === 0)
+        return false;
+    return relevant.every((value) => kinds.some((kind) => taint.hasProtection(value, kind)));
 }
 /**
  * True only when every request-controlled value reaching this call carries one of the requested
@@ -1409,6 +1543,127 @@ function unconditionalExpressionCall(statement) {
         expression = expression.expression;
     return ts.isCallExpression(expression) ? expression : undefined;
 }
+const TENANT_KEYS = [
+    "tenantId",
+    "clinicId",
+    "cabinetId",
+    "practiceId",
+    "hospitalId",
+    "accountId",
+    "merchantId",
+    "schoolId",
+    "workspaceId",
+    "orgId",
+    "organizationId",
+    "companyId",
+    "siteId",
+    "storeId",
+    "projectId"
+];
+const TENANT_KEY_SOURCE = TENANT_KEYS.map((key) => key.replace(/Id$/u, "(?:Id|_id)")).join("|");
+function tenantKeyPattern(flags = "u") {
+    return new RegExp(`\\b(?:${TENANT_KEY_SOURCE})\\b`, flags);
+}
+function requestSuppliesTenantKey(text) {
+    return new RegExp(`(?:${TENANT_KEY_SOURCE})\\s*:\\s*(?:req|request)\\.(?:params|query|body)`, "u").test(text);
+}
+function assessTenantScope(node, name, file, context) {
+    const contextKeys = extractTenantKeys(context);
+    const background = isBackgroundExecutionContext(node, file);
+    if (contextKeys.length === 0 && !background)
+        return "NOT_RELEVANT";
+    if (queryEmbedsTrustedScope(node, file.sourceFile))
+        return "PROVEN";
+    const shape = sqlSinkShape(name, node);
+    if (shape !== undefined) {
+        const textExpression = sqlTextExpression(node, shape);
+        const sql = staticStringValue(textExpression);
+        if (sql === undefined)
+            return "UNRESOLVED";
+        const keys = [...new Set([...contextKeys, ...extractTenantKeys(sql)])];
+        const predicate = findTenantSqlPredicate(sql, keys);
+        if (predicate === undefined)
+            return "MISSING";
+        const value = sqlBoundValue(node, shape, predicate);
+        if (value === undefined)
+            return "UNRESOLVED";
+        return isTrustedTenantValue(value, node, file.sourceFile) ? "PROVEN" : "UNRESOLVED";
+    }
+    if (containsTenantPredicate(node, file.sourceFile))
+        return "UNRESOLVED";
+    return "MISSING";
+}
+function extractTenantKeys(text) {
+    const matches = text.match(new RegExp(TENANT_KEY_SOURCE, "giu")) ?? [];
+    return [...new Set(matches.map((key) => key.toLowerCase()))];
+}
+function findTenantSqlPredicate(sql, keys) {
+    for (const key of keys) {
+        const escaped = key.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&").replace(/id$/iu, "(?:id|_id)");
+        const match = new RegExp(`\\b${escaped}\\b\\s*=\\s*(\\$\\d+|\\?|:[A-Za-z_$][\\w$]*)`, "iu").exec(sql);
+        if (match === null || match[1] === undefined)
+            continue;
+        const placeholder = match[1];
+        if (placeholder.startsWith("$"))
+            return { placeholder, positionalIndex: Number.parseInt(placeholder.slice(1), 10) - 1 };
+        if (placeholder === "?") {
+            const before = sql.slice(0, match.index + match[0].lastIndexOf("?"));
+            return { placeholder, positionalIndex: Math.max(0, (before.match(/\?/gu) ?? []).length - 1) };
+        }
+        return { placeholder, namedKey: placeholder.slice(1) };
+    }
+    return undefined;
+}
+function sqlBoundValue(node, shape, predicate) {
+    const first = node.arguments[shape.textArgument];
+    let values = shape.valuesArgument === undefined ? undefined : node.arguments[shape.valuesArgument];
+    if (shape.objectTextProperty !== undefined &&
+        first !== undefined &&
+        ts.isObjectLiteralExpression(first)) {
+        values = objectPropertyInitializer(first, "values") ?? values;
+    }
+    if (values === undefined)
+        return undefined;
+    if (predicate.positionalIndex !== undefined && ts.isArrayLiteralExpression(values))
+        return values.elements[predicate.positionalIndex];
+    if (predicate.namedKey !== undefined && ts.isObjectLiteralExpression(values))
+        return objectPropertyInitializer(values, predicate.namedKey);
+    return undefined;
+}
+function objectPropertyInitializer(object, name) {
+    for (const property of object.properties) {
+        if (ts.isPropertyAssignment(property) && property.name.getText().replace(/["']/gu, "") === name)
+            return property.initializer;
+        if (ts.isShorthandPropertyAssignment(property) && property.name.text === name)
+            return property.name;
+    }
+    return undefined;
+}
+function staticStringValue(expression) {
+    if (expression === undefined)
+        return undefined;
+    return ts.isStringLiteralLike(expression) ? expression.text : undefined;
+}
+function isTrustedTenantValue(expression, sink, sourceFile) {
+    if (isTrustedTenantExpression(expression, sourceFile))
+        return true;
+    if (!ts.isIdentifier(expression))
+        return false;
+    let initializer;
+    visit(sourceFile, [], (candidate) => {
+        if (initializer === undefined &&
+            ts.isVariableDeclaration(candidate) &&
+            ts.isIdentifier(candidate.name) &&
+            candidate.name.text === expression.text &&
+            candidate.initializer !== undefined &&
+            candidate.getStart(sourceFile) < sink.getStart(sourceFile))
+            initializer = candidate.initializer;
+    });
+    return initializer !== undefined && isTrustedTenantExpression(initializer, sourceFile);
+}
+function containsTenantPredicate(node, sourceFile) {
+    return tenantKeyPattern().test(node.getText(sourceFile));
+}
 function queryEmbedsTrustedScope(node, sourceFile) {
     let connected = false;
     for (const argument of node.arguments) {
@@ -1420,7 +1675,7 @@ function queryEmbedsTrustedScope(node, sourceFile) {
             const key = candidate.name.getText(sourceFile).replace(/["']/gu, "");
             if (/^(?:ownerId|userId|subjectId|createdById)$/iu.test(key))
                 connected = isTrustedSubjectExpression(candidate.initializer, sourceFile);
-            if (/^(?:tenantId|organizationId|workspaceId)$/iu.test(key))
+            if (tenantKeyPattern().test(key))
                 connected = isTrustedTenantExpression(candidate.initializer, sourceFile);
         });
     }
@@ -1448,7 +1703,8 @@ function isTrustedSubjectExpression(node, sourceFile) {
 }
 function isTrustedTenantExpression(node, sourceFile) {
     const text = node.getText(sourceFile).replace(/\s+/gu, "");
-    return /^(?:req|request)\.(?:auth|user)\.(?:tenantId|organizationId|workspaceId)|^(?:session\.user|auth\.user|ctx\.state|context)\.(?:tenantId|organizationId|workspaceId)|^(?:trustedTenant|tenantContext)\.(?:id|tenantId|organizationId)$/u.test(text);
+    const key = `(?:${TENANT_KEY_SOURCE})`;
+    return new RegExp(`^(?:req|request)\\.(?:session\\.user|auth(?:\\.user)?|user)\\.${key}$|^(?:session\\.user|auth\\.user|ctx\\.state(?:\\.user)?|context(?:\\.user)?)\\.${key}$|^(?:trustedTenant|tenantContext)\\.(?:id|${key})$`, "iu").test(text);
 }
 function hasDominatingGuard(sink, sourceFile, classify) {
     for (const statement of precedingStatements(sink)) {
@@ -1597,6 +1853,19 @@ function hasAccessibleName(node, labelIds) {
         return true;
     const id = jsxAttributeValue(node, "id");
     return id !== undefined && labelIds.has(id);
+}
+function hasJsxAttributeName(node, name) {
+    return node.attributes.properties.some((candidate) => ts.isJsxAttribute(candidate) && candidate.name.getText() === name);
+}
+function hasPointerOnlyClick(node, tag) {
+    if (!["div", "span", "li", "section", "article"].includes(tag))
+        return false;
+    if (!hasJsxAttributeName(node, "onClick"))
+        return false;
+    const semanticRole = ["button", "link"].includes(jsxAttributeValue(node, "role") ?? "");
+    const focusable = hasJsxAttributeName(node, "tabIndex");
+    const keyboard = ["onKeyDown", "onKeyUp", "onKeyPress"].some((name) => hasJsxAttributeName(node, name));
+    return !(semanticRole && focusable && keyboard);
 }
 function hasJsxAttribute(node, name, expected) {
     return jsxAttributeValue(node, name)?.toLowerCase() === expected;

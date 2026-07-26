@@ -21,12 +21,14 @@ export const ANALYZER_SUPPORT = [
             "object and array destructuring",
             "template literal and string concatenation propagation",
             "same-file function-parameter summaries",
-            "typed protection evidence bound to the tainted value"
+            "typed protection evidence bound to the tainted value",
+            "SQL text argument inspection for known client shapes"
         ],
         unsupported_shapes: [
             "cross-file taint propagation",
             "dynamic property access computed at runtime",
-            "reflection and eval-constructed call targets"
+            "reflection and eval-constructed call targets",
+            "unknown database wrapper argument conventions"
         ]
     },
     {
@@ -35,7 +37,11 @@ export const ANALYZER_SUPPORT = [
         framework: "Express",
         analyzer_id: "js-ts-authorization",
         coverage: "partial",
-        supported_shapes: ["literal route registration", "object lookup sinks"],
+        supported_shapes: [
+            "literal route registration",
+            "sensitive route middleware and inline guard resolution",
+            "object lookup sinks"
+        ],
         unsupported_shapes: ["middleware-inherited policy chains", "runtime policy engines"],
         required_adapter: "express-authorization-boundaries"
     },
@@ -123,8 +129,15 @@ export const ANALYZER_SUPPORT = [
         framework: "any",
         analyzer_id: "js-ts-tenancy",
         coverage: "partial",
-        supported_shapes: ["ORM query scoping on supported call shapes"],
-        unsupported_shapes: ["row-level security policies enforced in the database"],
+        supported_shapes: [
+            "ORM query scoping on supported call shapes",
+            "raw SQL positional and named placeholder binding",
+            "common domain ownership keys from authenticated context"
+        ],
+        unsupported_shapes: [
+            "row-level security policies enforced in the database",
+            "dynamic SQL helper and wrapper conventions"
+        ],
         required_adapter: "database-rls-tenancy"
     },
     {
@@ -133,9 +146,33 @@ export const ANALYZER_SUPPORT = [
         framework: "any",
         analyzer_id: "js-ts-uploads",
         coverage: "partial",
-        supported_shapes: ["multipart configuration", "archive extraction limits"],
+        supported_shapes: [
+            "multipart configuration",
+            "size and count limits",
+            "filename and path handling",
+            "scanner and quarantine call ordering",
+            "archive extraction limits"
+        ],
         unsupported_shapes: ["provider-side scanner state", "runtime quarantine behaviour"],
         required_adapter: "runtime-upload-pipeline"
+    },
+    {
+        module: "accessibility",
+        language: JS_TS,
+        framework: "JSX",
+        analyzer_id: "js-ts-accessibility",
+        coverage: "partial",
+        supported_shapes: [
+            "missing image alternatives",
+            "pointer-only non-native interactive elements",
+            "native and complete semantic exceptions"
+        ],
+        unsupported_shapes: [
+            "computed component output",
+            "runtime accessibility tree and keyboard behavior",
+            "contrast and responsive reflow"
+        ],
+        required_adapter: "runtime-accessibility-evaluation"
     }
 ];
 /** Resolves the support record for a module/language pair, if one is registered. */

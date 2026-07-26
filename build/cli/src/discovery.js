@@ -1,6 +1,6 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join, relative } from "node:path";
-import { assessProjectCapabilities } from "./discovery-evidence.js";
+import { assessProjectCapabilities, discoverRiskEvidence } from "./discovery-evidence.js";
 import { inventoryRepository } from "./repository-inventory.js";
 import { assertNoSymlinkPath, canonicalDirectory, readTextIfPresent, runFile, toPosix, utcNow } from "./utils.js";
 const RULES = [
@@ -313,10 +313,93 @@ export async function discoverProjectWithInventory(rootInput, options = {}) {
         detections: deduplicateDetections(detections),
         capabilities,
         capability_assessments: capabilityAssessments,
+        risk_evidence: discoverRiskEvidence(inventory),
+        tenancy: inferTenancyProfile(inventory),
         inventory: inventory.diagnostics,
         ...structured
     };
     return { profile, inventory };
+}
+const TENANCY_KEY_NAMES = [
+    "tenantId",
+    "clinicId",
+    "cabinetId",
+    "practiceId",
+    "hospitalId",
+    "accountId",
+    "merchantId",
+    "schoolId",
+    "workspaceId",
+    "orgId",
+    "organizationId",
+    "companyId",
+    "siteId",
+    "storeId",
+    "projectId"
+];
+function inferTenancyProfile(inventory) {
+    const scores = new Map();
+    for (const entry of inventory.entries) {
+        if (entry.status !== "INSPECTED" || entry.content === undefined)
+            continue;
+        if (["documentation", "example", "fixture", "generated", "test"].includes(entry.evidence_class))
+            continue;
+        for (const key of TENANCY_KEY_NAMES) {
+            const snake = key.replace(/Id$/u, "_id");
+            const pattern = new RegExp(`\\b(?:${key}|${snake})\\b`, "gu");
+            const matches = entry.content.match(pattern) ?? [];
+            if (matches.length === 0)
+                continue;
+            const current = scores.get(key) ?? { score: 0, evidence: [], models: new Set() };
+            if (/\.prisma$/u.test(entry.path) || /\bmodel\s+[A-Za-z_$][\w$]*\s*\{/u.test(entry.content)) {
+                const modelPattern = /\bmodel\s+([A-Za-z_$][\w$]*)\s*\{([\s\S]*?)\}/gu;
+                for (const model of entry.content.matchAll(modelPattern))
+                    if (new RegExp(`\\b(?:${key}|${snake})\\b`, "u").test(model[2] ?? ""))
+                        current.models.add(model[1] ?? "unknown");
+                current.score += current.models.size * 2;
+            }
+            else {
+                current.score += Math.min(3, matches.length);
+                if (new RegExp(`(?:session\\.user|auth\\.user|req\\.(?:session\\.user|auth|user))\\.${key}`, "u").test(entry.content))
+                    current.score += 3;
+            }
+            current.evidence.push(`${entry.path}: observed ${key} ownership/session evidence`);
+            scores.set(key, current);
+        }
+    }
+    const ranked = [...scores.entries()]
+        .map(([key, value]) => ({
+        key,
+        score: value.score,
+        evidence: value.evidence,
+        models: value.models.size
+    }))
+        .sort((left, right) => right.score - left.score || right.models - left.models || left.key.localeCompare(right.key));
+    if (ranked.length === 0)
+        return {
+            status: inventory.diagnostics.status === "COMPLETE" ? "ABSENT" : "UNKNOWN",
+            candidates: [],
+            confidence: inventory.diagnostics.status === "COMPLETE" ? "MEDIUM" : "LOW",
+            evidence: ["No supported ownership key was observed in the bounded scanned scope."]
+        };
+    const best = ranked[0];
+    if (best === undefined)
+        throw new Error("Tenancy ranking unexpectedly empty");
+    const tied = ranked.filter((candidate) => candidate.score === best.score);
+    if (tied.length > 1)
+        return {
+            status: "UNKNOWN",
+            candidates: tied.map((candidate) => candidate.key),
+            confidence: "LOW",
+            evidence: tied.flatMap((candidate) => candidate.evidence).slice(0, 12)
+        };
+    return {
+        status: "PRESENT",
+        key: best.key,
+        candidates: ranked.map((candidate) => candidate.key),
+        confidence: best.models >= 2 || best.score >= 5 ? "HIGH" : "MEDIUM",
+        evidence: best.evidence.slice(0, 12)
+    };
 }
 export async function writeProjectArtifacts(profile, dryRun = false) {
     const root = await canonicalDirectory(profile.root);
