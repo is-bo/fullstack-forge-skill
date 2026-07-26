@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "tool": "Supported Node.js experimental test coverage",
+  "tool": "Node.js 24 experimental test coverage",
   "statements": "not exposed separately by the selected Node.js coverage reporter",
   "overall": {
     "lines": 88,

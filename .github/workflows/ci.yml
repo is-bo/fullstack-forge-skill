@@ -35,6 +35,7 @@ jobs:
       - name: Fail on stale committed build output
         run: git diff --exit-code -- build/
       - name: Report test coverage
+        if: matrix.node == 24
         run: npm run test:coverage
       - name: Audit locked dependencies
         run: npm audit --ignore-scripts

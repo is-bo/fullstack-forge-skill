@@ -1,7 +1,7 @@
 # Coverage policy
 
-`npm run test:coverage` executes the complete test suite with the supported Node.js experimental
-coverage reporter, parses its machine-readable table, and fails when the measured result falls below
+`npm run test:coverage` executes the complete test suite with the Node.js 24 experimental coverage
+reporter, parses its machine-readable table, and fails when the measured result falls below
 `config/coverage-thresholds.json`.
 
 ## v0.1.4 measured baseline
