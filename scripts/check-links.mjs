@@ -15,7 +15,13 @@ const errors = [];
 let references = 0;
 for (const file of markdown) {
   const absolute = join(projectRoot, ...file.split("/"));
-  const content = await readFile(absolute, "utf8");
+  let content;
+  try {
+    content = await readFile(absolute, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") continue;
+    throw error;
+  }
   for (const match of content.matchAll(/!?\[[^\]]*\]\(([^)]+)\)/gu)) {
     const target = match[1]?.trim() ?? "";
     if (isExternal(target)) continue;

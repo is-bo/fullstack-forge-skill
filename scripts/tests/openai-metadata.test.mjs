@@ -8,25 +8,28 @@ const forgeRoot = join(projectRoot, "src", "fullstack-forge", "commands", "forge
 const forgeMetadataPath = join(forgeRoot, "agents", "openai.yaml");
 const expertMetadataPath = join(projectRoot, "src", "fullstack-forge", "agents", "openai.yaml");
 
-test("Forge is the beginner Codex entry and expert audit metadata remains distinct", async () => {
+test("Forge and the canonical skill advertise automatic agent-first use", async () => {
   const forgeMetadata = await readFile(forgeMetadataPath, "utf8");
   const expertMetadata = await readFile(expertMetadataPath, "utf8");
   const forgePrompt = quotedField(forgeMetadata, "default_prompt");
   const forgeDescription = quotedField(forgeMetadata, "short_description");
 
   assert.equal(quotedField(forgeMetadata, "display_name"), "Forge");
-  assert.equal(forgeDescription, "Build · Audit · Fix · Verify · Ship · Status");
+  assert.equal(forgeDescription, "Automatic Build · Fix · Verify · Ship guidance");
   assert.ok(forgeDescription.length >= 25 && forgeDescription.length <= 64);
   for (const action of ["build", "continue", "audit", "fix", "verify", "ship", "status", "help"])
     assert.match(forgePrompt, new RegExp(`\\b${action}\\b`, "iu"));
-  assert.match(forgePrompt, /no action.*beginner command menu.*plain language/iu);
+  assert.match(forgePrompt, /automatically.*proportional agent-first workflow/iu);
 
-  assert.equal(quotedField(expertMetadata, "display_name"), "Fullstack Forge — Expert Audit");
+  assert.equal(
+    quotedField(expertMetadata, "display_name"),
+    "Fullstack Forge — Agent-first Engineering"
+  );
   assert.equal(
     quotedField(expertMetadata, "short_description"),
-    "Advanced evidence-backed audit orchestration"
+    "Automatic production engineering for app changes"
   );
-  assert.match(quotedField(expertMetadata, "default_prompt"), /\$fullstack-forge/iu);
+  assert.match(quotedField(expertMetadata, "default_prompt"), /\$fullstack-forge.*automatically/iu);
 
   for (const metadata of [forgeMetadata, expertMetadata]) {
     assert.deepEqual(topLevelKeys(metadata), ["interface"]);

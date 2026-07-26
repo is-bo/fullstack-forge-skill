@@ -2,12 +2,12 @@
   {
     "name": "forge",
     "title": "Simple product workflow",
-    "description": "Build, continue, audit, fix, verify, ship, or inspect status through one simple Fullstack Forge entry point. Use when a user asks for /forge, wants plain-language guidance, or does not know the specialist command names.",
-    "purpose": "Give first-time and nontechnical users one stable product entrance. Interpret `/forge build`, `/forge continue`, `/forge audit`, `/forge fix`, `/forge verify`, `/forge ship`, `/forge status`, and `/forge help`, then route to the existing Build, Audit, and Ship engines without weakening their evidence or authorization rules.",
+    "description": "Use Fullstack Forge automatically for software-engineering work in an installed repository: build, create, implement, add or change a feature, fix, debug, refactor, optimise, migrate, review, audit, test, verify, deploy, release, or ship. Apply production engineering proportionately; explicit Forge commands are optional overrides. Do not activate for unrelated writing or general conversation.",
+    "purpose": "Make the AI agent a production-focused full-stack engineer by default. Route ordinary software-engineering requests through the proportional agent-first workflow, and keep `/forge build`, `/forge continue`, `/forge audit`, `/forge fix`, `/forge verify`, `/forge ship`, `/forge status`, and `/forge help` as optional explicit shortcuts without weakening evidence or authorization rules.",
     "sections": [
       {
         "heading": "Trigger conditions",
-        "body": "Use when the user names `/forge`, asks to build or inspect an application in plain language, or would otherwise need to learn separate Fullstack Forge skill names. On hosts that select skills with `$` mentions or a skill picker instead of arbitrary slash commands, treat `$forge ...` or an explicit request to use the `forge` skill as the same entrance. Keep `/forge-new`, `/forge-feature`, `/fullstack-forge`, and every `/forge-<area>` available for expert control."
+        "body": "Activate automatically when installed and the user asks to build, create, implement, add a feature, change behaviour, fix, debug, refactor, optimise, migrate, review, audit, test, verify, deploy, release, or ship application code. Do not activate for unrelated writing or general conversation. The user does not need to name Forge. Explicit `/forge` or `$forge` requests force this router, and `/forge-new`, `/forge-feature`, `/fullstack-forge`, and every `/forge-<area>` remain available for expert control."
       },
       {
         "heading": "Enforcement honesty",

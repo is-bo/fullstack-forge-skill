@@ -10,6 +10,12 @@ import {
   VERSION,
   type Platform
 } from "./constants.js";
+import {
+  PROJECT_INSTRUCTIONS,
+  extractManagedSection,
+  removeManagedSection,
+  upsertManagedSection
+} from "./automatic-activation.js";
 import type { InstallFile, InstallManifest } from "./types.js";
 import {
   assertNoSymlinkPath,
@@ -83,7 +89,6 @@ export async function install(
   const previous = await readManifest(root);
   const planned: Array<{
     action: InstallAction;
-    source: string;
     target: string;
     bytes: Buffer;
     record: InstallFile;
@@ -152,12 +157,105 @@ export async function install(
             : "update";
       planned.push({
         action: { action, path: manifestRelative, platform },
-        source,
         target,
         bytes,
-        record: { hash, platform, owned },
+        record: { hash, platform, owned, management: "file" },
         ...(existingHash === undefined ? {} : { previousHash: existingHash })
       });
+    }
+
+    if (!options.global) {
+      const instruction = PROJECT_INSTRUCTIONS[platform];
+      if (instruction !== undefined) {
+        const target = resolveInside(root, instruction.path.join("/"));
+        await assertNoSymlinkPath(root, target);
+        const manifestRelative = toPosix(relative(root, target));
+        assertSafeRelative(manifestRelative);
+        const oldRecord = previous.files[manifestRelative];
+        if (oldRecord !== undefined && oldRecord.platform !== platform)
+          throw new Error(`Ownership platform mismatch for ${manifestRelative}`);
+
+        const currentText = await readTextIfPresent(target);
+        const current = currentText ?? "";
+        const currentFileHash = currentText === undefined ? undefined : sha256(current);
+        if (instruction.management === "file") {
+          const bytes = Buffer.from(instruction.content, "utf8");
+          const hash = sha256(bytes);
+          const owned = oldRecord?.owned ?? current.length === 0;
+          if (oldRecord !== undefined && oldRecord.management === "section")
+            throw new Error(`Ownership management mismatch for ${manifestRelative}`);
+          if (
+            oldRecord?.owned &&
+            currentFileHash !== undefined &&
+            currentFileHash !== oldRecord.hash &&
+            currentFileHash !== hash
+          )
+            throw new Error(`Refusing to overwrite a modified owned file: ${manifestRelative}`);
+          if (
+            (!oldRecord || !oldRecord.owned) &&
+            currentFileHash !== undefined &&
+            currentFileHash !== hash
+          )
+            throw new Error(`Refusing to overwrite an unowned file: ${manifestRelative}`);
+          planned.push({
+            action: {
+              action:
+                currentFileHash === undefined
+                  ? "create"
+                  : currentFileHash === hash
+                    ? "preserve-identical"
+                    : "update",
+              path: manifestRelative,
+              platform
+            },
+            target,
+            bytes,
+            record: { hash, platform, owned, management: "file" },
+            ...(currentFileHash === undefined ? {} : { previousHash: currentFileHash })
+          });
+        } else {
+          const nextSection = extractManagedSection(instruction.content);
+          if (nextSection === undefined)
+            throw new Error("Bundled activation section is missing markers");
+          const existingSection = extractManagedSection(current);
+          const existingSectionHash =
+            existingSection === undefined ? undefined : sha256(existingSection);
+          const nextHash = sha256(nextSection);
+          if (oldRecord !== undefined && oldRecord.management !== "section")
+            throw new Error(`Ownership management mismatch for ${manifestRelative}`);
+          if (
+            oldRecord?.owned &&
+            existingSectionHash !== undefined &&
+            existingSectionHash !== oldRecord.hash &&
+            existingSectionHash !== nextHash
+          )
+            throw new Error(`Refusing to overwrite a modified owned section: ${manifestRelative}`);
+          if (
+            (!oldRecord || !oldRecord.owned) &&
+            existingSectionHash !== undefined &&
+            existingSectionHash !== nextHash
+          )
+            throw new Error(`Refusing to overwrite an unowned section: ${manifestRelative}`);
+          const nextContent = upsertManagedSection(current, nextSection);
+          const owned = oldRecord?.owned ?? existingSection === undefined;
+          planned.push({
+            action: {
+              action:
+                existingSection === undefined
+                  ? "create"
+                  : existingSectionHash === nextHash
+                    ? "preserve-identical"
+                    : "update",
+              path: manifestRelative,
+              platform
+            },
+            target,
+            bytes: Buffer.from(nextContent, "utf8"),
+            record: { hash: nextHash, platform, owned, management: "section" },
+            ...(currentFileHash === undefined ? {} : { previousHash: currentFileHash })
+          });
+        }
+      }
     }
   }
 
@@ -167,6 +265,8 @@ export async function install(
     packageVersion: VERSION,
     root,
     installedAt: utcNow(),
+    agent_first: true,
+    automatic_activation: !options.global,
     files: { ...previous.files }
   };
 
@@ -191,16 +291,14 @@ export async function install(
   for (const item of planned) {
     if (item.action.action === "create" || item.action.action === "update") {
       const currentHash = await hashIfPresent(item.target);
+      const finalHash = sha256(item.bytes);
       const unchangedSincePreflight =
-        currentHash === item.record.hash ||
-        (item.action.action === "create"
-          ? currentHash === undefined
-          : currentHash === item.previousHash);
+        currentHash === finalHash || currentHash === item.previousHash;
       if (!unchangedSincePreflight)
         throw new Error(
           `Refusing to overwrite a file changed after preflight: ${item.action.path}`
         );
-      if (currentHash !== item.record.hash) await atomicWrite(root, item.target, item.bytes);
+      if (currentHash !== finalHash) await atomicWrite(root, item.target, item.bytes);
       processedWrites += 1;
       if (options.interruptAfter !== undefined && processedWrites >= options.interruptAfter)
         throw new Error(
@@ -242,6 +340,31 @@ export async function uninstall(
       delete remaining[rel];
       continue;
     }
+    if (record.management === "section") {
+      const current = await readFile(target, "utf8");
+      let section: string | undefined;
+      try {
+        section = extractManagedSection(current);
+      } catch {
+        section = undefined;
+      }
+      if (section === undefined || sha256(section) !== record.hash) {
+        actions.push({
+          action: "preserve-modified",
+          path: rel,
+          platform: record.platform as Platform
+        });
+        continue;
+      }
+      actions.push({ action: "remove", path: rel, platform: record.platform as Platform });
+      if (!options.dryRun) {
+        const next = removeManagedSection(current);
+        if (next.length === 0) await unlink(target);
+        else await atomicWrite(root, target, Buffer.from(next, "utf8"));
+        delete remaining[rel];
+      }
+      continue;
+    }
     if (currentHash !== record.hash) {
       actions.push({
         action: "preserve-modified",
@@ -265,7 +388,15 @@ export async function uninstall(
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       }
     } else {
-      await writeManifest(root, { ...manifest, files: remaining, installedAt: utcNow() });
+      await writeManifest(root, {
+        ...manifest,
+        files: remaining,
+        installedAt: utcNow(),
+        automatic_activation: Object.entries(remaining).some(([rel, record]) => {
+          const instruction = PROJECT_INSTRUCTIONS[record.platform as Platform];
+          return instruction !== undefined && instruction.path.join("/") === rel;
+        })
+      });
     }
   }
   return actions;
@@ -287,7 +418,15 @@ async function readManifest(root: string, required = false): Promise<InstallMani
   const text = await readTextIfPresent(path);
   if (text === undefined) {
     if (required) throw new Error(`No Fullstack Forge ownership manifest at ${path}`);
-    return { schemaVersion: 1, packageVersion: VERSION, root, installedAt: utcNow(), files: {} };
+    return {
+      schemaVersion: 1,
+      packageVersion: VERSION,
+      root,
+      installedAt: utcNow(),
+      agent_first: true,
+      automatic_activation: false,
+      files: {}
+    };
   }
   let parsed: unknown;
   try {
@@ -301,7 +440,9 @@ async function readManifest(root: string, required = false): Promise<InstallMani
     parsed.root !== root ||
     typeof parsed.packageVersion !== "string" ||
     typeof parsed.installedAt !== "string" ||
-    !isRecord(parsed.files)
+    !isRecord(parsed.files) ||
+    ("agent_first" in parsed && typeof parsed.agent_first !== "boolean") ||
+    ("automatic_activation" in parsed && typeof parsed.automatic_activation !== "boolean")
   ) {
     throw new Error(`Unsafe or unsupported ownership manifest at ${path}`);
   }
@@ -314,19 +455,37 @@ async function readManifest(root: string, required = false): Promise<InstallMani
       !PLATFORMS.includes(record.platform as Platform) ||
       typeof record.hash !== "string" ||
       !/^[a-f0-9]{64}$/u.test(record.hash) ||
-      typeof record.owned !== "boolean"
+      typeof record.owned !== "boolean" ||
+      ("management" in record && record.management !== "file" && record.management !== "section")
     ) {
       throw new Error(`Invalid ownership record for ${rel}`);
     }
-    files[rel] = { platform: record.platform, hash: record.hash, owned: record.owned };
+    files[rel] = {
+      platform: record.platform,
+      hash: record.hash,
+      owned: record.owned,
+      management: record.management === "section" ? "section" : "file"
+    };
   }
   return {
     schemaVersion: 1,
     packageVersion: parsed.packageVersion,
     root,
     installedAt: parsed.installedAt,
+    agent_first: parsed.agent_first === true,
+    automatic_activation: parsed.automatic_activation === true,
     files
   };
+}
+
+export function hashInstalledRecord(content: Buffer, record: InstallFile): string | undefined {
+  if (record.management !== "section") return sha256(content);
+  try {
+    const section = extractManagedSection(content.toString("utf8"));
+    return section === undefined ? undefined : sha256(section);
+  } catch {
+    return undefined;
+  }
 }
 
 async function writeManifest(root: string, manifest: InstallManifest): Promise<void> {

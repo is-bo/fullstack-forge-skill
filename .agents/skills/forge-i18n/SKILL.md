@@ -1,6 +1,6 @@
 ---
 name: forge-i18n
-description: Find locale, translation, formatting, expansion, fallback, and bidirectional-layout defects. Use for localized or locale-sensitive products.
+description: Find locale, translation, formatting, expansion, fallback, and bidirectional-layout defects. Activate automatically for localized or locale-sensitive products when that concern is relevant to a software-engineering request.
 ---
 
 # forge-i18n: Internationalization
@@ -9,38 +9,38 @@ description: Find locale, translation, formatting, expansion, fallback, and bidi
 
 Find locale, translation, formatting, expansion, fallback, and bidirectional-layout defects.
 
-Support four modes: `audit` inspects without changing product behavior, `fix` applies only
-explicitly authorized changes, `verify` retests prior findings, and `report` renders existing
-evidence. If no mode is supplied, use `audit`.
+This is an agent playbook, not a claim of standalone analyzer coverage. The agent supplies reasoning
+and implementation; deterministic CLI support is used only where named below.
 
-## Trigger conditions
+## Automatic activation signals
 
-Use this module when a request names `forge-i18n`, asks about internationalization, or
-discovery finds an applicable boundary. Run it from the repository root after project discovery.
-
-## When it applies
+Activate when a request or direct repository evidence involves internationalization, when
+the user explicitly names `forge-i18n`, or when discovery proves an applicable boundary.
 
 - Localized or locale-sensitive products
 - Products handling names, addresses, dates, currency, or pluralization
 
-## When it does not apply
+## When not to activate
 
 - Locale-neutral internal protocols
 
-Do not silently skip it. Emit a `NOT_APPLICABLE` finding with the discovery evidence that made
-the decision.
+Do not activate from generated Forge files, examples, fixtures, or a dependency name alone. Record
+`NOT_APPLICABLE` only when a requested audit requires an explicit applicability decision.
 
-## Inputs from project discovery
+## Automated support
+
+Support four explicit modes: `audit`, `fix`, `verify`, and `report`. Automatic feature work
+uses the same guidance without requiring a Forge command. Relevant discovery inputs are:
 
 - locale catalogs
 - routing and middleware
 - formatting utilities
 
-Prefer `.forge/project-profile.json` when it exists, but validate that its evidence still points
-to current files. Read `../fullstack-forge/references/PROTOCOL.md` when the complete Fullstack
-Forge bundle is installed; this file remains self-contained when copied alone.
+Available deterministic support, where present:
 
-## Inspection procedure
+- Use the detected project commands and direct manual evidence for this module; do not claim a dedicated inspector ran when none exists.
+
+## Agent inspection procedure
 
 1. Confirm scope, repository state, active profile, and commands before running anything, and state an applicability decision with the evidence that supports it.
 2. Inventory user-facing strings and locate hard-coded literals outside the translation system.
@@ -54,13 +54,39 @@ Forge bundle is installed; this file remains self-contained when copied alone.
 Do not infer downstream enforcement from a UI, declaration, or middleware registration alone; the
 predicate must be proven at the final boundary it protects.
 
-### Concrete checks
+Manual inspection requirements:
+
+- Review culturally sensitive copy and incomplete translations
+- Exercise representative RTL and long-string layouts
+
+Stack-specific guidance:
+
+- Use the detected framework's routing and message extraction conventions
+
+## Evidence to collect
+
+- Cite repository-relative files and 1-based lines for source evidence.
+- Record exact commands, exit codes, relevant output summaries, and execution time.
+- Record URL, viewport, role, input method, and observed state for running-interface evidence.
+- Name each test and demonstrate that it exercises the claimed behavior.
+- Use `NOT_VERIFIED` for unavailable production, provider, browser, database, or operator evidence.
+- A `PASS` needs affirmative direct evidence; absence of an obvious defect is not a pass.
+- Agent findings use a supported producer, evidence type, explanation, safe-fix classification,
+  revision, commands executed, and remaining limitations.
+
+Primary standards used as criteria, not proof of compliance:
+
+- Unicode CLDR
+- BCP 47
+- ECMA-402
+
+## Common production failures
 
 - Detect user-facing hard-coded text and inconsistent translation keys
 - Inspect locale negotiation, fallback, pluralization, date, number, currency, time-zone, and collation behavior
 - Check text expansion, RTL direction, mirrored layout, Unicode input, and localized metadata
 
-## Required inspection criteria
+## Missing-control checks
 
 For every applicable criterion below, attach direct evidence or record a reasoned
 `NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
@@ -89,10 +115,10 @@ evidence by itself.
 - Language fallbacks
 - Arabic, French, and English compatibility
 
-## Safe executable checks
+## Commands and tools
 
 - Run `forge i18n audit --json` or `fullstack-forge i18n audit --json` when
-  the CLI is installed.
+  an explicit audit is requested and the CLI is installed. Normal feature work does not require it.
 - Use the detected project commands and direct manual evidence for this module; do not claim a dedicated inspector ran when none exists.
 - Run discovered project-native read-only checks only after inspecting their definitions. Never
   execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
@@ -100,36 +126,7 @@ evidence by itself.
 - Keep raw output in the report evidence or a referenced artifact. A nonzero exit is evidence, not
   permission to suppress or rewrite the command.
 
-## Manual inspection requirements
-
-- Review culturally sensitive copy and incomplete translations
-- Exercise representative RTL and long-string layouts
-
-## Evidence requirements
-
-- Cite repository-relative file and 1-based line for code or configuration evidence.
-- Record exact command and exit code for an automated check.
-- Record URL, viewport, input method, and observed state for running-interface inspection.
-- Name the test and demonstrate that it exercises the claimed behavior.
-- Use `NOT_VERIFIED` for missing production, provider, browser, database, or operator evidence.
-- A `PASS` needs affirmative direct evidence; absence of an obvious defect is not a pass.
-
-## Finding identifiers and severity
-
-Use IDs `FF-I18N-001`, `FF-I18N-002`, and so on. Preserve an ID across
-verification and report formats.
-
-- `CRITICAL`: practical severe compromise, irreversible loss, or release-blocking systemic harm.
-- `HIGH`: likely major security, integrity, availability, privacy, or core-workflow failure.
-- `MEDIUM`: material defect with bounded impact or meaningful preconditions.
-- `LOW`: localized robustness, maintainability, or user-impact defect.
-- `INFO`: verified context or improvement with no current defect.
-
-Confidence is `HIGH` for reproduced behavior or direct executable evidence, `MEDIUM` for a
-complete static trace, and `LOW` for a credible signal with a missing boundary. Severity and
-confidence are independent.
-
-## Safe automatic fixes
+## Safe fixes
 
 - Replace ad hoc formatting with existing locale utilities
 - Add missing fallback keys when translation intent is known
@@ -137,47 +134,20 @@ confidence are independent.
 Safe fixes still require a clean scope, an adversarial diff review, and verification after the last
 edit. Never broaden `--safe` into an architectural or policy decision.
 
-## Risky changes requiring approval
+## Approval-required changes
 
 - Changing source copy, locale support policy, or financial formatting rules
 
 Also require approval for destructive data changes, secret rotation, production mutation, reduced
 security controls, public-contract changes, or any change outside the requested repository scope.
 
-## Verification procedure
+## Verification
 
 - Run catalog consistency checks
 - Render representative locales and confirm fallback behavior
 
 Re-run the original reproduction and all relevant gates after the final edit. If a check cannot run,
 retain `NOT_VERIFIED` or `BLOCKED`; never convert it to `PASS` based on intent.
-
-## Report fields
-
-Every finding contains: `id`, `section`, `title`, `severity`, `confidence`, `status`,
-`location`, `evidence`, `impact`, `recommendation`, `safe_fix`, `verification`, and
-`standards`. Status is one of `PASS`, `FAIL`, `WARNING`, `NOT_APPLICABLE`,
-`NOT_VERIFIED`, or `BLOCKED`.
-
-## Primary standards
-
-- Unicode CLDR
-- BCP 47
-- ECMA-402
-
-Treat standards as audit criteria, not proof of compliance or legal advice. Record the version or
-retrieval date for time-sensitive guidance.
-
-## Stack-specific guidance
-
-- Use the detected framework's routing and message extraction conventions
-
-Adapt filenames and commands to detected evidence. Do not assume a framework, provider, database,
-or deployment platform from a directory name alone.
-
-## Known limitations
-
-- Translation quality requires qualified human review
 
 ## Completion contract
 
@@ -195,3 +165,10 @@ Never declare a feature complete merely because code was written. A task is comp
 10. Remaining risks, skipped checks, and assumptions are reported.
 
 Never hide failed checks or claim that an operation ran when it did not.
+
+## Known limitations
+
+- Translation quality requires qualified human review
+
+The module guides agent reasoning and uses deterministic automation where supported. It cannot by
+itself prove production, provider, human-policy, or unsupported framework behavior.

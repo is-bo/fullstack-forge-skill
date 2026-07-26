@@ -28,7 +28,7 @@ The suite uses progressive disclosure: a small orchestrating entry point, focuse
 - **Implementation**: `src/fullstack-forge/SKILL.md`, `scripts/generate-modules.mjs`, `scripts/package-platforms.mjs`
 - **Tests**: `cli/tests/catalog.test.ts`, `scripts/tests/zip.test.mjs`
 - **Documentation**: `docs/ARCHITECTURE.md`, `docs/ADDING_A_PLATFORM.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -40,7 +40,7 @@ Original project artwork exists at the required dimensions and byte budget, docu
 - **Implementation**: `docs/assets/fullstack-forge-hero.png`, `docs/assets/fullstack-forge-icon.png`, `scripts/check-branding.mjs`
 - **Tests**: `cli/tests/catalog.test.ts`
 - **Documentation**: `docs/BRAND.md`, `docs/IMAGE_GENERATION_BRIEF.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -52,7 +52,7 @@ A correctly dimensioned social preview image is kept in the repository, with exa
 - **Implementation**: `docs/assets/fullstack-forge-social-preview.png`, `scripts/check-branding.mjs`
 - **Tests**: _none_
 - **Documentation**: `docs/RELEASING.md`, `docs/BRAND.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Uploading a social preview is a GitHub repository setting performed by a maintainer. The image and instructions are present; the upload itself cannot be proven from repository contents.
 
@@ -64,7 +64,7 @@ Before release, branding is validated for working image paths, useful alternativ
 - **Implementation**: `scripts/check-branding.mjs`, `scripts/check-links.mjs`
 - **Tests**: `scripts/tests/git-files.test.mjs`
 - **Documentation**: `docs/BRAND.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Paths, alternative text, and byte budgets are enforced automatically; how GitHub finally renders the images is observed manually and not asserted in CI.
 
@@ -76,7 +76,7 @@ Build project and feature state records a complete schema-versioned product fram
 - **Implementation**: `cli/src/build.ts`, `cli/src/build-state.ts`, `src/fullstack-forge/schemas/build-project.schema.json`, `src/fullstack-forge/schemas/build-feature.schema.json`
 - **Tests**: `cli/tests/build.test.ts`, `cli/tests/build-state.test.ts`
 - **Documentation**: `docs/BUILD_MODE.md`, `docs/CLI_REFERENCE.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.3.0.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Frame and plan record user or agent inputs; the CLI validates structure and later evidence but cannot grade the quality of product reasoning.
 
@@ -88,7 +88,7 @@ A Build PASS is accepted only from an exact registered producer with a typed, cu
 - **Implementation**: `cli/src/evidence-envelope.ts`, `cli/src/build-producers.ts`, `cli/src/build-state.ts`
 - **Tests**: `cli/tests/evidence-envelope.test.ts`, `cli/tests/build-producers.test.ts`, `cli/tests/build-state.test.ts`
 - **Documentation**: `docs/BUILD_MODE.md`, `docs/SECURITY_MODEL.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.3.0.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: The envelope is a local integrity and freshness record rather than an externally signed attestation.
 
@@ -100,7 +100,7 @@ Build applicability and tier gates are derived from current classified evidence 
 - **Implementation**: `cli/src/build-applicability.ts`, `cli/src/build-gates.ts`, `cli/src/build.ts`
 - **Tests**: `cli/tests/build-applicability.test.ts`, `cli/tests/build-gates.test.ts`, `cli/tests/build.test.ts`
 - **Documentation**: `docs/BUILD_MODE.md`, `docs/ARCHITECTURE.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.3.0.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Unknown capabilities stay unresolved; static applicability cannot infer provider or production state.
 
@@ -112,7 +112,7 @@ High-tier interface work requires a complete finite state and viewport runtime m
 - **Implementation**: `cli/src/build-runtime.ts`, `cli/src/build-gates.ts`, `cli/src/build.ts`
 - **Tests**: `cli/tests/build-runtime.test.ts`, `cli/tests/build.test.ts`
 - **Documentation**: `docs/BUILD_MODE.md`, `docs/SECURITY_MODEL.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.3.0.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Real browser, assistive-technology, provider, and human design evidence still requires the corresponding environment or reviewer.
 
@@ -123,8 +123,8 @@ Legacy v0.2 Build state is upgraded only by an explicit prevalidated, hash-bound
 - **Status**: COMPLIANT
 - **Implementation**: `cli/src/build-migration.ts`, `cli/src/build-state.ts`
 - **Tests**: `cli/tests/build-migration.test.ts`
-- **Documentation**: `docs/BUILD_MODE.md`, `docs/RELEASE_NOTES_v0.3.0.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.3.0.md`
+- **Documentation**: `docs/BUILD_MODE.md`, `docs/RELEASE_NOTES_v0.1.0.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Migration is intentionally operator-triggered and refuses mixed, malformed, changed, or unsafe state instead of guessing.
 
@@ -136,7 +136,7 @@ Continuous integration runs installation, formatting, lint, type checking, tests
 - **Implementation**: `.github/workflows/ci.yml`, `.github/workflows/codeql.yml`, `.github/workflows/release.yml`, `scripts/check-workflows.mjs`
 - **Tests**: `scripts/tests/workflow-policy.test.mjs`
 - **Documentation**: `docs/DEVELOPMENT.md`, `docs/RELEASING.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -148,7 +148,7 @@ The CLI installs, updates, validates, diagnoses, packages, and uninstalls across
 - **Implementation**: `cli/src/installer.ts`, `cli/src/cli.ts`, `cli/src/constants.ts`
 - **Tests**: `cli/tests/installer.test.ts`, `cli/tests/cli.test.ts`
 - **Documentation**: `docs/CLI_REFERENCE.md`, `README.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -160,7 +160,7 @@ Every focused section supports read-only audit, approval-gated fix, re-checking 
 - **Implementation**: `cli/src/cli.ts`, `cli/src/fixes.ts`, `cli/src/verification.ts`, `cli/src/report.ts`, `cli/src/report-output.ts`
 - **Tests**: `cli/tests/cli.test.ts`, `cli/tests/fixes.test.ts`, `cli/tests/report.test.ts`, `cli/tests/report-output.test.ts`, `cli/tests/cli-report-mode.test.ts`
 - **Documentation**: `docs/COMMANDS.md`, `docs/CLI_REFERENCE.md`, `docs/REPORT_SCHEMA.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.9.md`, `docs/RELEASE_VERIFICATION_v0.1.9.md`, `docs/FINAL_RELEASE_VERIFICATION_v0.1.9.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`, `docs/RELEASE_VERIFICATION_v0.1.0.md`, `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -172,7 +172,7 @@ A fixed catalogue of focused audit modules exists, and each module teaches a con
 - **Implementation**: `config/modules.json`, `config/module-procedures.json`, `src/fullstack-forge/commands`
 - **Tests**: `cli/tests/catalog.test.ts`, `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`, `docs/ADDING_A_MODULE.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -184,7 +184,7 @@ Discovery profiles the audited project — languages, frameworks, workspaces, ap
 - **Implementation**: `cli/src/discovery.ts`, `cli/src/discovery-evidence.ts`, `src/fullstack-forge/schemas/project-profile.schema.json`
 - **Tests**: `cli/tests/discovery.test.ts`, `cli/tests/discovery-evidence.test.ts`
 - **Documentation**: `docs/ARCHITECTURE.md`, `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`, `docs/AUDIT_CLASSIFICATION_v0.1.10.md`, `docs/RELEASE_VERIFICATION_v0.1.10.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`, `docs/RELEASE_VERIFICATION_v0.1.0.md`, `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Runtime topology and middleware-inherited route visibility remain unproven by static discovery and are reported as unknown rather than assumed.
 
@@ -196,7 +196,7 @@ Platform copies are generated from one canonical source, committed, and continuo
 - **Implementation**: `scripts/generate-modules.mjs`, `scripts/sync-platform-assets.mjs`, `scripts/check-platform-assets.mjs`
 - **Tests**: `cli/tests/catalog.test.ts`
 - **Documentation**: `docs/PLATFORM_SUPPORT.md`, `docs/ADDING_A_PLATFORM.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -208,7 +208,7 @@ Distribution archives contain real files, exclude dependencies, temporary materi
 - **Implementation**: `scripts/package-platforms.mjs`, `scripts/validate-dist.mjs`, `scripts/lib/zip.mjs`, `scripts/smoke-install.mjs`, `scripts/offline-install.mjs`
 - **Tests**: `scripts/tests/zip.test.mjs`, `scripts/tests/smoke-install.test.mjs`
 - **Documentation**: `docs/RELEASING.md`, `docs/PLATFORM_SUPPORT.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -220,7 +220,7 @@ The README explains the product, audience, capabilities, installation, invocatio
 - **Implementation**: `README.md`
 - **Tests**: `scripts/tests/git-files.test.mjs`
 - **Documentation**: `docs/COMMANDS.md`, `docs/CLI_REFERENCE.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -244,7 +244,7 @@ A complete documentation set covers commands, architecture, platform support, th
 - **Implementation**: `scripts/check-install-docs.mjs`, `scripts/validate-release-docs.mjs`
 - **Tests**: `scripts/tests/release-safety.test.mjs`
 - **Documentation**: `docs/COMMANDS.md`, `docs/ARCHITECTURE.md`, `docs/PLATFORM_SUPPORT.md`, `docs/FINDING_SCHEMA.md`, `docs/SECURITY_MODEL.md`, `docs/ADDING_A_MODULE.md`, `docs/ADDING_A_PLATFORM.md`, `docs/RELEASING.md`, `docs/IMAGE_GENERATION_BRIEF.md`, `CHANGELOG.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -256,7 +256,7 @@ One shared finding schema carries identity, severity, confidence, status, locati
 - **Implementation**: `cli/src/finding.ts`, `cli/src/types.ts`, `src/fullstack-forge/schemas/finding.schema.json`
 - **Tests**: `cli/tests/finding.test.ts`, `cli/tests/report.test.ts`
 - **Documentation**: `docs/FINDING_SCHEMA.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -268,7 +268,7 @@ Every module carries a completion contract: written code is never sufficient, an
 - **Implementation**: `src/fullstack-forge/references/PROTOCOL.md`, `src/fullstack-forge/SKILL.md`
 - **Tests**: `cli/tests/catalog.test.ts`, `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/FINDING_SCHEMA.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -280,7 +280,7 @@ Automatic fixes are restricted to a declared safe set; destructive, architectura
 - **Implementation**: `cli/src/fixes.ts`, `src/fullstack-forge/references/SAFE_FIX_POLICY.md`
 - **Tests**: `cli/tests/fixes.test.ts`
 - **Documentation**: `docs/SECURITY_MODEL.md`, `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -292,7 +292,7 @@ All work targets one authoritative public repository; no parallel or renamed rep
 - **Implementation**: `package.json`, `scripts/release-preflight.mjs`
 - **Tests**: `scripts/tests/release-safety.test.mjs`
 - **Documentation**: `docs/RELEASING.md`, `CONTRIBUTING.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -304,7 +304,7 @@ The project ships under a fixed identity: product name, skill name, CLI name and
 - **Implementation**: `package.json`, `skill.json`
 - **Tests**: `cli/tests/catalog.test.ts`
 - **Documentation**: `README.md`, `docs/BRAND.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -316,7 +316,7 @@ Every advertised capability must be working software rather than placeholders, p
 - **Implementation**: `cli/src/cli.ts`, `cli/src/inspectors.ts`, `cli/src/analyzers.ts`
 - **Tests**: `cli/tests/cli.test.ts`, `cli/tests/analyzers.test.ts`, `cli/tests/evals.test.ts`
 - **Documentation**: `docs/ANALYZER_SUPPORT.md`, `docs/COVERAGE.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Several audit modules provide a documented inspection procedure with only partial executable analyzer coverage; the executable/partial/none split is published in docs/ANALYZER_SUPPORT.md rather than being claimed as complete automation.
 
@@ -328,7 +328,7 @@ The tool must never expose credentials, tokens, environment secrets, or unrelate
 - **Implementation**: `cli/src/redaction.ts`, `cli/src/net-policy.ts`, `scripts/secret-scan.mjs`
 - **Tests**: `cli/tests/redaction.test.ts`, `cli/tests/net-policy.test.ts`
 - **Documentation**: `docs/SECURITY_MODEL.md`, `SECURITY.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -352,7 +352,7 @@ The public repository surface carries a description, topics, issue templates, a 
 - **Implementation**: `.github/ISSUE_TEMPLATE/bug_report.yml`, `.github/ISSUE_TEMPLATE/feature_request.yml`, `.github/ISSUE_TEMPLATE/audit_module.yml`, `.github/pull_request_template.md`
 - **Tests**: _none_
 - **Documentation**: `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Repository description and topics are GitHub-hosted settings. They cannot be proven from repository contents, so this entry stays NOT_VERIFIED until a maintainer records a GitHub-side check.
 
@@ -364,7 +364,7 @@ Requirements and domain logic are inspected for missing, contradictory, or unver
 - **Implementation**: `src/fullstack-forge/commands/forge-requirements`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Requirement conformance is a guided manual procedure; no executable analyzer proves domain correctness.
 
@@ -376,7 +376,7 @@ Architecture is inspected for boundaries, dependency direction, coupling, hidden
 - **Implementation**: `src/fullstack-forge/commands/forge-architecture`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/ARCHITECTURE.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Architecture judgements are procedure-driven; the architecture map records candidate boundaries, not proven runtime calls.
 
@@ -388,7 +388,7 @@ Code quality is inspected for type safety, error handling, dead code, leaks, and
 - **Implementation**: `src/fullstack-forge/commands/forge-code`, `cli/src/analyzers.ts`
 - **Tests**: `cli/tests/analyzers.test.ts`
 - **Documentation**: `docs/ANALYZER_SUPPORT.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Analyzer coverage is language- and framework-bounded; unsupported shapes are reported as NOT_VERIFIED instead of PASS.
 
@@ -400,7 +400,7 @@ Visual interfaces are inspected in the rendered application, not only in compone
 - **Implementation**: `src/fullstack-forge/commands/forge-ui`, `cli/src/rendered-ui.ts`, `cli/src/audit-orchestration.ts`
 - **Tests**: `cli/tests/rendered-ui.test.ts`, `cli/tests/rendered-ui-capture.test.ts`, `cli/tests/cli-audit-orchestration.test.ts`, `cli/tests/cross-feature-v017-v019.test.ts`
 - **Documentation**: `docs/COMMANDS.md`, `docs/SECURITY_MODEL.md`, `docs/CLI_REFERENCE.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.9.md`, `docs/RELEASE_VERIFICATION_v0.1.9.md`, `docs/FINAL_RELEASE_VERIFICATION_v0.1.9.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`, `docs/RELEASE_VERIFICATION_v0.1.0.md`, `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Rendered inspection requires an application the operator has already started and an explicitly authorised trusted browser driver. Forge never launches an application and never installs browser tooling, so where no driver is available the rendered criteria remain NOT_VERIFIED and the audit exits 2 rather than reporting a pass.
 
@@ -412,7 +412,7 @@ User experience is evaluated over real task journeys including failure, permissi
 - **Implementation**: `src/fullstack-forge/commands/forge-ux`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Journey evaluation is a guided manual procedure with no executable analyzer.
 
@@ -424,7 +424,7 @@ Accessibility is inspected against WCAG 2.2 AA, and automated scanning is never 
 - **Implementation**: `src/fullstack-forge/commands/forge-accessibility`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Assistive-technology behaviour requires human confirmation and is reported as NOT_VERIFIED when unavailable.
 
@@ -436,7 +436,7 @@ Localization is inspected for hard-coded strings, formatting, pluralization, exp
 - **Implementation**: `src/fullstack-forge/commands/forge-i18n`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Translation completeness depends on project-specific catalogues and is not proven automatically.
 
@@ -448,7 +448,7 @@ Search-engine and discoverability checks apply only to genuinely public web surf
 - **Implementation**: `src/fullstack-forge/commands/forge-seo`, `cli/src/gates.ts`
 - **Tests**: `cli/tests/gate-applicability.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -460,7 +460,7 @@ Frontend engineering is inspected for rendering boundaries, state, network water
 - **Implementation**: `src/fullstack-forge/commands/forge-frontend`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Bundle and runtime measurements require a project build and are otherwise NOT_VERIFIED.
 
@@ -472,7 +472,7 @@ Application interfaces are inspected for contract consistency, validation, autho
 - **Implementation**: `src/fullstack-forge/commands/forge-api`, `cli/src/inspectors.ts`
 - **Tests**: `cli/tests/route-adapters.test.ts`, `cli/tests/adapter-coverage.test.ts`
 - **Documentation**: `docs/ANALYZER_SUPPORT.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Route adapters cover a bounded set of frameworks; unsupported registration shapes are declared rather than silently skipped.
 
@@ -484,7 +484,7 @@ Queued and scheduled work is inspected for idempotency, retries, dead-letter han
 - **Implementation**: `src/fullstack-forge/commands/forge-jobs`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Runtime queue behaviour cannot be proven statically and is reported as NOT_VERIFIED.
 
@@ -496,7 +496,7 @@ Outbound and inbound integrations are inspected for timeouts, retries, signature
 - **Implementation**: `src/fullstack-forge/commands/forge-integrations`, `cli/src/analyzers.ts`
 - **Tests**: `cli/tests/analyzers.test.ts`
 - **Documentation**: `docs/ANALYZER_SUPPORT.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Provider-side controls are outside the repository and remain NOT_VERIFIED.
 
@@ -508,7 +508,7 @@ Identity handling is inspected across registration, credentials, sessions, recov
 - **Implementation**: `src/fullstack-forge/commands/forge-auth`, `cli/src/analyzers.ts`
 - **Tests**: `cli/tests/analyzers.test.ts`, `cli/tests/evals.test.ts`
 - **Documentation**: `docs/ANALYZER_SUPPORT.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Provider-hosted authentication configuration cannot be proven from source and stays NOT_VERIFIED.
 
@@ -520,7 +520,7 @@ Authorization is audited separately from authentication, requires deny-by-defaul
 - **Implementation**: `src/fullstack-forge/commands/forge-authorization`, `cli/src/analyzers.ts`
 - **Tests**: `cli/tests/analyzers.test.ts`, `cli/tests/gates.test.ts`
 - **Documentation**: `docs/ANALYZER_SUPPORT.md`, `docs/FINDING_SCHEMA.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Middleware-inherited guards are not resolved statically; affected routes stay unknown rather than passing.
 
@@ -532,7 +532,7 @@ General application security is audited across injection, browser controls, secr
 - **Implementation**: `src/fullstack-forge/commands/forge-security`, `cli/src/analyzers.ts`, `cli/src/dataflow.ts`, `cli/src/destination-policy.ts`
 - **Tests**: `cli/tests/analyzers.test.ts`, `cli/tests/dataflow.test.ts`, `cli/tests/security-proof.test.ts`
 - **Documentation**: `docs/SECURITY_MODEL.md`, `docs/ANALYZER_SUPPORT.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.7.md`, `docs/RELEASE_VERIFICATION_v0.1.7.md`, `docs/FINAL_RELEASE_VERIFICATION_v0.1.7.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`, `docs/RELEASE_VERIFICATION_v0.1.0.md`, `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Static analysis covers a declared rule set with declared unsupported shapes, published in docs/ANALYZER_SUPPORT.md. Protection is credited only from analysed structure: a constant-returning address guard, and a guard imported from another module, are recorded as unverified rather than credited, which under-credits genuine mitigations by design.
 
@@ -544,7 +544,7 @@ File uploads receive a dedicated audit covering validation, malware handling, st
 - **Implementation**: `src/fullstack-forge/commands/forge-uploads`, `cli/src/analyzers.ts`
 - **Tests**: `cli/tests/analyzers.test.ts`, `cli/tests/evals.test.ts`
 - **Documentation**: `docs/ANALYZER_SUPPORT.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Scanner and storage-provider behaviour is external and reported as NOT_VERIFIED unless directly evidenced.
 
@@ -556,7 +556,7 @@ Privacy is audited beyond protection: whether personal data should have been col
 - **Implementation**: `src/fullstack-forge/commands/forge-privacy`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Purpose and lawful basis are organizational facts that cannot be derived from source.
 
@@ -568,7 +568,7 @@ Tenant isolation is verified across data, cache, files, jobs, logs, exports, and
 - **Implementation**: `src/fullstack-forge/commands/forge-tenancy`, `cli/src/analyzers.ts`
 - **Tests**: `cli/tests/analyzers.test.ts`, `cli/tests/evals.test.ts`
 - **Documentation**: `docs/ANALYZER_SUPPORT.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Runtime tenant propagation is not proven statically; isolation stays NOT_VERIFIED without executed tests.
 
@@ -580,7 +580,7 @@ Database schemas are inspected for integrity constraints, typing, money and time
 - **Implementation**: `src/fullstack-forge/commands/forge-database`, `cli/src/inspectors.ts`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/ANALYZER_SUPPORT.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Applied production schema state is not readable from the repository and stays NOT_VERIFIED.
 
@@ -592,7 +592,7 @@ Data access is inspected for N+1 patterns, missing indexes, unbounded reads, loc
 - **Implementation**: `src/fullstack-forge/commands/forge-queries`, `cli/src/analyzers.ts`
 - **Tests**: `cli/tests/analyzers.test.ts`, `cli/tests/evals.test.ts`
 - **Documentation**: `docs/ANALYZER_SUPPORT.md`, `docs/SECURITY_MODEL.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Plan analysis requires an operator-provided non-production database and is otherwise NOT_VERIFIED.
 
@@ -604,7 +604,7 @@ Caching is first justified, then audited for keys, isolation, invalidation, pois
 - **Implementation**: `src/fullstack-forge/commands/forge-cache`, `cli/src/analyzers.ts`
 - **Tests**: `cli/tests/analyzers.test.ts`, `cli/tests/evals.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -616,7 +616,7 @@ Object and file storage is inspected for access control, signed-URL safety, encr
 - **Implementation**: `src/fullstack-forge/commands/forge-storage`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Bucket-side policy is provider state and stays NOT_VERIFIED without operator evidence.
 
@@ -628,7 +628,7 @@ Test adequacy is judged by risk coverage across units, boundaries, workflows, an
 - **Implementation**: `src/fullstack-forge/commands/forge-testing`, `scripts/run-coverage.mjs`
 - **Tests**: `scripts/tests/coverage.test.mjs`
 - **Documentation**: `docs/COVERAGE.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -640,7 +640,7 @@ Performance is measured rather than guessed, across user-visible latency, payloa
 - **Implementation**: `src/fullstack-forge/commands/forge-performance`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Field measurements require a running application; unmeasured claims are reported as NOT_VERIFIED.
 
@@ -652,7 +652,7 @@ Capacity and growth limits are assessed against explicit demand assumptions, and
 - **Implementation**: `src/fullstack-forge/commands/forge-scale`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Demand assumptions are operator inputs and cannot be derived from the repository.
 
@@ -664,7 +664,7 @@ Telemetry is inspected for structured logs, correlation, metrics, traces, alerti
 - **Implementation**: `src/fullstack-forge/commands/forge-observability`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Dashboard and alert configuration lives in external systems and stays NOT_VERIFIED.
 
@@ -676,7 +676,7 @@ Reliability is inspected for timeouts, retries, overload behaviour, degradation,
 - **Implementation**: `src/fullstack-forge/commands/forge-reliability`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Failure behaviour under real outages cannot be proven statically.
 
@@ -688,7 +688,7 @@ Backup and disaster recovery must never pass on configuration alone; restoration
 - **Implementation**: `src/fullstack-forge/commands/forge-recovery`, `cli/src/gates.ts`
 - **Tests**: `cli/tests/gates.test.ts`, `cli/tests/evals.test.ts`
 - **Documentation**: `docs/FINDING_SCHEMA.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -700,7 +700,7 @@ Delivery is inspected for build promotion, environment separation, migration ord
 - **Implementation**: `src/fullstack-forge/commands/forge-deployment`, `cli/src/inspectors.ts`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Production deployment configuration is external and stays NOT_VERIFIED.
 
@@ -712,7 +712,7 @@ Infrastructure definitions are inspected for network exposure, identity boundari
 - **Implementation**: `src/fullstack-forge/commands/forge-infrastructure`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Live cloud state is not readable from the repository; drift stays NOT_VERIFIED.
 
@@ -724,7 +724,7 @@ The delivery chain is inspected for vulnerable and unpinned dependencies, instal
 - **Implementation**: `src/fullstack-forge/commands/forge-supply-chain`, `scripts/check-workflows.mjs`, `scripts/lib/workflow-policy.mjs`
 - **Tests**: `scripts/tests/workflow-policy.test.mjs`
 - **Documentation**: `docs/SECURITY_MODEL.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -736,7 +736,7 @@ Resource and vendor cost is tied to workloads, ownership, unit economics, and sa
 - **Implementation**: `src/fullstack-forge/commands/forge-cost`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Billing data is external and cannot be proven from the repository.
 
@@ -748,7 +748,7 @@ Project documentation is verified to be accurate and executable rather than aspi
 - **Implementation**: `src/fullstack-forge/commands/forge-docs`, `scripts/check-links.mjs`, `scripts/check-install-docs.mjs`
 - **Tests**: `scripts/tests/git-files.test.mjs`
 - **Documentation**: `docs/DEVELOPMENT.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -760,7 +760,7 @@ Product analytics is inspected for event semantics, duplication, identity, conse
 - **Implementation**: `src/fullstack-forge/commands/forge-analytics`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Delivered event streams live in external systems and stay NOT_VERIFIED.
 
@@ -772,7 +772,7 @@ Notifications are inspected for authorization, preferences, duplicate sends, ret
 - **Implementation**: `src/fullstack-forge/commands/forge-notifications`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Provider delivery outcomes are external and stay NOT_VERIFIED.
 
@@ -784,7 +784,7 @@ AI features are audited for direct and indirect prompt injection, tool authority
 - **Implementation**: `src/fullstack-forge/commands/forge-ai`, `cli/src/analyzers.ts`
 - **Tests**: `cli/tests/analyzers.test.ts`, `cli/tests/evals.test.ts`
 - **Documentation**: `docs/SECURITY_MODEL.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Model-side behaviour and evaluation results are external and stay NOT_VERIFIED.
 
@@ -796,7 +796,7 @@ Money movement is audited for server-side amounts, currency precision, webhook s
 - **Implementation**: `src/fullstack-forge/commands/forge-payments`, `cli/src/analyzers.ts`
 - **Tests**: `cli/tests/analyzers.test.ts`, `cli/tests/evals.test.ts`
 - **Documentation**: `docs/ANALYZER_SUPPORT.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Provider dashboard configuration and settlement data are external and stay NOT_VERIFIED.
 
@@ -808,7 +808,7 @@ Real-time transports are inspected for authorization, lifecycle, ordering, tenan
 - **Implementation**: `src/fullstack-forge/commands/forge-realtime`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Connection-time authorization is not provable from static source alone.
 
@@ -820,7 +820,7 @@ Offline-capable applications are inspected for local persistence, queued writes,
 - **Implementation**: `src/fullstack-forge/commands/forge-offline`
 - **Tests**: `cli/tests/semantics.test.ts`
 - **Documentation**: `docs/COMMANDS.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Device-side synchronization behaviour requires runtime evidence.
 
@@ -832,7 +832,7 @@ A repository-wide orchestrator runs discovery, selects applicable modules, merge
 - **Implementation**: `cli/src/cli.ts`, `cli/src/scope.ts`, `cli/src/report.ts`, `cli/src/audit-orchestration.ts`, `cli/src/ledger.ts`
 - **Tests**: `cli/tests/cli.test.ts`, `cli/tests/scope.test.ts`, `cli/tests/scope-base.test.ts`, `cli/tests/module-decision.test.ts`, `cli/tests/audit-orchestration.test.ts`, `cli/tests/ledger.test.ts`, `cli/tests/cross-feature-v017-v019.test.ts`
 - **Documentation**: `docs/COMMANDS.md`, `docs/ARCHITECTURE.md`, `docs/REPORT_SCHEMA.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.8.md`, `docs/FINAL_RELEASE_VERIFICATION_v0.1.8.md`, `docs/AUDIT_CLASSIFICATION_v0.1.9.md`, `docs/FINAL_RELEASE_VERIFICATION_v0.1.9.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`, `docs/RELEASE_VERIFICATION_v0.1.0.md`, `docs/RELEASE_VERIFICATION_v0.1.0.md`, `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -843,8 +843,8 @@ One simple Forge entry point exposes build, continue, audit, fix, verify, ship, 
 - **Status**: COMPLIANT
 - **Implementation**: `cli/src/simple-cli.ts`, `cli/src/cli.ts`, `src/fullstack-forge/commands/forge/SKILL.md`
 - **Tests**: `cli/tests/simple-cli.test.ts`, `cli/tests/cli-simple.test.ts`
-- **Documentation**: `README.md`, `docs/PRODUCT_LAYER_DESIGN_v0.5.0.md`, `docs/ADVANCED_CLI.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.5.0.md`
+- **Documentation**: `README.md`, `docs/ARCHITECTURE.md`, `docs/ADVANCED_CLI.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Host applications choose their own named-skill invocation syntax; the generated skill and CLI mappings are verified, while host UI rendering remains platform-dependent.
 
@@ -856,7 +856,7 @@ Plain-language Build input creates a safe collision-resistant feature frame, and
 - **Implementation**: `cli/src/simple-cli.ts`, `cli/src/cli.ts`, `cli/src/build.ts`
 - **Tests**: `cli/tests/simple-cli.test.ts`, `cli/tests/cli-simple.test.ts`
 - **Documentation**: `docs/BUILD_YOUR_FIRST_FEATURE.md`, `docs/BUILD_MODE.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.5.0.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Product questions still require user or agent judgement; framing records intent but is not evidence that the resulting feature is correct.
 
@@ -868,7 +868,7 @@ Simple Audit accepts official and transparent plain-language discipline requests
 - **Implementation**: `cli/src/simple-cli.ts`, `cli/src/cli.ts`, `cli/src/verification.ts`
 - **Tests**: `cli/tests/simple-cli.test.ts`, `cli/tests/cli-simple.test.ts`
 - **Documentation**: `docs/AUDIT_YOUR_APPLICATION.md`, `docs/NONTECHNICAL_GUIDE.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.5.0.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Ambiguous phrases remain errors rather than guesses; unavailable runtime, provider, production, and host evidence remains NOT_VERIFIED or BLOCKED.
 
@@ -880,7 +880,7 @@ The default terminal experience is concise, keyboard-friendly, scriptable, and p
 - **Implementation**: `cli/src/simple-cli.ts`, `cli/src/cli.ts`
 - **Tests**: `cli/tests/simple-cli.test.ts`, `cli/tests/cli-simple.test.ts`
 - **Documentation**: `README.md`, `docs/GETTING_STARTED.md`, `docs/NONTECHNICAL_GUIDE.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.5.0.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Terminal interactivity is optional and disabled automatically when standard input or output is not a TTY.
 
@@ -892,7 +892,7 @@ Installation detects finite compatible configuration and executable-name hints w
 - **Implementation**: `cli/src/agent-detection.ts`, `cli/src/installer.ts`, `cli/src/update-check.ts`, `cli/src/cli.ts`
 - **Tests**: `cli/tests/agent-detection.test.ts`, `cli/tests/installer.test.ts`, `cli/tests/update-check.test.ts`, `cli/tests/cli-simple.test.ts`
 - **Documentation**: `docs/GETTING_STARTED.md`, `docs/TROUBLESHOOTING.md`, `docs/PLATFORM_SUPPORT.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.5.0.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Configuration and executable-name hints are recommendations, not proof that a vendor host is installed or running; remote update lookup is a non-passing warning when offline or unavailable.
 
@@ -904,7 +904,7 @@ A deterministic onboarding demo proves the simple Audit, fix preview, safe fix, 
 - **Implementation**: `examples/quickstart-demo`
 - **Tests**: `cli/tests/cli-simple.test.ts`
 - **Documentation**: `examples/quickstart-demo/README.md`, `docs/GETTING_STARTED.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.5.0.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: The demo intentionally cannot supply remote CI, deployment, provider, or production evidence, so Ship is expected to remain incomplete.
 
@@ -916,7 +916,7 @@ Before publication a fixed validation sequence runs formatting, lint, typing, te
 - **Implementation**: `package.json`, `scripts/validate-skill.mjs`, `scripts/validate-dist.mjs`, `scripts/release-preflight.mjs`
 - **Tests**: `scripts/tests/release-safety.test.mjs`, `scripts/tests/smoke-install.test.mjs`
 - **Documentation**: `docs/RELEASING.md`, `docs/RELEASE.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -927,8 +927,8 @@ Publication is proven rather than asserted: the remote commit, workflow status, 
 - **Status**: COMPLIANT
 - **Implementation**: `scripts/verify-published-assets.mjs`, `scripts/release-preflight.mjs`, `scripts/generate-final-verification.mjs`
 - **Tests**: `scripts/tests/release-safety.test.mjs`
-- **Documentation**: `docs/RELEASING.md`, `docs/RELEASE_NOTES_v0.1.6.md`
-- **Release verification**: `docs/FINAL_RELEASE_VERIFICATION_v0.1.6.md`
+- **Documentation**: `docs/RELEASING.md`, `docs/RELEASE_NOTES_v0.1.0.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Publication to the public package registry is optional by design and has not been performed; only the source release is verified.
 
@@ -940,7 +940,7 @@ After publication, installation is re-tested from the published artifacts in a c
 - **Implementation**: `scripts/smoke-install.mjs`, `scripts/offline-install.mjs`
 - **Tests**: `scripts/tests/smoke-install.test.mjs`
 - **Documentation**: `docs/RELEASING.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`, `docs/FINAL_RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`, `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -951,8 +951,8 @@ The closing report states repository, release, version, commit, platforms, comma
 - **Status**: COMPLIANT
 - **Implementation**: `scripts/generate-final-verification.mjs`, `scripts/validate-release-docs.mjs`
 - **Tests**: `scripts/tests/release-safety.test.mjs`
-- **Documentation**: `docs/RELEASE.md`, `docs/RELEASE_NOTES_v0.1.6.md`
-- **Release verification**: `docs/FINAL_RELEASE_VERIFICATION_v0.1.6.md`
+- **Documentation**: `docs/RELEASE.md`, `docs/RELEASE_NOTES_v0.1.0.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -964,7 +964,7 @@ Agent platform formats and installation conventions are researched from primary 
 - **Implementation**: `scripts/sync-platform-assets.mjs`, `scripts/check-platform-assets.mjs`
 - **Tests**: `cli/tests/catalog.test.ts`
 - **Documentation**: `research/SOURCES.md`, `docs/PLATFORM_SUPPORT.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -988,7 +988,7 @@ Third-party material is treated as untrusted, never wholesale copied, and fully 
 - **Implementation**: `scripts/check-licenses.mjs`
 - **Tests**: `scripts/tests/git-files.test.mjs`
 - **Documentation**: `research/LICENSE_MATRIX.md`, `research/ADAPTATION_NOTES.md`, `THIRD_PARTY_NOTICES.md`, `NOTICE`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -1000,7 +1000,7 @@ The project audits itself for unsafe execution, traversal, archive and symlink a
 - **Implementation**: `cli/src/utils.ts`, `cli/src/installer.ts`, `cli/src/net-policy.ts`, `scripts/lib/fs-safety.mjs`, `scripts/secret-scan.mjs`
 - **Tests**: `cli/tests/utils.test.ts`, `cli/tests/installer.test.ts`, `cli/tests/net-policy.test.ts`, `scripts/tests/fs-safety.test.mjs`
 - **Documentation**: `docs/SECURITY_MODEL.md`, `SECURITY.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -1012,7 +1012,7 @@ A release-readiness gate fails closed on open critical findings, failed required
 - **Implementation**: `cli/src/gates.ts`, `cli/src/support.ts`, `src/fullstack-forge/checklists/ship.md`
 - **Tests**: `cli/tests/gates.test.ts`, `cli/tests/gate-applicability.test.ts`, `cli/tests/support.test.ts`
 - **Documentation**: `docs/COMMANDS.md`, `docs/RELEASE.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -1024,7 +1024,7 @@ Ship derives current inspection and command evidence at a stable working-tree re
 - **Implementation**: `cli/src/gates.ts`, `cli/src/evidence-envelope.ts`
 - **Tests**: `cli/tests/gates.test.ts`, `cli/tests/ship-rederivation.test.ts`
 - **Documentation**: `docs/COMMANDS.md`, `docs/SECURITY_MODEL.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.3.0.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Remote CI, registry, hosting, provider, production, provenance, and immutable-release state require separate direct evidence.
 
@@ -1036,7 +1036,7 @@ Deliberately flawed fixture projects and evaluation cases confirm that the decla
 - **Implementation**: `fixtures`, `evals/cases.json`, `evals/v030-build-mode`, `evals/v030-prevention`, `scripts/check-fixtures.mjs`, `scripts/lib/fixture-manifests.mjs`
 - **Tests**: `cli/tests/evals.test.ts`, `cli/tests/v030-build-mode-evals.test.ts`, `cli/tests/v030-prevention-evals.test.ts`, `cli/tests/discovery.test.ts`, `scripts/tests/fixture-manifests.test.mjs`
 - **Documentation**: `fixtures/README.md`, `evals/README.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -1048,7 +1048,7 @@ Automated tests cover skill metadata, the command registry, the finding schema, 
 - **Implementation**: `scripts/run-coverage.mjs`, `config/coverage-thresholds.json`
 - **Tests**: `cli/tests/catalog.test.ts`, `cli/tests/cli.test.ts`, `cli/tests/installer.test.ts`, `cli/tests/finding.test.ts`, `cli/tests/report.test.ts`, `cli/tests/utils.test.ts`, `scripts/tests/fs-safety.test.mjs`, `scripts/tests/zip.test.mjs`
 - **Documentation**: `docs/COVERAGE.md`, `docs/DEVELOPMENT.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_
 
@@ -1060,6 +1060,6 @@ Inspection is performed by real executable tools that detect commands before run
 - **Implementation**: `cli/src/tools.ts`, `cli/src/inspectors.ts`, `cli/src/utils.ts`
 - **Tests**: `cli/tests/utils.test.ts`, `cli/tests/cli.test.ts`, `scripts/tests/fs-safety.test.mjs`
 - **Documentation**: `docs/CLI_REFERENCE.md`, `docs/SECURITY_MODEL.md`
-- **Release verification**: `docs/AUDIT_CLASSIFICATION_v0.1.6.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: _none_

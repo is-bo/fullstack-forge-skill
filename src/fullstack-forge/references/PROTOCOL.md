@@ -40,6 +40,11 @@ Record the smallest reproducible evidence:
 Never include secrets, raw credentials, full personal records, or unnecessary payloads. Redact a
 value without erasing the fact that the value was observed.
 
+Findings may be produced by `forge-analyzer`, `forge-command`, `agent-reviewed-source`,
+`agent-runtime-verification`, `external-tool`, or `human-decision`. Agent findings must bind their
+source lines, revision, commands, limitations, and verification procedure and must be validated
+before ingestion into both official report formats.
+
 Release-significant Audit and Ship evidence uses the v0.3 typed envelope. A record is eligible only
 when its domain, registered producer/version/contract, exact criterion/status, canonical root,
 working-tree revision, production/expiry times, outer-claim digest, and one-to-one

@@ -84,5 +84,24 @@ test("published finding schema exposes instance and fix lifecycle fields", async
     const schema = JSON.parse(await readFile(join(PACKAGE_ROOT, "src", "fullstack-forge", "schemas", "finding.schema.json"), "utf8"));
     assert.ok(schema.properties.instance_id);
     assert.ok(schema.properties.fix_attempts);
+    assert.ok(schema.properties.producer);
+    assert.ok(schema.properties.commands_executed);
+});
+test("agent-authored findings require complete provenance and verification metadata", () => {
+    const agentFinding = {
+        ...valid,
+        module: "auth",
+        producer: "agent-reviewed-source",
+        evidence_type: "source-review",
+        explanation: "The login handler preserves the pre-authentication session identifier.",
+        safe_fix_classification: "approval-required",
+        revision: "worktree:1234",
+        commands_executed: [{ command: "npm test -- auth", exit_code: 1 }],
+        remaining_limitations: ["The production session store was not available."]
+    };
+    assert.deepEqual(validateFinding(agentFinding), []);
+    const errors = validateFinding({ ...agentFinding, revision: "", commands_executed: undefined });
+    assert.ok(errors.some((error) => error.includes("revision")));
+    assert.ok(errors.some((error) => error.includes("commands_executed")));
 });
 //# sourceMappingURL=finding.test.js.map

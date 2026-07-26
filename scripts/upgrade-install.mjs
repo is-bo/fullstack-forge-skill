@@ -3,10 +3,19 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { projectRoot } from "./project.mjs";
 
-const previousTag = process.argv[2] ?? "v0.5.0";
-if (!/^v\d+\.\d+\.\d+$/u.test(previousTag))
+const previousTag = process.argv[2] ?? "fixture";
+const useDevelopmentPreviewFixture = previousTag === "fixture";
+if (!useDevelopmentPreviewFixture && !/^v\d+\.\d+\.\d+$/u.test(previousTag))
   throw new Error(`Previous release tag must be a stable semantic version: ${previousTag}`);
 const platformRoots = [".agents", ".claude", ".cursor", ".gemini", ".github", ".windsurf"];
+const projectInstructionPaths = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  "GEMINI.md",
+  ".cursor/rules/fullstack-forge.mdc",
+  ".windsurf/rules/fullstack-forge.md",
+  ".github/instructions/fullstack-forge.instructions.md"
+];
 
 const temporary = await mkdtemp(join(tmpdir(), "fullstack-forge-upgrade-"));
 validateTemporary(temporary);
@@ -28,6 +37,9 @@ try {
   if (typeof filename !== "string") throw new Error("npm pack did not report an archive filename");
   const archive = join(packageRoot, filename);
   await stat(archive);
+  const expectedVersion = JSON.parse(
+    await readFile(join(projectRoot, "package.json"), "utf8")
+  ).version;
 
   await writeFile(
     join(consumerRoot, "package.json"),
@@ -42,7 +54,9 @@ try {
       "--ignore-scripts",
       "--no-audit",
       "--no-fund",
-      `git+https://github.com/is-bo/fullstack-forge-skill.git#${previousTag}`
+      ...(useDevelopmentPreviewFixture
+        ? [archive]
+        : [`git+https://github.com/is-bo/fullstack-forge-skill.git#${previousTag}`])
     ],
     consumerRoot,
     10 * 60_000
@@ -62,7 +76,11 @@ try {
     "index.js"
   );
   const previousVersion = await run(process.execPath, [cli, "--version"], consumerRoot);
-  if (previousVersion.code !== 0 || `v${previousVersion.stdout.trim()}` !== previousTag)
+  if (
+    previousVersion.code !== 0 ||
+    (!useDevelopmentPreviewFixture && `v${previousVersion.stdout.trim()}` !== previousTag) ||
+    (useDevelopmentPreviewFixture && previousVersion.stdout.trim() !== expectedVersion)
+  )
     throw new Error(
       `previous CLI version mismatch: expected ${previousTag}, got ${previousVersion.stdout} ${previousVersion.stderr}`
     );
@@ -75,6 +93,7 @@ try {
   );
   if (init.code !== 0) throw new Error(`previous release init failed:\n${init.stderr}`);
   await assertInstalledRoots(consumerRoot, false);
+  if (useDevelopmentPreviewFixture) await convertToDevelopmentPreviewFixture(consumerRoot);
 
   const candidateInstall = await run(
     process.execPath,
@@ -87,9 +106,6 @@ try {
       `candidate installation failed:\n${candidateInstall.stderr}\n${candidateInstall.stdout}`
     );
 
-  const expectedVersion = JSON.parse(
-    await readFile(join(projectRoot, "package.json"), "utf8")
-  ).version;
   const candidateVersion = await run(process.execPath, [cli, "--version"], consumerRoot);
   if (candidateVersion.code !== 0 || candidateVersion.stdout.trim() !== expectedVersion)
     throw new Error(
@@ -141,17 +157,25 @@ try {
       if (error?.code !== "ENOENT") throw error;
     }
   }
+  for (const relativePath of projectInstructionPaths) {
+    try {
+      await stat(join(consumerRoot, ...relativePath.split("/")));
+      throw new Error(`uninstall left owned project instructions behind: ${relativePath}`);
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
+  }
 
   console.log(
     JSON.stringify(
       {
         ok: true,
-        previous_tag: previousTag,
+        previous_tag: useDevelopmentPreviewFixture ? "development-preview-fixture" : previousTag,
         previous_version: previousVersion.stdout.trim(),
         candidate_version: candidateVersion.stdout.trim(),
         codex_update: true,
         installed_skills_per_root: 46,
-        forge_metadata_added: true,
+        automatic_activation_added: true,
         doctor_ready: true,
         symlinks: 0,
         uninstall_clean: true
@@ -172,11 +196,25 @@ async function assertInstalledRoots(root, expectRouterMetadata) {
       throw new Error(`${platformRoot} does not contain exactly 46 skills`);
     if (expectRouterMetadata) {
       const metadata = await readFile(join(skillsRoot, "forge", "agents", "openai.yaml"), "utf8");
-      if (!metadata.includes('short_description: "Build · Audit · Fix · Verify · Ship · Status"'))
-        throw new Error(`${platformRoot} did not receive the v0.5.1 Forge picker metadata`);
+      if (!metadata.includes('short_description: "Automatic Build · Fix · Verify · Ship guidance"'))
+        throw new Error(`${platformRoot} did not receive the Forge picker metadata`);
     }
     await assertNoLinks(skillsRoot);
   }
+}
+
+async function convertToDevelopmentPreviewFixture(root) {
+  const manifestPath = join(root, ".fullstack-forge", "install-manifest.json");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  manifest.packageVersion = "development-preview";
+  delete manifest.agent_first;
+  delete manifest.automatic_activation;
+  for (const relativePath of projectInstructionPaths) {
+    delete manifest.files[relativePath];
+    const target = join(root, ...relativePath.split("/"));
+    await rm(target, { force: true });
+  }
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 }
 
 async function countSkills(root) {

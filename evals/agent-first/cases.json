@@ -1,0 +1,69 @@
+[
+  {
+    "id": "normal-csv-export",
+    "prompt": "Add CSV export to the appointments page.",
+    "risk": "standard",
+    "modules": ["authorization", "queries", "ui", "ux", "testing"],
+    "required_considerations": [
+      "permissions",
+      "query bounds",
+      "CSV escaping",
+      "UX",
+      "focused tests"
+    ],
+    "full_audit": false
+  },
+  {
+    "id": "high-risk-password-reset",
+    "prompt": "Add password reset.",
+    "risk": "high",
+    "modules": ["auth", "security", "notifications", "reliability", "testing"],
+    "required_considerations": [
+      "expiry",
+      "hashed token storage",
+      "rate limiting",
+      "enumeration resistance",
+      "notification handling",
+      "negative tests"
+    ],
+    "block_unsupported_completion": true,
+    "full_audit": false
+  },
+  {
+    "id": "small-button-label",
+    "prompt": "Change the primary button label.",
+    "risk": "light",
+    "modules": ["ui"],
+    "required_considerations": ["focused rendered or component validation"],
+    "full_audit": false
+  },
+  {
+    "id": "existing-project-query",
+    "prompt": "Optimise the patient list query.",
+    "risk": "standard",
+    "modules": ["queries", "database", "performance", "testing"],
+    "required_considerations": [
+      "actual query path",
+      "pagination",
+      "indexes",
+      "N+1 behavior",
+      "measurement before infrastructure"
+    ],
+    "forbidden_default": "Redis",
+    "full_audit": false
+  },
+  {
+    "id": "explicit-audit-compatibility",
+    "prompt": "$forge audit queries",
+    "risk": "explicit",
+    "modules": ["queries"],
+    "full_audit": false
+  },
+  {
+    "id": "explicit-build-compatibility",
+    "prompt": "$forge build add patient export",
+    "risk": "explicit",
+    "modules": ["authorization", "queries", "testing"],
+    "full_audit": false
+  }
+]

@@ -157,7 +157,7 @@ const CRITERIA_SENTINELS = {
 test("module and tool catalogs are exact and unique", () => {
   assert.deepEqual(MODULE_SLUGS, EXPECTED);
   assert.equal(new Set(MODULE_SLUGS).size, 42);
-  assert.equal(new Set(TOOL_NAMES).size, 25);
+  assert.equal(new Set(TOOL_NAMES).size, 26);
   assert.equal(new Set(PLATFORMS).size, 7);
 });
 
@@ -214,7 +214,7 @@ test("explicit inspection criteria cover every module and render into canonical 
       join(PACKAGE_ROOT, "src", "fullstack-forge", "commands", `forge-${slug}`, "SKILL.md"),
       "utf8"
     );
-    assert.match(content, /## Required inspection criteria/u, slug);
+    assert.match(content, /## Missing-control checks/u, slug);
     for (const criterion of moduleCriteria)
       assert.ok(content.includes(`- ${criterion}`), `${slug}: missing ${criterion}`);
     const toolReferences = [

@@ -4,7 +4,7 @@ import test from "node:test";
 import { validateArchiveBytes } from "../lib/archive-validation.mjs";
 import { createDeterministicZip } from "../lib/zip.mjs";
 
-const VERSION = "0.5.3";
+const VERSION = "0.1.0";
 const legacyOwner = "the" + "thunderbolt";
 
 test("archive validation resolves packaged relative Markdown links", () => {

@@ -7,24 +7,19 @@ import { expectedBuildCommands, expectedSlugs, platformTargets, projectRoot } fr
 const errors = [];
 const requiredHeadings = [
   "## Purpose",
-  "## Trigger conditions",
-  "## When it applies",
-  "## When it does not apply",
-  "## Inputs from project discovery",
-  "## Inspection procedure",
-  "## Required inspection criteria",
-  "## Safe executable checks",
-  "## Manual inspection requirements",
-  "## Evidence requirements",
-  "## Finding identifiers and severity",
-  "## Safe automatic fixes",
-  "## Risky changes requiring approval",
-  "## Verification procedure",
-  "## Report fields",
-  "## Primary standards",
-  "## Stack-specific guidance",
-  "## Known limitations",
-  "## Completion contract"
+  "## Automatic activation signals",
+  "## When not to activate",
+  "## Automated support",
+  "## Agent inspection procedure",
+  "## Evidence to collect",
+  "## Common production failures",
+  "## Missing-control checks",
+  "## Commands and tools",
+  "## Safe fixes",
+  "## Approval-required changes",
+  "## Verification",
+  "## Completion contract",
+  "## Known limitations"
 ];
 const catalog = JSON.parse(await readFile(join(projectRoot, "config", "modules.json"), "utf8"));
 const criteriaBySlug = JSON.parse(
@@ -95,9 +90,10 @@ const openaiYaml = await readFile(
   "utf8"
 );
 validateOpenAiMetadata("src/fullstack-forge/agents/openai.yaml", openaiYaml, {
-  displayName: "Fullstack Forge — Expert Audit",
-  shortDescription: "Advanced evidence-backed audit orchestration",
-  skillMention: "$fullstack-forge"
+  displayName: "Fullstack Forge — Agent-first Engineering",
+  shortDescription: "Automatic production engineering for app changes",
+  skillMention: "$fullstack-forge",
+  promptTerms: ["automatically", "proportional", "optional"]
 });
 
 const forgeOpenaiPath = join(
@@ -112,7 +108,7 @@ const forgeOpenaiPath = join(
 const forgeOpenaiYaml = await readFile(forgeOpenaiPath, "utf8");
 validateOpenAiMetadata("src/fullstack-forge/commands/forge/agents/openai.yaml", forgeOpenaiYaml, {
   displayName: "Forge",
-  shortDescription: "Build · Audit · Fix · Verify · Ship · Status",
+  shortDescription: "Automatic Build · Fix · Verify · Ship guidance",
   skillMention: "$forge",
   promptTerms: [
     "build",
@@ -123,9 +119,9 @@ validateOpenAiMetadata("src/fullstack-forge/commands/forge/agents/openai.yaml", 
     "ship",
     "status",
     "help",
-    "no action",
-    "beginner command menu",
-    "plain language"
+    "automatically",
+    "proportional agent-first workflow",
+    "optional overrides"
   ]
 });
 const canonicalIcon = await readFile(

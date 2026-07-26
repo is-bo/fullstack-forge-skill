@@ -509,13 +509,13 @@ export function renderInstallResult(
       "Check the installation:",
       "  forge doctor",
       "",
-      "Build something:",
-      "  /forge build",
+      "Continue working with your AI agent normally.",
+      "Forge activates automatically for software-engineering tasks.",
       "",
-      "Check an existing application:",
-      "  /forge audit",
-      "",
-      "See all commands:",
+      "Optional explicit workflows:",
+      "  /forge audit security",
+      "  /forge verify",
+      "  /forge ship",
       "  /forge help"
     );
   if (operation === "uninstall" && actions.some((action) => action.action === "preserve-modified"))

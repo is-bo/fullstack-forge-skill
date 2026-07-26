@@ -31,12 +31,12 @@ test("update lookup uses a fixed argument vector and reports a newer release", a
   const result = await checkUpdateAvailability(
     "/project",
     false,
-    "0.4.0",
+    "1.2.0",
     (executable, args, cwd, timeout) => {
       calls.push({ executable, args, cwd, timeout });
       return Promise.resolve({
         exitCode: 0,
-        stdout: `${hash}\trefs/tags/v0.4.0\n${hash}\trefs/tags/v0.5.0\n`,
+        stdout: `${hash}\trefs/tags/v1.2.0\n${hash}\trefs/tags/v1.3.0\n`,
         stderr: ""
       });
     }
@@ -51,8 +51,8 @@ test("update lookup uses a fixed argument vector and reports a newer release", a
   ]);
   assert.deepEqual(result, {
     status: "WARNING",
-    evidence: "v0.5.0 is available; v0.4.0 is running",
-    latestVersion: "0.5.0"
+    evidence: "v1.3.0 is available; v1.2.0 is running",
+    latestVersion: "1.3.0"
   });
 });
 
@@ -88,7 +88,7 @@ test("current and development-ahead versions are distinguished", async () => {
     });
   assert.equal((await checkUpdateAvailability("/project", false, "0.4.0", runner)).status, "PASS");
   assert.match(
-    (await checkUpdateAvailability("/project", false, "0.5.0", runner)).evidence,
+    (await checkUpdateAvailability("/project", false, "1.3.0", runner)).evidence,
     /newer than the latest public release/u
   );
 });

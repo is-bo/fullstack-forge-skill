@@ -156,9 +156,9 @@ test("install success and doctor distinguish incomplete, ready, and modified sta
         assert.match(installed.stdout, /Fullstack Forge .* is ready/u);
         assert.match(installed.stdout, /Skills: 46/u);
         assert.match(installed.stdout, /Check the installation:\s+forge doctor/u);
-        assert.match(installed.stdout, /Build something:\s+\/forge build/u);
-        assert.match(installed.stdout, /Check an existing application:\s+\/forge audit/u);
-        assert.match(installed.stdout, /See all commands:\s+\/forge help/u);
+        assert.match(installed.stdout, /Forge activates automatically/u);
+        assert.match(installed.stdout, /Optional explicit workflows/u);
+        assert.match(installed.stdout, /\/forge help/u);
         const ready = await runFile(process.execPath, [cli, "doctor", "--offline", "--root", root], root);
         assert.equal(ready.exitCode, 0, ready.stderr);
         assert.match(ready.stdout, /Overall: ready with warnings/u);

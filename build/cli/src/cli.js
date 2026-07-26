@@ -13,7 +13,7 @@ import { writeReportOutput } from "./report-output.js";
 import { executeFixes } from "./fixes.js";
 import { runShipGates } from "./gates.js";
 import { inventoryLimitationFinding } from "./inventory-evidence.js";
-import { install, readInstallManifest, uninstall } from "./installer.js";
+import { hashInstalledRecord, install, readInstallManifest, uninstall } from "./installer.js";
 import { inspectSection, isModuleSlug } from "./inspectors.js";
 import { redactToString } from "./redaction.js";
 import { captureEnvironment, createReport, readReport, renderMarkdown, writeReport } from "./report.js";
@@ -21,7 +21,7 @@ import { analyzeChangedScope, decideModules, decisionFindingStatus } from "./sco
 import { coverageForProfile } from "./support.js";
 import { isForgePackageRoot, runTool } from "./tools.js";
 import { parseInspectionBudget } from "./repository-inventory.js";
-import { assertNoSymlinkPath, canonicalDirectory, resolveInside, runFile, sha256, workingTreeRevision } from "./utils.js";
+import { assertNoSymlinkPath, canonicalDirectory, resolveInside, runFile, workingTreeRevision } from "./utils.js";
 import { verifyFindings } from "./verification.js";
 import { checkUpdateAvailability } from "./update-check.js";
 import { featureSlugFromRequest, featureSlugWithCollision, menuChoiceToArgs, parseSimpleRoute, renderDoctor, renderInstallResult, renderPlainFix, renderPlainReport, renderSimpleHelp, renderSimpleMenu, renderStatus, suggestCommand } from "./simple-cli.js";
@@ -630,7 +630,7 @@ async function doctor(options) {
             const target = resolveInside(manifestRoot, relative);
             await assertNoSymlinkPath(manifestRoot, target);
             try {
-                if (sha256(await readFile(target)) !== record.hash)
+                if (hashInstalledRecord(await readFile(target), record) !== record.hash)
                     changed += 1;
             }
             catch (error) {
@@ -654,6 +654,15 @@ async function doctor(options) {
                         : `Review modified files, then run 'forge update all${options.global ? " --global" : ""}'. Forge will not overwrite changed or unowned files.`
                 })
         });
+        if (!options.global)
+            checks.push({
+                name: "automatic activation",
+                status: manifest.agent_first && manifest.automatic_activation ? "PASS" : "FAIL",
+                evidence: `agent_first=${manifest.agent_first}; automatic_activation=${manifest.automatic_activation}`,
+                ...(!manifest.agent_first || !manifest.automatic_activation
+                    ? { recovery: "Run 'forge update all' to install managed project instructions." }
+                    : {})
+            });
         checks.push({
             name: "agent destinations",
             status: "PASS",

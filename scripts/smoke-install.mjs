@@ -96,10 +96,18 @@ try {
   if (init.code !== 0) throw new Error(`init failed: ${init.stderr}`);
   const skill = join(consumerRoot, ".agents", "skills", "fullstack-forge", "SKILL.md");
   const simpleSkill = join(consumerRoot, ".agents", "skills", "forge", "SKILL.md");
+  const projectInstructions = join(consumerRoot, "AGENTS.md");
   if (!(await readFile(skill, "utf8")).includes("# Fullstack Forge"))
     throw new Error("installed master skill is invalid");
   if (!(await readFile(simpleSkill, "utf8")).includes("# forge: Simple product workflow"))
     throw new Error("installed simple forge skill is invalid");
+  if (!(await readFile(projectInstructions, "utf8")).includes("automatic-activation:start"))
+    throw new Error("generic install did not enable managed automatic activation");
+  const installManifest = JSON.parse(
+    await readFile(join(consumerRoot, ".fullstack-forge", "install-manifest.json"), "utf8")
+  );
+  if (installManifest.agent_first !== true || installManifest.automatic_activation !== true)
+    throw new Error("install manifest does not record agent-first automatic activation");
   const genericSkillCount = await countSkills(join(consumerRoot, ".agents", "skills"));
   if (genericSkillCount !== 46)
     throw new Error(`generic install produced ${genericSkillCount} skills, expected 46`);
@@ -128,6 +136,12 @@ try {
   try {
     await stat(skill);
     throw new Error("uninstall left an owned skill file behind");
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+  try {
+    await stat(projectInstructions);
+    throw new Error("uninstall left the owned automatic-activation instruction behind");
   } catch (error) {
     if (error?.code !== "ENOENT") throw error;
   }
@@ -220,6 +234,7 @@ try {
         antigravity_global: ".gemini/config/skills",
         gemini_project: ".gemini/skills",
         installed_skills: 46,
+        automatic_activation: true,
         symlinks: 0
       },
       null,

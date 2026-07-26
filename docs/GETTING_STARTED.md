@@ -1,102 +1,56 @@
-# Get started with Fullstack Forge
+# Getting started
 
-Fullstack Forge helps an AI coding agent build and verify production-ready applications without
-treating missing evidence as success.
+## Requirements
 
-## Install the full product
+- Node.js 24 or newer
+- A Git repository containing an application
+- A supported AI coding agent or generic Agent Skills host
 
-Node.js 24 or newer and Git are required. Install the versioned package, then copy its skills into
-the supported agent directories in this project:
+## Install in a project
 
 ```bash
-npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.5.3"
+npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.1.0"
 npx forge init
 npx forge doctor
 ```
 
-With no selector, Forge keeps the broad compatible install while detecting finite existing agent
-configuration markers and executable-name hints, then recommending a narrower selector when direct
-evidence exists. Detection never runs an executable and cannot block the install. The installer
-copies regular files, atomically records ownership in `.fullstack-forge/install-manifest.json`
-before new managed paths are written, resumes safely after interruption, refuses destination links,
-and does not overwrite changed or unowned files.
+Continue working with your AI agent normally. Forge activates automatically for software-engineering
+tasks.
 
-For agent skills without the persistent CLI dependency, the verified third-party alternative is:
+`forge init` detects project and user agent markers, installs the relevant skills, writes managed
+automatic-activation instructions, and records ownership in
+`.fullstack-forge/install-manifest.json`. Use `forge init all` only when every platform is wanted.
 
-```bash
-npx --yes --package skills@1.5.20 skills add is-bo/fullstack-forge-skill --copy --skill '*'
-```
+## First request
 
-Choose your agent when prompted. Add `--agent codex --yes` for an unattended Codex project install.
-`--copy` is important: it requests real files instead of links. This route installs skills only; use
-the first-party npm route when you want the persistent `forge` executable, ownership-aware updates,
-`forge doctor`, or uninstall protection.
-
-## Update after the GitHub username migration
-
-The same maintainer now publishes from `is-bo/fullstack-forge-skill`. Reinstall from the current
-tag, refresh the Codex skill, and check the installation:
-
-```bash
-npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.5.3"
-npx forge update codex
-npx forge doctor
-```
-
-Confirm the dependency source recorded by npm with:
-
-```bash
-npm pkg get devDependencies.fullstack-forge-skill
-```
-
-## Run your first command
-
-```bash
-npx forge
-```
-
-An interactive terminal shows a menu. A script or redirected terminal receives the same choices as a
-numbered list and exits successfully.
-
-```bash
-npx forge build "add customer login"
-npx forge audit
-npx forge status
-```
-
-In an agent chat, use `/forge build ...` where slash skills are supported. In Codex:
-
-1. Open the skill picker.
-2. Select **Forge**.
-3. Choose an action from the displayed menu or describe the task normally.
-
-The picker preview reads **Build · Audit · Fix · Verify · Ship · Status**. Selecting Forge with no
-action shows Build, Continue, Audit changed work, Audit the whole project, preview and apply-safe
-Fix, Verify, Ship, Status, and Help choices without running a check or creating state.
-
-Examples:
+Ask for the product behavior directly:
 
 ```text
-$forge build secure customer login
-$forge audit all
-$forge audit authentication
-$forge fix
+Add CSV export to the appointments page.
+```
+
+The agent should discover the existing implementation, select only relevant playbooks, implement the
+feature, consider permissions, query bounds, CSV escaping, UX, and tests, run focused verification,
+and report limitations. No Forge command is required.
+
+## Optional explicit use
+
+```text
+$forge audit security
 $forge verify
 $forge ship
 ```
 
-Codex does not expose these actions as separate nested picker commands. The single Forge skill is
-the visible product entrance and routes plain language to the internal Build, Audit, Fix, Verify,
-Ship, Status, and Help workflows. The advanced **Fullstack Forge — Expert Audit** skill and all
-specialist `$forge-<area>` skills remain available.
+Use explicit commands to force an audit area or gate. See [COMMANDS.md](COMMANDS.md).
 
-## Understand the result
+## Update or uninstall
 
-The terminal gives a short explanation, the most important actions, safe-fix availability, and the
-next command. Full evidence remains in `.forge/report.md`; stable automation data remains in
-`.forge/report.json`. Use `--details` to print the technical report or `--json` for machine output.
-Discovery is Git-aware and bounded; see [Repository inventory](REPOSITORY_INVENTORY.md) for
-`.forgeignore`, repeatable `--exclude`, budget diagnostics, and exit code `2`.
+```bash
+npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.1.0"
+npx forge update all
+npx forge doctor
+npx forge uninstall all
+```
 
-Continue with [Build your first feature](BUILD_YOUR_FIRST_FEATURE.md),
-[Audit your application](AUDIT_YOUR_APPLICATION.md), or [Troubleshooting](TROUBLESHOOTING.md).
+Updates refuse changed Forge-owned sections and unowned conflicts. Uninstall removes only unchanged
+owned content and preserves modified or user-authored instructions.

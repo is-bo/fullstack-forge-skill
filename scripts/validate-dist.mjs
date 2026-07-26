@@ -25,7 +25,6 @@ const requiredEntries = [
   "NOTICE",
   "THIRD_PARTY_NOTICES.md",
   "docs/ANALYZER_SUPPORT.md",
-  `docs/AUDIT_CLASSIFICATION_v${version}.md`,
   "docs/COVERAGE.md",
   "docs/GETTING_STARTED.md",
   "docs/REPOSITORY_INVENTORY.md",

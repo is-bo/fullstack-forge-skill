@@ -8,6 +8,21 @@ export const STATUSES = [
 ];
 export const SEVERITIES = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"];
 export const CONFIDENCES = ["HIGH", "MEDIUM", "LOW"];
+export const FINDING_PRODUCERS = [
+    "forge-analyzer",
+    "forge-command",
+    "agent-reviewed-source",
+    "agent-runtime-verification",
+    "external-tool",
+    "human-decision"
+];
+export const FINDING_EVIDENCE_TYPES = [
+    "source-review",
+    "runtime-verification",
+    "command-output",
+    "external-tool-output",
+    "human-decision"
+];
 export const FIX_ATTEMPT_STATUSES = ["PLANNED", "APPLIED", "BLOCKED", "ROLLED_BACK"];
 export const GATE_EVIDENCE_TYPES = [
     "secret-scan",

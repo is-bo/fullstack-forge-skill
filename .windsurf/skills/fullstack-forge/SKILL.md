@@ -1,18 +1,33 @@
 ---
 name: fullstack-forge
 description:
-  "Advanced evidence-backed audit orchestration across architecture, code, UX, accessibility, APIs,
-  identity, security, data, operations, specialized features, and release readiness. Use for expert
-  repository audits, hardening, remediation, and pre-release verification; use forge for the
-  beginner Build, Continue, Audit, Fix, Verify, Ship, Status, and Help entrance."
+  "Use Fullstack Forge automatically whenever working on a full-stack application or making a
+  software-engineering change in a repository where it is installed. It guides the agent through
+  production-ready architecture, security, data, APIs, UI, testing, reliability, performance, and
+  release practices. The user does not need to invoke Forge explicitly. Trigger for build, create,
+  implement, add a feature, change behaviour, fix, debug, refactor, optimise, migrate, review,
+  audit, test, verify, deploy, release, or ship requests. Use explicit Forge commands only when the
+  user requests a specific workflow or audit area; do not activate for unrelated writing or general
+  conversation."
 ---
 
-# Fullstack Forge — Expert Audit
+# Fullstack Forge — Agent-first engineering workflow
 
-This skill is Fullstack Forge's backward-compatible expert audit orchestrator. It discovers the
-actual stack, selects applicable specialist modules, gathers reproducible evidence, separates safe
-fixes from risky decisions, and reports what passed, failed, was blocked, or could not be verified.
-For the beginner Build, Continue, Audit, Fix, Verify, Ship, Status, and Help menu, use `$forge`.
+Fullstack Forge makes the AI agent the engineer. Use it automatically for ordinary application-code
+work in a repository where it is installed: understand the requested behavior, discover the actual
+project, select only relevant playbooks, implement through existing patterns, inspect directly
+related production concerns, verify proportionately, and report evidence and uncertainty. Explicit
+`$forge` commands remain optional shortcuts and overrides.
+
+Responsibility split:
+
+- **AI agent:** product reasoning, architecture decisions, repository inspection, implementation,
+  tests, verification, and honest reporting.
+- **Forge skills:** applicability guidance, failure patterns, inspection and implementation
+  procedures, safe-change boundaries, evidence requirements, and completion contracts.
+- **Forge CLI:** bounded inventory, discovery, command/evidence capture, deterministic analyzers,
+  Build state, findings/reports, safe fixes, Verify/Ship gates, installation, and platform assets.
+- **Project tools:** the application's tests, linters, databases, browsers, scanners, and runtimes.
 
 ## Non-negotiable rules
 
@@ -33,15 +48,39 @@ For the beginner Build, Continue, Audit, Fix, Verify, Ship, Status, and Help men
 Read [references/PROTOCOL.md](references/PROTOCOL.md) for the evidence and status protocol and
 [references/SAFE_FIX_POLICY.md](references/SAFE_FIX_POLICY.md) before any change.
 
-## Two modes
+## Default agent-first workflow
 
-Fullstack Forge is Build mode plus Audit mode. Pick by intent, not habit:
+For a normal request with no Forge command, follow:
+
+1. **UNDERSTAND** intended user behavior and affected boundaries.
+2. **DISCOVER** with bounded Forge inventory plus direct repository inspection; generated Forge
+   files are never proof that the application uses a capability.
+3. **SELECT** only the relevant specialist modules.
+4. **PLAN** the smallest coherent implementation.
+5. **IMPLEMENT** through existing patterns, applying selected playbooks.
+6. **INSPECT** directly related production failures and missing controls.
+7. **VERIFY** with focused checks during implementation and one broader relevant pass near the end.
+8. **REPORT** changes, production concerns, commands/tests, unverified areas, and open decisions.
+
+Scale the workflow to risk:
+
+- **Small, low-risk change:** inspect the affected area, edit it, and run focused validation. Do not
+  initialize Build state or run a repository audit merely for wording, styling, or documentation.
+- **Normal feature:** inspect affected architecture, select modules, plan briefly, implement and add
+  tests, run focused checks, then one final relevant validation pass.
+- **High-risk feature:** for authentication, authorization, payments, personal data, uploads,
+  destructive migrations, subscription enforcement, secrets, or security-sensitive caching, activate
+  stronger modules and evidence, identify approval-required decisions, and block unsupported
+  completion claims.
+
+Do not treat every task as high risk, introduce infrastructure without evidence, repeatedly run the
+full suite, or expand into unrelated improvements. Explicit commands remain available by intent:
 
 | You want to...                       | Mode  | Entry point                                      |
 | ------------------------------------ | ----- | ------------------------------------------------ |
 | Start a new product or codebase      | Build | `/forge-new` (`forge new`)                       |
 | Build, continue, or ship one feature | Build | `/forge-feature <slug>` (`forge feature <slug>`) |
-| Inspect or harden existing behavior  | Audit | `/forge-<section>` or `/fullstack-forge` (below) |
+| Inspect or harden existing behavior  | Audit | `/forge-<section>` or `/fullstack-forge`         |
 | Gate a release                       | Audit | `forge ship`                                     |
 
 Build mode's `frame` and `plan` are RECORDED guidance. `check` and `done` re-derive applicability
@@ -51,8 +90,8 @@ expiry. Unsupported or unavailable evidence never becomes `PASS`. Build state un
 satisfies zero `forge ship` or `forge all audit` gates; Ship performs its own stable-revision
 inspection. Legacy v0.2 Build state is upgraded only through the explicit, journaled
 `forge migrate build` command. Decision rule: building a feature → `forge feature <slug> check`;
-reviewing an arbitrary diff → `forge all audit --scope changed`. The rest of this file, and every
-`/forge-<section>` skill below, is Audit mode.
+reviewing an arbitrary diff → `forge all audit --scope changed`. The CLI supports the agent; it is
+not the primary intelligence. Build state remains separate from Audit and Ship evidence.
 
 ## Choose the workflow
 
@@ -139,6 +178,13 @@ For each applicable module:
 5. Create findings using [schemas/finding.schema.json](schemas/finding.schema.json).
 6. Use stable IDs across audit, fix, verify, Markdown, and JSON.
 
+Agent-authored findings are official report inputs. Use producer `agent-reviewed-source` or
+`agent-runtime-verification` and include module, severity, confidence, status, evidence type, source
+locations with lines, explanation, impact, recommendation, safe-fix classification, verification,
+revision, commands executed, and remaining limitations. Other supported producers are
+`forge-analyzer`, `forge-command`, `external-tool`, and `human-decision`. Validate and merge agent
+findings with `forge tool ingest-agent-findings <path>`.
+
 Use repository-relative locations with 1-based lines. Record running-app URL, viewport, role, input,
 and observed state for interface evidence. Keep assertions about production or provider state
 `NOT_VERIFIED` unless direct configuration output supports them.
@@ -172,6 +218,10 @@ Generate `.forge/report.json` and `.forge/report.md`. Include:
 - Deduplicated root causes with all affected locations preserved.
 - Prioritized remediation ordered by severity, confidence, impact, then effort.
 - Commands run, failures, skipped checks, blocked checks, assumptions, and residual risk.
+
+The Markdown and JSON reports must represent the same findings and limitations as the final agent
+response. Never omit a report failure from the conversation or claim verification absent from the
+report.
 
 Validate JSON with `validate-finding-schema`. Reports must remain useful when every finding is
 `NOT_APPLICABLE` or `NOT_VERIFIED`.
@@ -246,14 +296,16 @@ shell string.
 
 ## Platform invocation
 
-- Open Agent Skills / Codex: `$fullstack-forge` or `$forge-security`.
+- Installed project instructions activate this workflow automatically for normal engineering work.
+- Open Agent Skills / Codex: `AGENTS.md` plus `$fullstack-forge` or `$forge-security` overrides.
 - Google Antigravity: install project skills under `.agents/skills` or user skills under
   `~/.gemini/config/skills`, then request the installed skill in the manager surface.
-- Claude Code: `/fullstack-forge` or `/forge-security`.
-- Gemini CLI: activate from `/skills`, then request the module.
+- Claude Code: `CLAUDE.md` plus `/fullstack-forge` or `/forge-security` overrides.
+- Gemini CLI: `GEMINI.md`; explicit skills remain available from `/skills`.
 - Cursor: `/fullstack-forge` or `/forge-security` from the slash menu.
 - Windsurf/Devin Cascade: `@fullstack-forge` or `@forge-security`.
-- GitHub Copilot: name the installed skill or let the agent select it from its description.
+- GitHub Copilot: `.github/instructions/fullstack-forge.instructions.md`; named skills remain
+  available.
 
 See `docs/PLATFORM_SUPPORT.md` in the complete repository for verified paths and caveats.
 

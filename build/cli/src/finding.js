@@ -1,4 +1,4 @@
-import { CONFIDENCES, FIX_ATTEMPT_STATUSES, SEVERITIES, STATUSES } from "./types.js";
+import { CONFIDENCES, FINDING_EVIDENCE_TYPES, FINDING_PRODUCERS, FIX_ATTEMPT_STATUSES, SEVERITIES, STATUSES } from "./types.js";
 export function validateFinding(value) {
     const errors = [];
     if (!isRecord(value))
@@ -36,6 +36,30 @@ export function validateFinding(value) {
         errors.push("invalid status");
     if (typeof value.safe_fix !== "boolean")
         errors.push("safe_fix must be boolean");
+    if ("producer" in value && !FINDING_PRODUCERS.includes(value.producer))
+        errors.push("invalid producer");
+    if ("evidence_type" in value && !FINDING_EVIDENCE_TYPES.includes(value.evidence_type))
+        errors.push("invalid evidence_type");
+    for (const field of ["module", "explanation", "revision"])
+        if (field in value && (typeof value[field] !== "string" || value[field].length === 0))
+            errors.push(`${field} must be a non-empty string`);
+    if ("safe_fix_classification" in value &&
+        value.safe_fix_classification !== "safe" &&
+        value.safe_fix_classification !== "approval-required" &&
+        value.safe_fix_classification !== "unsupported")
+        errors.push("invalid safe_fix_classification");
+    if (value.safe_fix === true &&
+        "safe_fix_classification" in value &&
+        value.safe_fix_classification !== "safe")
+        errors.push("safe_fix=true requires safe_fix_classification=safe");
+    if (value.safe_fix === false && value.safe_fix_classification === "safe")
+        errors.push("safe_fix=false cannot use safe_fix_classification=safe");
+    if ("commands_executed" in value && !validFindingCommands(value.commands_executed, errors))
+        errors.push("commands_executed must be an array of command records");
+    if ("remaining_limitations" in value &&
+        (!Array.isArray(value.remaining_limitations) ||
+            value.remaining_limitations.some((item) => typeof item !== "string" || item.length === 0)))
+        errors.push("remaining_limitations must be an array of non-empty strings");
     for (const field of ["location", "evidence", "verification", "standards"]) {
         if (!Array.isArray(value[field]))
             errors.push(`${field} must be an array`);
@@ -127,12 +151,61 @@ export function validateFinding(value) {
             }
         }
     }
+    if (value.producer === "agent-reviewed-source" || value.producer === "agent-runtime-verification")
+        validateAgentAuthoredFinding(value, errors);
     return errors;
 }
 export function assertFindings(values) {
     const errors = values.flatMap((value, index) => validateFinding(value).map((error) => `[${index}] ${error}`));
     if (errors.length > 0)
         throw new Error(`Invalid findings:\n${errors.join("\n")}`);
+}
+export function assertAgentFindings(values) {
+    assertFindings(values);
+    const errors = values.flatMap((value, index) => value.producer === "agent-reviewed-source" || value.producer === "agent-runtime-verification"
+        ? []
+        : [`[${index}] producer must be agent-reviewed-source or agent-runtime-verification`]);
+    if (errors.length > 0)
+        throw new Error(`Invalid agent findings:\n${errors.join("\n")}`);
+}
+function validateAgentAuthoredFinding(value, errors) {
+    for (const field of ["module", "evidence_type", "explanation", "revision"])
+        if (typeof value[field] !== "string" || value[field].length === 0)
+            errors.push(`${field} must be a non-empty string for agent-authored findings`);
+    if (!("safe_fix_classification" in value))
+        errors.push("safe_fix_classification is required for agent-authored findings");
+    if (!Array.isArray(value.location) || value.location.length === 0)
+        errors.push("agent-authored findings require at least one source location");
+    else
+        for (const [index, location] of value.location.entries())
+            if (!isRecord(location) || !Number.isInteger(location.line) || Number(location.line) < 1)
+                errors.push(`location[${index}].line is required for agent-authored findings`);
+    if (!("commands_executed" in value))
+        errors.push("commands_executed must be an array for agent-authored findings");
+    if (!("remaining_limitations" in value))
+        errors.push("remaining_limitations must be an array of non-empty strings for agent-authored findings");
+    if (value.producer === "agent-reviewed-source" && value.evidence_type !== "source-review")
+        errors.push("agent-reviewed-source requires evidence_type=source-review");
+    if (value.producer === "agent-runtime-verification" &&
+        value.evidence_type !== "runtime-verification")
+        errors.push("agent-runtime-verification requires evidence_type=runtime-verification");
+}
+function validFindingCommands(value, errors) {
+    if (!Array.isArray(value))
+        return false;
+    let valid = true;
+    for (const [index, command] of value.entries()) {
+        if (!isRecord(command) ||
+            typeof command.command !== "string" ||
+            command.command.length === 0 ||
+            !Number.isInteger(command.exit_code) ||
+            ("output_summary" in command &&
+                (typeof command.output_summary !== "string" || command.output_summary.length === 0))) {
+            valid = false;
+            errors.push(`commands_executed[${index}] must contain command and integer exit_code`);
+        }
+    }
+    return valid;
 }
 function isRecord(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);

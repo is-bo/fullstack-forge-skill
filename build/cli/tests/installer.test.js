@@ -17,11 +17,99 @@ test("dry-run, install, update, and uninstall honor ownership", async () => {
         assert.match(await readFile(master, "utf8"), /# Fullstack Forge/u);
         const manifest = await readInstallManifest(root);
         assert.ok(manifest !== undefined && Object.keys(manifest.files).length > 40);
+        assert.equal(manifest.agent_first, true);
+        assert.equal(manifest.automatic_activation, true);
+        assert.match(await readFile(join(root, "AGENTS.md"), "utf8"), /automatic activation/u);
         const updated = await install(root, "codex", { global: false, dryRun: false });
         assert.ok(updated.every((action) => action.action === "preserve-identical"));
         const removed = await uninstall(root, "antigravity", { global: false, dryRun: false });
         assert.ok(removed.some((action) => action.action === "remove"));
         await assert.rejects(stat(master), { code: "ENOENT" });
+    });
+});
+test("managed project instructions preserve user content across install, update, and uninstall", async () => {
+    await withTemporaryProject("managed-instructions", async (root) => {
+        const instructions = join(root, "AGENTS.md");
+        await writeFile(instructions, "# User instructions\n\nKeep this paragraph.\n", "utf8");
+        await install(root, "codex", { global: false, dryRun: false });
+        const installed = await readFile(instructions, "utf8");
+        assert.match(installed, /Keep this paragraph\./u);
+        assert.match(installed, /fullstack-forge:automatic-activation:start/u);
+        assert.match(installed, /UNDERSTAND, DISCOVER, SELECT, PLAN, IMPLEMENT, INSPECT, VERIFY, REPORT/u);
+        const manifest = await readInstallManifest(root);
+        assert.ok(manifest);
+        const instructionRecord = manifest.files["AGENTS.md"];
+        assert.ok(instructionRecord);
+        assert.equal(instructionRecord.management, "section");
+        assert.equal(instructionRecord.owned, true);
+        await writeFile(instructions, installed.replace("Keep this paragraph.", "Keep this updated paragraph."), "utf8");
+        await install(root, "codex", { global: false, dryRun: false });
+        assert.match(await readFile(instructions, "utf8"), /Keep this updated paragraph\./u);
+        await uninstall(root, "codex", { global: false, dryRun: false });
+        const remaining = await readFile(instructions, "utf8");
+        assert.equal(remaining, "# User instructions\n\nKeep this updated paragraph.\n");
+        assert.doesNotMatch(remaining, /fullstack-forge/u);
+    });
+});
+test("managed project instructions safely adopt an existing empty instruction file", async () => {
+    await withTemporaryProject("empty-managed-instructions", async (root) => {
+        const instructions = join(root, "AGENTS.md");
+        await writeFile(instructions, "", "utf8");
+        await install(root, "codex", { global: false, dryRun: false });
+        assert.match(await readFile(instructions, "utf8"), /automatic activation/u);
+    });
+});
+test("partial uninstall clears activation status when only modified skill files remain", async () => {
+    await withTemporaryProject("partial-uninstall-activation", async (root) => {
+        await install(root, "cursor", { global: false, dryRun: false });
+        const master = join(root, ".cursor", "skills", "fullstack-forge", "SKILL.md");
+        await writeFile(master, "user modification\n", "utf8");
+        await uninstall(root, "cursor", { global: false, dryRun: false });
+        const manifest = await readInstallManifest(root);
+        assert.ok(manifest);
+        assert.equal(manifest.automatic_activation, false);
+        await assert.rejects(stat(join(root, ".cursor", "rules", "fullstack-forge.mdc")), {
+            code: "ENOENT"
+        });
+        assert.equal(await readFile(master, "utf8"), "user modification\n");
+    });
+});
+test("managed project instructions refuse modified Forge-owned sections", async () => {
+    await withTemporaryProject("modified-instructions", async (root) => {
+        await install(root, "codex", { global: false, dryRun: false });
+        const instructions = join(root, "AGENTS.md");
+        const installed = await readFile(instructions, "utf8");
+        await writeFile(instructions, installed.replace("Use Forge proportionately", "Disable Forge proportionately"), "utf8");
+        await assert.rejects(install(root, "codex", { global: false, dryRun: false }), /modified owned section/u);
+        const actions = await uninstall(root, "codex", { global: false, dryRun: false });
+        assert.ok(actions.some((action) => action.action === "preserve-modified" && action.path === "AGENTS.md"));
+        assert.match(await readFile(instructions, "utf8"), /Disable Forge proportionately/u);
+    });
+});
+test("uninstall preserves a managed instruction file with malformed ownership markers", async () => {
+    await withTemporaryProject("malformed-instructions", async (root) => {
+        await install(root, "codex", { global: false, dryRun: false });
+        const instructions = join(root, "AGENTS.md");
+        const malformed = (await readFile(instructions, "utf8")).replace("<!-- fullstack-forge:automatic-activation:end -->", "");
+        await writeFile(instructions, malformed, "utf8");
+        const actions = await uninstall(root, "codex", { global: false, dryRun: false });
+        assert.ok(actions.some((action) => action.action === "preserve-modified" && action.path === "AGENTS.md"));
+        assert.equal(await readFile(instructions, "utf8"), malformed);
+    });
+});
+test("all project platforms receive their official managed instruction shape", async () => {
+    await withTemporaryProject("platform-instructions", async (root) => {
+        await install(root, "all", { global: false, dryRun: false });
+        for (const path of [
+            "AGENTS.md",
+            "CLAUDE.md",
+            "GEMINI.md",
+            ".cursor/rules/fullstack-forge.mdc",
+            ".windsurf/rules/fullstack-forge.md",
+            ".github/instructions/fullstack-forge.instructions.md"
+        ]) {
+            assert.match(await readFile(join(root, ...path.split("/")), "utf8"), /automatic activation/u);
+        }
     });
 });
 test("installer refuses unowned conflicts before any managed writes", async () => {
