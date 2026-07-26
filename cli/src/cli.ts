@@ -20,11 +20,17 @@ import {
   orchestrateAudit,
   type RuntimeEvidenceRecord
 } from "./audit-orchestration.js";
-import { detectProjectCommands, discoverProject, writeProjectArtifacts } from "./discovery.js";
+import {
+  detectProjectCommands,
+  discoverProject,
+  discoverProjectWithInventory,
+  writeProjectArtifacts
+} from "./discovery.js";
 import { inspectRenderedUi } from "./rendered-ui.js";
 import { writeReportOutput } from "./report-output.js";
 import { executeFixes } from "./fixes.js";
 import { runShipGates } from "./gates.js";
+import { inventoryLimitationFinding } from "./inventory-evidence.js";
 import { install, readInstallManifest, uninstall } from "./installer.js";
 import { inspectSection, isModuleSlug } from "./inspectors.js";
 import { redactToString } from "./redaction.js";
@@ -52,6 +58,11 @@ import type {
   ProjectProfile
 } from "./types.js";
 import { isForgePackageRoot, runTool } from "./tools.js";
+import {
+  parseInspectionBudget,
+  type RepositoryInventory,
+  type RepositoryInventoryOptions
+} from "./repository-inventory.js";
 import {
   assertNoSymlinkPath,
   canonicalDirectory,
@@ -288,8 +299,9 @@ async function runModule(
     return response.status === "PASS" ? 0 : response.status === "FAIL" ? 1 : 2;
   }
 
-  const profile = await discoverProject(root);
-  const revision = await workingTreeRevision(root);
+  const discovered = await discoverProjectWithInventory(root, inventoryOptions(options));
+  const { profile, inventory } = discovered;
+  const revision = await workingTreeRevision(root, inventory);
   if (section === "discover") {
     const artifacts = await writeProjectArtifacts(profile, options.dryRun);
     const findings: Finding[] = [
@@ -299,6 +311,8 @@ async function runModule(
         "Discovery completed; runtime-only boundaries remain unverified."
       )
     ];
+    const limitation = inventoryLimitationFinding(profile, "discover");
+    if (limitation !== undefined) findings.push(limitation);
     const report = createReport(
       root,
       profile,
@@ -311,15 +325,15 @@ async function runModule(
       [],
       [],
       revision,
-      captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION })
+      reportEnvironment(options)
     );
     const paths = options.dryRun ? [] : await writeReport(report);
     printValue({ profile, artifacts, report_paths: paths, dry_run: options.dryRun }, options.json);
-    return 0;
+    return limitation === undefined ? 0 : 2;
   }
 
   if (mode === "verify") {
-    return verifySection(section, root, profile, options);
+    return verifySection(section, root, profile, options, inventory);
   }
 
   let changedScope: ChangedScope | undefined;
@@ -365,7 +379,7 @@ async function runModule(
   );
   selected = selected.filter((slug) => executedModules.has(slug));
   const results = await Promise.all(
-    selected.map((slug) => inspectSection(slug, root, profile, changedScope?.files))
+    selected.map((slug) => inspectSection(slug, root, profile, changedScope?.files, inventory))
   );
   for (const [index, result] of results.entries()) {
     const selectedModule = selected[index];
@@ -403,6 +417,8 @@ async function runModule(
     );
   }
   findings.push(...ledger.findings());
+  const inventoryLimitation = inventoryLimitationFinding(profile, section);
+  if (inventoryLimitation !== undefined) findings.push(inventoryLimitation);
   const report = createReport(
     root,
     profile,
@@ -420,7 +436,7 @@ async function runModule(
     results.flatMap((result) => result.gate_evidence),
     results.flatMap((result) => result.analyzer_coverage),
     revision,
-    captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION }),
+    reportEnvironment(options),
     { module_decisions: decisions, ...ledger.ledgers() }
   );
   const paths = options.dryRun ? [] : await writeReport(report);
@@ -433,7 +449,8 @@ async function runModule(
           planned_checks: orchestration.planned,
           check_outcomes: orchestration.outcomes,
           runtime_evidence: orchestration.runtime_evidence,
-          evidence_complete: orchestration.evidence_complete,
+          evidence_complete:
+            orchestration.evidence_complete && profile.inventory?.status !== "PARTIAL",
           dry_run: options.dryRun
         }
       : options.simple && !options.details
@@ -444,7 +461,7 @@ async function runModule(
   // A proven defect outranks missing evidence, so FAIL keeps exit 1. Requested evidence that could
   // not be collected exits 2: nothing failed, but the run did not prove what it was asked to prove.
   if (report.findings.some((finding) => finding.status === "FAIL")) return 1;
-  return orchestration.evidence_complete ? 0 : 2;
+  return orchestration.evidence_complete && profile.inventory?.status !== "PARTIAL" ? 0 : 2;
 }
 
 /**
@@ -522,11 +539,13 @@ async function verifySection(
   section: ModuleSlug,
   root: string,
   profile: ProjectProfile,
-  options: CliOptions
+  options: CliOptions,
+  inventory: RepositoryInventory
 ): Promise<number> {
   const result = await verifyFindings(root, section, profile, {
     allowRun: options.allowRun,
-    dryRun: options.dryRun
+    dryRun: options.dryRun,
+    inventory
   });
   printValue(
     options.json
@@ -549,17 +568,25 @@ async function verifySection(
 async function ship(options: CliOptions): Promise<number> {
   const root = await canonicalDirectory(options.cwd);
   const commands = await detectProjectCommands(root);
-  const profile = await discoverProject(root);
+  const profile = await discoverProject(root, inventoryOptions(options));
   let previous: Awaited<ReturnType<typeof readReport>> | undefined;
   try {
     previous = await readReport(root, join(root, ".forge", "report.json"));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
-  const gateResult = await runShipGates(root, profile, previous, commands, options.allowRun, {
-    offline: options.offline,
-    forgeOwned: await isForgePackageRoot(root)
-  });
+  const gateResult = await runShipGates(
+    root,
+    profile,
+    previous,
+    commands,
+    options.allowRun,
+    {
+      offline: options.offline,
+      forgeOwned: await isForgePackageRoot(root)
+    },
+    inventoryOptions(options)
+  );
   const status = gateResult.status;
   const blockedByPolicy = gateResult.command_ledger.filter(
     (record) => record.disposition === "BLOCKED"
@@ -636,7 +663,7 @@ async function ship(options: CliOptions): Promise<number> {
     [...priorEvidenceDiagnostics, ...gateResult.evidence],
     [],
     gateResult.revision,
-    captureEnvironment({ offline: options.offline, allowRun: options.allowRun, version: VERSION })
+    reportEnvironment(options)
   );
   if (!options.dryRun) await writeReport(report);
   printValue(
@@ -1238,12 +1265,13 @@ function parseArguments(argv: string[]): { positionals: string[]; options: CliOp
   };
   // Repeatable flags accumulate instead of overwriting, so `--check lint --check test` selects both
   // rather than silently discarding the first value.
-  const listFlags: Record<string, "checks" | "skipChecks"> = {
+  const listFlags: Record<string, "checks" | "skipChecks" | "excludes"> = {
     "--check": "checks",
-    "--skip-check": "skipChecks"
+    "--skip-check": "skipChecks",
+    "--exclude": "excludes"
   };
   const appendList = (flag: string, value: string): void => {
-    const key = listFlags[flag] as "checks" | "skipChecks";
+    const key = listFlags[flag] as "checks" | "skipChecks" | "excludes";
     options[key] = [...(options[key] ?? []), value];
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -1260,6 +1288,10 @@ function parseArguments(argv: string[]): { positionals: string[]; options: CliOp
     else if (arg === "--safe") options.safe = true;
     else if (arg.startsWith("--") && arg.includes("=")) {
       const [flag, ...rest] = arg.split("=");
+      if (flag === "--inspection-budget") {
+        options.inspectionBudgetBytes = parseInspectionBudget(rest.join("="));
+        continue;
+      }
       if ((flag ?? "") in listFlags) {
         appendList(flag ?? "", rest.join("="));
         continue;
@@ -1267,6 +1299,11 @@ function parseArguments(argv: string[]): { positionals: string[]; options: CliOp
       const key = valueFlags[flag ?? ""];
       if (key === undefined) throw new Error(`Unknown option '${flag}'`);
       options[key] = rest.join("=") as never;
+    } else if (arg === "--inspection-budget") {
+      const value = argv[index + 1];
+      if (value === undefined) throw new Error(`Option '${arg}' requires a value`);
+      options.inspectionBudgetBytes = parseInspectionBudget(value);
+      index += 1;
     } else if (arg in listFlags) {
       const value = argv[index + 1];
       if (value === undefined) throw new Error(`Option '${arg}' requires a value`);
@@ -1283,6 +1320,7 @@ function parseArguments(argv: string[]): { positionals: string[]; options: CliOp
     else positionals.push(arg);
   }
   options.cwd = resolve(options.cwd);
+  if (options.excludes !== undefined) options.excludes = [...new Set(options.excludes)];
   if (options.scope !== undefined && !["full", "changed", "applicable"].includes(options.scope))
     throw new Error(`Unknown scope '${options.scope}'. Expected full, changed, or applicable.`);
   if (options.risk !== undefined && options.risk !== "high")
@@ -1363,6 +1401,9 @@ Options:
   --safe          Authorize execution of bounded safe fixes; without it 'fix' only plans
   --check <name>       Run only the named planned check (repeatable)
   --skip-check <name>  Never run the named planned check (repeatable)
+  --exclude <path>     Exclude a reviewed repository-relative path (repeatable; limits evidence)
+  --inspection-budget <bytes|KiB|MiB>
+                       Bound relevant text bytes read (maximum 512 MiB)
   --url <url>          Collect rendered evidence from an application you already started
   --evidence-dir <dir> Repository-relative directory for collected runtime evidence
   --output <dir>       Report mode only: write report.json and report.md into <dir>
@@ -1370,4 +1411,25 @@ Options:
 Exit codes: 0 success; 1 a FAIL finding or an error; 2 requested evidence could not be collected.
 
 Audit never treats missing evidence as PASS. See 'forge list' for modules and tools.`);
+}
+
+function inventoryOptions(options: CliOptions): RepositoryInventoryOptions {
+  return {
+    ...(options.excludes === undefined ? {} : { exclude: options.excludes }),
+    ...(options.inspectionBudgetBytes === undefined
+      ? {}
+      : { inspectionBudgetBytes: options.inspectionBudgetBytes })
+  };
+}
+
+function reportEnvironment(options: CliOptions): ReturnType<typeof captureEnvironment> {
+  return captureEnvironment({
+    offline: options.offline,
+    allowRun: options.allowRun,
+    version: VERSION,
+    ...(options.inspectionBudgetBytes === undefined
+      ? {}
+      : { inspectionBudgetBytes: options.inspectionBudgetBytes }),
+    ...(options.excludes === undefined ? {} : { excludes: options.excludes })
+  });
 }

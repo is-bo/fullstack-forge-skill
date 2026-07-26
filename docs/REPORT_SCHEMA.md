@@ -1,5 +1,12 @@
 # Report schema
 
+Schema-v2 project profiles may include an additive `inventory` object. It records `COMPLETE` or
+`PARTIAL`, candidate/inspection counts, actual bytes read, excluded classes, user patterns, largest
+contributors, affected modules, and suggested actions. Older profiles without this optional field
+remain readable. Report environments may similarly record the explicit inspection budget and CLI
+exclusions; no report schema version bump is required because both additions are optional and
+fail-closed inventory state is represented by the ordinary `NOT_VERIFIED` finding status.
+
 `.forge/report.json` is written at **schema version 2**. Version 1 reports (written by v0.1.3
 through v0.1.6) are still readable and are migrated in memory on load.
 

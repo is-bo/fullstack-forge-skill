@@ -1,5 +1,6 @@
 import type { CapabilityAssessment } from "./discovery-evidence.js";
 import type { EvidenceArtifact, EvidenceCommand, EvidenceEnvelope } from "./evidence-envelope.js";
+import type { RepositoryInventoryDiagnostics } from "./repository-inventory.js";
 export declare const STATUSES: readonly ["PASS", "FAIL", "WARNING", "NOT_APPLICABLE", "NOT_VERIFIED", "BLOCKED"];
 export type Status = (typeof STATUSES)[number];
 export declare const SEVERITIES: readonly ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"];
@@ -108,6 +109,8 @@ export type ProjectProfile = {
      * compatibility with profiles written before evidence classification existed.
      */
     capability_assessments?: CapabilityAssessment[];
+    /** Bounded repository inventory used to produce this profile. Optional for old profiles. */
+    inventory?: RepositoryInventoryDiagnostics;
     repository: ProfileRecord;
     workspaces: ProfileRecord[];
     applications: ProfileRecord[];
@@ -171,6 +174,10 @@ export type CliOptions = {
     checks?: string[];
     /** `--skip-check`: repeatable planned-check exclusion. */
     skipChecks?: string[];
+    /** `--exclude`: repeatable repository-relative inventory exclusion. */
+    excludes?: string[];
+    /** Strictly parsed, bounded text-inspection budget selected by the operator. */
+    inspectionBudgetBytes?: number;
 };
 export declare const GATE_EVIDENCE_TYPES: readonly ["secret-scan", "dependency-audit", "lockfile-inspection", "license-scan", "authorization-evaluation", "tenant-isolation-evaluation", "upload-security-evaluation", "application-security-static-analysis", "migration-validation", "project-test", "release-artifact-validation"];
 export type GateEvidenceType = (typeof GATE_EVIDENCE_TYPES)[number];

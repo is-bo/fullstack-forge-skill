@@ -1,5 +1,16 @@
 # Troubleshooting Fullstack Forge
 
+## Repository scan exceeded the inspection budget
+
+Current Forge releases classify generated output, caches, virtual environments, runtime data, and
+binaries before charging the relevant-text budget. If an older release aborts with
+`Repository scan exceeded the 134217728-byte inspection budget`, upgrade and rerun with `--json`.
+The current report preserves inspected evidence and lists the largest contributors instead of
+throwing. Review them, select a narrower monorepo root, or add reviewed non-evidence paths to
+`.forgeignore` / repeatable `--exclude`. Increase `--inspection-budget` only after review; required
+evidence that remains incomplete exits `2` as `NOT_VERIFIED`. See
+[Repository inventory](REPOSITORY_INVENTORY.md).
+
 ## Start with doctor
 
 ```bash

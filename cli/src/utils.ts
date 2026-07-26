@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { lstat, readdir, readFile, realpath, stat } from "node:fs/promises";
+import { lstat, readFile, readdir, realpath, stat } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
+import { inventoryRepository, type RepositoryInventory } from "./repository-inventory.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -114,8 +115,6 @@ export async function walkFiles(
 ): Promise<string[]> {
   const output: string[] = [];
   const exclude = options.exclude ?? new Set<string>();
-  // Local audit/research/attachment trees are not application inputs. Scanning them can copy
-  // private task material into reports and can turn test evidence into false product findings.
   const privateLocalDirectories = new Set([".audit", ".audit-work", ".codex"]);
   let totalBytes = 0;
   async function visit(directory: string, depth: number): Promise<void> {
@@ -200,45 +199,73 @@ export function utcNow(): string {
  * Identifies the exact inspected working tree without exposing diff contents. Clean Git trees use
  * the commit SHA directly; dirty or unversioned trees add a digest of changed/untracked bytes.
  */
-export async function workingTreeRevision(root: string): Promise<string> {
+export async function workingTreeRevision(
+  root: string,
+  sharedInventory?: RepositoryInventory
+): Promise<string> {
+  const inventory =
+    sharedInventory ??
+    (await inventoryRepository(root, {
+      includeNeutralEvidence: true,
+      applyDefaultExclusions: true
+    }));
   const head = await runFile("git", ["rev-parse", "HEAD"], root, 10_000);
   if (head.exitCode === 0) {
     const commit = head.stdout.trim();
-    const diff = await runFile("git", ["diff", "--binary", "HEAD", "--", "."], root, 30_000);
-    const untracked = await runFile(
+    const status = await runFile(
       "git",
-      ["ls-files", "--others", "--exclude-standard", "-z"],
+      ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--", "."],
       root,
       30_000
     );
-    const untrackedHashes: string[] = [];
-    if (untracked.exitCode === 0) {
-      for (const path of untracked.stdout.split("\0").filter(Boolean).sort()) {
-        try {
-          assertSafeRelative(path);
-          untrackedHashes.push(
-            `${toPosix(path)}:${sha256(await readFile(resolveInside(root, path)))}`
-          );
-        } catch {
-          untrackedHashes.push(`${toPosix(path)}:unreadable`);
-        }
-      }
+    if (status.exitCode !== 0) {
+      const boundedState = sha256(`${status.stderr}\0${JSON.stringify(inventory.diagnostics)}`);
+      return `git:${commit}:dirty-partial:${boundedState}`;
     }
-    const state = `${diff.stdout}\u0000${untrackedHashes.join("\n")}`;
-    return state.length === 1 ? `git:${commit}` : `git:${commit}:dirty:${sha256(state)}`;
+    if (status.stdout.length === 0) return `git:${commit}`;
+
+    const entries = new Map(inventory.entries.map((entry) => [entry.path, entry]));
+    const changedPaths = gitStatusPaths(status.stdout);
+    let complete = inventory.diagnostics.status === "COMPLETE";
+    const fingerprints = changedPaths.map(({ code, path }) => {
+      const entry = entries.get(path);
+      if (code.includes("D")) return `${code}:${path}:deleted`;
+      if (entry?.status === "INSPECTED" && entry.content !== undefined)
+        return `${code}:${path}:text:${sha256(entry.content)}`;
+      complete = false;
+      return `${code}:${path}:bounded:${entry?.size ?? "unavailable"}:${entry?.reason ?? "not-in-inventory"}`;
+    });
+    const digest = sha256(`${status.stdout}\0${fingerprints.sort().join("\n")}`);
+    return `git:${commit}:dirty${complete ? "" : "-partial"}:${digest}`;
   }
 
-  const files = await walkFiles(root, {
-    exclude: new Set([".forge", ".git", "build", "coverage", "dist", "node_modules"]),
-    maxBytes: 2 * 1024 * 1024,
-    maxFiles: 10_000,
-    maxTotalBytes: 128 * 1024 * 1024,
-    maxDepth: 64
-  });
-  const hashes = await Promise.all(
-    files
-      .sort()
-      .map(async (path) => `${toPosix(relative(root, path))}:${sha256(await readFile(path))}`)
+  const hashes = inventory.entries
+    .filter((entry) => entry.status === "INSPECTED" && entry.content !== undefined)
+    .map((entry) => `${entry.path}:${sha256(entry.content as string)}`)
+    .sort();
+  const prefix = inventory.diagnostics.status === "COMPLETE" ? "tree" : "tree-partial";
+  return `${prefix}:${sha256(hashes.join("\n"))}`;
+}
+
+function gitStatusPaths(output: string): Array<{ code: string; path: string }> {
+  const records = output.split("\0").filter(Boolean);
+  const paths: Array<{ code: string; path: string }> = [];
+  for (let index = 0; index < records.length; index += 1) {
+    const record = records[index] ?? "";
+    if (record.length < 4) continue;
+    const code = record.slice(0, 2);
+    const rawPath = record.slice(3);
+    try {
+      assertSafeRelative(rawPath);
+      paths.push({ code, path: toPosix(rawPath) });
+    } catch {
+      paths.push({ code, path: "unsafe-path" });
+    }
+    if (code.includes("R") || code.includes("C")) index += 1;
+  }
+  return paths.sort((left, right) =>
+    left.path === right.path
+      ? left.code.localeCompare(right.code)
+      : left.path.localeCompare(right.path)
   );
-  return `tree:${sha256(hashes.join("\n"))}`;
 }

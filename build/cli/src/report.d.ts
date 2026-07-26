@@ -22,6 +22,8 @@ export type ReportEnvironment = {
     forge: string;
     offline: boolean;
     allow_run: boolean;
+    inspection_budget_bytes?: number;
+    inventory_exclusions?: string[];
 };
 /**
  * Provenance of a report that was read from an older schema.
@@ -95,5 +97,7 @@ export declare function captureEnvironment(options: {
     offline: boolean;
     allowRun: boolean;
     version: string;
+    inspectionBudgetBytes?: number;
+    excludes?: readonly string[];
 }): ReportEnvironment;
 export declare function renderMarkdown(report: AuditReport): string;

@@ -86,6 +86,23 @@ app.post("/upload", upload.any(), async (req, res) => {
   });
 });
 
+test("boundary analyzers do not treat vulnerable fixtures as production behavior", async () => {
+  await withTemporaryProject("analyzer-fixture-boundary", async (root) => {
+    await mkdir(join(root, "fixtures"));
+    await writeFile(
+      join(root, "fixtures", "upload.ts"),
+      `app.post("/upload", upload.any(), async (req, res) => {
+  await publicBucket.put(req.files[0].originalname, req.files[0].buffer);
+  res.sendStatus(201);
+});
+`,
+      "utf8"
+    );
+    assert.deepEqual(await findingIds(root, "security"), new Set());
+    assert.deepEqual(await findingIds(root, "uploads"), new Set());
+  });
+});
+
 test("query analyzer detects pagination without deterministic ordering", async () => {
   await withTemporaryProject("analyzer-order", async (root) => {
     await writeFile(

@@ -1,27 +1,10 @@
 import { readdir } from "node:fs/promises";
 import { basename, extname, join, relative } from "node:path";
 import { runAnalyzers } from "./analyzers.js";
+import { inventoryRepository } from "./repository-inventory.js";
 import { MODULE_SLUGS, SECTION_CAPABILITY } from "./constants.js";
 import { classifyEvidencePath } from "./discovery-evidence.js";
-import { isTestSourcePath, lineNumber, readTextIfPresent, toPosix, utcNow, walkFiles } from "./utils.js";
-const EXCLUDED = new Set([
-    ".git",
-    ".forge",
-    ".fullstack-forge",
-    ".agents",
-    ".claude",
-    ".cursor",
-    ".gemini",
-    ".windsurf",
-    ".tmp",
-    "build",
-    "coverage",
-    "dist",
-    "fixtures",
-    "node_modules",
-    "target",
-    "vendor"
-]);
+import { isTestSourcePath, lineNumber, readTextIfPresent, toPosix, utcNow } from "./utils.js";
 const TEXT_EXTENSIONS = new Set([
     ".cjs",
     ".css",
@@ -174,23 +157,23 @@ const SECTION_KEYWORDS = {
     realtime: /websocket|socket\.io|eventsource|presence|subscribe/giu,
     offline: /service.?worker|indexeddb|offline|sync|conflict/giu
 };
-export async function inspectWithTool(tool, root, scope) {
+export async function inspectWithTool(tool, root, scope, repositoryInventory) {
     if (tool === "inspect-env-template")
-        return inspectEnvTemplates(root, scope);
+        return inspectEnvTemplates(root, scope, repositoryInventory);
     if (tool === "scan-secret-patterns")
-        return scanSecretPatterns(root, scope);
+        return scanSecretPatterns(root, scope, repositoryInventory);
     if (tool === "inspect-dependencies")
         return inspectDependencies(root);
     if (tool === "inspect-ci")
-        return inspectNamedFiles(root, tool, isCiFile, "CI configuration", scope);
+        return inspectNamedFiles(root, tool, isCiFile, "CI configuration", scope, repositoryInventory);
     if (tool === "inspect-platform-skills")
         return inspectPlatformSkills(root, scope);
     const patterns = TOOL_PATTERNS[tool];
     if (patterns !== undefined)
-        return scanPatterns(root, tool, patterns, scope, tool === "inspect-deployment-config" ? "configuration" : "runtime");
+        return scanPatterns(root, tool, patterns, scope, tool === "inspect-deployment-config" ? "configuration" : "runtime", repositoryInventory);
     return emptyResult(tool, root);
 }
-export async function inspectSection(section, root, profile, scope) {
+export async function inspectSection(section, root, profile, scope, repositoryInventory) {
     const capability = SECTION_CAPABILITY[section];
     if (capability !== undefined && profile.capabilities[capability] === undefined) {
         return {
@@ -214,7 +197,7 @@ export async function inspectSection(section, root, profile, scope) {
         "uploads"
     ]);
     const analyzerRuns = analyzerSections.has(section)
-        ? await runAnalyzers(section, root, scope)
+        ? await runAnalyzers(section, root, scope, repositoryInventory)
         : [];
     const analyzerFindings = analyzerRuns.flatMap((run) => run.findings);
     const analyzerObservations = analyzerRuns
@@ -227,28 +210,28 @@ export async function inspectSection(section, root, profile, scope) {
     }));
     const specialized = sectionTool(section);
     if (specialized !== undefined) {
-        const inventory = await inspectWithTool(specialized, root, scope);
+        const inventory = await inspectWithTool(specialized, root, scope, repositoryInventory);
         return result(`inspect-${section}`, root, [...analyzerObservations, ...inventory.observations], [...analyzerFindings, ...inventory.findings], inventory.gate_evidence, inventory.input_paths);
     }
     const regex = SECTION_KEYWORDS[section];
     if (regex === undefined) {
         const base = result(`inspect-${section}`, root, analyzerObservations, analyzerFindings);
         return section === "security"
-            ? mergeInspectionResults(base, await scanSecretPatterns(root, scope))
+            ? mergeInspectionResults(base, await scanSecretPatterns(root, scope, repositoryInventory))
             : base;
     }
-    const inventory = await scanPatterns(root, `inspect-${section}`, [{ category: section, regex, detail: `${section} implementation signal` }], scope);
+    const inventory = await scanPatterns(root, `inspect-${section}`, [{ category: section, regex, detail: `${section} implementation signal` }], scope, "runtime", repositoryInventory);
     const base = result(`inspect-${section}`, root, [...analyzerObservations, ...inventory.observations], [...analyzerFindings, ...inventory.findings], [], inventory.input_paths);
     return section === "security"
-        ? mergeInspectionResults(base, await scanSecretPatterns(root, scope))
+        ? mergeInspectionResults(base, await scanSecretPatterns(root, scope, repositoryInventory))
         : base;
 }
-async function scanPatterns(root, tool, patterns, scope, sourceMode = "runtime") {
+async function scanPatterns(root, tool, patterns, scope, sourceMode = "runtime", repositoryInventory) {
     const observations = [];
-    const files = await sourceFiles(root, scope, sourceMode);
+    const selection = await sourceFiles(root, scope, sourceMode, repositoryInventory);
     const inputPaths = [];
-    for (const file of files) {
-        const content = await readTextIfPresent(file);
+    for (const file of selection.files) {
+        const content = selection.contentByFile.get(file);
         if (content === undefined)
             continue;
         inputPaths.push(toPosix(relative(root, file)));
@@ -269,13 +252,14 @@ async function scanPatterns(root, tool, patterns, scope, sourceMode = "runtime")
     }
     return result(tool, root, observations, [], [], inputPaths);
 }
-async function inspectEnvTemplates(root, scope) {
+async function inspectEnvTemplates(root, scope, repositoryInventory) {
     const observations = [];
     const findings = [];
     const inputPaths = [];
-    const files = (await sourceFiles(root, scope, "configuration")).filter((file) => /(?:^|[\\/])\.env(?:\.(?:example|sample|template|defaults))?$|\.env\.example$/iu.test(file));
+    const selection = await sourceFiles(root, scope, "configuration", repositoryInventory);
+    const files = selection.files.filter((file) => /(?:^|[\\/])\.env(?:\.(?:example|sample|template|defaults))?$|\.env\.example$/iu.test(file));
     for (const file of files) {
-        const content = await readTextIfPresent(file);
+        const content = selection.contentByFile.get(file);
         if (content === undefined)
             continue;
         inputPaths.push(toPosix(relative(root, file)));
@@ -298,7 +282,7 @@ async function inspectEnvTemplates(root, scope) {
     }
     return result("inspect-env-template", root, observations, findings, [], inputPaths);
 }
-async function scanSecretPatterns(root, scope) {
+async function scanSecretPatterns(root, scope, repositoryInventory) {
     const observations = [];
     const findings = [];
     const inputPaths = [];
@@ -322,9 +306,9 @@ async function scanSecretPatterns(root, scope) {
             confidence: "LOW"
         }
     ];
-    const files = await sourceFiles(root, scope, "all");
-    for (const file of files) {
-        const content = await readTextIfPresent(file);
+    const selection = await sourceFiles(root, scope, "all", repositoryInventory);
+    for (const file of selection.files) {
+        const content = selection.contentByFile.get(file);
         if (content === undefined)
             continue;
         inputPaths.push(toPosix(relative(root, file)));
@@ -418,8 +402,8 @@ async function inspectDependencies(root) {
     }
     return result("inspect-dependencies", root, observations, [], [], inputPaths);
 }
-async function inspectNamedFiles(root, tool, predicate, detail, scope) {
-    const files = await sourceFiles(root, scope, "all");
+async function inspectNamedFiles(root, tool, predicate, detail, scope, repositoryInventory) {
+    const { files } = await sourceFiles(root, scope, "all", repositoryInventory);
     const observations = files
         .map((file) => toPosix(relative(root, file)))
         .filter(predicate)
@@ -496,14 +480,20 @@ function isApplicationInput(path, mode) {
     // activation (for example Svelte components and Terraform). Preserve them for inspection.
     return mode === "configuration" || !["configuration", "manifest"].includes(evidenceClass);
 }
-async function sourceFiles(root, scope, mode = "runtime") {
-    return (await walkFiles(root, {
-        exclude: EXCLUDED,
-        maxBytes: 768 * 1024,
-        maxFiles: 10_000,
-        maxTotalBytes: 128 * 1024 * 1024,
-        maxDepth: 64
-    })).filter((file) => {
+async function sourceFiles(root, scope, mode = "runtime", repositoryInventory) {
+    const inventory = repositoryInventory ??
+        (await inventoryRepository(root, {
+            includeNeutralEvidence: true,
+            applyDefaultExclusions: true
+        }));
+    const contentByFile = new Map();
+    const files = inventory.entries
+        .filter((entry) => entry.status === "INSPECTED" && entry.content !== undefined)
+        .map((entry) => {
+        contentByFile.set(entry.absolute_path, entry.content);
+        return entry.absolute_path;
+    })
+        .filter((file) => {
         const extension = extname(file).toLowerCase();
         const name = basename(file);
         const path = toPosix(relative(root, file));
@@ -512,6 +502,7 @@ async function sourceFiles(root, scope, mode = "runtime") {
             (TEXT_EXTENSIONS.has(extension) ||
                 /^(?:Dockerfile|Makefile|Procfile|Jenkinsfile|\.env(?:\..+)?)$/u.test(name)));
     });
+    return { files, contentByFile };
 }
 function sectionTool(section) {
     const map = {

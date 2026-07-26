@@ -1,6 +1,8 @@
 import { join } from "node:path";
 import { runNamedAnalyzer } from "./analyzers.js";
 import { detectProjectCommands } from "./discovery.js";
+import { inventoryLimitationFinding } from "./inventory-evidence.js";
+import type { RepositoryInventory } from "./repository-inventory.js";
 import {
   createReport,
   readReport,
@@ -27,13 +29,13 @@ export async function verifyFindings(
   rootInput: string,
   section: string,
   profile: ProjectProfile,
-  options: { allowRun: boolean; dryRun: boolean }
+  options: { allowRun: boolean; dryRun: boolean; inventory?: RepositoryInventory }
 ): Promise<VerificationResult> {
   const root = await canonicalDirectory(rootInput);
   const previous = await readReport(root, join(root, ".forge", "report.json"));
   if ((await canonicalDirectory(previous.root)) !== root)
     throw new Error("The previous report root does not match the selected repository root.");
-  const revision = await workingTreeRevision(root);
+  const revision = await workingTreeRevision(root, options.inventory);
   const previousRevision = previous.revision;
   const revisionChanged = previousRevision === undefined || previousRevision !== revision;
   const commands = await detectProjectCommands(root);
@@ -68,6 +70,8 @@ export async function verifyFindings(
     finding.status = combineStatuses(statuses);
     findings.push(finding);
   }
+  const inventoryLimitation = inventoryLimitationFinding(profile, section);
+  if (inventoryLimitation !== undefined) findings.push(inventoryLimitation);
   const report = createReport(
     root,
     profile,

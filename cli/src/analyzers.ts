@@ -1,4 +1,4 @@
-import { extname, relative } from "node:path";
+import { extname } from "node:path";
 import ts from "typescript";
 import type {
   Confidence,
@@ -14,35 +14,17 @@ import {
   type TaintModel,
   type TaintOrigin
 } from "./dataflow.js";
-import {
-  isTestSourcePath,
-  lineNumber,
-  readTextIfPresent,
-  sha256,
-  toPosix,
-  walkFiles
-} from "./utils.js";
-
-const EXCLUDED = new Set([
-  ".git",
-  ".forge",
-  ".fullstack-forge",
-  ".agents",
-  ".claude",
-  ".cursor",
-  ".gemini",
-  ".windsurf",
-  ".tmp",
-  "build",
-  "coverage",
-  "dist",
-  "fixtures",
-  "node_modules",
-  "target",
-  "vendor"
-]);
+import { isTestSourcePath, lineNumber, sha256, toPosix } from "./utils.js";
+import { inventoryRepository, type RepositoryInventory } from "./repository-inventory.js";
 
 const SCRIPT_EXTENSIONS = new Set([".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"]);
+const NON_APPLICATION_SOURCE_CLASSES = new Set([
+  "documentation",
+  "example",
+  "fixture",
+  "generated",
+  "test"
+]);
 
 export type AnalyzerScope = ReadonlySet<string> | undefined;
 
@@ -669,11 +651,18 @@ const SPECS = {
 export async function runAnalyzers(
   section: string,
   root: string,
-  scope?: AnalyzerScope
+  scope?: AnalyzerScope,
+  repositoryInventory?: RepositoryInventory
 ): Promise<AnalyzerRun[]> {
-  const records = await loadSources(root, scope);
+  const inventory =
+    repositoryInventory ??
+    (await inventoryRepository(root, {
+      includeNeutralEvidence: true,
+      applyDefaultExclusions: true
+    }));
+  const records = loadSources(scope, inventory);
   const scriptRun = analyzeScripts(records);
-  const configRun = await analyzeStructuredFiles(root, scope);
+  const configRun = analyzeStructuredFiles(scope, inventory);
   return [scriptRun, configRun].map((run) => ({
     ...run,
     findings: run.findings.filter((finding) => section === "all" || finding.section === section)
@@ -900,22 +889,16 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
   };
 }
 
-async function analyzeStructuredFiles(root: string, scope?: AnalyzerScope): Promise<AnalyzerRun> {
+function analyzeStructuredFiles(scope: AnalyzerScope, inventory: RepositoryInventory): AnalyzerRun {
   const issues: Issue[] = [];
   let supported = 0;
-  const files = await walkFiles(root, {
-    exclude: EXCLUDED,
-    maxBytes: 768 * 1024,
-    maxFiles: 10_000,
-    maxTotalBytes: 128 * 1024 * 1024,
-    maxDepth: 64
-  });
-  for (const absolute of files) {
-    const path = toPosix(relative(root, absolute));
+  for (const entry of inventory.entries) {
+    if (entry.status !== "INSPECTED" || entry.content === undefined) continue;
+    if (NON_APPLICATION_SOURCE_CLASSES.has(entry.evidence_class)) continue;
+    const path = entry.path;
     if (scope !== undefined && !scope.has(path)) continue;
-    const content = await readTextIfPresent(absolute);
-    if (content === undefined) continue;
-    const record = syntheticRecord(absolute, path, content);
+    const content = entry.content;
+    const record = syntheticRecord(entry.absolute_path, path, content);
     if (isEnvironmentTemplate(path)) {
       supported += 1;
       for (const [index, line] of content.split(/\r?\n/u).entries()) {
@@ -974,22 +957,18 @@ async function analyzeStructuredFiles(root: string, scope?: AnalyzerScope): Prom
   };
 }
 
-async function loadSources(root: string, scope?: AnalyzerScope): Promise<SourceRecord[]> {
+function loadSources(scope: AnalyzerScope, inventory: RepositoryInventory): SourceRecord[] {
   const records: SourceRecord[] = [];
-  for (const absolute of await walkFiles(root, {
-    exclude: EXCLUDED,
-    maxBytes: 768 * 1024,
-    maxFiles: 10_000,
-    maxTotalBytes: 128 * 1024 * 1024,
-    maxDepth: 64
-  })) {
+  for (const entry of inventory.entries) {
+    if (entry.status !== "INSPECTED" || entry.content === undefined) continue;
+    if (NON_APPLICATION_SOURCE_CLASSES.has(entry.evidence_class)) continue;
+    const absolute = entry.absolute_path;
     const extension = extname(absolute).toLowerCase();
     if (!SCRIPT_EXTENSIONS.has(extension)) continue;
-    const path = toPosix(relative(root, absolute));
+    const path = entry.path;
     if (isTestSourcePath(path)) continue;
     if (scope !== undefined && !scope.has(path)) continue;
-    const content = await readTextIfPresent(absolute);
-    if (content === undefined) continue;
+    const content = entry.content;
     const kind = scriptKind(extension);
     records.push({
       absolute,

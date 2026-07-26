@@ -197,7 +197,13 @@ export function captureEnvironment(options) {
         node: process.versions.node,
         forge: options.version,
         offline: options.offline,
-        allow_run: options.allowRun
+        allow_run: options.allowRun,
+        ...(options.inspectionBudgetBytes === undefined
+            ? {}
+            : { inspection_budget_bytes: options.inspectionBudgetBytes }),
+        ...(options.excludes === undefined || options.excludes.length === 0
+            ? {}
+            : { inventory_exclusions: [...options.excludes] })
     };
 }
 /** Legacy reports carry no environment record; that absence is stated, never back-filled. */
@@ -210,7 +216,13 @@ function renderEnvironment(environment) {
         `- Node: ${environment.node}`,
         `- Fullstack Forge: ${environment.forge}`,
         `- Offline mode: ${environment.offline ? "enabled" : "disabled"}`,
-        `- Project-command execution authorized: ${environment.allow_run ? "yes" : "no"}`
+        `- Project-command execution authorized: ${environment.allow_run ? "yes" : "no"}`,
+        ...(environment.inspection_budget_bytes === undefined
+            ? []
+            : [`- Repository text-inspection budget: ${environment.inspection_budget_bytes} bytes`]),
+        ...(environment.inventory_exclusions === undefined
+            ? []
+            : [`- Repository exclusions: ${environment.inventory_exclusions.join(", ")}`])
     ].join("\n");
 }
 export function renderMarkdown(report) {

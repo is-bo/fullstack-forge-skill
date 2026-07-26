@@ -1,4 +1,5 @@
 import type { Confidence } from "./types.js";
+import { type RepositoryInventory } from "./repository-inventory.js";
 /**
  * Discovery evidence classification.
  *
@@ -110,7 +111,7 @@ export declare function decideCapability(capability: string, workspace: string, 
  * generated output, and documentation so that those signals can be observed *and* neutralized
  * instead of being invisible.
  */
-export declare function assessProjectCapabilities(rootInput: string, workspaceRoots?: readonly string[]): Promise<CapabilityAssessment[]>;
+export declare function assessProjectCapabilities(rootInput: string, workspaceRoots?: readonly string[], sharedInventory?: RepositoryInventory): Promise<CapabilityAssessment[]>;
 /** Collects classified, capability-tagged evidence for a file list. Deterministic by path. */
-export declare function collectEvidence(root: string, files: readonly string[], workspaceRoots: readonly string[]): Promise<CapabilityEvidence[]>;
+export declare function collectEvidence(root: string, files: readonly string[], workspaceRoots: readonly string[], contentByFile?: ReadonlyMap<string, string>): Promise<CapabilityEvidence[]>;
 export {};
