@@ -1,17 +1,18 @@
 ---
 name: fullstack-forge
 description:
-  "Audit, fix, verify, and report on production full-stack applications using evidence-backed checks
-  across architecture, code, UX, accessibility, APIs, identity, security, data, operations,
-  specialized features, and release readiness. Use for repository audits, feature completion
-  reviews, hardening, remediation, or pre-release verification."
+  "Advanced evidence-backed audit orchestration across architecture, code, UX, accessibility, APIs,
+  identity, security, data, operations, specialized features, and release readiness. Use for expert
+  repository audits, hardening, remediation, and pre-release verification; use forge for the
+  beginner Build, Continue, Audit, Fix, Verify, Ship, Status, and Help entrance."
 ---
 
-# Fullstack Forge
+# Fullstack Forge — Expert Audit
 
-Fullstack Forge is a production-engineering audit system for AI coding agents. It discovers the
+This skill is Fullstack Forge's backward-compatible expert audit orchestrator. It discovers the
 actual stack, selects applicable specialist modules, gathers reproducible evidence, separates safe
 fixes from risky decisions, and reports what passed, failed, was blocked, or could not be verified.
+For the beginner Build, Continue, Audit, Fix, Verify, Ship, Status, and Help menu, use `$forge`.
 
 ## Non-negotiable rules
 

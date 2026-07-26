@@ -22,6 +22,7 @@ const AREA_ALIASES = {
     billing: ["payments"],
     caching: ["cache"],
     ci: ["deployment", "supply-chain"],
+    data: ["analytics", "database", "privacy", "queries", "storage"],
     database: ["database"],
     db: ["database"],
     dependencies: ["supply-chain"],
@@ -219,6 +220,7 @@ Start here:
   forge verify                        Recheck the latest findings
   forge ship                          Evaluate independent release gates
   forge status                        Show project, evidence, and next-step status
+  forge help                          Show this beginner command guide
 
 Helpful commands:
   forge doctor                        Diagnose installation and project setup
@@ -235,11 +237,12 @@ export function renderSimpleMenu() {
   2. Continue unfinished work
   3. Audit changed work
   4. Audit the whole project
-  5. Preview safe fixes
-  6. Verify findings
-  7. Check release readiness
-  8. Show status
-  9. Help
+  5. Fix — preview safe fixes
+  6. Fix — apply safe fixes
+  7. Verify findings
+  8. Ship — check release readiness
+  9. Status — show project status
+  10. Help
   0. Exit`;
 }
 export function menuChoiceToArgs(choice, buildRequest) {
@@ -252,10 +255,11 @@ export function menuChoiceToArgs(choice, buildRequest) {
         "3": ["audit"],
         "4": ["audit", "all"],
         "5": ["fix"],
-        "6": ["verify"],
-        "7": ["ship"],
-        "8": ["status"],
-        "9": ["help"]
+        "6": ["fix", "--safe"],
+        "7": ["verify"],
+        "8": ["ship"],
+        "9": ["status"],
+        "10": ["help"]
     };
     return routes[value];
 }

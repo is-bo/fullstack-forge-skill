@@ -19,6 +19,10 @@ treating missing evidence as success. It discovers the actual stack, selects app
 gathers reproducible evidence, separates safe fixes from risky decisions, and gives first-time users
 one plain-language entrance while preserving the complete expert workflow.
 
+Evidence-driven Build and Audit workflows for production full-stack applications and AI coding
+agents remain one product: `Forge` is the beginner entrance, while `Fullstack Forge — Expert Audit`
+preserves the advanced audit orchestrator.
+
 It works as an open-format Agent Skill collection and as a dependency-light TypeScript CLI.
 
 ```text
@@ -35,7 +39,7 @@ Forge:  Audit finished — evidence is incomplete.
 Node.js 24 or newer and Git are required. The reliable full-product route is:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.0
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.1
 npx forge init
 npx forge doctor
 ```
@@ -48,9 +52,17 @@ npx forge audit
 npx forge status
 ```
 
-Use `/forge ...` on hosts that expose skill names as slash commands. In Codex, select `$forge` or
-the `forge` skill and use the same request. Running `npx forge` opens a guided menu in an
-interactive terminal and prints a script-friendly numbered list otherwise.
+Use `/forge ...` on hosts that expose skill names as slash commands. In Codex:
+
+1. Open the skill picker.
+2. Select **Forge**.
+3. Choose an action from the displayed menu or describe the task normally.
+
+The picker preview is **Build · Audit · Fix · Verify · Ship · Status**. The default prompt also
+routes Continue and Help and shows the ten-choice beginner menu when no action is supplied. Codex
+does not expose each action as a separate native slash command: the single Forge skill is the
+visible product entrance and routes to the existing workflows. Running `npx forge` opens the same
+guided action set in an interactive terminal and prints a script-friendly numbered list otherwise.
 
 The one-command skills-only alternative is documented in [Getting started](docs/GETTING_STARTED.md).
 It uses the current third-party skills installer with `--copy`; use the full-product route above for
@@ -87,7 +99,7 @@ stable-revision inspection and treats prior reports as diagnostics only. See
 [docs/BUILD_MODE.md](docs/BUILD_MODE.md) for the complete guide.
 
 Expert `/forge-new`, `/forge-feature`, `/forge-<section>`, and `/fullstack-forge` entries remain
-available and unchanged.
+available and unchanged. In Codex, the latter appears as **Fullstack Forge — Expert Audit**.
 
 Codex, Claude Code, Antigravity, Gemini CLI, Cursor, Windsurf, GitHub Copilot, and generic Agent
 Skills are supported. [Commands](docs/COMMANDS.md) · [Platforms](docs/PLATFORM_SUPPORT.md) ·
@@ -126,7 +138,7 @@ Fullstack Forge is **not published to the npm registry**. The working npm-based 
 resolves the package directly from its Git tag:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.0
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.1
 npx forge init all --dry-run
 npx forge init
 ```
@@ -161,6 +173,8 @@ Simple product workflow:
 /forge fix
 /forge verify
 /forge ship
+/forge status
+/forge help
 ```
 
 ```bash
@@ -321,16 +335,17 @@ paths, aliases, caveats, and primary sources.
 
 ## Canonical and generated architecture
 
-`src/fullstack-forge/` is the canonical source. `npm run generate` renders command skills from the
-ordered module catalog and synchronizes six platform roots with per-file SHA-256 ownership
-manifests. Synchronization refuses modified or unowned managed paths. CI fails if a generated copy
-drifts.
+`src/fullstack-forge/`, `config/build-commands.json`, and the other declared config catalogs are
+canonical. `npm run generate` renders command skills, copies the canonical Forge icon, and
+synchronizes skill content plus Codex `agents/openai.yaml` metadata to six platform roots with
+per-file SHA-256 ownership manifests. Synchronization refuses modified or unowned managed paths. CI
+fails if a generated copy drifts.
 
 See [architecture](docs/ARCHITECTURE.md), [development](docs/DEVELOPMENT.md),
 [release process](docs/RELEASING.md), the [traceability matrix](docs/TRACEABILITY_MATRIX.md) that
 maps every requirement to evidence, the
 [v0.5 gap classification](docs/AUDIT_CLASSIFICATION_v0.5.0.md), and the
-[v0.5 release verification record](docs/RELEASE_VERIFICATION_v0.5.0.md), which keeps local, CI,
+[v0.5.1 release verification record](docs/RELEASE_VERIFICATION_v0.5.1.md), which keeps local, CI,
 publication, asset-download, and clean-room evidence distinct.
 
 ## Safety and limitations

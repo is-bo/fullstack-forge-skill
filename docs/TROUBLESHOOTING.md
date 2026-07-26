@@ -23,6 +23,17 @@ Use a specific selector (`codex`, `claude`, `cursor`, `gemini`, `antigravity`, `
 or `generic`) instead of `all` if desired. Add `--global` only when you intentionally want a
 user-level installation.
 
+## Codex does not show the Forge preview
+
+Run `npx forge doctor`, confirm the `codex` or `all` selector installed
+`.agents/skills/forge/agents/openai.yaml`, then restart Codex. The expected entry is **Forge** with
+the preview **Build · Audit · Fix · Verify · Ship · Status**. **Fullstack Forge — Expert Audit** is
+the separate advanced audit entry.
+
+Codex does not expose `build`, `audit`, or the other actions as nested native slash commands. Select
+Forge once, then choose from its menu or write a plain-language request such as
+`$forge audit authentication`.
+
 ## Install or update refuses a file
 
 Forge does not overwrite unowned files or files changed since its ownership manifest was written.

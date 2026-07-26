@@ -26,6 +26,21 @@ test("no-argument and help output are simple-first while advanced help remains a
   assert.match(advanced.stdout, /forge <section> <audit\|fix\|verify\|report>/u);
 });
 
+test("no-argument menu is read-only and makes one next choice explicit", async () => {
+  await withTemporaryProject("simple-menu-read-only", async (root) => {
+    const before = await readdir(root);
+    const menu = await runFile(process.execPath, [cli], root);
+    const after = await readdir(root);
+
+    assert.equal(menu.exitCode, 0, menu.stderr);
+    for (const action of ["Build", "Continue", "Audit", "Fix", "Verify", "Ship", "Status", "Help"])
+      assert.match(menu.stdout, new RegExp(action, "u"));
+    assert.match(menu.stdout, /Run 'forge help' for examples/u);
+    assert.doesNotMatch(menu.stdout, /Audit finished|Commands run:|PASS|NOT_VERIFIED/u);
+    assert.deepEqual(after, before, "the no-action menu must not create Build or Audit state");
+  });
+});
+
 test("plain-language build creates a safe feature and continue resumes the only unfinished item", async () => {
   await withTemporaryProject("simple-build", async (root) => {
     const built = await runFile(
@@ -149,6 +164,10 @@ test("simple command mistakes receive actionable recovery", async () => {
   const ambiguous = await runFile(process.execPath, [cli, "audit", "CI"], PACKAGE_ROOT);
   assert.equal(ambiguous.exitCode, 1);
   assert.match(ambiguous.stderr, /ambiguous.*deployment, supply-chain/iu);
+
+  const ambiguousData = await runFile(process.execPath, [cli, "audit", "data"], PACKAGE_ROOT);
+  assert.equal(ambiguousData.exitCode, 1);
+  assert.match(ambiguousData.stderr, /ambiguous.*analytics, database, privacy, queries, storage/iu);
 });
 
 test("a transparent composite audit request runs each named discipline", async () => {

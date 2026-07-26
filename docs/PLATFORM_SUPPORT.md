@@ -5,7 +5,7 @@ copies; it never depends on symlinks.
 
 | Selector      | Product                  | Project path                           | User path                                          | Invocation / notes                                                                                          |
 | ------------- | ------------------------ | -------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `codex`       | OpenAI Codex             | `.agents/skills/`                      | `$HOME/.agents/skills/`                            | `$fullstack-forge`; current Codex scans `.agents/skills` from the working directory to repository root.     |
+| `codex`       | OpenAI Codex             | `.agents/skills/`                      | `$HOME/.agents/skills/`                            | Select `$forge` for the beginner menu; `$fullstack-forge` remains the expert audit entry.                   |
 | `claude`      | Claude Code              | `.claude/skills/`                      | `$HOME/.claude/skills/`                            | `/fullstack-forge`; `.claude/commands` is legacy.                                                           |
 | `antigravity` | Google Antigravity       | `<project>/.agents/skills/`            | `$HOME/.gemini/config/skills/`                     | Project and user destinations are distinct. The user destination is not a generic-agent alias.              |
 | `gemini`      | Gemini CLI               | `.gemini/skills/` or `.agents/skills/` | `$HOME/.gemini/skills/` or `$HOME/.agents/skills/` | Use `/skills list` or `/skills reload`; Fullstack Forge selects the product-specific `.gemini` destination. |
@@ -26,8 +26,14 @@ alongside the 42 audit command skills, so all 46 skills ship to every platform r
 in Codex. Expert `/forge-new`, `/forge-feature <slug>`, `$forge-new`, and `$forge-feature <slug>`
 forms remain available. See [BUILD_MODE.md](BUILD_MODE.md).
 
-All platform archives carry the same v0.4 compiled CLI contracts: schema-v2 Build state, registered
-producers, applicability/gate re-derivation, the runtime evidence matrix, and explicit
+Codex reads the router's `agents/openai.yaml` and shows **Forge** with the preview **Build · Audit ·
+Fix · Verify · Ship · Status**. Select it and choose from the beginner menu or describe the task
+normally. Codex does not create a nested native picker command for each Forge action. The separate
+**Fullstack Forge — Expert Audit** picker entry preserves backward-compatible advanced
+orchestration. Restart Codex if freshly installed metadata does not appear.
+
+All platform archives carry the same v0.5.1 compiled CLI contracts: schema-v2 Build state,
+registered producers, applicability/gate re-derivation, the runtime evidence matrix, and explicit
 `forge migrate build`. Migration is a CLI command rather than an Agent Skill entry point; no host
 may silently reinterpret v0.2 state or manufacture a Build result when the CLI is absent.
 

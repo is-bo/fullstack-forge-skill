@@ -8,7 +8,13 @@ import {
   validateCommandCatalog,
   validateGuidanceMap
 } from "./lib/build-generator.mjs";
-import { commandRoot, expectedBuildCommands, expectedSlugs, projectRoot } from "./project.mjs";
+import {
+  canonicalRoot,
+  commandRoot,
+  expectedBuildCommands,
+  expectedSlugs,
+  projectRoot
+} from "./project.mjs";
 
 const catalog = JSON.parse(
   await readFile(join(projectRoot, "config", "build-commands.json"), "utf8")
@@ -33,6 +39,22 @@ for (const entry of catalog) {
   }
   if (current !== next) await writeFile(path, next, "utf8");
 }
+
+const forgeIconSource = join(canonicalRoot, "assets", "fullstack-forge-icon.png");
+const forgeAssetRoot = join(commandRoot, "forge", "assets");
+const forgeIconTarget = join(forgeAssetRoot, "fullstack-forge-icon.png");
+await assertNoSymlinkPath(commandRoot, forgeAssetRoot);
+await assertNoSymlinkPath(commandRoot, forgeIconTarget);
+await mkdir(forgeAssetRoot, { recursive: true });
+const forgeIcon = await readFile(forgeIconSource);
+let currentForgeIcon;
+try {
+  currentForgeIcon = await readFile(forgeIconTarget);
+} catch (error) {
+  if (error?.code !== "ENOENT") throw error;
+}
+if (currentForgeIcon === undefined || !currentForgeIcon.equals(forgeIcon))
+  await writeFile(forgeIconTarget, forgeIcon);
 
 const guidance = JSON.parse(
   await readFile(join(projectRoot, "config", "build-guidance.json"), "utf8")

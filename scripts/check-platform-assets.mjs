@@ -87,8 +87,11 @@ async function collectExpectedFiles() {
     files.set(rel, sha256(await readFile(join(commandRoot, `forge-${slug}`, "SKILL.md"))));
   }
   for (const name of expectedBuildCommands) {
-    const rel = `${name}/SKILL.md`;
-    files.set(rel, sha256(await readFile(join(commandRoot, name, "SKILL.md"))));
+    const sourceRoot = join(commandRoot, name);
+    for (const source of await walk(sourceRoot)) {
+      const rel = relative(sourceRoot, source).split(sep).join("/");
+      files.set(`${name}/${rel}`, sha256(await readFile(source)));
+    }
   }
   return files;
 }

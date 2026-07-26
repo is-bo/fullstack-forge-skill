@@ -1,8 +1,7 @@
 interface:
-  display_name: "Fullstack Forge"
-  short_description: "Audit and harden production full-stack applications"
+  display_name: "Fullstack Forge — Expert Audit"
+  short_description: "Advanced evidence-backed audit orchestration"
   icon_small: "./assets/fullstack-forge-icon.png"
   icon_large: "./assets/fullstack-forge-icon.png"
   brand_color: "#2563EB"
-  default_prompt:
-    "Use $fullstack-forge to audit this application and report evidence-backed findings."
+  default_prompt: "Use $fullstack-forge for advanced evidence-backed audit orchestration."

@@ -3,6 +3,34 @@
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic
 versioning.
 
+## [0.5.1] - 2026-07-26
+
+### Added
+
+- A Codex-facing **Forge** picker entry with the preview
+  `Build · Audit · Fix · Verify · Ship · Status`, the existing brand icon, and a default prompt that
+  exposes Build, Continue, Audit, Fix, Verify, Ship, Status, and Help.
+- A concise ten-choice no-action beginner menu and explicit plain-language routing, including
+  bounded ambiguity for `audit data` and transparent multi-area routing.
+- Metadata, generated-root, no-write menu, routing, compatibility, and icon-synchronization tests.
+
+### Changed
+
+- The existing Codex entry is now **Fullstack Forge — Expert Audit**, preserving `$fullstack-forge`
+  as the backward-compatible advanced evidence-backed audit orchestrator.
+- Terminal and Codex menus use the same action names and distinguish safe-fix preview from explicit
+  `--safe` application.
+- Product descriptions and onboarding documentation now describe both Build and Audit workflows and
+  explain that Codex uses one Forge skill rather than nested native action commands.
+- Build-command platform synchronization now carries canonical router metadata and assets alongside
+  `SKILL.md` while retaining ownership hashes and path/symlink protections.
+
+### Security
+
+- The onboarding change adds no evidence producer, alternate PASS route, implicit `--safe` or
+  `--allow-run`, project-script execution, server launch, browser installation, or Build-to-Ship
+  authority.
+
 ## [0.5.0] - 2026-07-25
 
 ### Added — resilient onboarding and diagnostics
@@ -695,7 +723,8 @@ executable evidence rather than documentation.
 - Deterministic ZIP archives, SHA-256 checksums, ownership manifests, clean-install smoke tests,
   fixtures, CI, research attribution, and original branding.
 
-[Unreleased]: https://github.com/thethunderbolt/fullstack-forge-skill/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/thethunderbolt/fullstack-forge-skill/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.5.1
 [0.5.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.5.0
 [0.4.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.4.0
 [0.3.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.3.0

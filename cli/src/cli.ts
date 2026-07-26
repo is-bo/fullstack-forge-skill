@@ -928,7 +928,7 @@ async function promptSimpleMenu(): Promise<string[] | undefined> {
   const prompt = createInterface({ input: process.stdin, output: process.stdout });
   try {
     console.log(renderSimpleMenu());
-    const choice = await prompt.question("\nChoose 0-9: ");
+    const choice = await prompt.question("\nChoose 0-10: ");
     if (choice.trim() === "1") {
       const request = await prompt.question(
         "What would you like to build? Leave blank to initialize the project: "
@@ -940,7 +940,7 @@ async function promptSimpleMenu(): Promise<string[] | undefined> {
       selected === undefined &&
       !["0", "q", "quit", "exit", "cancel"].includes(choice.trim().toLowerCase())
     )
-      throw new Error(`Unknown menu choice '${choice}'. Choose a number from 0 to 9.`);
+      throw new Error(`Unknown menu choice '${choice}'. Choose a number from 0 to 10.`);
     return selected;
   } finally {
     prompt.close();
