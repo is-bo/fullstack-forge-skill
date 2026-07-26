@@ -140,6 +140,25 @@ lines against its 92% floor). A focused negative test now covers malformed recor
 metadata, input methods, and viewport dimensions. The exact full coverage command then passed with
 `finding.js` at 95.95% line coverage.
 
-Hosted Windows, Ubuntu, and macOS CI, dependency review, CodeQL, exact-clean-main Ship, public-tag
-installation, release asset download verification, and GitHub release publication remain
-`NOT_VERIFIED` until directly observed in the later release stages.
+## Pre-tag release-stage evidence
+
+Pull request [#47](https://github.com/is-bo/fullstack-forge-skill/pull/47) passed Ubuntu, Windows,
+and macOS verification, dependency review, JavaScript/TypeScript CodeQL analysis, and the CodeQL
+summary before it was merged normally. The merge produced commit
+`cfc83a53ffea7c7c37d078ed93f27228964d70dc`, and local `main` was clean and byte-for-byte aligned
+with `origin/main` at that revision.
+
+`npx forge ship --allow-run --json` then exited 0 on that exact clean revision. Its current,
+root-bound Ship finding was `PASS`: every required gate was `PASS` or reasoned `NOT_APPLICABLE`,
+with no failing or blocked finding. Historical `NOT_VERIFIED` findings from prior diagnostic reports
+remained visible but did not determine the Ship result.
+
+Immediately before the authorized preview reset, a machine-readable external inventory captured 17
+Release entries, 17 annotated semantic tags, and all 213 hosted assets with GitHub-provided SHA-256
+digests. No active installer, updater, package, workflow, or setup-document dependency on the
+preview tags was found. The Release entries and exact remote/local tag names were then removed; Git
+branch history was not rewritten.
+
+The recreated public tag, public-tag installation, uploaded release assets, downloaded-byte
+verification, and final GitHub release publication remain `NOT_VERIFIED` until observed after the
+final tagged commit.
