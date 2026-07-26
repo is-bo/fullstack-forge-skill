@@ -36,7 +36,7 @@ Fullstack Forge is distributed from GitHub rather than the public npm registry. 
 v0.5.1 tag exists:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.1
+npm install --save-dev github:is-bo/fullstack-forge-skill#v0.5.1
 npx forge init
 npx forge doctor
 ```

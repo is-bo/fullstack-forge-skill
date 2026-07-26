@@ -10,15 +10,15 @@ records the independent post-publication checks performed against the published 
 
 ## Identity and remote state
 
-| Item                    | Verified value                                                                                        |
-| ----------------------- | ----------------------------------------------------------------------------------------------------- |
-| Corrective pull request | [#15](https://github.com/thethunderbolt/fullstack-forge-skill/pull/15)                                |
-| Merge commit on `main`  | `eb80f209c5bb95b0e16e5983e2b133e437e3724f`                                                            |
-| Annotated tag object    | `2e644e7d47872c7fd64684728a598d1344367089`                                                            |
-| Tag                     | `v0.1.5`, peels to `eb80f209c5bb95b0e16e5983e2b133e437e3724f`                                         |
-| Release                 | [Fullstack Forge v0.1.5](https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.5) |
-| Immutable release       | `true`; draft `false`; prerelease `false`                                                             |
-| Published assets        | 13 (9 platform archives, `SHA256SUMS.txt`, `manifest.json`, final evidence and its `.sha256`)         |
+| Item                    | Verified value                                                                                |
+| ----------------------- | --------------------------------------------------------------------------------------------- |
+| Corrective pull request | [#15](https://github.com/is-bo/fullstack-forge-skill/pull/15)                                 |
+| Merge commit on `main`  | `eb80f209c5bb95b0e16e5983e2b133e437e3724f`                                                    |
+| Annotated tag object    | `2e644e7d47872c7fd64684728a598d1344367089`                                                    |
+| Tag                     | `v0.1.5`, peels to `eb80f209c5bb95b0e16e5983e2b133e437e3724f`                                 |
+| Release                 | [Fullstack Forge v0.1.5](https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.5)  |
+| Immutable release       | `true`; draft `false`; prerelease `false`                                                     |
+| Published assets        | 13 (9 platform archives, `SHA256SUMS.txt`, `manifest.json`, final evidence and its `.sha256`) |
 
 Historical tags `v0.1.0`–`v0.1.4` were re-resolved after publication and are unchanged. The v0.1.4
 release remains immutable and untouched.
@@ -53,9 +53,9 @@ the build that produced them.
 
 ## Corrected behavior verified from the published release
 
-Installed with `npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.5` into an
-empty project; `forge --version` reported `0.1.5`. A hostile `playwright` package whose top-level
-code writes a sentinel file was planted in the audited project's `node_modules`.
+Installed with `npm install --save-dev github:is-bo/fullstack-forge-skill#v0.1.5` into an empty
+project; `forge --version` reported `0.1.5`. A hostile `playwright` package whose top-level code
+writes a sentinel file was planted in the audited project's `node_modules`.
 
 | Behavior                                                      | Result                                                                      |
 | ------------------------------------------------------------- | --------------------------------------------------------------------------- |

@@ -7,10 +7,10 @@ upgrade to the newest patch before reporting a resolved issue.
 
 ## Report a vulnerability
 
-Use GitHub private vulnerability reporting for `thethunderbolt/fullstack-forge-skill` when
-available. Do not open a public issue containing an exploit, credential, personal data, or an
-affected user's repository content. If private reporting is unavailable, contact the repository
-owner privately through their GitHub profile and request a secure channel before sharing details.
+Use GitHub private vulnerability reporting for `is-bo/fullstack-forge-skill` when available. Do not
+open a public issue containing an exploit, credential, personal data, or an affected user's
+repository content. If private reporting is unavailable, contact the repository owner privately
+through their GitHub profile and request a secure channel before sharing details.
 
 Include the affected version, environment, minimal reproduction, impact, and any known workaround.
 Do not test against systems or data you do not own or have permission to assess.

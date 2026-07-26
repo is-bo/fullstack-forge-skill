@@ -11,19 +11,19 @@ discovered afterward.
 
 ## Identity and remote state
 
-| Item                     | Verified value                                                                                            |
-| ------------------------ | --------------------------------------------------------------------------------------------------------- |
-| Corrective pull request  | [#11](https://github.com/thethunderbolt/fullstack-forge-skill/pull/11)                                    |
-| Final tagged main commit | `ada9d12cb1abc928ed3a46c7989e4443e0281d23`                                                                |
-| Annotated tag object     | `dd89c152afe5043660717c5c15d95b174d9c8f4e`                                                                |
-| Tag                      | `v0.1.4`, remotely peeled to the tagged main commit                                                       |
-| Release                  | [Fullstack Forge v0.1.4](https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.4)     |
-| Publication              | 2026-07-19T08:39:57Z; non-draft, non-prerelease, immutable                                                |
-| PR CI                    | [run 29679929121](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29679929121)       |
-| PR CodeQL                | [run 29679929080](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29679929080)       |
-| Main CI                  | [run 29680049093](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29680049093)       |
-| Main CodeQL              | [run 29680049085](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29680049085)       |
-| Release workflow         | [run 29680167897](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29680167897), PASS |
+| Item                     | Verified value                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------ |
+| Corrective pull request  | [#11](https://github.com/is-bo/fullstack-forge-skill/pull/11)                                    |
+| Final tagged main commit | `ada9d12cb1abc928ed3a46c7989e4443e0281d23`                                                       |
+| Annotated tag object     | `dd89c152afe5043660717c5c15d95b174d9c8f4e`                                                       |
+| Tag                      | `v0.1.4`, remotely peeled to the tagged main commit                                              |
+| Release                  | [Fullstack Forge v0.1.4](https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.4)     |
+| Publication              | 2026-07-19T08:39:57Z; non-draft, non-prerelease, immutable                                       |
+| PR CI                    | [run 29679929121](https://github.com/is-bo/fullstack-forge-skill/actions/runs/29679929121)       |
+| PR CodeQL                | [run 29679929080](https://github.com/is-bo/fullstack-forge-skill/actions/runs/29679929080)       |
+| Main CI                  | [run 29680049093](https://github.com/is-bo/fullstack-forge-skill/actions/runs/29680049093)       |
+| Main CodeQL              | [run 29680049085](https://github.com/is-bo/fullstack-forge-skill/actions/runs/29680049085)       |
+| Release workflow         | [run 29680167897](https://github.com/is-bo/fullstack-forge-skill/actions/runs/29680167897), PASS |
 
 PR and main CI passed the Linux, Windows, and macOS verification matrix. PR dependency review and
 both PR/main CodeQL analyses passed. At final requery, Dependabot, code-scanning, and
@@ -56,8 +56,8 @@ repository immutable-release API and release object both report immutability ena
 
 ## Clean-room installation and behavior
 
-- `npm install github:thethunderbolt/fullstack-forge-skill#v0.1.4` in an empty project resolved the
-  lockfile to `ada9d12cb1abc928ed3a46c7989e4443e0281d23` and reported CLI version 0.1.4.
+- `npm install github:is-bo/fullstack-forge-skill#v0.1.4` in an empty project resolved the lockfile
+  to `ada9d12cb1abc928ed3a46c7989e4443e0281d23` and reported CLI version 0.1.4.
 - A fresh tarball packed from that installed tag had SHA-256
   `dcbcc9d44ab631d7289b6472718fda7f5055c09ef2531ab6229eb2ea2d2e3d27`; installation into a second
   empty project reported version 0.1.4.

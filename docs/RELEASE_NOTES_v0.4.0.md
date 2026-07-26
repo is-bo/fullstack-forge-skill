@@ -64,7 +64,7 @@ pending until an authorized tagged release workflow completes.
 Fullstack Forge is not published to the npm registry. After the immutable v0.4.0 tag exists:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.4.0
+npm install --save-dev github:is-bo/fullstack-forge-skill#v0.4.0
 npx forge init all
 npx forge doctor
 ```

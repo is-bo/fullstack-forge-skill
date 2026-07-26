@@ -18,10 +18,13 @@ const PRIVATE_SEGMENTS = new Set([
   ".git",
   ".tmp",
   "attachments",
+  "backups",
   "coverage",
   "dist",
   "graphify-out",
-  "node_modules"
+  "logs",
+  "node_modules",
+  "uploads"
 ]);
 
 const PRIVATE_NAME =
@@ -49,7 +52,9 @@ export function packageCommonPaths(version) {
     "docs/ARCHITECTURE.md",
     "docs/ANALYZER_SUPPORT.md",
     "docs/BRAND.md",
+    "docs/BUILD_MODE.md",
     "docs/BUILD_YOUR_FIRST_FEATURE.md",
+    "docs/CLI_REFERENCE.md",
     "docs/COMMANDS.md",
     "docs/COVERAGE.md",
     "docs/DEVELOPMENT.md",
@@ -65,8 +70,12 @@ export function packageCommonPaths(version) {
     `docs/RELEASE_VERIFICATION_v${version}.md`,
     "docs/RELEASE.md",
     "docs/RELEASING.md",
+    "docs/REPOSITORY_INVENTORY.md",
+    "docs/REPORT_SCHEMA.md",
     "docs/SECURITY_MODEL.md",
     "docs/SHIP_A_RELEASE.md",
+    "docs/TRACEABILITY.md",
+    "docs/TRACEABILITY_MATRIX.md",
     "docs/TROUBLESHOOTING.md",
     "examples/quickstart-demo/src/App.tsx",
     "examples/quickstart-demo/README.md",
@@ -74,7 +83,9 @@ export function packageCommonPaths(version) {
     "examples/quickstart-demo/package.json",
     "docs/assets/fullstack-forge-hero.png",
     "docs/assets/fullstack-forge-social-preview.png",
-    "docs/assets/fullstack-forge-icon.png"
+    "docs/assets/fullstack-forge-icon.png",
+    "research/LICENSE_MATRIX.md",
+    "research/SOURCES.md"
   ]);
 }
 

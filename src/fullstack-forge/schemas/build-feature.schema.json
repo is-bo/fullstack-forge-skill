@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/thethunderbolt/fullstack-forge-skill/schemas/build-feature.schema.json",
+  "$id": "https://github.com/is-bo/fullstack-forge-skill/schemas/build-feature.schema.json",
   "title": "Fullstack Forge Build feature state v2",
   "type": "object",
   "additionalProperties": false,

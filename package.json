@@ -1,17 +1,17 @@
 {
   "name": "fullstack-forge-skill",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Evidence-driven Build and Audit workflows for production full-stack applications and AI coding agents.",
   "type": "module",
   "license": "Apache-2.0",
-  "author": "thethunderbolt",
-  "homepage": "https://github.com/thethunderbolt/fullstack-forge-skill#readme",
+  "author": "is-bo",
+  "homepage": "https://github.com/is-bo/fullstack-forge-skill#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/thethunderbolt/fullstack-forge-skill.git"
+    "url": "git+https://github.com/is-bo/fullstack-forge-skill.git"
   },
   "bugs": {
-    "url": "https://github.com/thethunderbolt/fullstack-forge-skill/issues"
+    "url": "https://github.com/is-bo/fullstack-forge-skill/issues"
   },
   "keywords": [
     "agent-skills",
@@ -57,13 +57,15 @@
   "scripts": {
     "build": "npm run generate && tsc -p tsconfig.json",
     "audit:dependencies": "npm audit --ignore-scripts",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run validate && npm run check:platforms && npm run check:links && npm run check:licenses && npm run check:fixtures && npm run check:workflows && npm run check:release-docs && npm run check:install-docs && npm run check:traceability && npm run check:branding && npm run scan:secrets",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run validate && npm run check:platforms && npm run check:repository-identity && npm run check:links && npm run check:archives && npm run check:licenses && npm run check:fixtures && npm run check:workflows && npm run check:release-docs && npm run check:install-docs && npm run check:traceability && npm run check:branding && npm run scan:secrets",
+    "check:archives": "node scripts/package-platforms.mjs && node scripts/validate-dist.mjs",
     "check:branding": "node scripts/check-branding.mjs",
     "check:licenses": "node scripts/check-licenses.mjs",
     "check:fixtures": "node scripts/check-fixtures.mjs",
     "check:install-docs": "node scripts/check-install-docs.mjs",
     "check:links": "node scripts/check-links.mjs",
     "check:platforms": "node scripts/check-platform-assets.mjs",
+    "check:repository-identity": "node scripts/check-repository-identity.mjs",
     "check:release-docs": "node scripts/validate-release-docs.mjs",
     "check:traceability": "node scripts/check-traceability.mjs",
     "generate:traceability": "node scripts/generate-traceability-matrix.mjs",
@@ -75,7 +77,7 @@
     "package:platforms": "npm run build && node scripts/package-platforms.mjs && node scripts/validate-dist.mjs",
     "scan:secrets": "node scripts/secret-scan.mjs",
     "smoke:install": "npm run build && node scripts/smoke-install.mjs",
-    "smoke:upgrade": "npm run build && node scripts/upgrade-install.mjs v0.5.1",
+    "smoke:upgrade": "npm run build && node scripts/upgrade-install.mjs v0.5.2",
     "offline:install": "npm run build && node scripts/offline-install.mjs",
     "test": "npm run build && node --test build/cli/tests/**/*.test.js scripts/tests/**/*.test.mjs",
     "test:evals:v030": "npm run build && node --test build/cli/tests/v030-build-mode-evals.test.js build/cli/tests/v030-prevention-evals.test.js",

@@ -23,6 +23,23 @@ test("package policy accepts only declared common files and managed platform roo
     assert.throws(() => assertPublishableArchivePath(path, VERSION), /allowlist/u, path);
 });
 
+test("package policy includes the packaged user-documentation link closure", () => {
+  const paths = new Set(packageCommonPaths("0.5.3"));
+  for (const path of [
+    "docs/BUILD_MODE.md",
+    "docs/CLI_REFERENCE.md",
+    "docs/REPOSITORY_INVENTORY.md",
+    "docs/REPORT_SCHEMA.md",
+    "docs/TRACEABILITY.md",
+    "docs/TRACEABILITY_MATRIX.md",
+    "research/LICENSE_MATRIX.md",
+    "research/SOURCES.md"
+  ]) {
+    assert.equal(paths.has(path), true, path);
+    assert.doesNotThrow(() => assertPublishableArchivePath(path, "0.5.3"), path);
+  }
+});
+
 test("package policy rejects private state, specifications, credentials, logs, and unsafe paths", () => {
   for (const path of [
     ".agents/skills/.audit/report.md",
@@ -34,6 +51,9 @@ test("package policy rejects private state, specifications, credentials, logs, a
     ".agents/skills/fullstack-forge/.env",
     ".agents/skills/fullstack-forge/release.log",
     ".agents/skills/fullstack-forge/credentials.json",
+    "uploads/private.sqlite",
+    "logs/application.log",
+    "backups/database.tar",
     ".agents/skills/fullstack-forge/../../escape.md",
     "C:/absolute.md",
     ".agents\\skills\\fullstack-forge\\SKILL.md"

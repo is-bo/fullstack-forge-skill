@@ -98,7 +98,7 @@ framework=FastAPI; required adapter=fastapi-authorization-boundaries
 
 ## Release status
 
-Published as https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.3 from commit
+Published as https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.3 from commit
 `0aab8ec`. CI passed on Linux, Windows, and macOS. All nine published archive checksums verify, the
 archives are byte-reproducible from source, contain no symlinks, and carry SLSA v1 build provenance
 bound to the tag. Installation was verified from the tag and from a published archive.

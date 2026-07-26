@@ -17,19 +17,19 @@ open and are not covered here.
 
 ## Identity and remote state
 
-| Item                      | Verified value                                                                                          |
-| ------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Feature pull request      | [#22](https://github.com/thethunderbolt/fullstack-forge-skill/pull/22)                                  |
-| Release-prep pull request | [#29](https://github.com/thethunderbolt/fullstack-forge-skill/pull/29)                                  |
-| Feature merge commit      | `e373a2d` (merge of PR #22)                                                                             |
-| Merge commit on `main`    | `2e749db36a272a7fd8b8513c05ff0379e0b5834b`                                                              |
-| Annotated tag object      | `7e86b8294bc9886add2e640b75a61866b0503f6d`                                                              |
-| Tag                       | `v0.1.10`, peels to `2e749db36a272a7fd8b8513c05ff0379e0b5834b`                                          |
-| Release                   | [Fullstack Forge v0.1.10](https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.10) |
-| Immutable release         | `true`; draft `false`; prerelease `false`                                                               |
-| Published at              | 2026-07-20T04:30:13Z                                                                                    |
-| Release workflow run      | `29716977824` — conclusion `success`                                                                    |
-| Published assets          | 13 (9 platform archives, `SHA256SUMS.txt`, `manifest.json`, final evidence and its `.sha256`)           |
+| Item                      | Verified value                                                                                 |
+| ------------------------- | ---------------------------------------------------------------------------------------------- |
+| Feature pull request      | [#22](https://github.com/is-bo/fullstack-forge-skill/pull/22)                                  |
+| Release-prep pull request | [#29](https://github.com/is-bo/fullstack-forge-skill/pull/29)                                  |
+| Feature merge commit      | `e373a2d` (merge of PR #22)                                                                    |
+| Merge commit on `main`    | `2e749db36a272a7fd8b8513c05ff0379e0b5834b`                                                     |
+| Annotated tag object      | `7e86b8294bc9886add2e640b75a61866b0503f6d`                                                     |
+| Tag                       | `v0.1.10`, peels to `2e749db36a272a7fd8b8513c05ff0379e0b5834b`                                 |
+| Release                   | [Fullstack Forge v0.1.10](https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.10) |
+| Immutable release         | `true`; draft `false`; prerelease `false`                                                      |
+| Published at              | 2026-07-20T04:30:13Z                                                                           |
+| Release workflow run      | `29716977824` — conclusion `success`                                                           |
+| Published assets          | 13 (9 platform archives, `SHA256SUMS.txt`, `manifest.json`, final evidence and its `.sha256`)  |
 
 All eleven tags `v0.1.0`–`v0.1.10` were re-resolved after publication. The ten historical tag
 objects and the commits they peel to are unchanged, including `v0.1.7` (`2a2e439` → `bb35a11`),

@@ -6,16 +6,16 @@ post-publication clean-room evidence. A section marked `NOT_VERIFIED` has not be
 
 ## Release identity
 
-- Repository: <https://github.com/thethunderbolt/fullstack-forge-skill>
+- Repository: <https://github.com/is-bo/fullstack-forge-skill>
 - Version/tag: `0.1.1` / `v0.1.1`
 - Baseline `main` inspected before editing: `8c4fe21e78213c8c29ac6de10463d69460ccf890`
 - Release commit: `e7b84035615b66537fad9a9d0e57821b30aef62a`
 - Annotated tag object: `76dce46b140840a448b1bd0980b6243627029c19`
 - Linux and Windows CI: `PASS` in
-  [CI run #20](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29655685129)
+  [CI run #20](https://github.com/is-bo/fullstack-forge-skill/actions/runs/29655685129)
 - Release workflow: `PASS` in
-  [Release run #3](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29655784324)
-- Release URL: <https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.1>
+  [Release run #3](https://github.com/is-bo/fullstack-forge-skill/actions/runs/29655784324)
+- Release URL: <https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.1>
 - Published: `2026-07-18T18:25:07Z`
 
 `gh auth status` reported no authenticated GitHub CLI host. Git Credential Manager nevertheless
@@ -116,17 +116,17 @@ ae0279f7b936fb675bd7eb1259e748c9d4189e36a5e34d51fd0d019cebfff462  fullstack-forg
 Status: `PASS` for the release commit and tag. The first two post-push CI attempts remain visible as
 failures and were not reclassified:
 
-- [CI run #16](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29655340566)
-  failed on both platforms because the smoke install incorrectly required a warm offline npm cache.
-- [CI run #19](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29655568510)
-  passed on Windows but failed on Ubuntu because its no-link assertion traversed npm's own
-  `node_modules/.bin` symlinks outside the Forge-managed install root.
-- [CI run #20](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29655685129)
-  passed both `Verify (ubuntu-latest)` job `88109481979` and `Verify (windows-latest)` job
-  `88109481972` for release commit `e7b84035615b66537fad9a9d0e57821b30aef62a`.
+- [CI run #16](https://github.com/is-bo/fullstack-forge-skill/actions/runs/29655340566) failed on
+  both platforms because the smoke install incorrectly required a warm offline npm cache.
+- [CI run #19](https://github.com/is-bo/fullstack-forge-skill/actions/runs/29655568510) passed on
+  Windows but failed on Ubuntu because its no-link assertion traversed npm's own `node_modules/.bin`
+  symlinks outside the Forge-managed install root.
+- [CI run #20](https://github.com/is-bo/fullstack-forge-skill/actions/runs/29655685129) passed both
+  `Verify (ubuntu-latest)` job `88109481979` and `Verify (windows-latest)` job `88109481972` for
+  release commit `e7b84035615b66537fad9a9d0e57821b30aef62a`.
 
 The immutable annotated `v0.1.1` tag resolves to that commit.
-[Release run #3](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29655784324)
+[Release run #3](https://github.com/is-bo/fullstack-forge-skill/actions/runs/29655784324)
 independently passed locked installation, the complete check, dependency audit, packaging,
 packed-artifact smoke, and publication. The existing public `v0.1.0` tag and release were not moved
 or replaced.
@@ -151,7 +151,7 @@ clone remained clean after generation and validation. These setup commands retur
 Node.js `v24.14.1`, npm `11.11.0`, and CLI `0.1.1`:
 
 ```text
-git clone --branch v0.1.1 --depth 1 https://github.com/thethunderbolt/fullstack-forge-skill.git <fresh>/source
+git clone --branch v0.1.1 --depth 1 https://github.com/is-bo/fullstack-forge-skill.git <fresh>/source
 npm ci --ignore-scripts --no-audit --no-fund
 npm run build
 node build/cli/src/index.js --version

@@ -6,7 +6,7 @@ more useful across real application stacks.
 ## Setup
 
 ```bash
-git clone https://github.com/thethunderbolt/fullstack-forge-skill.git
+git clone https://github.com/is-bo/fullstack-forge-skill.git
 cd fullstack-forge-skill
 npm ci
 npm run check

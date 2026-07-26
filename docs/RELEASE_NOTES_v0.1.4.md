@@ -88,7 +88,7 @@ not moved, recreated, or modified.
 ## Install
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.4
+npm install --save-dev github:is-bo/fullstack-forge-skill#v0.1.4
 npx forge init all
 ```
 

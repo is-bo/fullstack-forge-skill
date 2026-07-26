@@ -42,7 +42,7 @@ try {
       "--ignore-scripts",
       "--no-audit",
       "--no-fund",
-      `github:thethunderbolt/fullstack-forge-skill#${previousTag}`
+      `git+https://github.com/is-bo/fullstack-forge-skill.git#${previousTag}`
     ],
     consumerRoot,
     10 * 60_000
@@ -96,6 +96,15 @@ try {
       `candidate CLI version mismatch: expected ${expectedVersion}, got ${candidateVersion.stdout} ${candidateVersion.stderr}`
     );
 
+  const codexUpdate = await run(
+    process.execPath,
+    [cli, "update", "codex", "--root", consumerRoot, "--json"],
+    consumerRoot,
+    5 * 60_000
+  );
+  if (codexUpdate.code !== 0)
+    throw new Error(`candidate Codex update failed:\n${codexUpdate.stderr}\n${codexUpdate.stdout}`);
+
   const update = await run(
     process.execPath,
     [cli, "update", "all", "--root", consumerRoot, "--json"],
@@ -140,6 +149,7 @@ try {
         previous_tag: previousTag,
         previous_version: previousVersion.stdout.trim(),
         candidate_version: candidateVersion.stdout.trim(),
+        codex_update: true,
         installed_skills_per_root: 46,
         forge_metadata_added: true,
         doctor_ready: true,

@@ -69,7 +69,7 @@ synchronized as independent regular-file copies.
 Fullstack Forge is not published to the npm registry. Install the immutable Git tag after it exists:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.3.0
+npm install --save-dev github:is-bo/fullstack-forge-skill#v0.3.0
 npx forge init all --dry-run
 npx forge init all
 ```

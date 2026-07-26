@@ -13,15 +13,15 @@ areas listed in `docs/AUDIT_CLASSIFICATION_v0.1.6.md` remain open and are not co
 
 ## Identity and remote state
 
-| Item                    | Verified value                                                                                        |
-| ----------------------- | ----------------------------------------------------------------------------------------------------- |
-| Corrective pull request | [#17](https://github.com/thethunderbolt/fullstack-forge-skill/pull/17)                                |
-| Merge commit on `main`  | `6342b75d0b1d21f6ad67a02882a1fa55655aa996`                                                            |
-| Annotated tag object    | `87fb334f24ab68caad49aa02dea5f51310b122ac`                                                            |
-| Tag                     | `v0.1.6`, peels to `6342b75d0b1d21f6ad67a02882a1fa55655aa996`                                         |
-| Release                 | [Fullstack Forge v0.1.6](https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.6) |
-| Immutable release       | `true`; draft `false`; prerelease `false`                                                             |
-| Published assets        | 13 (9 platform archives, `SHA256SUMS.txt`, `manifest.json`, final evidence and its `.sha256`)         |
+| Item                    | Verified value                                                                                |
+| ----------------------- | --------------------------------------------------------------------------------------------- |
+| Corrective pull request | [#17](https://github.com/is-bo/fullstack-forge-skill/pull/17)                                 |
+| Merge commit on `main`  | `6342b75d0b1d21f6ad67a02882a1fa55655aa996`                                                    |
+| Annotated tag object    | `87fb334f24ab68caad49aa02dea5f51310b122ac`                                                    |
+| Tag                     | `v0.1.6`, peels to `6342b75d0b1d21f6ad67a02882a1fa55655aa996`                                 |
+| Release                 | [Fullstack Forge v0.1.6](https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.6)  |
+| Immutable release       | `true`; draft `false`; prerelease `false`                                                     |
+| Published assets        | 13 (9 platform archives, `SHA256SUMS.txt`, `manifest.json`, final evidence and its `.sha256`) |
 
 Historical tags `v0.1.0`–`v0.1.5` were re-resolved after publication and are unchanged. The v0.1.5
 release remains immutable and untouched.
