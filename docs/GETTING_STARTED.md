@@ -9,7 +9,7 @@ Node.js 24 or newer and Git are required. Install the versioned package, then co
 the supported agent directories in this project:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.0
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.1
 npx forge init
 npx forge doctor
 ```
@@ -47,8 +47,31 @@ npx forge audit
 npx forge status
 ```
 
-In an agent chat, use `/forge build ...` where slash skills are supported. In Codex, select the
-`forge` skill with `$forge` or the skill picker and write the same request.
+In an agent chat, use `/forge build ...` where slash skills are supported. In Codex:
+
+1. Open the skill picker.
+2. Select **Forge**.
+3. Choose an action from the displayed menu or describe the task normally.
+
+The picker preview reads **Build · Audit · Fix · Verify · Ship · Status**. Selecting Forge with no
+action shows Build, Continue, Audit changed work, Audit the whole project, preview and apply-safe
+Fix, Verify, Ship, Status, and Help choices without running a check or creating state.
+
+Examples:
+
+```text
+$forge build secure customer login
+$forge audit all
+$forge audit authentication
+$forge fix
+$forge verify
+$forge ship
+```
+
+Codex does not expose these actions as separate nested picker commands. The single Forge skill is
+the visible product entrance and routes plain language to the internal Build, Audit, Fix, Verify,
+Ship, Status, and Help workflows. The advanced **Fullstack Forge — Expert Audit** skill and all
+specialist `$forge-<area>` skills remain available.
 
 ## Understand the result
 

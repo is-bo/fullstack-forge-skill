@@ -94,13 +94,56 @@ const openaiYaml = await readFile(
   join(projectRoot, "src", "fullstack-forge", "agents", "openai.yaml"),
   "utf8"
 );
-if (!/^\s+display_name:\s+"Fullstack Forge"\s*$/mu.test(openaiYaml))
-  errors.push("agents/openai.yaml display_name must be quoted");
-const short = /^\s+short_description:\s+"([^"]+)"\s*$/mu.exec(openaiYaml)?.[1] ?? "";
-if (short.length < 25 || short.length > 64)
-  errors.push("agents/openai.yaml short_description must be 25-64 characters");
-if (!/^\s+default_prompt:\s+"[^"]*\$fullstack-forge[^"]*"\s*$/mu.test(openaiYaml))
-  errors.push("agents/openai.yaml default_prompt must explicitly mention $fullstack-forge");
+validateOpenAiMetadata("src/fullstack-forge/agents/openai.yaml", openaiYaml, {
+  displayName: "Fullstack Forge — Expert Audit",
+  shortDescription: "Advanced evidence-backed audit orchestration",
+  skillMention: "$fullstack-forge"
+});
+
+const forgeOpenaiPath = join(
+  projectRoot,
+  "src",
+  "fullstack-forge",
+  "commands",
+  "forge",
+  "agents",
+  "openai.yaml"
+);
+const forgeOpenaiYaml = await readFile(forgeOpenaiPath, "utf8");
+validateOpenAiMetadata("src/fullstack-forge/commands/forge/agents/openai.yaml", forgeOpenaiYaml, {
+  displayName: "Forge",
+  shortDescription: "Build · Audit · Fix · Verify · Ship · Status",
+  skillMention: "$forge",
+  promptTerms: [
+    "build",
+    "continue",
+    "audit",
+    "fix",
+    "verify",
+    "ship",
+    "status",
+    "help",
+    "no action",
+    "beginner command menu",
+    "plain language"
+  ]
+});
+const canonicalIcon = await readFile(
+  join(projectRoot, "src", "fullstack-forge", "assets", "fullstack-forge-icon.png")
+);
+const forgeIcon = await readFile(
+  join(
+    projectRoot,
+    "src",
+    "fullstack-forge",
+    "commands",
+    "forge",
+    "assets",
+    "fullstack-forge-icon.png"
+  )
+);
+if (!canonicalIcon.equals(forgeIcon))
+  errors.push("Forge picker icon must match the canonical Fullstack Forge icon");
 
 for (const platform of platformTargets) {
   const root = join(projectRoot, ...platform.path.split("/"));
@@ -177,4 +220,54 @@ async function validateSkill(
     return;
   }
   errors.push(...collectSkillErrors(path, content, { expectedName, command, criteria, headings }));
+}
+
+function validateOpenAiMetadata(relativePath, yaml, expected) {
+  const topLevelKeys = yaml
+    .split(/\r?\n/u)
+    .filter((line) => /^[a-z_][a-z0-9_]*:/u.test(line))
+    .map((line) => line.slice(0, line.indexOf(":")));
+  if (JSON.stringify(topLevelKeys) !== JSON.stringify(["interface"]))
+    errors.push(`${relativePath}: only the supported interface block is allowed`);
+
+  const interfaceKeys = yaml
+    .split(/\r?\n/u)
+    .map((line) => /^ {2}([a-z_][a-z0-9_]*):/u.exec(line)?.[1])
+    .filter(Boolean);
+  const supportedKeys = [
+    "display_name",
+    "short_description",
+    "icon_small",
+    "icon_large",
+    "brand_color",
+    "default_prompt"
+  ];
+  if (JSON.stringify(interfaceKeys) !== JSON.stringify(supportedKeys))
+    errors.push(`${relativePath}: interface fields must match the supported OpenAI schema`);
+
+  const displayName = /^\s+display_name:\s+"([^"]+)"\s*$/mu.exec(yaml)?.[1] ?? "";
+  const shortDescription = /^\s+short_description:\s+"([^"]+)"\s*$/mu.exec(yaml)?.[1] ?? "";
+  const defaultPrompt =
+    /^\s+default_prompt:\s*(?:"([^"]+)"|\r?\n\s+"([^"]+)")\s*$/mu
+      .exec(yaml)
+      ?.slice(1)
+      .find(Boolean) ?? "";
+  if (displayName !== expected.displayName)
+    errors.push(`${relativePath}: display_name must be quoted as "${expected.displayName}"`);
+  if (shortDescription !== expected.shortDescription)
+    errors.push(`${relativePath}: short_description does not match the product preview`);
+  if (shortDescription.length < 25 || shortDescription.length > 64)
+    errors.push(`${relativePath}: short_description must be 25-64 characters`);
+  if (!defaultPrompt.includes(expected.skillMention))
+    errors.push(`${relativePath}: default_prompt must mention ${expected.skillMention}`);
+  for (const term of expected.promptTerms ?? []) {
+    if (!defaultPrompt.toLowerCase().includes(term))
+      errors.push(`${relativePath}: default_prompt must include '${term}'`);
+  }
+  if (!/^\s+icon_small:\s+"\.\/assets\/fullstack-forge-icon\.png"\s*$/mu.test(yaml))
+    errors.push(`${relativePath}: icon_small must use the bundled Forge icon`);
+  if (!/^\s+icon_large:\s+"\.\/assets\/fullstack-forge-icon\.png"\s*$/mu.test(yaml))
+    errors.push(`${relativePath}: icon_large must use the bundled Forge icon`);
+  if (!/^\s+brand_color:\s+"#2563EB"\s*$/mu.test(yaml))
+    errors.push(`${relativePath}: brand_color must be #2563EB`);
 }

@@ -20,6 +20,11 @@ forge help
 forge help advanced
 ```
 
+The no-argument menu labels these actions as Build, Continue, Audit, Fix, Verify, Ship, Status, and
+Help. It separates Audit changed work from Audit the whole project, and separates the no-write Fix
+preview from the explicit reviewed `fix --safe` application. Noninteractive menu rendering exits
+without creating `.forge/build/`, audit reports, or other files.
+
 `forge audit` prefers changed scope only when a reliable Git base exists; otherwise it explicitly
 uses full scope. `audit all` is always full. Natural-language area mappings fail on ambiguity.
 `forge fix` is a preview until `--safe` is supplied. Concise output is the default for these simple

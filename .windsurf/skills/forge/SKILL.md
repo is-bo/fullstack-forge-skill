@@ -19,6 +19,25 @@ This skill is a router and guide, not a second evidence engine. It may simplify 
 
 ## Workflow
 
+### No-action beginner menu
+When the user selects Forge without specifying an action, do not default to an audit, run a check, create Build or Audit state, or ask an abstract question. Show this concise menu:
+
+1. Build something — `forge build <request>`
+2. Continue unfinished work — `forge continue`
+3. Audit changed work — `forge audit`
+4. Audit the whole project — `forge audit all`
+5. Fix — preview safe fixes — `forge fix`
+6. Fix — apply safe fixes — `forge fix --safe`
+7. Verify findings — `forge verify`
+8. Ship — check release readiness — `forge ship`
+9. Status — show project status — `forge status`
+10. Help — `forge help`
+
+Then ask the user to choose a number, name an action, or describe what they want in plain language. Do not require the user to invent a module name, feature slug, tier, or evidence criterion, and do not dump the advanced command list unless requested.
+
+### Plain-language routing
+Recognize ordinary requests without requiring command grammar. Route “build a login system” to Build, “continue my last feature” to Continue, “audit this project” to the default changed/full Audit decision, “audit the authentication” to `forge-auth`, “check security and uploads” to both named specialists, “preview fixes” to a no-write Fix preview, “apply safe fixes” to the explicit bounded `--safe` path, “verify the fixes” to Verify, “is this ready to ship” to Ship, “show me the status” to Status, and “show help” to Help. Preserve ambiguity handling: for example, “audit data” should ask a small clarifying question offering database, privacy, storage, analytics, or queries, while “audit database and queries” should route to both without asking.
+
 ### `/forge build [request]`
 Discover the repository first. For a new product, ask only the essential product questions: who it serves, the durable outcome, critical rules, sensitive boundaries, expected scale, and constraints. Confirm the understood request in plain language, record decisions and unresolved questions, derive a safe feature ID automatically, then use `/forge-new` and `/forge-feature` as applicable. Do not ask the user to invent a slug, tier, module list, or evidence vocabulary.
 

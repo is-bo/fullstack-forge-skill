@@ -36,10 +36,30 @@ test("simple command routing covers the public vocabulary", () => {
     sections: ["uploads", "storage"],
     flags: []
   });
+  assert.deepEqual(parseSimpleRoute(["audit", "authentication"]), {
+    kind: "expert",
+    command: "audit",
+    argv: ["auth", "audit"]
+  });
+  assert.deepEqual(parseSimpleRoute(["audit", "database", "and", "queries"]), {
+    kind: "audit-areas",
+    sections: ["database", "queries"],
+    flags: []
+  });
   assert.deepEqual(parseSimpleRoute(["fix"]), {
     kind: "expert",
     command: "fix",
     argv: ["all", "fix"]
+  });
+  assert.deepEqual(parseSimpleRoute(["fix", "--safe"]), {
+    kind: "expert",
+    command: "fix",
+    argv: ["all", "fix", "--safe"]
+  });
+  assert.deepEqual(parseSimpleRoute(["verify"]), {
+    kind: "expert",
+    command: "verify",
+    argv: ["all", "verify"]
   });
   assert.deepEqual(parseSimpleRoute(["verify", "security", "--details"]), {
     kind: "expert",
@@ -55,6 +75,7 @@ test("simple command routing covers the public vocabulary", () => {
     kind: "status",
     flags: ["--json"]
   });
+  assert.deepEqual(parseSimpleRoute(["help"]), { kind: "help", advanced: false });
   assert.deepEqual(parseSimpleRoute(["feature", "login"]), { kind: "none" });
 });
 
@@ -64,8 +85,13 @@ test("audit areas resolve exact names and transparent natural-language aliases",
   assert.equal(resolveAuditArea("user interface"), "ui");
   assert.equal(resolveAuditArea("everything"), "all");
   assert.deepEqual(resolveAuditAreas("uploads and file storage"), ["uploads", "storage"]);
+  assert.deepEqual(resolveAuditAreas("database and queries"), ["database", "queries"]);
   assert.throws(() => resolveAuditArea("uploads and file storage"), /multiple disciplines/iu);
   assert.throws(() => resolveAuditAreas("all and security"), /combines 'all'/iu);
+  assert.throws(
+    () => resolveAuditArea("data"),
+    /ambiguous.*analytics, database, privacy, queries, storage/iu
+  );
   assert.throws(() => resolveAuditArea("CI"), /ambiguous.*deployment, supply-chain/iu);
   assert.throws(() => resolveAuditArea("securty"), /Did you mean 'security'/u);
 });
@@ -86,9 +112,15 @@ test("natural-language feature IDs are safe, deterministic, redacted, and collis
 test("menu and help stay simple-first and cancellation is explicit", () => {
   assert.deepEqual(menuChoiceToArgs("1", "add search"), ["build", "add search"]);
   assert.deepEqual(menuChoiceToArgs("4"), ["audit", "all"]);
+  assert.deepEqual(menuChoiceToArgs("6"), ["fix", "--safe"]);
+  assert.deepEqual(menuChoiceToArgs("10"), ["help"]);
   assert.equal(menuChoiceToArgs("0"), undefined);
-  assert.match(renderSimpleMenu(), /1\. Build something/u);
+  const menu = renderSimpleMenu();
+  for (const action of ["Build", "Continue", "Audit", "Fix", "Verify", "Ship", "Status", "Help"])
+    assert.match(menu, new RegExp(action, "u"));
+  assert.match(menu, /6\. Fix — apply safe fixes/u);
   assert.match(renderSimpleHelp(), /forge build "add customer login"/u);
+  assert.match(renderSimpleHelp(), /forge help\s+Show this beginner command guide/u);
   assert.match(renderSimpleHelp(), /missing evidence never becomes PASS/iu);
 });
 

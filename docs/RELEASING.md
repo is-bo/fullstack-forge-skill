@@ -11,13 +11,15 @@
    runtime, provider, external tool, or human judgment must remain `BLOCKED`/`NOT_VERIFIED`.
 4. Run `npm run package:platforms` twice and compare every byte/hash.
 5. Run `npm run smoke:install` and inspect `npm pack --dry-run --json --ignore-scripts`.
-6. Confirm `npm run validate:dist` verifies entry CRCs, fixed timestamps, licenses, checksums, path
+6. Run `npm run smoke:upgrade` to install the previous public tag, initialize all generated roots,
+   install the candidate artifact, update ownership-aware files, run Doctor, and uninstall cleanly.
+7. Confirm `npm run validate:dist` verifies entry CRCs, fixed timestamps, licenses, checksums, path
    safety, absence of symlinks, and the exact archive set.
-7. Verify the private local specification, research clones, build temporaries, credentials, and
+8. Verify the private local specification, research clones, build temporaries, credentials, and
    `node_modules` are ignored, untracked, and absent from all packages.
-8. Run `npm run check:release-docs`; the tagged record must say `TAGGED_LOCAL`, record local
+9. Run `npm run check:release-docs`; the tagged record must say `TAGGED_LOCAL`, record local
    validation as `PASS`, and keep remote publication `PENDING`.
-9. Run `npm run check` again after the final source edit.
+10. Run `npm run check` again after the final source edit.
 
 ## GitHub publication
 

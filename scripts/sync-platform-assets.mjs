@@ -29,8 +29,11 @@ async function collectCanonicalFiles() {
     files.set(`forge-${slug}/SKILL.md`, await readFile(source));
   }
   for (const name of expectedBuildCommands) {
-    const source = join(commandRoot, name, "SKILL.md");
-    files.set(`${name}/SKILL.md`, await readFile(source));
+    const sourceRoot = join(commandRoot, name);
+    for (const source of await walk(sourceRoot)) {
+      const rel = relative(sourceRoot, source).split(sep).join("/");
+      files.set(`${name}/${rel}`, await readFile(source));
+    }
   }
   return files;
 }

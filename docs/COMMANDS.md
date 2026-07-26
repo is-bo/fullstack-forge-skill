@@ -21,6 +21,26 @@ surface as `/forge ...`, `$forge ...`, or named skill selection according to hos
 a router, not a second evidence engine: all statuses, approvals, hashes, revisions, producers, and
 Ship independence remain enforced by the existing implementation.
 
+With no action, both the Codex skill and terminal CLI present the same action names and meanings:
+
+```text
+Build
+Continue
+Audit changed work
+Audit the whole project
+Fix — preview safe fixes
+Fix — apply reviewed safe fixes
+Verify
+Ship
+Status
+Help
+```
+
+The Codex menu asks the user to choose or describe the task in plain language; it does not run an
+audit, claim evidence, create state, or print the complete advanced grammar. `audit data` remains
+ambiguous across analytics, database, privacy, queries, and storage, while
+`audit database and queries` routes to both named disciplines.
+
 ## Audit modules
 
 ```text
