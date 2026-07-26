@@ -44,14 +44,14 @@ Forge activates automatically and loads only the relevant modules. No Forge comm
 Use an explicit Forge command when you want to force or narrow a workflow:
 
 ```text
-$forge audit security
-$forge audit queries
-$forge audit cache
-$forge frontend
-$forge ui review
-$forge ux review
-$forge verify
-$forge ship
+/forge audit security
+/forge audit queries
+/forge audit cache
+/forge frontend
+/forge ui review
+/forge ux review
+/forge verify
+/forge ship
 ```
 
 The installed skill name is `forge`; host syntax differs:
