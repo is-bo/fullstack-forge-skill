@@ -40,7 +40,6 @@ const ALWAYS_EXCLUDED = new Set([
     ...DEFAULT_EXCLUSION_CATEGORIES["forge-private-state"],
     ...DEFAULT_EXCLUSION_CATEGORIES["dependency-vendor-trees"],
     ...DEFAULT_EXCLUSION_CATEGORIES["local-development-environments"],
-    ...DEFAULT_EXCLUSION_CATEGORIES["runtime-private-data"],
     ...DEFAULT_EXCLUSION_CATEGORIES["temporary-data"]
 ]);
 const GENERATED_OR_CACHE = new Set([
@@ -96,6 +95,14 @@ const BINARY_EXTENSIONS = new Set([
     ".woff2",
     ".xz",
     ".zip"
+]);
+const CLEAR_RUNTIME_PRIVATE_EXTENSIONS = new Set([
+    ...BINARY_EXTENSIONS,
+    ".bak",
+    ".cache",
+    ".log",
+    ".pid",
+    ".tmp"
 ]);
 const TEXT_EXTENSIONS = new Set([
     ".astro",
@@ -229,8 +236,8 @@ export async function inventoryRepository(rootInput, options = {}) {
         }
         const evidenceClass = classifyInventoryPath(safePath);
         const defaultCategory = options.applyDefaultExclusions === false ? undefined : defaultExclusionCategory(safePath);
-        if (defaultCategory !== undefined &&
-            (candidate.origin !== "tracked" || ALWAYS_EXCLUDED.has(defaultCategory.segment))) {
+        const defaultDecision = defaultExclusionDecision(safePath, candidate.origin, evidenceClass, defaultCategory);
+        if (defaultDecision === "exclude" && defaultCategory !== undefined) {
             excludedPaths.push({
                 path: safePath,
                 category: defaultCategory.category === "generated-build-output" ||
@@ -243,6 +250,26 @@ export async function inventoryRepository(rootInput, options = {}) {
                 generatedExcluded += 1;
             else
                 defaultExcluded += 1;
+            continue;
+        }
+        if (defaultDecision === "partial") {
+            const absolutePath = resolveInventoryPath(root, safePath);
+            excludedPaths.push({
+                path: safePath,
+                category: "default:runtime-private-data-ambiguous"
+            });
+            defaultExcluded += 1;
+            requiredEvidenceExcluded = true;
+            partialReason ??= "runtime-private-data-ambiguous";
+            entries.push({
+                path: safePath,
+                absolute_path: absolutePath,
+                origin: candidate.origin,
+                evidence_class: evidenceClass,
+                size: 0,
+                status: "SKIPPED",
+                reason: "runtime-private-data-ambiguous"
+            });
             continue;
         }
         const absolutePath = resolveInventoryPath(root, safePath);
@@ -642,6 +669,7 @@ async function fallbackCandidates(root, options) {
             const policyMatch = matchingPattern(path, options.policyPatterns);
             const userMatch = matchingPattern(path, options.userPatterns);
             const gitignoreMatch = matchingPattern(path, options.gitignorePatterns);
+            const evidenceClass = classifyInventoryPath(path);
             const defaultCategory = options.applyDefaultExclusions
                 ? defaultExclusionCategory(path)
                 : undefined;
@@ -661,7 +689,8 @@ async function fallbackCandidates(root, options) {
                 excluded.push({ path, category: "gitignore", pattern: gitignoreMatch.source });
                 continue;
             }
-            if (defaultCategory !== undefined) {
+            if (defaultExclusionDecision(path, "fallback", evidenceClass, defaultCategory) === "exclude" &&
+                defaultCategory !== undefined) {
                 excluded.push({
                     path,
                     category: defaultCategory.category === "generated-build-output" ||
@@ -772,12 +801,29 @@ function matchingPattern(path, patterns) {
 function defaultExclusionCategory(path) {
     const segments = path.split("/");
     for (const [category, values] of Object.entries(DEFAULT_EXCLUSION_CATEGORIES)) {
-        const match = segments.find((segment, index) => values.includes(segment.toLowerCase()) &&
+        const segmentIndex = segments.findIndex((segment, index) => values.includes(segment.toLowerCase()) &&
             (!GENERIC_OUTPUT_DIRECTORIES.has(segment.toLowerCase()) || index === 0));
-        if (match !== undefined)
-            return { category, segment: match.toLowerCase() };
+        if (segmentIndex !== -1) {
+            const segment = segments[segmentIndex];
+            if (segment !== undefined)
+                return { category, segment: segment.toLowerCase(), segmentIndex };
+        }
     }
     return undefined;
+}
+function defaultExclusionDecision(path, origin, evidenceClass, category) {
+    if (category === undefined)
+        return "inspect";
+    if (category.category !== "runtime-private-data")
+        return origin !== "tracked" || ALWAYS_EXCLUDED.has(category.segment) ? "exclude" : "inspect";
+    if (origin === "tracked" || category.segmentIndex !== 0)
+        return "inspect";
+    if (isClearlyRuntimePrivateFile(path) || isNeutralEvidence(evidenceClass))
+        return "exclude";
+    return "partial";
+}
+function isClearlyRuntimePrivateFile(path) {
+    return CLEAR_RUNTIME_PRIVATE_EXTENSIONS.has(extensionOf(path));
 }
 async function binaryProbe(path) {
     const handle = await open(path, "r");

@@ -3,6 +3,29 @@
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic
 versioning.
 
+## [0.5.3] - 2026-07-26
+
+### Fixed
+
+- Completed the repository migration to `is-bo/fullstack-forge-skill`.
+- Prevented tracked application source under runtime-looking directory names from being silently
+  excluded.
+- Included all referenced user documentation in release archives.
+- Added archive-level Markdown link validation.
+- Added repository-identity regression checks.
+
+### Compatibility
+
+- Existing Forge state remains supported.
+- Previous release tags remain unchanged.
+
+### Repository migration
+
+The canonical repository owner changed from `thethunderbolt` to `is-bo`. Official links, badges,
+installation commands, package metadata, and generated Agent Skills now use
+`is-bo/fullstack-forge-skill`. This is the same maintainer after a GitHub username rename; project
+ownership did not change.
+
 ## [0.5.2] - 2026-07-26
 
 ### Added
@@ -752,21 +775,22 @@ executable evidence rather than documentation.
 - Deterministic ZIP archives, SHA-256 checksums, ownership manifests, clean-install smoke tests,
   fixtures, CI, research attribution, and original branding.
 
-[Unreleased]: https://github.com/thethunderbolt/fullstack-forge-skill/compare/v0.5.2...HEAD
-[0.5.2]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.5.2
-[0.5.1]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.5.1
-[0.5.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.5.0
-[0.4.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.4.0
-[0.3.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.3.0
-[0.2.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.2.0
-[0.1.10]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.10
-[0.1.9]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.9
-[0.1.8]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.8
-[0.1.7]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.7
-[0.1.6]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.6
-[0.1.5]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.5
-[0.1.4]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.4
-[0.1.3]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.3
-[0.1.2]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.2
-[0.1.1]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.1
-[0.1.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.0
+[Unreleased]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.5.3...HEAD
+[0.5.3]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.5.3
+[0.5.2]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.5.2
+[0.5.1]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.5.1
+[0.5.0]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.5.0
+[0.4.0]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.4.0
+[0.3.0]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.3.0
+[0.2.0]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.2.0
+[0.1.10]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.10
+[0.1.9]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.9
+[0.1.8]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.8
+[0.1.7]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.7
+[0.1.6]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.6
+[0.1.5]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.5
+[0.1.4]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.4
+[0.1.3]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.3
+[0.1.2]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.2
+[0.1.1]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.1
+[0.1.0]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.0

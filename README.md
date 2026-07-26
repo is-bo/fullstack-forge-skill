@@ -7,8 +7,8 @@
 
 One product entrance. Forty-two audit specialists. Evidence before confidence.
 
-[![Release](https://img.shields.io/github/v/release/thethunderbolt/fullstack-forge-skill?display_name=tag&sort=semver)](https://github.com/thethunderbolt/fullstack-forge-skill/releases)
-[![CI](https://github.com/thethunderbolt/fullstack-forge-skill/actions/workflows/ci.yml/badge.svg)](https://github.com/thethunderbolt/fullstack-forge-skill/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/is-bo/fullstack-forge-skill?display_name=tag&sort=semver)](https://github.com/is-bo/fullstack-forge-skill/releases)
+[![CI](https://github.com/is-bo/fullstack-forge-skill/actions/workflows/ci.yml/badge.svg)](https://github.com/is-bo/fullstack-forge-skill/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-475569.svg)](LICENSE)
 [![Security policy](https://img.shields.io/badge/security-policy-2563EB.svg)](SECURITY.md)
 [![Node](https://img.shields.io/badge/node-%3E%3D24-2563EB.svg)](package.json)
@@ -39,7 +39,7 @@ Forge:  Audit finished — evidence is incomplete.
 Node.js 24 or newer and Git are required. The reliable full-product route is:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.2
+npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.5.3"
 npx forge init
 npx forge doctor
 ```
@@ -105,7 +105,7 @@ available and unchanged. In Codex, the latter appears as **Fullstack Forge — E
 Codex, Claude Code, Antigravity, Gemini CLI, Cursor, Windsurf, GitHub Copilot, and generic Agent
 Skills are supported. [Commands](docs/COMMANDS.md) · [Platforms](docs/PLATFORM_SUPPORT.md) ·
 [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) ·
-[Releases](https://github.com/thethunderbolt/fullstack-forge-skill/releases)
+[Releases](https://github.com/is-bo/fullstack-forge-skill/releases)
 
 ## Why this exists
 
@@ -129,9 +129,8 @@ flowchart LR
 ### From a release archive
 
 Download the archive for your agent from the
-[latest release](https://github.com/thethunderbolt/fullstack-forge-skill/releases), verify it
-against `SHA256SUMS.txt`, and extract it at the project root. Archives contain real copies, never
-symlinks.
+[latest release](https://github.com/is-bo/fullstack-forge-skill/releases), verify it against
+`SHA256SUMS.txt`, and extract it at the project root. Archives contain real copies, never symlinks.
 
 ### With npm, from the Git tag
 
@@ -139,7 +138,7 @@ Fullstack Forge is **not published to the npm registry**. The working npm-based 
 resolves the package directly from its Git tag:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.2
+npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.5.3"
 npx forge init all --dry-run
 npx forge init
 ```
@@ -345,8 +344,8 @@ fails if a generated copy drifts.
 See [architecture](docs/ARCHITECTURE.md), [development](docs/DEVELOPMENT.md),
 [release process](docs/RELEASING.md), the [traceability matrix](docs/TRACEABILITY_MATRIX.md) that
 maps every requirement to evidence, the
-[v0.5 gap classification](docs/AUDIT_CLASSIFICATION_v0.5.0.md), and the
-[v0.5.1 release verification record](docs/RELEASE_VERIFICATION_v0.5.1.md), which keeps local, CI,
+[v0.5.3 audit classification](docs/AUDIT_CLASSIFICATION_v0.5.3.md), and the
+[v0.5.3 release verification record](docs/RELEASE_VERIFICATION_v0.5.3.md), which keeps local, CI,
 publication, asset-download, and clean-room evidence distinct.
 
 ## Safety and limitations

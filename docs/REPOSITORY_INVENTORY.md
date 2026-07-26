@@ -26,21 +26,29 @@ workspace; repository-wide policy review should use the repository root.
 
 The shared policy excludes directories whose contents are not application-source evidence:
 
-| Category            | Names                                                                                    | Rationale                                                                                                                   |
-| ------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Forge-private state | `.git`, `.forge`, `.fullstack-forge`, `.audit`, `.audit-work`, `.codex`                  | Version-control internals, local reports, ownership data, research, and attachments must not re-enter evidence or packages. |
-| Dependencies        | `node_modules`, `vendor`                                                                 | Third-party trees are assessed through manifests and lockfiles, not as application source.                                  |
-| Generated output    | `.next`, `.nuxt`, `.output`, `.svelte-kit`, `build`, `coverage`, `dist`, `out`, `target` | Build products are neutral evidence and can be arbitrarily large. A tracked path is recorded before neutralization.         |
-| Framework caches    | `.cache`, `.turbo`, `.tox`, `__pycache__`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache` | Regenerable caches are not implementation evidence.                                                                         |
-| Local environments  | `.venv`, `venv`, `env`, `.gradle`, `.idea`, `.vscode`                                    | Local dependency and editor state is not application source.                                                                |
-| Runtime data        | `uploads`, `attachments`, `backups`, `logs`                                              | User/private/runtime data must not enter reports.                                                                           |
-| Temporary data      | `.tmp`, `temp`                                                                           | Ephemeral files are not durable source evidence.                                                                            |
+| Category            | Names                                                                                    | Rationale                                                                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Forge-private state | `.git`, `.forge`, `.fullstack-forge`, `.audit`, `.audit-work`, `.codex`                  | Version-control internals, local reports, ownership data, research, and attachments must not re-enter evidence or packages.      |
+| Dependencies        | `node_modules`, `vendor`                                                                 | Third-party trees are assessed through manifests and lockfiles, not as application source.                                       |
+| Generated output    | `.next`, `.nuxt`, `.output`, `.svelte-kit`, `build`, `coverage`, `dist`, `out`, `target` | Build products are neutral evidence and can be arbitrarily large. A tracked path is recorded before neutralization.              |
+| Framework caches    | `.cache`, `.turbo`, `.tox`, `__pycache__`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache` | Regenerable caches are not implementation evidence.                                                                              |
+| Local environments  | `.venv`, `venv`, `env`, `.gradle`, `.idea`, `.vscode`                                    | Local dependency and editor state is not application source.                                                                     |
+| Runtime data        | `uploads`, `attachments`, `backups`, `logs`                                              | Clearly private, untracked top-level runtime files are excluded without reading them. Tracked or nested source remains evidence. |
+| Temporary data      | `.tmp`, `temp`                                                                           | Ephemeral files are not durable source evidence.                                                                                 |
 
 Forge does not exclude every unknown directory. Documentation, tests, examples, and fixtures are
 classified as neutral and sampled only within a small representative bound; they cannot activate a
 production capability. Generic output names such as `build`, `dist`, `out`, and `target` are
 automatic exclusions only at the selected root, so application source such as `src/build/` remains
 eligible.
+
+Runtime-looking directory names are handled more narrowly. A tracked `uploads/handler.ts`,
+`src/logs/logger.ts`, `apps/api/attachments/service.ts`, or `packages/backups/processor.ts` is
+inspected as ordinary source. An untracked nested source path is also inspected. Only a clearly
+private top-level runtime file such as `uploads/private.sqlite` can be skipped automatically. A
+top-level untracked runtime-looking text/source file is not read merely to classify the directory:
+the inventory is marked `PARTIAL`, emits `FF-INVENTORY-001` as `NOT_VERIFIED`, and Audit, Verify,
+and Ship exit `2`.
 
 Known images, audio/video, archives, executables, compiled objects, databases, fonts, source maps,
 and other binary formats are skipped before the text budget. Unknown formats receive a bounded

@@ -108,28 +108,28 @@ The refused fix left both defects at `FAIL`. Under v0.1.2 both would have been r
 
 ## Remote verification
 
-| Step                         | Status | Evidence                                                                    |
-| ---------------------------- | ------ | --------------------------------------------------------------------------- |
-| Branch pushed                | PASS   | `fix/v0.1.3-correctness-audit`                                              |
-| Pull request                 | PASS   | https://github.com/thethunderbolt/fullstack-forge-skill/pull/10             |
-| Linux CI (PR)                | PASS   | Verify (ubuntu-latest), 1m31s                                               |
-| Windows CI (PR)              | PASS   | Verify (windows-latest), 2m48s                                              |
-| macOS CI (PR)                | PASS   | Verify (macos-latest), 1m3s                                                 |
-| Dependency review (PR)       | PASS   | 7s                                                                          |
-| Merge to `main`              | PASS   | merge commit `0aab8ec`                                                      |
-| Linux CI (main)              | PASS   | run 29675305109                                                             |
-| Windows CI (main)            | PASS   | run 29675305109                                                             |
-| macOS CI (main)              | PASS   | run 29675305109                                                             |
-| Annotated tag `v0.1.3`       | PASS   | created from `0aab8ec`; not moved or recreated                              |
-| Release workflow             | PASS   | run 29675398435, conclusion success                                         |
-| GitHub release               | PASS   | https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.3 |
-| Published assets             | PASS   | 11 assets: 9 ZIPs, `SHA256SUMS.txt`, `manifest.json`                        |
-| Published checksums          | PASS   | `sha256sum -c SHA256SUMS.txt` — 9/9 OK                                      |
-| Reproducibility              | PASS   | published sums byte-identical to a local rebuild from source                |
-| Symlinks / reparse points    | PASS   | 0 across all 9 published archives and the extracted tree                    |
-| Provenance attestation       | PASS   | SLSA v1, `release.yml@refs/tags/v0.1.3`, digest `0aab8ec`                   |
-| Install from tag             | PASS   | `npm install github:...#v0.1.3` → `forge --version` = 0.1.3                 |
-| Install from release archive | PASS   | `fullstack-forge-claude-v0.1.3.zip` extracted, 43 SKILL.md, 0 symlinks      |
+| Step                         | Status | Evidence                                                               |
+| ---------------------------- | ------ | ---------------------------------------------------------------------- |
+| Branch pushed                | PASS   | `fix/v0.1.3-correctness-audit`                                         |
+| Pull request                 | PASS   | https://github.com/is-bo/fullstack-forge-skill/pull/10                 |
+| Linux CI (PR)                | PASS   | Verify (ubuntu-latest), 1m31s                                          |
+| Windows CI (PR)              | PASS   | Verify (windows-latest), 2m48s                                         |
+| macOS CI (PR)                | PASS   | Verify (macos-latest), 1m3s                                            |
+| Dependency review (PR)       | PASS   | 7s                                                                     |
+| Merge to `main`              | PASS   | merge commit `0aab8ec`                                                 |
+| Linux CI (main)              | PASS   | run 29675305109                                                        |
+| Windows CI (main)            | PASS   | run 29675305109                                                        |
+| macOS CI (main)              | PASS   | run 29675305109                                                        |
+| Annotated tag `v0.1.3`       | PASS   | created from `0aab8ec`; not moved or recreated                         |
+| Release workflow             | PASS   | run 29675398435, conclusion success                                    |
+| GitHub release               | PASS   | https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.3     |
+| Published assets             | PASS   | 11 assets: 9 ZIPs, `SHA256SUMS.txt`, `manifest.json`                   |
+| Published checksums          | PASS   | `sha256sum -c SHA256SUMS.txt` — 9/9 OK                                 |
+| Reproducibility              | PASS   | published sums byte-identical to a local rebuild from source           |
+| Symlinks / reparse points    | PASS   | 0 across all 9 published archives and the extracted tree               |
+| Provenance attestation       | PASS   | SLSA v1, `release.yml@refs/tags/v0.1.3`, digest `0aab8ec`              |
+| Install from tag             | PASS   | `npm install github:...#v0.1.3` → `forge --version` = 0.1.3            |
+| Install from release archive | PASS   | `fullstack-forge-claude-v0.1.3.zip` extracted, 43 SKILL.md, 0 symlinks |
 
 Packaging determinism was checked by running `npm run package:platforms` twice and comparing
 `SHA256SUMS.txt`: byte-identical.

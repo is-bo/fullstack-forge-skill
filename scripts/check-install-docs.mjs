@@ -11,11 +11,12 @@ import { projectRoot } from "./project.mjs";
  * documented npm installation must name a Git specifier that resolves right now.
  */
 
-const REGISTRY_INSTALL =
-  /^\s*npm\s+(?:install|i|add)\b[^\n]*?(?<!github:thethunderbolt\/)fullstack-forge-skill\b/u;
+const REGISTRY_INSTALL = /^\s*npm\s+(?:install|i|add)\b[^\n]*?fullstack-forge-skill\b/u;
 const UNAVAILABLE_MARKER = /NOT YET AVAILABLE/u;
-const GIT_SPECIFIER = /github:[^\s#]+#v\d+\.\d+\.\d+/u;
-const PROJECT_PIN = /github:thethunderbolt\/fullstack-forge-skill#(v\d+\.\d+\.\d+)/gu;
+const GIT_SPECIFIER =
+  /(?:github:is-bo\/fullstack-forge-skill|git\+https:\/\/github\.com\/is-bo\/fullstack-forge-skill\.git)#v\d+\.\d+\.\d+/u;
+const PROJECT_PIN =
+  /(?:github:is-bo\/fullstack-forge-skill|git\+https:\/\/github\.com\/is-bo\/fullstack-forge-skill\.git)#(v\d+\.\d+\.\d+)/gu;
 
 const { version } = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8"));
 const currentTag = `v${version}`;

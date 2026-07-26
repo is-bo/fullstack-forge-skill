@@ -6,15 +6,15 @@ state from a local check.
 
 ## Published identity
 
-- Repository: <https://github.com/thethunderbolt/fullstack-forge-skill>
-- Release: <https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.0>
+- Repository: <https://github.com/is-bo/fullstack-forge-skill>
+- Release: <https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.0>
 - Annotated tag object: `554041cc742bcb13be0c2b543a281a2d8c692492`
 - Peeled release commit:
-  [`dda494c062296481c5c2669b929b40c84789f02f`](https://github.com/thethunderbolt/fullstack-forge-skill/commit/dda494c062296481c5c2669b929b40c84789f02f)
+  [`dda494c062296481c5c2669b929b40c84789f02f`](https://github.com/is-bo/fullstack-forge-skill/commit/dda494c062296481c5c2669b929b40c84789f02f)
 - Linux and Windows CI:
-  [run 29650035711](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29650035711)
+  [run 29650035711](https://github.com/is-bo/fullstack-forge-skill/actions/runs/29650035711)
 - Tagged release build:
-  [run 29650260667](https://github.com/thethunderbolt/fullstack-forge-skill/actions/runs/29650260667)
+  [run 29650260667](https://github.com/is-bo/fullstack-forge-skill/actions/runs/29650260667)
 
 Both workflow runs completed successfully. The tag was then resolved again from the public remote
 and independently cloned at the peeled commit above.

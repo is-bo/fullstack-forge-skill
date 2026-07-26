@@ -55,7 +55,7 @@ in `docs/PLATFORM_SUPPORT.md`.
 ## Installation
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.2
+npm install --save-dev github:is-bo/fullstack-forge-skill#v0.1.2
 npx forge init all --dry-run
 npx forge init all
 ```

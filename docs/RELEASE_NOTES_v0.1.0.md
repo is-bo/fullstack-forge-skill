@@ -23,7 +23,7 @@ requires every criterion to appear in the canonical and generated platform copie
 Download the matching ZIP and verify it with `SHA256SUMS.txt`, or install from the tag:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.0
+npm install --save-dev github:is-bo/fullstack-forge-skill#v0.1.0
 npx forge init all --dry-run
 npx forge init all
 ```

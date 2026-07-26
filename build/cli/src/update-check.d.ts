@@ -1,5 +1,5 @@
 import { runFile } from "./utils.js";
-export declare const UPSTREAM_GIT_URL = "https://github.com/thethunderbolt/fullstack-forge-skill.git";
+export declare const UPSTREAM_GIT_URL = "https://github.com/is-bo/fullstack-forge-skill.git";
 export type UpdateAvailability = {
     status: "PASS" | "WARNING";
     evidence: string;

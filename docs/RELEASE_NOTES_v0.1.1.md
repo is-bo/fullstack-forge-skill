@@ -51,7 +51,7 @@ same codelab's product-level scope table and records the ambiguity in `docs/PLAT
 ## Installation
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.1
+npm install --save-dev github:is-bo/fullstack-forge-skill#v0.1.1
 npx forge init all --dry-run
 npx forge init all
 ```

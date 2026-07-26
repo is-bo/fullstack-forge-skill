@@ -81,7 +81,7 @@ the browser.
 ## Installation
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.1.5
+npm install --save-dev github:is-bo/fullstack-forge-skill#v0.1.5
 npx forge init all --dry-run
 npx forge init all
 ```

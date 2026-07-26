@@ -2,7 +2,7 @@ import { VERSION } from "./constants.js";
 import { redactToString } from "./redaction.js";
 import { runFile } from "./utils.js";
 
-export const UPSTREAM_GIT_URL = "https://github.com/thethunderbolt/fullstack-forge-skill.git";
+export const UPSTREAM_GIT_URL = "https://github.com/is-bo/fullstack-forge-skill.git";
 
 type Version = {
   text: string;

@@ -756,8 +756,8 @@ async function doctor(options: CliOptions): Promise<number> {
           }
         : {
             recovery: options.global
-              ? `Run 'npm install --global github:thethunderbolt/fullstack-forge-skill#v${update.latestVersion}', then 'forge update all --global'.`
-              : `Run 'npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v${update.latestVersion}', then 'npx forge update all'.`
+              ? `Run 'npm install --global git+https://github.com/is-bo/fullstack-forge-skill.git#v${update.latestVersion}', then 'forge update all --global'.`
+              : `Run 'npm install --save-dev git+https://github.com/is-bo/fullstack-forge-skill.git#v${update.latestVersion}', then 'npx forge update all'.`
           })
   });
   for (const path of [

@@ -29,7 +29,7 @@ Copilot, and generic Agent Skills remain synchronized.
 After the immutable v0.5.2 tag exists:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.2
+npm install --save-dev github:is-bo/fullstack-forge-skill#v0.5.2
 npx forge init
 npx forge doctor
 ```

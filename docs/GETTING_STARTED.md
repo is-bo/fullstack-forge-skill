@@ -9,7 +9,7 @@ Node.js 24 or newer and Git are required. Install the versioned package, then co
 the supported agent directories in this project:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.2
+npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.5.3"
 npx forge init
 npx forge doctor
 ```
@@ -24,13 +24,30 @@ and does not overwrite changed or unowned files.
 For agent skills without the persistent CLI dependency, the verified third-party alternative is:
 
 ```bash
-npx --yes --package skills@1.5.20 skills add thethunderbolt/fullstack-forge-skill --copy --skill '*'
+npx --yes --package skills@1.5.20 skills add is-bo/fullstack-forge-skill --copy --skill '*'
 ```
 
 Choose your agent when prompted. Add `--agent codex --yes` for an unattended Codex project install.
 `--copy` is important: it requests real files instead of links. This route installs skills only; use
 the first-party npm route when you want the persistent `forge` executable, ownership-aware updates,
 `forge doctor`, or uninstall protection.
+
+## Update after the GitHub username migration
+
+The same maintainer now publishes from `is-bo/fullstack-forge-skill`. Reinstall from the current
+tag, refresh the Codex skill, and check the installation:
+
+```bash
+npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.5.3"
+npx forge update codex
+npx forge doctor
+```
+
+Confirm the dependency source recorded by npm with:
+
+```bash
+npm pkg get devDependencies.fullstack-forge-skill
+```
 
 ## Run your first command
 

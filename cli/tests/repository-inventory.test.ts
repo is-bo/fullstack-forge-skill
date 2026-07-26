@@ -4,6 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { discoverProject } from "../src/discovery.js";
 import {
+  classifyInventoryPath,
   inventoryRepository,
   parseInspectionBudget,
   validateExclusionPattern
@@ -88,6 +89,7 @@ test("runtime data is excluded visibly without loading private content", async (
     }
 
     const inventory = await inventoryRepository(root);
+    assert.equal(inventory.diagnostics.source, "fallback");
     assert.equal(inventory.diagnostics.status, "COMPLETE");
     assert.equal(inventory.diagnostics.default_paths_excluded, 4);
     assert.ok(
@@ -97,6 +99,95 @@ test("runtime data is excluded visibly without loading private content", async (
     );
     assert.equal(
       inventory.entries.some((entry) => entry.path.includes("private.sqlite")),
+      false
+    );
+  });
+});
+
+test("runtime-looking source is inspected when tracked or nested", async () => {
+  await withTemporaryProject("inventory-runtime-source", async (root) => {
+    await git(root, ["init"]);
+    await git(root, ["config", "user.email", "forge@example.test"]);
+    await git(root, ["config", "user.name", "Forge Test"]);
+    const tracked = [
+      "uploads/handler.ts",
+      "src/uploads/handler.ts",
+      "src/logs/logger.ts",
+      "apps/api/attachments/service.ts",
+      "packages/backups/processor.ts",
+      "apps/api/attachments/unicode-λ.ts"
+    ];
+    for (const path of tracked) {
+      await mkdir(join(root, ...path.split("/").slice(0, -1)), { recursive: true });
+      await writeFile(join(root, ...path.split("/")), "export const inspected = true;", "utf8");
+    }
+    await git(root, ["add", "."]);
+    await git(root, ["commit", "-m", "fixture"]);
+    await writeFile(
+      join(root, "src", "uploads", "untracked.ts"),
+      "export const untracked = true;",
+      "utf8"
+    );
+
+    const inventory = await inventoryRepository(root);
+    assert.equal(inventory.diagnostics.source, "git");
+    assert.equal(inventory.diagnostics.status, "COMPLETE");
+    for (const path of tracked) {
+      const entry = inventory.entries.find((candidate) => candidate.path === path);
+      assert.ok(entry, path);
+      assert.equal(entry.origin, "tracked", path);
+      assert.equal(entry.status, "INSPECTED", path);
+    }
+    const untracked = inventory.entries.find((entry) => entry.path === "src/uploads/untracked.ts");
+    assert.ok(untracked);
+    assert.equal(untracked.origin, "untracked");
+    assert.equal(untracked.status, "INSPECTED");
+    assert.equal(classifyInventoryPath("src\\uploads\\handler.ts"), "production");
+  });
+});
+
+test("fallback discovery fails closed for ambiguous top-level runtime source", async () => {
+  await withTemporaryProject("inventory-runtime-fallback", async (root) => {
+    await mkdir(join(root, "src", "uploads"), { recursive: true });
+    await mkdir(join(root, "uploads"));
+    await writeFile(
+      join(root, "src", "uploads", "handler.ts"),
+      "export const nested = true;",
+      "utf8"
+    );
+    await writeFile(join(root, "uploads", "handler.ts"), "export const topLevel = true;", "utf8");
+
+    const inventory = await inventoryRepository(root);
+    assert.equal(inventory.diagnostics.source, "fallback");
+    assert.equal(inventory.diagnostics.status, "PARTIAL");
+    assert.equal(inventory.diagnostics.reason, "runtime-private-data-ambiguous");
+    assert.equal(inventory.diagnostics.required_evidence_excluded, true);
+    const nested = inventory.entries.find((entry) => entry.path === "src/uploads/handler.ts");
+    assert.ok(nested);
+    assert.equal(nested.status, "INSPECTED");
+    const ambiguous = inventory.entries.find((entry) => entry.path === "uploads/handler.ts");
+    assert.ok(ambiguous);
+    assert.equal(ambiguous.reason, "runtime-private-data-ambiguous");
+    assert.equal(ambiguous.content, undefined);
+  });
+});
+
+test("runtime-looking source excluded by .forgeignore remains incomplete evidence", async () => {
+  await withTemporaryProject("inventory-runtime-forgeignore", async (root) => {
+    await mkdir(join(root, "src", "uploads"), { recursive: true });
+    await writeFile(join(root, "app.ts"), "export const app = true;", "utf8");
+    await writeFile(
+      join(root, "src", "uploads", "handler.ts"),
+      "export const handler = true;",
+      "utf8"
+    );
+    await writeFile(join(root, ".forgeignore"), "src/uploads\n", "utf8");
+
+    const inventory = await inventoryRepository(root);
+    assert.equal(inventory.diagnostics.status, "PARTIAL");
+    assert.equal(inventory.diagnostics.required_evidence_excluded, true);
+    assert.equal(
+      inventory.entries.some((entry) => entry.path === "src/uploads/handler.ts"),
       false
     );
   });
@@ -163,19 +254,23 @@ test("exclusion and budget input validation rejects escape and ambiguous values"
   }
 });
 
-test("CLI exclusions are repeatable, visible in JSON, and fail closed for Audit, Verify, and Ship", async () => {
+test("CLI runtime-source exclusions are visible and fail closed for Audit, Verify, and Ship", async () => {
   await withTemporaryProject("inventory-cli", async (root) => {
     await writeFile(join(root, "package.json"), '{"name":"cli-inventory"}', "utf8");
     await writeFile(join(root, "app.ts"), "export const app = true;", "utf8");
-    await mkdir(join(root, "private"));
-    await writeFile(join(root, "private", "auth.ts"), "export const password = 'value';", "utf8");
+    await mkdir(join(root, "src", "uploads"), { recursive: true });
+    await writeFile(
+      join(root, "src", "uploads", "handler.ts"),
+      "export const password = 'value';",
+      "utf8"
+    );
 
     const common = [
       "--root",
       root,
       "--exclude",
-      "private",
-      "--exclude=private",
+      "src/uploads",
+      "--exclude=src/uploads",
       "--inspection-budget",
       "1MiB",
       "--json"
@@ -190,13 +285,19 @@ test("CLI exclusions are repeatable, visible in JSON, and fail closed for Audit,
       };
     };
     assert.equal(auditJson.report.profile.inventory.status, "PARTIAL");
-    assert.deepEqual(auditJson.report.profile.inventory.cli_exclusions, ["private"]);
+    assert.deepEqual(auditJson.report.profile.inventory.cli_exclusions, ["src/uploads"]);
     assert.equal(auditJson.report.environment.inspection_budget_bytes, 1024 * 1024);
-    assert.deepEqual(auditJson.report.environment.inventory_exclusions, ["private"]);
+    assert.deepEqual(auditJson.report.environment.inventory_exclusions, ["src/uploads"]);
     assert.ok(
       auditJson.report.findings.some(
         (finding) => finding.id === "FF-INVENTORY-001" && finding.status === "NOT_VERIFIED"
       )
+    );
+    assert.equal(
+      auditJson.report.findings.some(
+        (finding) => finding.id === "FF-INVENTORY-001" && finding.status === "PASS"
+      ),
+      false
     );
 
     const verify = await runFile(process.execPath, [CLI, "all", "verify", ...common], root, 30_000);
@@ -220,6 +321,27 @@ test("CLI exclusions are repeatable, visible in JSON, and fail closed for Audit,
         (finding) => finding.id === "FF-INVENTORY-001" && finding.status === "NOT_VERIFIED"
       )
     );
+  });
+});
+
+test("ambiguous default runtime source fails closed for Audit, Verify, and Ship", async () => {
+  await withTemporaryProject("inventory-runtime-cli-default", async (root) => {
+    await writeFile(join(root, "package.json"), '{"name":"cli-runtime-default"}', "utf8");
+    await mkdir(join(root, "uploads"));
+    await writeFile(join(root, "uploads", "handler.ts"), "export const ambiguous = true;", "utf8");
+
+    for (const command of [["all", "audit"], ["all", "verify"], ["ship"]]) {
+      const result = await runFile(
+        process.execPath,
+        [CLI, ...command, "--root", root, "--json"],
+        root,
+        30_000
+      );
+      assert.equal(result.exitCode, 2, `${command.join(" ")}\n${result.stderr}`);
+      assert.match(result.stdout, /"id": "FF-INVENTORY-001"/u);
+      assert.match(result.stdout, /"status": "NOT_VERIFIED"/u);
+      assert.doesNotMatch(result.stdout, /"id": "FF-INVENTORY-001"[\s\S]{0,500}"status": "PASS"/u);
+    }
   });
 });
 

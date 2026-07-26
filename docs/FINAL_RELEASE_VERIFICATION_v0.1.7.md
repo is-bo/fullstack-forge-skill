@@ -20,18 +20,18 @@ are not covered here.
 
 ## Identity and remote state
 
-| Item                      | Verified value                                                                                        |
-| ------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Feature pull request      | [#19](https://github.com/thethunderbolt/fullstack-forge-skill/pull/19)                                |
-| Release-prep pull request | [#23](https://github.com/thethunderbolt/fullstack-forge-skill/pull/23)                                |
-| Merge commit on `main`    | `bb35a119d00103f64221033e406d9f5e5b9b344f`                                                            |
-| Annotated tag object      | `2a2e439eb8640533d0054cd9a729dfe4dca82743`                                                            |
-| Tag                       | `v0.1.7`, peels to `bb35a119d00103f64221033e406d9f5e5b9b344f`                                         |
-| Release                   | [Fullstack Forge v0.1.7](https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.1.7) |
-| Immutable release         | `true`; draft `false`                                                                                 |
-| Published at              | 2026-07-20T01:32:57Z                                                                                  |
-| Release workflow run      | `29710011290` — conclusion `success`, head `bb35a11`                                                  |
-| Published assets          | 13 (9 platform archives, `SHA256SUMS.txt`, `manifest.json`, final evidence and its `.sha256`)         |
+| Item                      | Verified value                                                                                |
+| ------------------------- | --------------------------------------------------------------------------------------------- |
+| Feature pull request      | [#19](https://github.com/is-bo/fullstack-forge-skill/pull/19)                                 |
+| Release-prep pull request | [#23](https://github.com/is-bo/fullstack-forge-skill/pull/23)                                 |
+| Merge commit on `main`    | `bb35a119d00103f64221033e406d9f5e5b9b344f`                                                    |
+| Annotated tag object      | `2a2e439eb8640533d0054cd9a729dfe4dca82743`                                                    |
+| Tag                       | `v0.1.7`, peels to `bb35a119d00103f64221033e406d9f5e5b9b344f`                                 |
+| Release                   | [Fullstack Forge v0.1.7](https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.7)  |
+| Immutable release         | `true`; draft `false`                                                                         |
+| Published at              | 2026-07-20T01:32:57Z                                                                          |
+| Release workflow run      | `29710011290` — conclusion `success`, head `bb35a11`                                          |
+| Published assets          | 13 (9 platform archives, `SHA256SUMS.txt`, `manifest.json`, final evidence and its `.sha256`) |
 
 All eight tags `v0.1.0`–`v0.1.7` were re-resolved after publication and compared against
 `git ls-remote --tags origin`. Every tag object hash is identical locally and remotely, and every
@@ -95,8 +95,8 @@ independent local rebuild, so this is a property of the packaging inputs rather 
 error.
 
 The attestation resolves to
-`https://github.com/thethunderbolt/fullstack-forge-skill/.github/workflows/release.yml@refs/tags/v0.1.7`
-with source repository digest `bb35a119d00103f64221033e406d9f5e5b9b344f`.
+`https://github.com/is-bo/fullstack-forge-skill/.github/workflows/release.yml@refs/tags/v0.1.7` with
+source repository digest `bb35a119d00103f64221033e406d9f5e5b9b344f`.
 
 ## Private specification material
 

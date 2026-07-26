@@ -48,7 +48,7 @@ generated platform roots alongside the 42 audit skills.
 ## Installation
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.2.0
+npm install --save-dev github:is-bo/fullstack-forge-skill#v0.2.0
 npx forge init all
 ```
 
