@@ -31,10 +31,26 @@
   },
   {
     "id": "small-button-label",
-    "prompt": "Change the primary button label.",
+    "prompt": "Change the primary button spacing.",
     "risk": "light",
-    "modules": ["ui"],
-    "required_considerations": ["focused rendered or component validation"],
+    "modules": ["frontend", "ui", "accessibility"],
+    "required_considerations": [
+      "focused rendered or component validation",
+      "database and authorization remain outside the plan"
+    ],
+    "full_audit": false
+  },
+  {
+    "id": "normal-appointment-cancellation",
+    "prompt": "Add appointment cancellation and notify the patient.",
+    "risk": "standard",
+    "modules": ["authorization", "database", "notifications", "reliability", "testing"],
+    "required_considerations": [
+      "cancellation permissions",
+      "status transitions",
+      "notification failure handling",
+      "focused tests"
+    ],
     "full_audit": false
   },
   {

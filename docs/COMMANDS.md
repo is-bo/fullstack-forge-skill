@@ -1,7 +1,7 @@
 # Commands
 
-Normal software-engineering work does not require a Forge command. Installed project instructions
-activate the canonical workflow automatically.
+Install Forge, then continue talking to your AI agent normally. Installed project instructions
+activate the canonical workflow automatically; explicit commands are optional controls.
 
 ## Optional workflow commands
 
@@ -16,8 +16,12 @@ $forge status
 $forge help
 ```
 
-Terminal equivalents use `npx forge`. Explicit commands force, narrow, or expand scope while
-preserving evidence and approval rules.
+These are Agent Skills forms where `$skill` selection is supported. A host that exposes installed
+skills as slash commands can use the equivalent `/forge audit security`; other hosts use a skill
+manager or mention. Terminal equivalents use `npx forge`. See
+[platform support](PLATFORM_SUPPORT.md) rather than assuming every host has identical syntax.
+
+Explicit commands force, narrow, or expand scope while preserving evidence and approval rules.
 
 ## Installation commands
 
@@ -36,6 +40,10 @@ Selectors are `codex`, `claude`, `antigravity`, `gemini`, `cursor`, `windsurf`, 
 
 Use `forge <module> audit|fix|verify|report` for a deliberate specialist workflow. The 42 modules
 remain available, but automatic work loads only relevant playbooks.
+
+Natural-language routing is a candidate selection aid. The agent must validate module applicability
+against affected paths, workspaces, frameworks, the project profile, changed files, and direct
+repository evidence before treating a module as active.
 
 ## Frontend, UI, and UX shortcuts
 

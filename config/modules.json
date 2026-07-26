@@ -708,7 +708,10 @@
     ],
     "standards": ["Redis eviction documentation", "RFC 9111"],
     "stack": ["Account for framework, CDN, browser, server, and data caches as separate layers"],
-    "limitations": ["Cache value requires workload measurements"]
+    "limitations": [
+      "Cache value requires workload measurements",
+      "Cache-key resolution is bounded to local static expressions; cross-file helpers, dynamic computed properties, and non-linear reassignment remain NOT_VERIFIED"
+    ]
   },
   {
     "slug": "storage",

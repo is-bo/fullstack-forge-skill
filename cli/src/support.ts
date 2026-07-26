@@ -118,6 +118,24 @@ export const ANALYZER_SUPPORT: readonly AnalyzerSupport[] = [
     required_adapter: "jvm-security-boundaries"
   },
   {
+    module: "cache",
+    language: JS_TS,
+    framework: "any",
+    analyzer_id: "js-ts-queries-cache",
+    coverage: "executable",
+    supported_shapes: [
+      "inline literal and template cache keys",
+      "bounded local aliases and straight-line reassignment",
+      "string concatenation and TypeScript expression wrappers",
+      "static local object properties and object destructuring"
+    ],
+    unsupported_shapes: [
+      "cross-file and helper-function key construction",
+      "dynamic computed object properties",
+      "non-linear reassignment and aliases beyond the bounded depth"
+    ]
+  },
+  {
     module: "tenancy",
     language: JS_TS,
     framework: "any",

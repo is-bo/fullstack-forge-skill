@@ -10,7 +10,7 @@ test("agent-first evals cover automatic proportional and explicit workflows", as
   const cases = JSON.parse(
     await readFile(join(projectRoot, "evals", "agent-first", "cases.json"), "utf8")
   );
-  assert.equal(cases.length, 6);
+  assert.equal(cases.length, 7);
   for (const entry of cases) {
     assert.ok(entry.prompt.length > 0);
     assert.ok(entry.modules.length > 0);
@@ -21,6 +21,9 @@ test("agent-first evals cover automatic proportional and explicit workflows", as
   assert.ok(cases.some((entry) => entry.risk === "high" && entry.block_unsupported_completion));
   assert.ok(cases.some((entry) => /^\$forge audit/u.test(entry.prompt)));
   assert.ok(cases.some((entry) => /^\$forge build/u.test(entry.prompt)));
+  assert.ok(
+    cases.some((entry) => entry.prompt === "Add appointment cancellation and notify the patient.")
+  );
 });
 
 test("canonical skills encode automatic use, proportional execution, and agent findings", async () => {
@@ -37,11 +40,11 @@ test("canonical skills encode automatic use, proportional execution, and agent f
     main,
     /UNDERSTAND[\s\S]*DISCOVER[\s\S]*SELECT[\s\S]*PLAN[\s\S]*IMPLEMENT[\s\S]*INSPECT[\s\S]*VERIFY[\s\S]*REPORT/u
   );
-  assert.match(main, /Small, low-risk change/u);
-  assert.match(main, /agent-reviewed-source/u);
-  assert.match(main, /agent-rendered-review/u);
+  assert.match(main, /Small \/ light/u);
+  assert.match(main, /references\/workflows\/audit\.md/u);
+  assert.match(main, /references\/workflows\/ship\.md/u);
   assert.match(router, /\$forge frontend/u);
   assert.match(router, /\$forge ui/u);
   assert.match(router, /\$forge ux/u);
-  assert.match(main, /Do not load React Native, charts, motion, or framework\s+guidance/iu);
+  assert.match(main, /Do not load React Native,\s+charts, motion, or framework\s+guidance/iu);
 });

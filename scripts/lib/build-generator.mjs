@@ -1,15 +1,4 @@
-const COMPLETION_CONTRACT = `Never declare a feature complete merely because code was written. A task is complete only when:
-
-1. The requested behavior is implemented.
-2. Relevant workflows work end to end.
-3. Authentication and authorization are verified.
-4. Database behavior is reviewed.
-5. Loading, empty, error, and success states exist.
-6. Applicable accessibility requirements are addressed.
-7. Automated checks pass.
-8. Security-sensitive changes receive security review.
-9. Performance-sensitive changes receive performance review.
-10. Remaining risks, skipped checks, and assumptions are reported.
+const COMPLETION_CONTRACT = `A task is complete only when the requested behavior is implemented and every applicable completion condition is satisfied. Follow \`fullstack-forge/references/shared/completion.md\`; conditions outside the affected boundary remain outside a non-audit plan or receive a reasoned \`NOT_APPLICABLE\`, never \`PASS\`.
 
 Never hide failed checks or claim that an operation ran when it did not.`;
 

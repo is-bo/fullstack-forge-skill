@@ -99,16 +99,28 @@ const scenarioTests = await readFile(
   "utf8"
 );
 const scenarioCount = (scenarioTests.match(/request:/gu) ?? []).length;
-if (scenarioCount !== 13)
+if (scenarioCount < 19)
   errors.push(
-    `Expected 12 scenario requests plus the scenario type declaration; found ${scenarioCount}`
+    `Expected at least 18 scenario requests plus the type declaration; found ${scenarioCount}`
   );
+for (const phrase of [
+  "database table schema",
+  "API page size",
+  "backend form parser",
+  "React appointments table",
+  "responsive booking page",
+  "Next.js appointment component",
+  "plain HTML interface",
+  "Explicit frontend"
+])
+  if (!scenarioTests.toLowerCase().includes(phrase.toLowerCase()))
+    errors.push(`Frontend routing regressions do not cover '${phrase}'`);
 
 if (errors.length > 0) {
   console.error(errors.join("\n"));
   process.exitCode = 1;
 } else {
   console.log(
-    `Validated ${expectedReferences.length} canonical frontend references, 3 templates, 3 owners, and 12 scenarios.`
+    `Validated ${expectedReferences.length} canonical frontend references, 3 templates, 3 owners, and at least 18 scenarios.`
   );
 }
