@@ -37,6 +37,33 @@ Selectors are `codex`, `claude`, `antigravity`, `gemini`, `cursor`, `windsurf`, 
 Use `forge <module> audit|fix|verify|report` for a deliberate specialist workflow. The 42 modules
 remain available, but automatic work loads only relevant playbooks.
 
+## Frontend, UI, and UX shortcuts
+
+The agent accepts these focused workflows without requiring them for normal interface work:
+
+```text
+$forge frontend
+$forge frontend build
+$forge frontend audit
+$forge frontend fix
+$forge frontend verify
+
+$forge ui build
+$forge ui review
+$forge ui audit
+$forge ui fix
+
+$forge ux review
+$forge ux audit
+$forge ux improve
+$forge ux verify
+```
+
+`review` uses the audit evidence contract. `improve` begins with the same bounded preview as `fix`.
+`build` selects the agent-led UNDERSTAND → INSPECT → SELECT → DEFINE → IMPLEMENT → RENDER → VALIDATE
+→ REFINE → REPORT workflow; the CLI route itself does not claim that code or visual checks ran.
+Terminal equivalents use `npx forge frontend build`, `npx forge ui review`, and so on.
+
 ## Findings tools
 
 ```text

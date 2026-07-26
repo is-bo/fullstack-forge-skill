@@ -40,6 +40,22 @@ capability evidence.
 Build evidence and historical reports never satisfy Ship. Current, root- and revision-bound evidence
 is required at each enforcement boundary.
 
+## Frontend experience system
+
+`forge-frontend` is the sole interface-work orchestrator. It composes `forge-ui`, `forge-ux`, and
+`forge-accessibility`, then selects i18n, SEO, performance, offline, or security owners from request
+and repository evidence. Fourteen single-concern references under
+`src/fullstack-forge/references/frontend/` provide progressive product, visual, system, responsive,
+component, framework, performance, motion, forms, data, mobile, review, and anti-pattern guidance.
+Each reference declares when it must and must not be loaded.
+
+Natural-language activation lives in `cli/src/frontend-routing.ts`; generated skill disclosure lives
+in `config/frontend-system.json`. The first selects runtime modules and references, while the second
+describes the agent workflow and public command surface. A validator keeps reference ownership,
+orchestrator size, scenario coverage, and obvious long-bullet duplication bounded. Detailed
+accessibility, localization, search, performance, and offline rules remain in their existing modules
+to prevent competing sources of truth.
+
 ## Installation ownership
 
 The project manifest records installed files, platform, digest, ownership, file/section management,

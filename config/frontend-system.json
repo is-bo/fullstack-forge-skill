@@ -1,0 +1,73 @@
+{
+  "workflow": [
+    "UNDERSTAND",
+    "INSPECT",
+    "SELECT",
+    "DEFINE",
+    "IMPLEMENT",
+    "RENDER",
+    "VALIDATE",
+    "REFINE",
+    "REPORT"
+  ],
+  "areas": {
+    "frontend": {
+      "signals": [
+        "React, Next.js, Vue, Svelte, React Native, or Expo",
+        "components, pages, layouts, forms, tables, charts, browser state, rendering, hydration, bundles, or responsive implementation"
+      ],
+      "commands": ["build", "audit", "fix", "verify"],
+      "references": [
+        "product-and-ux",
+        "visual-direction",
+        "design-system",
+        "responsive-layout",
+        "accessibility-integration",
+        "component-architecture",
+        "react-nextjs",
+        "frontend-performance",
+        "motion-and-interactions",
+        "forms-and-data-entry",
+        "dashboards-and-data-visualization",
+        "mobile-react-native",
+        "design-review",
+        "anti-patterns"
+      ]
+    },
+    "ui": {
+      "signals": [
+        "visual design, redesign, styling, layout, spacing, typography, color, or design systems",
+        "component states, consistency, themes, icons, motion, landing pages, dashboards, or polish"
+      ],
+      "commands": ["build", "review", "audit", "fix"],
+      "references": [
+        "visual-direction",
+        "design-system",
+        "responsive-layout",
+        "motion-and-interactions",
+        "dashboards-and-data-visualization",
+        "design-review",
+        "anti-patterns"
+      ]
+    },
+    "ux": {
+      "signals": [
+        "user flows, usability, navigation, forms, booking, onboarding, or task completion",
+        "feedback, errors, recovery, empty states, decision complexity, conversion, or friction"
+      ],
+      "commands": ["review", "audit", "improve", "verify"],
+      "references": [
+        "product-and-ux",
+        "accessibility-integration",
+        "forms-and-data-entry",
+        "design-review"
+      ]
+    }
+  },
+  "referenceRoot": "src/fullstack-forge/references/frontend",
+  "templates": [
+    "src/fullstack-forge/templates/frontend-design-brief.md",
+    "src/fullstack-forge/templates/frontend-design-system.md",
+    "src/fullstack-forge/templates/frontend-review.md"
+  ]
+}

@@ -225,24 +225,28 @@
     },
     {
       "id": "FF-MOD-04",
-      "summary": "Visual interfaces are inspected in the rendered application, not only in component source, across viewports and interaction states.",
+      "summary": "Visual-interface creation and review activates automatically, preserves established product conventions, loads focused guidance proportionately, and uses rendered evidence rather than source inference across relevant states and viewports.",
       "implementation": [
         "src/fullstack-forge/commands/forge-ui",
+        "src/fullstack-forge/references/frontend",
+        "cli/src/frontend-routing.ts",
         "cli/src/rendered-ui.ts",
         "cli/src/audit-orchestration.ts"
       ],
       "tests": [
+        "cli/tests/frontend-routing.test.ts",
         "cli/tests/rendered-ui.test.ts",
         "cli/tests/rendered-ui-capture.test.ts",
         "cli/tests/cli-audit-orchestration.test.ts",
         "cli/tests/cross-feature-v017-v019.test.ts"
       ],
-      "documentation": ["docs/COMMANDS.md", "docs/SECURITY_MODEL.md", "docs/CLI_REFERENCE.md"],
-      "release_verification": [
-        "docs/RELEASE_VERIFICATION_v0.1.0.md",
-        "docs/RELEASE_VERIFICATION_v0.1.0.md",
-        "docs/RELEASE_VERIFICATION_v0.1.0.md"
+      "documentation": [
+        "docs/COMMANDS.md",
+        "docs/SECURITY_MODEL.md",
+        "docs/CLI_REFERENCE.md",
+        "research/FRONTEND_UI_UX_SYSTEM.md"
       ],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.0.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Rendered inspection requires an application the operator has already started and an explicitly authorised trusted browser driver. Forge never launches an application and never installs browser tooling, so where no driver is available the rendered criteria remain NOT_VERIFIED and the audit exits 2 rather than reporting a pass."
@@ -250,10 +254,15 @@
     },
     {
       "id": "FF-MOD-05",
-      "summary": "User experience is evaluated over real task journeys including failure, permission-denial, and session-expiry recovery.",
-      "implementation": ["src/fullstack-forge/commands/forge-ux"],
-      "tests": ["cli/tests/semantics.test.ts"],
-      "documentation": ["docs/COMMANDS.md"],
+      "summary": "User experience activates automatically for journeys and evaluates the named user task, system states, input preservation, adverse paths, and recovery without presenting expert hypotheses as user research.",
+      "implementation": [
+        "src/fullstack-forge/commands/forge-ux",
+        "src/fullstack-forge/references/frontend/product-and-ux.md",
+        "src/fullstack-forge/references/frontend/forms-and-data-entry.md",
+        "cli/src/frontend-routing.ts"
+      ],
+      "tests": ["cli/tests/semantics.test.ts", "cli/tests/frontend-routing.test.ts"],
+      "documentation": ["docs/COMMANDS.md", "research/FRONTEND_UI_UX_SYSTEM.md"],
       "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.0.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
@@ -296,10 +305,24 @@
     },
     {
       "id": "FF-MOD-09",
-      "summary": "Frontend engineering is inspected for rendering boundaries, state, network waterfalls, hydration, leaks, and bundle behaviour.",
-      "implementation": ["src/fullstack-forge/commands/forge-frontend"],
-      "tests": ["cli/tests/semantics.test.ts"],
-      "documentation": ["docs/COMMANDS.md"],
+      "summary": "Frontend implementation and review activates automatically, routes through a concise orchestrator and focused local references, and covers rendering boundaries, state, networks, hydration, composition, delivery, and measured performance.",
+      "implementation": [
+        "src/fullstack-forge/commands/forge-frontend",
+        "src/fullstack-forge/references/frontend",
+        "config/frontend-system.json",
+        "cli/src/frontend-routing.ts"
+      ],
+      "tests": [
+        "cli/tests/semantics.test.ts",
+        "cli/tests/frontend-routing.test.ts",
+        "cli/tests/cli-simple.test.ts",
+        "scripts/check-frontend-system.mjs"
+      ],
+      "documentation": [
+        "docs/COMMANDS.md",
+        "research/FRONTEND_UI_UX_SYSTEM.md",
+        "research/SOURCES.md"
+      ],
       "release_verification": ["docs/RELEASE_VERIFICATION_v0.1.0.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [

@@ -394,24 +394,24 @@ Code quality is inspected for type safety, error handling, dead code, leaks, and
 
 ### FF-MOD-04
 
-Visual interfaces are inspected in the rendered application, not only in component source, across viewports and interaction states.
+Visual-interface creation and review activates automatically, preserves established product conventions, loads focused guidance proportionately, and uses rendered evidence rather than source inference across relevant states and viewports.
 
 - **Status**: PARTIALLY_COMPLIANT
-- **Implementation**: `src/fullstack-forge/commands/forge-ui`, `cli/src/rendered-ui.ts`, `cli/src/audit-orchestration.ts`
-- **Tests**: `cli/tests/rendered-ui.test.ts`, `cli/tests/rendered-ui-capture.test.ts`, `cli/tests/cli-audit-orchestration.test.ts`, `cli/tests/cross-feature-v017-v019.test.ts`
-- **Documentation**: `docs/COMMANDS.md`, `docs/SECURITY_MODEL.md`, `docs/CLI_REFERENCE.md`
-- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`, `docs/RELEASE_VERIFICATION_v0.1.0.md`, `docs/RELEASE_VERIFICATION_v0.1.0.md`
+- **Implementation**: `src/fullstack-forge/commands/forge-ui`, `src/fullstack-forge/references/frontend`, `cli/src/frontend-routing.ts`, `cli/src/rendered-ui.ts`, `cli/src/audit-orchestration.ts`
+- **Tests**: `cli/tests/frontend-routing.test.ts`, `cli/tests/rendered-ui.test.ts`, `cli/tests/rendered-ui-capture.test.ts`, `cli/tests/cli-audit-orchestration.test.ts`, `cli/tests/cross-feature-v017-v019.test.ts`
+- **Documentation**: `docs/COMMANDS.md`, `docs/SECURITY_MODEL.md`, `docs/CLI_REFERENCE.md`, `research/FRONTEND_UI_UX_SYSTEM.md`
+- **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Rendered inspection requires an application the operator has already started and an explicitly authorised trusted browser driver. Forge never launches an application and never installs browser tooling, so where no driver is available the rendered criteria remain NOT_VERIFIED and the audit exits 2 rather than reporting a pass.
 
 ### FF-MOD-05
 
-User experience is evaluated over real task journeys including failure, permission-denial, and session-expiry recovery.
+User experience activates automatically for journeys and evaluates the named user task, system states, input preservation, adverse paths, and recovery without presenting expert hypotheses as user research.
 
 - **Status**: PARTIALLY_COMPLIANT
-- **Implementation**: `src/fullstack-forge/commands/forge-ux`
-- **Tests**: `cli/tests/semantics.test.ts`
-- **Documentation**: `docs/COMMANDS.md`
+- **Implementation**: `src/fullstack-forge/commands/forge-ux`, `src/fullstack-forge/references/frontend/product-and-ux.md`, `src/fullstack-forge/references/frontend/forms-and-data-entry.md`, `cli/src/frontend-routing.ts`
+- **Tests**: `cli/tests/semantics.test.ts`, `cli/tests/frontend-routing.test.ts`
+- **Documentation**: `docs/COMMANDS.md`, `research/FRONTEND_UI_UX_SYSTEM.md`
 - **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Journey evaluation is a guided manual procedure with no executable analyzer.
@@ -454,12 +454,12 @@ Search-engine and discoverability checks apply only to genuinely public web surf
 
 ### FF-MOD-09
 
-Frontend engineering is inspected for rendering boundaries, state, network waterfalls, hydration, leaks, and bundle behaviour.
+Frontend implementation and review activates automatically, routes through a concise orchestrator and focused local references, and covers rendering boundaries, state, networks, hydration, composition, delivery, and measured performance.
 
 - **Status**: PARTIALLY_COMPLIANT
-- **Implementation**: `src/fullstack-forge/commands/forge-frontend`
-- **Tests**: `cli/tests/semantics.test.ts`
-- **Documentation**: `docs/COMMANDS.md`
+- **Implementation**: `src/fullstack-forge/commands/forge-frontend`, `src/fullstack-forge/references/frontend`, `config/frontend-system.json`, `cli/src/frontend-routing.ts`
+- **Tests**: `cli/tests/semantics.test.ts`, `cli/tests/frontend-routing.test.ts`, `cli/tests/cli-simple.test.ts`, `scripts/check-frontend-system.mjs`
+- **Documentation**: `docs/COMMANDS.md`, `research/FRONTEND_UI_UX_SYSTEM.md`, `research/SOURCES.md`
 - **Release verification**: `docs/RELEASE_VERIFICATION_v0.1.0.md`
 - **Pending integration**: _none_
 - **Limitations**: Bundle and runtime measurements require a project build and are otherwise NOT_VERIFIED.

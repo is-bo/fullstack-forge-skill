@@ -50,6 +50,35 @@ Agent with Fullstack Forge:
 
 No Forge command was required.
 
+## Agent-first frontend, UI, and UX
+
+Install Fullstack Forge and continue working normally. When you ask your AI agent to build or
+improve an interface, it automatically applies the relevant frontend, UI, UX, accessibility, and
+performance guidance. The agent inspects the product and existing design first, preserves useful
+conventions, loads only matching progressive references, implements the work, and inspects the
+rendered result when tools are available.
+
+```text
+User:
+Create a mobile-friendly appointment booking flow.
+
+Agent with Forge:
+- Inspects the product, routes, components, tokens, and existing booking behavior.
+- Applies UX, UI, frontend, and accessibility guidance automatically.
+- Defines a product-appropriate visual direction for substantial new work.
+- Implements loading, partial, empty, error, success, permission, and offline states as applicable.
+- Checks narrow and wide layouts, input preservation, recovery, and keyboard behavior.
+- Runs focused project checks and reports exactly what was and was not verified.
+```
+
+No Forge command is required. The canonical `forge-frontend` orchestrator routes to focused product,
+visual, system, responsive, component, framework, performance, motion, forms, data-visualization,
+mobile, review, and anti-pattern references. Mobile, chart, motion, and framework guidance stays out
+of context unless the request or repository proves it relevant.
+
+This is agent-guided frontend engineering, UI design, and UX review with deterministic automation
+where supported. The CLI does not automate product judgment or imply rendered validation.
+
 The default workflow is:
 
 ```text
@@ -93,6 +122,12 @@ automatically follow Forge while working on your project.
 
 ```text
 $forge build add patient export
+$forge frontend
+$forge frontend build
+$forge frontend audit
+$forge ui review
+$forge ux review
+$forge accessibility
 $forge audit security
 $forge audit queries
 $forge fix --safe
@@ -133,6 +168,7 @@ Forge writes `.forge/report.json` and `.forge/report.md`. Reports can combine th
 forge-analyzer
 forge-command
 agent-reviewed-source
+agent-rendered-review
 agent-runtime-verification
 external-tool
 human-decision
@@ -143,6 +179,10 @@ lines, explanation, impact, recommendation, safe-fix classification, verificatio
 commands, and remaining limitations. Use `forge tool ingest-agent-findings <path>` to validate and
 merge them into the official report. Markdown, JSON, and the final agent response must not
 contradict one another.
+
+Rendered findings use `agent-rendered-review` only when an actual screenshot, viewport,
+accessibility-tree, or browser-console observation is attached. Source-only review keeps rendered
+behavior `NOT_VERIFIED`.
 
 ## Build, Verify, and Ship
 

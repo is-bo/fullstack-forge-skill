@@ -2,6 +2,7 @@
 
 ## Decide before coding
 
+- Select only the progressive frontend references whose load conditions match the request and detected stack; mobile, chart, motion, and framework rules are excluded without evidence.
 - Decide which parts of this feature render on the server and which on the client, and what crosses that boundary, before writing components that assume the wrong one.
 - Decide the loading, cancellation, and stale-response behavior for every new network call, including what happens when a faster later request returns before an earlier one.
 - Decide whether any user-controlled content is rendered as HTML; if so, decide the sanitization boundary before it reaches the DOM.

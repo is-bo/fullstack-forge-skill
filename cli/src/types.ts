@@ -22,6 +22,7 @@ export const FINDING_PRODUCERS = [
   "forge-analyzer",
   "forge-command",
   "agent-reviewed-source",
+  "agent-rendered-review",
   "agent-runtime-verification",
   "external-tool",
   "human-decision"
@@ -30,6 +31,7 @@ export type FindingProducer = (typeof FINDING_PRODUCERS)[number];
 
 export const FINDING_EVIDENCE_TYPES = [
   "source-review",
+  "rendered-review",
   "runtime-verification",
   "command-output",
   "external-tool-output",
@@ -47,6 +49,16 @@ export type FindingLocation = {
   path: string;
   line?: number;
   end_line?: number;
+};
+
+export type FindingRenderedEvidence = {
+  kind: "screenshot" | "viewport" | "accessibility-tree" | "browser-console";
+  observed: string;
+  artifact_path?: string;
+  url?: string;
+  viewport?: { width: number; height: number };
+  state?: string;
+  input_method?: "keyboard" | "pointer" | "touch" | "assistive-technology";
 };
 
 export type EvidenceSnapshot = {
@@ -118,6 +130,7 @@ export type Finding = {
   revision?: string;
   commands_executed?: FindingCommand[];
   remaining_limitations?: string[];
+  rendered_evidence?: FindingRenderedEvidence[];
   analyzer_id?: string;
   /**
    * Stable per-occurrence identity: `<rule id>:<hash>`. The rule-level `id` is preserved for

@@ -10,6 +10,7 @@ them.
 forge-analyzer
 forge-command
 agent-reviewed-source
+agent-rendered-review
 agent-runtime-verification
 external-tool
 human-decision
@@ -25,6 +26,10 @@ Legacy analyzer findings remain readable. New agent findings must contain:
 - verification procedure and revision;
 - commands executed with exit codes;
 - remaining limitations.
+
+Rendered-review findings additionally attach `rendered_evidence` for screenshots, viewport
+observations, accessibility-tree captures, or browser-console observations. The record names the
+observed state and includes artifact, URL, viewport, and input method when those were captured.
 
 The runtime validator and `src/fullstack-forge/schemas/finding.schema.json` enforce this contract.
 Use:

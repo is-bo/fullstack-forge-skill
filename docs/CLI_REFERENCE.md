@@ -36,6 +36,20 @@ forge <module> verify [--json]
 forge <module> report [--output <directory>]
 ```
 
+Interface aliases retain those audit semantics and add an honest agent-led build selector:
+
+```text
+forge frontend build [request]
+forge frontend audit|fix|verify
+forge ui build [request]
+forge ui review|audit|fix
+forge ux review|audit|improve|verify
+```
+
+`review` normalizes to `audit`; `improve` normalizes to the bounded fix preview. A scoped `build`
+prints the selected modules, progressive references, and workflow with evidence status
+`NOT_VERIFIED`; it does not mutate code or claim a render occurred.
+
 ## Tools
 
 Use `forge list --json` for the exact tool catalog. Important agent-first tools include bounded

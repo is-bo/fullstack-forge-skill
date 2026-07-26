@@ -15,6 +15,11 @@ were independently authored.
 | IETF RFC 9110                                                | IETF Trust terms                       | No text copied                                          | Protocol semantics referenced by RFC number                                           |
 | OpenAPI, OpenTelemetry, SLSA, PostgreSQL, Redis docs         | Respective project documentation terms | No text or code copied                                  | Versioned concepts and links only                                                     |
 | UI UX Pro Max                                                | MIT                                    | No code, CSV data, prose, or assets copied              | Query results informed original design priorities; notice and exact revision recorded |
+| Microsoft frontend design review                             | MIT                                    | No code, prose, templates, or assets copied             | Existing-system and review-structure concepts only                                    |
+| AccessLint marketplace audit                                 | MIT stated by repository               | No code, prose, reports, or tool output copied          | Live-render and residual-manual-evidence concepts only                                |
+| Expo skills                                                  | MIT                                    | No code, prose, or dependency choices copied            | Conditional platform/version routing concepts only                                    |
+| shadcn/ui skill                                              | MIT                                    | No code, prose, registry data, or components copied     | Project-context and existing-primitive concepts only                                  |
+| Vercel web interface guidelines                              | MIT                                    | No code or prose copied                                 | Review categories only; remote instruction fetching rejected                          |
 | Addy Osmani Agent Skills                                     | MIT                                    | No code or prose copied                                 | Concept only                                                                          |
 | Anthropic skills                                             | Per-skill; inspected Apache-2.0 sample | No code or prose copied                                 | Concept only; per-skill license caveat preserved                                      |
 | OpenAI skills                                                | Per-skill; inspected Apache-2.0 sample | No code or prose copied                                 | Concept only; per-skill license caveat preserved                                      |
@@ -63,5 +68,6 @@ particularly load-bearing for Trail of Bits (CC BY-SA 4.0), where any adapted pr
 share-alike terms incompatible with the Apache-2.0 core, and for UI UX Pro Max (MIT), whose data
 files and prose are likewise absent.
 
-Re-run this comparison whenever module prose is substantially rewritten or a new upstream source is
-studied.
+This historical measurement predates the 2026-07-26 frontend/UI/UX rewrite and must not be read as a
+measurement of the new files. The new sources were inspected conceptually and no wording or code was
+copied; a fresh corpus comparison is required before making a new quantified overlap claim.

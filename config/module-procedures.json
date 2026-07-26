@@ -28,19 +28,21 @@
     "Check the test surface of changed code paths and record which risky functions have no direct test."
   ],
   "ui": [
-    "Start or attach to the running application and enumerate representative routes from router or navigation evidence.",
-    "Inspect each representative screen at small, medium, and wide viewports, recording URL, viewport, and observed layout for every check.",
-    "Force loading, empty, error, success, and disabled states through data or network manipulation and record each state's rendering.",
-    "Compare repeated components (buttons, forms, tables, dialogs) across screens for token, spacing, and typography drift.",
-    "Capture browser console output on every inspected route and treat errors and warnings as findings, not noise.",
-    "When no running application is reachable, mark every rendered-state criterion `NOT_VERIFIED` and state exactly which routes were not exercised."
+    "Inspect the product goal, existing brand assets, design tokens, component library, styling mechanism, and nearest visual precedent before proposing a direction.",
+    "For substantial work, state the intended character, typography, color, density, layout, shape, imagery, icon, and motion choices with a product-specific rationale.",
+    "Start or attach to the running application and enumerate representative routes and states from router or navigation evidence.",
+    "Inspect each representative screen at failure-driven small, medium, and wide viewports, recording URL, viewport, theme, locale, input method, and observed layout.",
+    "Force loading, partial, empty, error, success, permission, disabled, focus, hover or press, destructive, and long-content states that can occur.",
+    "Compare repeated components for semantic-token, state, spacing, typography, icon, and responsive drift; preserve established conventions unless direct evidence shows harm.",
+    "Capture browser console and accessibility output on inspected routes; when rendering is unavailable, mark visual behavior `NOT_VERIFIED` rather than inferring it from source."
   ],
   "ux": [
-    "Select the product's critical journeys from discovery (registration, core object create/edit/delete, search, upload, payment) and execute each end to end.",
-    "At every step record what the user must know, what feedback appears, and how the user recovers from an error without losing entered data.",
-    "Exercise interruption paths: expired session mid-form, back button, refresh during submission, and permission denial, and record where work is lost or the user dead-ends.",
-    "Check destructive actions for confirmation, undo, and clarity about the scope of loss.",
-    "Measure friction: count fields, steps, and decisions per journey and flag steps that exist for the system's benefit rather than the user's."
+    "Name the user, primary task, frequency, environment, consequence of failure, essential information, risky actions, and success outcome before changing the flow.",
+    "Select the product's primary and adverse journeys from discovery and execute each end to end with realistic content.",
+    "At every step record what the user must know, which decision is required, what feedback appears, and how the user recovers without losing entered data.",
+    "Exercise interruption paths including expired session, back, refresh during submission, duplicate action, slow or offline network, partial data, and permission denial.",
+    "Check destructive actions for clear scope, confirmation, cancellation, undo or recovery, and the absence of coercive or misleading choices.",
+    "Identify fields, steps, and decisions that exist for the system rather than the user; treat expert usability conclusions as hypotheses when user research was not performed."
   ],
   "accessibility": [
     "Traverse each representative screen with keyboard only: record tab order, focus visibility, traps, and any control unreachable without a pointer.",
@@ -65,11 +67,13 @@
     "Verify sitemap coverage matches the actual public route set and check rendering of JavaScript-dependent content in the crawler-delivered output."
   ],
   "frontend": [
-    "Map component and data-fetching boundaries, identify server/client splits, and trace one interactive flow from route load to rendered state.",
-    "Profile network behavior for fetch waterfalls, duplicate requests, and missing caching on repeat navigation.",
-    "Inspect state management for stale-state, race, and error-boundary gaps: determine what happens when a slow response returns after navigation.",
-    "Measure bundle composition and record the heaviest dependencies, missing code splitting, and unused code on the initial route.",
-    "Check cleanup paths for listeners, observers, timers, and subscriptions on unmount, and hydration consistency for server-rendered markup."
+    "Inspect the actual framework, version, rendering mode, styling system, routes, shared components, state and data libraries, tests, translations, and existing interface conventions.",
+    "Route only matching progressive references, then define the user task, system states, responsive behavior, accessibility needs, component reuse, framework boundary, and evidence plan proportionately.",
+    "Map component and data-fetching boundaries, identify server/client splits, and trace one interactive flow from route load through loading, failure, recovery, and rendered state.",
+    "Inspect network behavior for waterfalls, duplicate requests, cancellation, stale results, optimistic rollback, and behavior on slow or unreliable networks.",
+    "Inspect component APIs and state management for boolean-prop conflicts, duplicated derived state, unnecessary effects, rerender causes, error boundaries, and cleanup ownership.",
+    "Use a production build and measured evidence for bundle, hydration, rendering, media, font, or list-performance claims; do not infer speed from source shape.",
+    "Render and compare the affected routes when tools are available, run focused project checks, refine confirmed defects, and report every unverified browser, device, user, or production claim."
   ],
   "api": [
     "Enumerate every route from router evidence, with method, path, handler location, and authentication expectation.",

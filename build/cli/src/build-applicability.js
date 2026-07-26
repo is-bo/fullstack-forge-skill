@@ -1,4 +1,5 @@
 import { classifyEvidencePath } from "./discovery-evidence.js";
+import { routeFrontendRequest } from "./frontend-routing.js";
 import { capabilityStatusFor } from "./scope.js";
 const RULES = [
     rule("auth", [/\bauth(?:entication)?\b/iu, /\blog(?:in|out)\b/iu, /\bsession\b/iu], ["security"]),
@@ -63,6 +64,13 @@ export function deriveBuildApplicability(input) {
     }
     if (input.risk_baseline === "high")
         require("security", "HIGH", ["The recorded project or feature risk baseline is high."]);
+    const interfaceRoute = routeFrontendRequest(text);
+    if (interfaceRoute.active) {
+        for (const discipline of interfaceRoute.modules)
+            require(discipline, "MEDIUM", [
+                `The requested interface work selected '${discipline}': ${interfaceRoute.reasons.join(" ")}`
+            ]);
+    }
     for (const current of RULES) {
         const matchingPaths = activatingPaths.filter((path) => current.patterns.some((pattern) => pattern.test(path)));
         const textMatch = current.patterns.some((pattern) => pattern.test(text));

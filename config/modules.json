@@ -129,8 +129,11 @@
   {
     "slug": "ui",
     "title": "User interface",
-    "purpose": "Inspect rendered interfaces for responsive behavior, hierarchy, state clarity, consistency, and visual defects.",
-    "applies": ["Web, mobile, or desktop interfaces", "Component libraries"],
+    "purpose": "Use automatically for visual-interface creation and improvement, including direction, typography, color, spacing, layout, systems, states, consistency, motion, and polish while preserving usability, accessibility, and established brand conventions.",
+    "applies": [
+      "Web, mobile, or desktop interface creation and review",
+      "Visual styling, redesigns, component libraries, design systems, themes, dashboards, and landing pages"
+    ],
     "notApplies": ["Headless services with no operator or user interface"],
     "inputs": [
       "frontend applications",
@@ -163,7 +166,7 @@
   {
     "slug": "ux",
     "title": "User experience",
-    "purpose": "Evaluate real task flows for clarity, feedback, recovery, accessibility, and avoidance of user harm.",
+    "purpose": "Use automatically for user-flow and usability work, including information architecture, navigation, forms, onboarding, feedback, errors, recovery, empty states, decision complexity, and task completion.",
     "applies": [
       "Interactive products",
       "Onboarding, forms, search, checkout, or destructive flows"
@@ -197,7 +200,7 @@
   {
     "slug": "accessibility",
     "title": "Accessibility",
-    "purpose": "Audit conformance with WCAG 2.2 AA using automated evidence plus keyboard and assistive-technology reasoning.",
+    "purpose": "Use automatically for human-facing interface work and audit WCAG 2.2 AA with automated evidence plus keyboard and assistive-technology reasoning.",
     "applies": [
       "Any user or operator interface",
       "Generated documents with interactive navigation"
@@ -295,8 +298,11 @@
   {
     "slug": "frontend",
     "title": "Frontend engineering",
-    "purpose": "Inspect rendering, state, network, hydration, browser security, and bundle behavior in frontend applications.",
-    "applies": ["Browser applications", "Hybrid server/client rendered frontends"],
+    "purpose": "Use automatically for frontend implementation and review, including components, pages, layouts, responsive behavior, React, Next.js, browser state, rendering, hydration, network behavior, and measured frontend performance.",
+    "applies": [
+      "Browser, React Native, and Expo application work",
+      "React, Next.js, Vue, Svelte, and hybrid server/client rendered frontends"
+    ],
     "notApplies": ["Backend-only services"],
     "inputs": ["frontend manifests", "route tree", "build configuration", "network client code"],
     "checks": [

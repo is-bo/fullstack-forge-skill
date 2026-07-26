@@ -59,6 +59,12 @@ Run the independent Ship gate. A local PASS still requires separate direct evide
 ### `/forge status` and `/forge help`
 Status reports installed scope, Build state, unfinished work, latest report identity, evidence gaps, and one safe next command. Help is simple-first and links to expert commands only after the primary examples.
 
+### Frontend, UI, and UX routing
+
+For components, pages, layouts, browser state, responsive behavior, React, Next.js, Vue, Svelte, React Native, or Expo, load `forge-frontend`. Add `forge-ui` for visual direction, styling, layout, type, color, systems, consistency, themes, icons, motion, dashboards, landing pages, or polish. Add `forge-ux` for journeys, navigation, forms, booking, onboarding, feedback, recovery, empty states, decision complexity, conversion, or friction. Human-facing work also loads `forge-accessibility`; add i18n, SEO, performance, offline, or security owners only from matching evidence.
+
+Support `$forge frontend`, `$forge ui`, and `$forge ux`, plus scoped forms. Frontend accepts `build`, `audit`, `fix`, and `verify`; UI accepts `build`, `review`, `audit`, and `fix`; UX accepts `review`, `audit`, `improve`, and `verify`. `review` preserves audit semantics. `improve` begins with a fix preview. `build` selects the proportional agent-led workflow and does not claim that implementation or rendered verification occurred. Load progressive rules only from `fullstack-forge/references/frontend/` when their stated condition matches.
+
 ## CLI behavior and fallback
 
 When the CLI is installed, use the equivalent commands: `forge build [request]`, `forge continue`, `forge audit [all|area]`, `forge fix [area]`, `forge verify [area]`, `forge ship`, `forge status`, and `forge help`. `forge` with no arguments prints a numbered list in noninteractive contexts and offers a cancellable keyboard menu in a TTY. Use `--json` for stable machine output and `--details` for the full technical report. If the CLI is unavailable, explain that enforcement cannot run, provide the exact install or doctor command, and keep every outcome NOT_VERIFIED rather than simulating state or evidence.

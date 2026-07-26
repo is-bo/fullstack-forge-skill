@@ -1,8 +1,9 @@
 # Research sources
 
-Research performed 2026-07-18. Repositories were cloned shallowly into an ignored temporary
-directory and inspected as untrusted data; no scripts were executed and no source code or
-substantial prose was copied. Commit IDs make the observations reproducible.
+Research performed 2026-07-18 and refreshed for the frontend/UI/UX system on 2026-07-26.
+Repositories were cloned shallowly into an ignored temporary directory and inspected as untrusted
+data; no scripts were executed and no source code or substantial prose was copied. Commit IDs make
+the observations reproducible.
 
 ## Interoperability specifications and platform documentation
 
@@ -70,6 +71,27 @@ Standards are used as criteria and vocabulary, not copied checklists or claims o
 Time-sensitive facts must be re-verified when a future release changes guidance.
 
 ## Open-source conceptual references
+
+### Frontend, UI, and UX refresh (2026-07-26)
+
+| Skill / source                   | Repository and inspected revision                                                                       | File or directory                                                           | License observed             | Concepts adapted                                                    | Reused wording or code                  | Attribution                |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------- | --------------------------------------- | -------------------------- |
+| Anthropic frontend-design        | <https://github.com/anthropics/skills/tree/b29e7cf65e5cb78a5ac33d582270551bc74a14eb>                    | `skills/frontend-design/`                                                   | Apache-2.0                   | Product-grounded visual direction and rendered critique             | None                                    | Link and revision retained |
+| Vercel React best practices      | <https://github.com/vercel-labs/agent-skills/tree/7c180d9044c9ae2b442b567aad4e42a28dd5ed62>             | `skills/react-best-practices/`                                              | MIT in skill metadata        | Impact-ranked waterfall, boundary, bundle, and rerender concepts    | None                                    | Link and revision retained |
+| Vercel composition patterns      | same Vercel revision                                                                                    | `skills/composition-patterns/`                                              | MIT in skill metadata        | Explicit variants, composition, and state ownership                 | None                                    | Link and revision retained |
+| Vercel React Native skills       | same Vercel revision                                                                                    | `skills/react-native-skills/`                                               | MIT in skill metadata        | Conditional mobile performance and platform guidance                | None                                    | Link and revision retained |
+| Vercel web design router         | same Vercel revision                                                                                    | `skills/web-design-guidelines/`                                             | No standalone grant observed | Compact interface review surface; remote-main fetching was rejected | None                                    | Link and revision retained |
+| Vercel web interface guidelines  | <https://github.com/vercel-labs/web-interface-guidelines/tree/4e799d45c17aec1498c269287a83b9dba22b966b> | `command.md`                                                                | MIT                          | Broad actionable interface review categories                        | None                                    | Link and revision retained |
+| Microsoft frontend design review | <https://github.com/microsoft/skills/tree/4f1db7ec55caf11e3b143c91220bd79a632bc55b>                     | `skills/frontend-design-review/`                                            | MIT                          | Existing-system inspection and structured review                    | None                                    | Link and revision retained |
+| UI UX Pro Max                    | <https://github.com/nextlevelbuilder/ui-ux-pro-max-skill/tree/1307d97a72e6c1cda572cb65471ae5ce82995218> | `skills/ui-ux-pro-max/`                                                     | MIT                          | Domain taxonomy and progressive detail routing                      | None; no data files or generated system | Link and revision retained |
+| AccessLint audit                 | <https://github.com/accesslint/claude-marketplace/tree/ceb3fa80fc8be8d8959f5b3eb812ac8cc33a5a59>        | `skills/audit/`                                                             | MIT stated by repository     | Live-DOM evidence, cause deduplication, residual manual gaps        | None                                    | Link and revision retained |
+| Expo skills                      | <https://github.com/expo/skills/tree/09eb052410e7f609624cb161ea4cd9576c69cd5d>                          | `skills/expo-ui/`, `expo-native-ui/`, `expo-router/`, `expo-data-fetching/` | MIT                          | Version/platform detection and focused native references            | None                                    | Link and revision retained |
+| shadcn skill                     | <https://github.com/shadcn-ui/ui/tree/7774cd7dcee1e98d0815aa6e829f33a7fc952fdf>                         | `skills/shadcn/`                                                            | MIT                          | Project-context inspection, primitive reuse, source ownership       | None                                    | Link and revision retained |
+
+All repositories were inspected at the exact revisions above without running their scripts. The
+Vercel web-design router’s unpinned network fetch was explicitly not adopted. The refresh informed
+the original architecture documented in `research/FRONTEND_UI_UX_SYSTEM.md`; it contributed no
+third-party prose, code, datasets, templates, or assets.
 
 | Repository                                                | Inspected commit                           | Observed license                                        | Concepts studied                                                                             |
 | --------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------- | -------------------------------------------------------------------------------------------- |

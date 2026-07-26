@@ -151,7 +151,9 @@ export function validateFinding(value) {
             }
         }
     }
-    if (value.producer === "agent-reviewed-source" || value.producer === "agent-runtime-verification")
+    if (value.producer === "agent-reviewed-source" ||
+        value.producer === "agent-rendered-review" ||
+        value.producer === "agent-runtime-verification")
         validateAgentAuthoredFinding(value, errors);
     return errors;
 }
@@ -162,9 +164,13 @@ export function assertFindings(values) {
 }
 export function assertAgentFindings(values) {
     assertFindings(values);
-    const errors = values.flatMap((value, index) => value.producer === "agent-reviewed-source" || value.producer === "agent-runtime-verification"
+    const errors = values.flatMap((value, index) => value.producer === "agent-reviewed-source" ||
+        value.producer === "agent-rendered-review" ||
+        value.producer === "agent-runtime-verification"
         ? []
-        : [`[${index}] producer must be agent-reviewed-source or agent-runtime-verification`]);
+        : [
+            `[${index}] producer must be agent-reviewed-source, agent-rendered-review, or agent-runtime-verification`
+        ]);
     if (errors.length > 0)
         throw new Error(`Invalid agent findings:\n${errors.join("\n")}`);
 }
@@ -186,9 +192,54 @@ function validateAgentAuthoredFinding(value, errors) {
         errors.push("remaining_limitations must be an array of non-empty strings for agent-authored findings");
     if (value.producer === "agent-reviewed-source" && value.evidence_type !== "source-review")
         errors.push("agent-reviewed-source requires evidence_type=source-review");
+    if (value.producer === "agent-rendered-review") {
+        if (value.evidence_type !== "rendered-review")
+            errors.push("agent-rendered-review requires evidence_type=rendered-review");
+        if (!validRenderedEvidence(value.rendered_evidence, errors))
+            errors.push("agent-rendered-review requires rendered_evidence");
+    }
     if (value.producer === "agent-runtime-verification" &&
         value.evidence_type !== "runtime-verification")
         errors.push("agent-runtime-verification requires evidence_type=runtime-verification");
+}
+function validRenderedEvidence(value, errors) {
+    if (!Array.isArray(value) || value.length === 0)
+        return false;
+    let valid = true;
+    const kinds = ["screenshot", "viewport", "accessibility-tree", "browser-console"];
+    const inputMethods = ["keyboard", "pointer", "touch", "assistive-technology"];
+    for (const [index, item] of value.entries()) {
+        if (!isRecord(item) ||
+            !kinds.includes(String(item.kind)) ||
+            typeof item.observed !== "string" ||
+            item.observed.length === 0) {
+            errors.push(`rendered_evidence[${index}] is invalid`);
+            valid = false;
+            continue;
+        }
+        for (const field of ["artifact_path", "url", "state"])
+            if (field in item && (typeof item[field] !== "string" || item[field].length === 0)) {
+                errors.push(`rendered_evidence[${index}].${field} must be a non-empty string`);
+                valid = false;
+            }
+        if ("input_method" in item &&
+            (typeof item.input_method !== "string" || !inputMethods.includes(item.input_method))) {
+            errors.push(`rendered_evidence[${index}].input_method is invalid`);
+            valid = false;
+        }
+        if ("viewport" in item) {
+            const viewport = item.viewport;
+            if (!isRecord(viewport) ||
+                !Number.isInteger(viewport.width) ||
+                !Number.isInteger(viewport.height) ||
+                Number(viewport.width) < 1 ||
+                Number(viewport.height) < 1) {
+                errors.push(`rendered_evidence[${index}].viewport is invalid`);
+                valid = false;
+            }
+        }
+    }
+    return valid;
 }
 function validFindingCommands(value, errors) {
     if (!Array.isArray(value))

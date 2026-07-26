@@ -15,12 +15,12 @@ directly observed.
 - [x] generation, formatting, lint, typecheck, tests, coverage, validation, and full `npm run check`
 - [x] automatic activation, managed instruction update/uninstall, proportional evals, agent finding
       ingestion, and report consistency
-- [x] deterministic platform packaging: 9 archives and 1,935 validated entries
+- [x] deterministic platform packaging: 9 archives and 2,173 validated entries
 - [x] fresh, fixture-update, uninstall, and offline installation: 46 skills per platform, zero
       symlinks, automatic activation present, and clean uninstall
 - [x] dependency audit: zero known vulnerabilities
-- [x] coverage thresholds: 94.14% lines, 84.11% branches, and 94.27% functions
-- [x] clean-candidate `forge ship --allow-run --json`: exit 0 with revision-bound evidence and no
+- [x] coverage thresholds: 94.58% lines, 82.85% branches, and 94.33% functions
+- [ ] exact-clean-main `forge ship --allow-run --json`: exit 0 with revision-bound evidence and no
       failing findings or gates
 
 ## Required remote evidence

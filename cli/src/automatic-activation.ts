@@ -21,7 +21,14 @@ the full suite, claim production readiness without evidence, or ask for unnecess
 Use the UNDERSTAND, DISCOVER, SELECT, PLAN, IMPLEMENT, INSPECT, VERIFY, REPORT sequence. Escalate
 authentication, authorization, payments, personal data, uploads, destructive migrations, secrets,
 and other security-sensitive work to the high-risk workflow. Keep explicit \`forge\` commands
-available as optional overrides.`;
+available as optional overrides.
+
+For interface work, automatically load \`forge-frontend\` for components, pages, layouts, browser
+state, rendering, React, Next.js, Vue, Svelte, React Native, or Expo; add \`forge-ui\` for visual
+design and \`forge-ux\` for journeys and usability. Compose accessibility for every human-facing
+change and add i18n, SEO, performance, offline, or security only when relevant. Load focused
+frontend references progressively; do not load mobile, dashboard, chart, motion, or framework
+guidance without matching evidence.`;
 
 const SECTION = `${ACTIVATION_START}\n\n## Fullstack Forge automatic activation\n\n${WORKFLOW}\n\n${ACTIVATION_END}`;
 

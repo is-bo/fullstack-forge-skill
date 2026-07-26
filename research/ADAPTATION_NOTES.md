@@ -8,6 +8,11 @@
 - Data-informed UI/UX priority: accessibility, responsive behavior, visible states, and restrained
   professional presentation before decorative effects.
 - Domain-focused security, database, authentication, and cache modules.
+- Product-framed interface work with a concise frontend orchestrator and concern-specific
+  progressive references.
+- Deterministic natural-language routing that excludes mobile, dashboard, chart, motion, and
+  framework context until matching evidence exists.
+- Rendered review as a distinct evidence producer rather than an inference from JSX or CSS.
 
 ## Original implementation decisions
 
@@ -20,6 +25,8 @@
 - A single catalog that generates 42 substantial, individually copyable skills.
 - Full platform formats updated from current primary documentation rather than inherited from older
   reference-repository templates.
+- Existing accessibility, i18n, SEO, performance, offline, and security modules retained as owners;
+  frontend references integrate them without duplicating specialist rules.
 
 ## Rejected patterns
 
@@ -30,3 +37,6 @@
 - Thin modules that merely recommend “best practices.”
 - Treating scanner silence, written intent, or an unavailable runtime as PASS.
 - Copying third-party audit prose, data tables, branding, or implementation code.
+- Fetching live instructions from an unpinned remote branch during skill execution.
+- Generating a new design system for every UI task or applying product/style databases mechanically.
+- Applying React, shadcn, Expo, chart, or animation guidance without detected project evidence.

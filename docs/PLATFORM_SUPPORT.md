@@ -24,5 +24,11 @@ content.
 Explicit skill selection remains supported on every host, but automatic project instructions mean
 normal engineering requests do not need `$forge`, a slash command, or an `@` mention.
 
+The managed instruction explicitly routes interface requests to `forge-frontend`, adds `forge-ui`
+for visual decisions and `forge-ux` for journeys, and composes accessibility for every human-facing
+change. It also tells hosts not to load mobile, dashboard, chart, motion, or framework references
+without matching evidence. Update and uninstall retain the same digest and ownership safeguards for
+this expanded activation text.
+
 Platform UIs and discovery behavior can change. Release verification distinguishes generated and
 installation tests from live host UI tests; an unlaunched host remains unverified.

@@ -25,6 +25,13 @@ available when a specific Build, Audit, Fix, Verify, or Ship workflow is wanted.
 - A proportional light/standard/high-risk workflow that does not run every module or full suite for
   every edit.
 - 42 agent-guided production engineering modules with deterministic automation where supported.
+- A concise frontend experience orchestrator, focused UI and UX owners, 14 progressively loaded
+  references, and optional design brief, design-system, and review templates.
+- Automatic request routing for React, Next.js, Vue, Svelte, responsive interfaces, forms,
+  dashboards, React Native/Expo, localization, accessibility, and high-consequence UI, with
+  irrelevant mobile, chart, motion, and framework context excluded.
+- Scoped `$forge frontend`, `$forge ui`, and `$forge ux` workflows plus structured
+  `agent-rendered-review` evidence.
 - Official agent-authored finding producers and schema-validated ingestion into matching Markdown
   and JSON reports.
 - Backward-compatible optional commands for Build, Audit, Fix, Verify, Ship, Status, and Help.

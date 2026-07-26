@@ -16,6 +16,9 @@ const criteriaBySlug = JSON.parse(
 const proceduresBySlug = JSON.parse(
   await readFile(join(projectRoot, "config", "module-procedures.json"), "utf8")
 );
+const frontendSystem = JSON.parse(
+  await readFile(join(projectRoot, "config", "frontend-system.json"), "utf8")
+);
 const actualSlugs = catalog.map((module) => module.slug);
 if (JSON.stringify(actualSlugs) !== JSON.stringify(expectedSlugs)) {
   throw new Error("config/modules.json must contain the authoritative module set in order");
@@ -23,6 +26,7 @@ if (JSON.stringify(actualSlugs) !== JSON.stringify(expectedSlugs)) {
 validateCatalog(catalog);
 validateCriteria(criteriaBySlug);
 validateProcedures(proceduresBySlug);
+validateFrontendSystem(frontendSystem);
 
 await assertNoSymlinkPath(projectRoot, commandRoot);
 await mkdir(commandRoot, { recursive: true });
@@ -110,6 +114,22 @@ function validateProcedures(procedures) {
     ) {
       throw new Error(`Invalid, duplicate, or too-short inspection procedure for ${slug}`);
     }
+  }
+}
+
+function validateFrontendSystem(system) {
+  if (
+    typeof system !== "object" ||
+    system === null ||
+    !Array.isArray(system.workflow) ||
+    system.workflow.length !== 9 ||
+    JSON.stringify(Object.keys(system.areas ?? {})) !== JSON.stringify(["frontend", "ui", "ux"])
+  )
+    throw new Error("config/frontend-system.json has an invalid workflow or area set");
+  for (const [area, entry] of Object.entries(system.areas)) {
+    for (const field of ["signals", "commands", "references"])
+      if (!Array.isArray(entry[field]) || entry[field].length === 0)
+        throw new Error(`config/frontend-system.json ${area}.${field} must be non-empty`);
   }
 }
 
@@ -234,6 +254,42 @@ function renderProcedure(steps) {
   return [...head, ...steps, ...tail].map((step, index) => `${index + 1}. ${step}`).join("\n");
 }
 
+function renderFrontendSystem(slug) {
+  const entry = frontendSystem.areas[slug];
+  if (entry === undefined) return "";
+  const commands = entry.commands.map((mode) => `\`$forge ${slug} ${mode}\``).join(", ");
+  const referenceRows = entry.references
+    .map(
+      (id) =>
+        `- \`${id}\` — load the installed bundle file \`fullstack-forge/references/frontend/${id}.md\` only when its **Load when** condition matches; obey its **Do not load when** exclusions.`
+    )
+    .join("\n");
+  return `
+## Experience workflow and progressive references
+
+Automatic activation signals include:
+
+${list(entry.signals)}
+
+Explicit agent shortcuts are ${commands}. \`review\` routes to evidence-preserving \`audit\`;
+\`improve\` routes to a fix preview unless safe application is explicitly authorized. Normal feature
+requests do not require a command.
+
+Use this proportional workflow: ${frontendSystem.workflow.map((stage) => `\`${stage}\``).join(" → ")}.
+For a small bounded change, keep the same order but record decisions inline; optional templates must
+not become ceremony.
+
+Load only the references selected by the request and repository evidence:
+
+${referenceRows}
+
+Accessibility rules remain owned by \`forge-accessibility\`; localization by \`forge-i18n\`;
+performance proof by \`forge-performance\`; public-search behavior by \`forge-seo\`. Compose those
+owners instead of copying their rules here. Never load mobile, chart, motion, or framework guidance
+without matching evidence.
+`;
+}
+
 function renderModule(module, criteria, procedure) {
   const name = `forge-${module.slug}`;
   return `---
@@ -273,7 +329,7 @@ ${list(module.inputs)}
 
 Available deterministic support, where present:
 
-${renderToolHints(module.slug)}
+${renderToolHints(module.slug)}${renderFrontendSystem(module.slug)}
 
 ## Agent inspection procedure
 

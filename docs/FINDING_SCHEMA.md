@@ -21,11 +21,14 @@ contains these findings is described in [report schema](REPORT_SCHEMA.md).
 | `standards`      | Relevant versioned criteria; never a compliance claim                     |
 
 Supported `producer` values are `forge-analyzer`, `forge-command`, `agent-reviewed-source`,
-`agent-runtime-verification`, `external-tool`, and `human-decision`.
+`agent-rendered-review`, `agent-runtime-verification`, `external-tool`, and `human-decision`.
 
 Agent-authored findings also require `module`, `producer`, `evidence_type`, `explanation`,
 `safe_fix_classification`, `revision`, `commands_executed`, and `remaining_limitations`. Every
 source location includes a 1-based line. `safe_fix_classification` must agree with `safe_fix`.
+`agent-rendered-review` requires evidence type `rendered-review` and at least one structured
+`rendered_evidence` record with its kind and observation; artifact path, URL, viewport, state, and
+input method are recorded when available. It must not be used for source-only inference.
 
 Analyzer findings may additionally contain:
 

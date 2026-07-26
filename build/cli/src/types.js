@@ -12,12 +12,14 @@ export const FINDING_PRODUCERS = [
     "forge-analyzer",
     "forge-command",
     "agent-reviewed-source",
+    "agent-rendered-review",
     "agent-runtime-verification",
     "external-tool",
     "human-decision"
 ];
 export const FINDING_EVIDENCE_TYPES = [
     "source-review",
+    "rendered-review",
     "runtime-verification",
     "command-output",
     "external-tool-output",
