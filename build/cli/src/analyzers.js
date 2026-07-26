@@ -87,19 +87,26 @@ const SPECS = {
         "Parse vercel.json and inspect the global header rule"
     ], ["OWASP HTTP Headers Cheat Sheet"])
 };
-export async function runAnalyzers(section, root, scope, repositoryInventory) {
+export async function runAnalyzers(section, root, scope, repositoryInventory, tenantKeys) {
     const inventory = repositoryInventory ??
         (await inventoryRepository(root, {
             includeNeutralEvidence: true,
             applyDefaultExclusions: true
         }));
-    const records = loadSources(scope, inventory);
-    const scriptRun = analyzeScripts(records);
-    const configRun = analyzeStructuredFiles(scope, inventory);
-    return [scriptRun, configRun].map((run) => ({
-        ...run,
-        findings: run.findings.filter((finding) => section === "all" || finding.section === section)
-    }));
+    const previousTenantKeys = inferredTenantKeys;
+    inferredTenantKeys = tenantKeys ?? [];
+    try {
+        const records = loadSources(scope, inventory);
+        const scriptRun = analyzeScripts(records);
+        const configRun = analyzeStructuredFiles(scope, inventory);
+        return [scriptRun, configRun].map((run) => ({
+            ...run,
+            findings: run.findings.filter((finding) => section === "all" || finding.section === section)
+        }));
+    }
+    finally {
+        inferredTenantKeys = previousTenantKeys;
+    }
 }
 export async function runNamedAnalyzer(analyzerId, root, scope) {
     const runs = await runAnalyzers("all", root, scope);
@@ -145,7 +152,7 @@ function analyzeScripts(files) {
                             issues.push(issue(SPECS.validation, file, node, flowSource(sqlFlow, sqlTextValue), name));
                     }
                 }
-                else if (looksLikeUnknownSqlWrapper(name, node, requestControlled)) {
+                else if (looksLikeUnknownSqlWrapper(node, requestControlled, file)) {
                     const unresolved = issue(SPECS.sqlUnresolved, file, node, flowSource(flow, argumentText), name);
                     unresolved.status = "NOT_VERIFIED";
                     unresolved.evidence +=
@@ -185,7 +192,9 @@ function analyzeScripts(files) {
                 }
                 if (isCacheSink(name))
                     analyzeCacheCall(issues, file, node, name, functions, cacheKeys);
-                if (isObjectLookup(name) && requestControlled) {
+                // A route registration shares verb names with data access (`delete`, `put`, `patch`);
+                // registering a handler is not an object lookup and must never raise object-authorization.
+                if (isObjectLookup(name) && requestControlled && !isRouteRegistrationCall(node)) {
                     if (!hasObjectAuthorization(node, file, taint))
                         issues.push(issue(SPECS.objectAuth, file, node, flowSource(flow, argumentText), name));
                 }
@@ -407,6 +416,8 @@ function analyzeAuthorizationRoutes(issues, file) {
     visit(file.sourceFile, [], (node) => {
         if (!ts.isCallExpression(node))
             return;
+        if (!isRouteRegistrationCall(node))
+            return;
         const name = callName(node.expression);
         const method = /\.(delete|put|patch|post|get)$/iu.exec(name)?.[1]?.toLowerCase();
         if (method === undefined)
@@ -421,23 +432,133 @@ function analyzeAuthorizationRoutes(issues, file) {
             /patient|medical|record|account|invoice|payment|document/iu.test(routePath);
         if (!sensitive || /(?:^|\/)(?:health|status|ready|live)(?:\/|$)/iu.test(routePath))
             return;
-        const handlerText = node.arguments
-            .slice(1)
-            .map((argument) => argument.getText(file.sourceFile))
-            .join(" ");
-        if (/\b(?:requireRole|requirePermission|hasPermission|authorize|enforcePolicy|assertCanAccess)\b/iu.test(handlerText))
+        // Guard recognition is structural: a middleware argument counts when its resolved body
+        // rejects the request before delegating, not because its identifier matched a name list.
+        const guard = classifyRouteGuards(node, file);
+        if (guard === "proven")
             return;
         const inlineHandler = node.arguments
             .slice(1)
             .some((argument) => ts.isArrowFunction(argument) || ts.isFunctionExpression(argument));
-        const candidate = issue(inlineHandler && !hasUnresolvedGlobalGuard ? SPECS.authzRoute : SPECS.authzUnresolved, file, node, `${method.toUpperCase()} ${routePath}`, name);
-        if (!inlineHandler || hasUnresolvedGlobalGuard) {
+        const unresolved = guard === "unresolved" || !inlineHandler || hasUnresolvedGlobalGuard;
+        const candidate = issue(unresolved ? SPECS.authzUnresolved : SPECS.authzRoute, file, node, `${method.toUpperCase()} ${routePath}`, name);
+        if (unresolved) {
             candidate.status = "NOT_VERIFIED";
             candidate.evidence +=
-                " Bounded analysis could not resolve the referenced handler or global middleware to a route-specific permission predicate.";
+                " Bounded analysis could not resolve the referenced handler or middleware to a route-specific permission predicate.";
         }
         issues.push(candidate);
     });
+}
+/**
+ * True when a call registers an HTTP route rather than accessing data.
+ *
+ * Express-style registration is `<router>.<verb>(path, ...handlers)`: a string-literal path
+ * followed by at least one handler. `router.delete("/x/:id", handler)` must never be classified
+ * as a data-deletion sink, which is decided here by call shape rather than by the property name.
+ */
+function isRouteRegistrationCall(node) {
+    if (!/\.(?:get|post|put|patch|delete|head|options|all|use)$/iu.test(callName(node.expression)))
+        return false;
+    const [path, ...handlers] = node.arguments;
+    if (path === undefined || !ts.isStringLiteralLike(path))
+        return false;
+    return handlers.some((handler) => ts.isArrowFunction(handler) ||
+        ts.isFunctionExpression(handler) ||
+        ts.isIdentifier(handler) ||
+        ts.isCallExpression(handler) ||
+        ts.isArrayLiteralExpression(handler));
+}
+/**
+ * Classifies the middleware arguments of a route registration.
+ *
+ * `proven` means at least one middleware resolves to a function that denies the request with an
+ * authorization status before calling `next()`. `unresolved` means middleware is present but its
+ * body could not be reached (imported, dynamically produced, or computed), which must degrade to
+ * NOT_VERIFIED rather than a confident failure. `absent` means no middleware was supplied at all.
+ */
+function classifyRouteGuards(node, file) {
+    // A handler that denies the request itself is as much a guard as one mounted beside it, so the
+    // final handler is examined before concluding that no control exists.
+    const handler = node.arguments.at(-1);
+    if (handler !== undefined &&
+        (ts.isArrowFunction(handler) || ts.isFunctionExpression(handler)) &&
+        functionDeniesAuthorization(handler, file))
+        return "proven";
+    const middleware = node.arguments.slice(1, -1);
+    if (middleware.length === 0)
+        return "absent";
+    let unresolved = false;
+    for (const argument of middleware) {
+        const resolved = resolveGuardFunction(argument, file);
+        if (resolved !== undefined && functionDeniesAuthorization(resolved, file))
+            return "proven";
+        // Structural resolution is the primary mechanism. A conventional authorization name is
+        // accepted as a supplementary signal only when the body is out of file (an import), so a
+        // cross-file guard is not reported as a defect purely because bounded analysis stops here.
+        if (resolved === undefined && isConventionalGuardName(argument))
+            return "proven";
+        if (resolved === undefined)
+            unresolved = true;
+    }
+    return unresolved ? "unresolved" : "absent";
+}
+/** True when a middleware argument carries a widely used authorization identifier. */
+function isConventionalGuardName(argument) {
+    const callee = ts.isCallExpression(argument) ? argument.expression : argument;
+    if (!ts.isIdentifier(callee) && !ts.isPropertyAccessExpression(callee))
+        return false;
+    return /^(?:require|ensure|assert|check|verify|enforce|guard|can|is|has|only|restrict|protect|authorize|authenticate)/iu.test(callName(callee).split(".").pop() ?? "");
+}
+/** Resolves a middleware argument to a function body declared in the same file, when possible. */
+function resolveGuardFunction(argument, file) {
+    if (ts.isArrowFunction(argument) || ts.isFunctionExpression(argument))
+        return argument;
+    // A factory call such as `requireRole("admin")` resolves through its declaration's return.
+    const identifier = ts.isCallExpression(argument)
+        ? ts.isIdentifier(argument.expression)
+            ? argument.expression
+            : undefined
+        : ts.isIdentifier(argument)
+            ? argument
+            : undefined;
+    if (identifier === undefined)
+        return undefined;
+    return findLocalFunction(identifier.text, file.sourceFile);
+}
+/**
+ * True when a function body denies a request with an authorization status.
+ *
+ * Recognises `res.status(401|403)`, `res.sendStatus(401|403)`, and thrown errors carrying those
+ * codes. A factory function is followed one level into the middleware it returns, so
+ * `requireRole("admin")` and a locally declared `requireAdmin` are treated identically.
+ */
+function functionDeniesAuthorization(fn, file, depth = 0) {
+    const body = fn.body;
+    if (body === undefined)
+        return false;
+    const text = body.getText(file.sourceFile);
+    if (/\b(?:401|403)\b/u.test(text) && /\b(?:status|sendStatus|statusCode|code)\b/u.test(text))
+        return true;
+    if (/\bForbidden|Unauthorized\b/u.test(text) && /\bthrow\b/u.test(text))
+        return true;
+    if (depth >= 1)
+        return false;
+    // Follow a middleware factory into the handler it returns.
+    let nested = false;
+    const walk = (node) => {
+        if (nested)
+            return;
+        if (ts.isReturnStatement(node) &&
+            node.expression !== undefined &&
+            (ts.isArrowFunction(node.expression) || ts.isFunctionExpression(node.expression)) &&
+            functionDeniesAuthorization(node.expression, file, depth + 1))
+            nested = true;
+        else
+            ts.forEachChild(node, walk);
+    };
+    ts.forEachChild(body, walk);
+    return nested;
 }
 function analyzeUploadFile(issues, file) {
     const content = file.content;
@@ -1164,11 +1285,46 @@ function isSqlSink(name) {
     return (/(?:^|\.)(?:\$queryRawUnsafe|\$executeRawUnsafe)$/u.test(name) ||
         /(?:^|\.)(?:pool|client|connection|conn|db|database|sqlite|knex|trx|tx)\.(?:query|execute|all|get|run|raw)$/iu.test(name));
 }
-function looksLikeUnknownSqlWrapper(name, node, requestControlled) {
-    return (requestControlled &&
-        node.arguments.length > 0 &&
-        /(?:db|database|sql|query|repository|repo)/iu.test(name) &&
-        /(?:search|query|execute|raw|run)$/iu.test(name));
+/**
+ * True when a call is probably an unregistered SQL wrapper.
+ *
+ * Suffix conventions alone are unreliable: `runSql(text, values)` never matched the old rule and
+ * stayed silent. Evidence is therefore taken from the call itself — an argument that reads as SQL
+ * text, or a same-file body that delegates to a registered SQL sink — with the name treated as a
+ * weaker supporting signal. Arbitrary `(string, array)` helpers must not qualify, so at least one
+ * of the two structural signals is always required.
+ */
+function looksLikeUnknownSqlWrapper(node, requestControlled, file) {
+    if (!requestControlled || node.arguments.length === 0)
+        return false;
+    const first = node.arguments[0];
+    const carriesSqlText = first !== undefined &&
+        (ts.isStringLiteralLike(first) || ts.isTemplateExpression(first)) &&
+        SQL_TEXT_PATTERN.test(first.getText(file?.sourceFile ?? first.getSourceFile()));
+    const delegates = file !== undefined && wrapperDelegatesToSqlSink(node, file);
+    if (!carriesSqlText && !delegates)
+        return false;
+    return true;
+}
+const SQL_TEXT_PATTERN = /\b(?:select|insert\s+into|update|delete\s+from|with|merge)\b[\s\S]*\b(?:from|into|set|values|where)\b/iu;
+/** True when the callee resolves to a same-file function whose body reaches a registered SQL sink. */
+function wrapperDelegatesToSqlSink(node, file) {
+    if (!ts.isIdentifier(node.expression))
+        return false;
+    const declaration = findLocalFunction(node.expression.text, file.sourceFile);
+    if (declaration?.body === undefined)
+        return false;
+    let delegates = false;
+    const walk = (current) => {
+        if (delegates)
+            return;
+        if (ts.isCallExpression(current) && sqlSinkShape(callName(current.expression), current))
+            delegates = true;
+        else
+            ts.forEachChild(current, walk);
+    };
+    ts.forEachChild(declaration.body, walk);
+    return delegates;
 }
 function isNoSqlSink(name) {
     // Unambiguous ORM/driver methods: the name alone identifies a data-access call.
@@ -1560,12 +1716,30 @@ const TENANT_KEYS = [
     "storeId",
     "projectId"
 ];
-const TENANT_KEY_SOURCE = TENANT_KEYS.map((key) => key.replace(/Id$/u, "(?:Id|_id)")).join("|");
+/**
+ * Ownership keys discovered structurally for the current run.
+ *
+ * Discovery infers the project's real ownership boundary (which may be `clinicId`, `franchiseId`,
+ * or any other domain name) and hands it to `runAnalyzers`. The built-in list below remains a
+ * default so analysis still works when no profile is supplied, but it is never the only mechanism.
+ */
+let inferredTenantKeys = [];
+function activeTenantKeys() {
+    return [...new Set([...TENANT_KEYS, ...inferredTenantKeys])];
+}
+function tenantKeySource() {
+    return activeTenantKeys()
+        .map((key) => escapeRegExp(key).replace(/Id$/u, "(?:Id|_id)"))
+        .join("|");
+}
+function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
 function tenantKeyPattern(flags = "u") {
-    return new RegExp(`\\b(?:${TENANT_KEY_SOURCE})\\b`, flags);
+    return new RegExp(`\\b(?:${tenantKeySource()})\\b`, flags);
 }
 function requestSuppliesTenantKey(text) {
-    return new RegExp(`(?:${TENANT_KEY_SOURCE})\\s*:\\s*(?:req|request)\\.(?:params|query|body)`, "u").test(text);
+    return new RegExp(`(?:${tenantKeySource()})\\s*:\\s*(?:req|request)\\.(?:params|query|body)`, "u").test(text);
 }
 function assessTenantScope(node, name, file, context) {
     const contextKeys = extractTenantKeys(context);
@@ -1594,7 +1768,7 @@ function assessTenantScope(node, name, file, context) {
     return "MISSING";
 }
 function extractTenantKeys(text) {
-    const matches = text.match(new RegExp(TENANT_KEY_SOURCE, "giu")) ?? [];
+    const matches = text.match(new RegExp(tenantKeySource(), "giu")) ?? [];
     return [...new Set(matches.map((key) => key.toLowerCase()))];
 }
 function findTenantSqlPredicate(sql, keys) {
@@ -1698,13 +1872,66 @@ function isQueryPredicateProperty(property, argument, sourceFile) {
     return ts.isObjectLiteralExpression(argument) && property.parent === argument;
 }
 function isTrustedSubjectExpression(node, sourceFile) {
-    const text = node.getText(sourceFile).replace(/\s+/gu, "");
-    return /^(?:req|request)\.(?:user|auth(?:\.user)?)(?:\.(?:id|userId|subjectId))?|^(?:session|auth|ctx\.state|context|locals)\.user(?:\.(?:id|userId|subjectId))?|^(?:currentUser|authenticatedUser|subject)\.(?:id|userId|subjectId)$/u.test(text);
+    return expandTrustedAliases(node, sourceFile).some((text) => /^(?:req|request)\.(?:user|auth(?:\.user)?)(?:\.(?:id|userId|subjectId))?|^(?:session|auth|ctx\.state|context|locals)\.user(?:\.(?:id|userId|subjectId))?|^(?:currentUser|authenticatedUser|subject)\.(?:id|userId|subjectId)$/u.test(text));
+}
+/**
+ * Returns the expression text plus any same-scope alias expansions.
+ *
+ * `const user = req.user; … ownerId: user.id` must read as an ownership predicate. Each leading
+ * identifier is substituted with its `const`/`let` initializer, bounded to three hops so a chain
+ * cannot loop or grow without limit. The original text is always included so direct matches keep
+ * working unchanged.
+ */
+function expandTrustedAliases(node, sourceFile) {
+    const seen = new Set();
+    let frontier = [node.getText(sourceFile).replace(/\s+/gu, "")];
+    for (const text of frontier)
+        seen.add(text);
+    for (let hop = 0; hop < 3; hop += 1) {
+        const next = [];
+        for (const text of frontier) {
+            const head = /^([A-Za-z_$][\w$]*)/u.exec(text)?.[1];
+            if (head === undefined)
+                continue;
+            const initializer = findLocalConstInitializer(sourceFile, head);
+            if (initializer === undefined)
+                continue;
+            const expanded = initializer + text.slice(head.length);
+            if (seen.has(expanded))
+                continue;
+            seen.add(expanded);
+            next.push(expanded);
+        }
+        if (next.length === 0)
+            break;
+        frontier = next;
+    }
+    return [...seen];
+}
+/** Finds the initializer text of a same-file `const`/`let` binding with the given name. */
+function findLocalConstInitializer(sourceFile, name) {
+    let initializer;
+    const walk = (node) => {
+        if (initializer !== undefined)
+            return;
+        if (ts.isVariableDeclaration(node) &&
+            ts.isIdentifier(node.name) &&
+            node.name.text === name &&
+            node.initializer !== undefined &&
+            !ts.isArrowFunction(node.initializer) &&
+            !ts.isFunctionExpression(node.initializer)) {
+            initializer = node.initializer.getText(sourceFile).replace(/\s+/gu, "");
+            return;
+        }
+        ts.forEachChild(node, walk);
+    };
+    ts.forEachChild(sourceFile, walk);
+    return initializer;
 }
 function isTrustedTenantExpression(node, sourceFile) {
-    const text = node.getText(sourceFile).replace(/\s+/gu, "");
-    const key = `(?:${TENANT_KEY_SOURCE})`;
-    return new RegExp(`^(?:req|request)\\.(?:session\\.user|auth(?:\\.user)?|user)\\.${key}$|^(?:session\\.user|auth\\.user|ctx\\.state(?:\\.user)?|context(?:\\.user)?)\\.${key}$|^(?:trustedTenant|tenantContext)\\.(?:id|${key})$`, "iu").test(text);
+    const key = `(?:${tenantKeySource()})`;
+    const pattern = new RegExp(`^(?:req|request)\\.(?:session\\.user|auth(?:\\.user)?|user)\\.${key}$|^(?:session\\.user|auth\\.user|ctx\\.state(?:\\.user)?|context(?:\\.user)?)\\.${key}$|^(?:trustedTenant|tenantContext)\\.(?:id|${key})$`, "iu");
+    return expandTrustedAliases(node, sourceFile).some((text) => pattern.test(text));
 }
 function hasDominatingGuard(sink, sourceFile, classify) {
     for (const statement of precedingStatements(sink)) {
