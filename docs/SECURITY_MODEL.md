@@ -1,5 +1,10 @@
 # Security model
 
+Repository discovery uses the bounded, Git-aware policy documented in
+[Repository inventory](REPOSITORY_INVENTORY.md). It does not follow symlinks, invoke a shell, load
+ignored/private runtime data, or charge known binaries against the text budget. `.forgeignore` and
+`--exclude` are evidence limitations: they cannot prove absence or satisfy Audit or Ship.
+
 ## Assets
 
 - User source, uncommitted work, credentials, reports, and production data.

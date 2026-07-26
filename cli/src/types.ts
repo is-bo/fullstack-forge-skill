@@ -1,5 +1,6 @@
 import type { CapabilityAssessment } from "./discovery-evidence.js";
 import type { EvidenceArtifact, EvidenceCommand, EvidenceEnvelope } from "./evidence-envelope.js";
+import type { RepositoryInventoryDiagnostics } from "./repository-inventory.js";
 
 export const STATUSES = [
   "PASS",
@@ -126,6 +127,8 @@ export type ProjectProfile = {
    * compatibility with profiles written before evidence classification existed.
    */
   capability_assessments?: CapabilityAssessment[];
+  /** Bounded repository inventory used to produce this profile. Optional for old profiles. */
+  inventory?: RepositoryInventoryDiagnostics;
   repository: ProfileRecord;
   workspaces: ProfileRecord[];
   applications: ProfileRecord[];
@@ -191,6 +194,10 @@ export type CliOptions = {
   checks?: string[];
   /** `--skip-check`: repeatable planned-check exclusion. */
   skipChecks?: string[];
+  /** `--exclude`: repeatable repository-relative inventory exclusion. */
+  excludes?: string[];
+  /** Strictly parsed, bounded text-inspection budget selected by the operator. */
+  inspectionBudgetBytes?: number;
 };
 
 export const GATE_EVIDENCE_TYPES = [

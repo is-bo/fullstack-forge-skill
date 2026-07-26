@@ -39,7 +39,7 @@ Forge:  Audit finished — evidence is incomplete.
 Node.js 24 or newer and Git are required. The reliable full-product route is:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.1
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.2
 npx forge init
 npx forge doctor
 ```
@@ -72,7 +72,8 @@ Code, Cursor, Gemini CLI, Antigravity, Windsurf, GitHub Copilot, and generic Age
 [Build your first feature](docs/BUILD_YOUR_FIRST_FEATURE.md) ·
 [Audit your application](docs/AUDIT_YOUR_APPLICATION.md) · [Fix and verify](docs/FIX_AND_VERIFY.md)
 · [Ship](docs/SHIP_A_RELEASE.md) · [Nontechnical guide](docs/NONTECHNICAL_GUIDE.md) ·
-[Troubleshooting](docs/TROUBLESHOOTING.md) · [Advanced CLI](docs/ADVANCED_CLI.md)
+[Repository inventory](docs/REPOSITORY_INVENTORY.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) ·
+[Advanced CLI](docs/ADVANCED_CLI.md)
 
 ## Two modes
 
@@ -138,7 +139,7 @@ Fullstack Forge is **not published to the npm registry**. The working npm-based 
 resolves the package directly from its Git tag:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.1
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.2
 npx forge init all --dry-run
 npx forge init
 ```

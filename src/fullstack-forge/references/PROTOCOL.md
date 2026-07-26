@@ -1,5 +1,9 @@
 # Evidence protocol
 
+Repository inventory completeness is evidence state. `PARTIAL` inventory preserves every collected
+record but forces affected criteria to `NOT_VERIFIED` and normally exits `2`. User exclusions are
+limitations, never proof of absence; Ship must rediscover with the same bounded inventory policy.
+
 ## Status
 
 - `PASS`: affirmative direct evidence shows the criterion holds in the inspected scope.

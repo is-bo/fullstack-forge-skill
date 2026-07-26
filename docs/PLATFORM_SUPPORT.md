@@ -32,10 +32,11 @@ normally. Codex does not create a nested native picker command for each Forge ac
 **Fullstack Forge — Expert Audit** picker entry preserves backward-compatible advanced
 orchestration. Restart Codex if freshly installed metadata does not appear.
 
-All platform archives carry the same v0.5.1 compiled CLI contracts: schema-v2 Build state,
-registered producers, applicability/gate re-derivation, the runtime evidence matrix, and explicit
-`forge migrate build`. Migration is a CLI command rather than an Agent Skill entry point; no host
-may silently reinterpret v0.2 state or manufacture a Build result when the CLI is absent.
+All platform archives carry the same compiled CLI contracts: schema-v2 Build state, registered
+producers, applicability/gate re-derivation, the runtime evidence matrix, and explicit
+`forge migrate build`, plus bounded Git-aware repository inventory. Migration is a CLI command
+rather than an Agent Skill entry point; no host may silently reinterpret v0.2 state or manufacture a
+Build result when the CLI is absent.
 
 ## Primary sources
 

@@ -85,7 +85,15 @@ safe read-only work when optional evidence is unavailable.
 
 ## Step 2: Discover the project
 
-Run `forge discover audit` or use the `discover-project` tool. Detect languages, frameworks,
+Establish the exact root, inspect Git status and manifests, and use the bounded Git-aware repository
+inventory before selecting modules or attempting a full scan. Respect `.gitignore`; classify
+generated, vendored, cache, environment, binary, runtime-data, example, fixture, and test paths
+before loading content. If inventory is `PARTIAL`, preserve collected evidence, mark affected work
+`NOT_VERIFIED`, and propose a reviewed `.forgeignore`, repeatable `--exclude`, narrower root, or
+explicit bounded inspection budget. Never simulate CLI evidence or reinterpret exit code `2` as
+success.
+
+Then run `forge discover audit` or use the `discover-project` tool. Detect languages, frameworks,
 workspaces, applications, routes, roles, tenant boundaries, data stores, uploads, caches, queues,
 tests, CI, observability, deployment, integrations, AI, and payment providers.
 

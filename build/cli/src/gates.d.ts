@@ -1,5 +1,6 @@
 import { type CommandLedgerRecord, type PolicyContext } from "./offline-policy.js";
 import type { AuditReport, ExecutionRecord } from "./report.js";
+import type { RepositoryInventory, RepositoryInventoryOptions } from "./repository-inventory.js";
 import type { CommandDefinition, Finding, GateEvidence, GateEvidenceType, ProjectProfile, Status } from "./types.js";
 export type GateStatus = Extract<Status, "PASS" | "FAIL" | "BLOCKED" | "NOT_VERIFIED" | "NOT_APPLICABLE">;
 export type ShipGate = {
@@ -43,7 +44,7 @@ export type ShipGateResult = {
     /** Why every registered command ran, did not run, or was blocked by network policy. */
     command_ledger: CommandLedgerRecord[];
 };
-export declare function runShipGates(root: string, profile: ProjectProfile, previous: AuditReport | undefined, commands: CommandDefinition[], allowRun: boolean, policy?: PolicyContext): Promise<ShipGateResult>;
+export declare function runShipGates(root: string, profile: ProjectProfile, previous: AuditReport | undefined, commands: CommandDefinition[], allowRun: boolean, policy?: PolicyContext, inventoryOptions?: RepositoryInventoryOptions): Promise<ShipGateResult>;
 export declare function evaluateGateOutcome(gates: ShipGate[]): "PASS" | "FAIL" | "BLOCKED";
 type CapabilityApplicability = {
     status: "APPLICABLE" | "ABSENT" | "UNKNOWN";
@@ -64,5 +65,5 @@ export type ShipInspection = {
  * Re-runs the bounded inspectors Ship depends on and seals their claims against the current tree.
  * Persisted report records never enter this function.
  */
-export declare function deriveShipInspection(root: string, profile: ProjectProfile, revision: string): Promise<ShipInspection>;
+export declare function deriveShipInspection(root: string, profile: ProjectProfile, revision: string, repositoryInventory?: RepositoryInventory): Promise<ShipInspection>;
 export {};

@@ -1,5 +1,10 @@
 # CLI reference
 
+Audit, Verify, and Ship accept repeatable `--exclude <repository-relative-path>` and a strict,
+bounded `--inspection-budget <bytes|KiB|MiB>` (maximum 512 MiB). These options are visible in JSON
+and reports. They cannot turn incomplete evidence into `PASS`; affected checks remain `NOT_VERIFIED`
+and exit `2`. See [Repository inventory](REPOSITORY_INVENTORY.md).
+
 Both `fullstack-forge` and `forge` execute the same CLI. Node.js 24 or newer is required.
 
 ## Simple commands

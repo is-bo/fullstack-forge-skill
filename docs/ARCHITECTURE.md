@@ -1,5 +1,11 @@
 # Architecture
 
+Repository discovery, capability assessment, analyzers, inspectors, secret scanning, Ship
+rediscovery, and working-tree identity consume the shared bounded inventory described in
+[REPOSITORY_INVENTORY.md](REPOSITORY_INVENTORY.md). Git-aware candidates are classified before
+content reads; non-Git fallback uses the same containment, symlink, ordering, exclusion, and budget
+policy.
+
 ## Source of truth
 
 `config/modules.json` is the ordered semantic catalog for 42 command modules, and

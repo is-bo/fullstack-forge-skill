@@ -1,3 +1,4 @@
+import { type RepositoryInventory } from "./repository-inventory.js";
 export declare function sha256(content: string | Buffer): string;
 export declare function toPosix(path: string): string;
 /**
@@ -30,4 +31,4 @@ export declare function utcNow(): string;
  * Identifies the exact inspected working tree without exposing diff contents. Clean Git trees use
  * the commit SHA directly; dirty or unversioned trees add a digest of changed/untracked bytes.
  */
-export declare function workingTreeRevision(root: string): Promise<string>;
+export declare function workingTreeRevision(root: string, sharedInventory?: RepositoryInventory): Promise<string>;

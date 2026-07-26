@@ -67,6 +67,7 @@ forge uploads audit
 forge queries audit
 forge all audit --scope changed
 forge all audit --scope changed --base origin/main
+forge all audit --exclude .next --exclude storage/local --inspection-budget 192MiB
 forge all fix --safe
 forge all fix --safe --dry-run --json
 forge ship
@@ -86,7 +87,9 @@ regression fails. Credential replacement does not rotate a provider secret, so t
 `NOT_VERIFIED` until rotation is confirmed. Authorization, tenancy, uploads, AI, payments,
 integrations, and any policy-bearing remediation remain `BLOCKED` pending explicit human decisions.
 
-The 42 valid sections are emitted by `forge list`. Unknown sections and modes fail closed.
+The 42 valid sections are emitted by `forge list`. Unknown sections and modes fail closed. Audit,
+Verify, and Ship share the bounded [repository inventory](REPOSITORY_INVENTORY.md). A user exclusion
+or exhausted relevant-text budget remains `NOT_VERIFIED` and exits `2`.
 
 ## Build modules
 

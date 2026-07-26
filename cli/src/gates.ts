@@ -4,7 +4,7 @@ import {
   verifyEvidenceEnvelope,
   type EvidenceArtifact
 } from "./evidence-envelope.js";
-import { discoverProject } from "./discovery.js";
+import { discoverProjectWithInventory } from "./discovery.js";
 import { validateFinding } from "./finding.js";
 import { inspectSection } from "./inspectors.js";
 import {
@@ -15,6 +15,8 @@ import {
 } from "./offline-policy.js";
 import type { AuditReport, ExecutionRecord } from "./report.js";
 import { classifyEvidencePath } from "./discovery-evidence.js";
+import { inventoryLimitationFinding } from "./inventory-evidence.js";
+import type { RepositoryInventory, RepositoryInventoryOptions } from "./repository-inventory.js";
 import type {
   CommandDefinition,
   Finding,
@@ -199,13 +201,14 @@ export async function runShipGates(
   previous: AuditReport | undefined,
   commands: CommandDefinition[],
   allowRun: boolean,
-  policy: PolicyContext = { offline: false, forgeOwned: false }
+  policy: PolicyContext = { offline: false, forgeOwned: false },
+  inventoryOptions: RepositoryInventoryOptions = {}
 ): Promise<ShipGateResult> {
   if (profile.root !== root)
     throw new Error("The supplied project profile root does not match the selected Ship root.");
   const execution: ExecutionRecord[] = [];
   const ledger: CommandLedgerRecord[] = [];
-  let state = await deriveStableShipState(root);
+  let state = await deriveStableShipState(root, inventoryOptions);
   const initialRevision = state.revision;
   let { profile: currentProfile, inspection, revision } = state;
   let preflight = [schemaGate(root, inspection.findings), openFindingsGate(inspection.findings)];
@@ -223,8 +226,11 @@ export async function runShipGates(
   }
   // Commands are explicitly authorized but project-owned. Bind their evidence to the tree after
   // they ran so a command that mutates the checkout cannot inherit a pre-execution revision.
-  if (commandResults.size > 0 || (await workingTreeRevision(root)) !== initialRevision) {
-    state = await deriveStableShipState(root);
+  if (
+    commandResults.size > 0 ||
+    (await revisionWithInventoryOptions(root, inventoryOptions)) !== initialRevision
+  ) {
+    state = await deriveStableShipState(root, inventoryOptions);
     ({ profile: currentProfile, inspection, revision } = state);
     preflight = [schemaGate(root, inspection.findings), openFindingsGate(inspection.findings)];
   }
@@ -783,14 +789,26 @@ type StableShipState = {
   revision: string;
 };
 
-async function deriveStableShipState(root: string): Promise<StableShipState> {
+async function deriveStableShipState(
+  root: string,
+  inventoryOptions: RepositoryInventoryOptions = {}
+): Promise<StableShipState> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const revision = await workingTreeRevision(root);
-    const profile = await discoverProject(root);
-    const inspection = await deriveShipInspection(root, profile, revision);
-    if ((await workingTreeRevision(root)) === revision) return { profile, inspection, revision };
+    const { profile, inventory } = await discoverProjectWithInventory(root, inventoryOptions);
+    const revision = await workingTreeRevision(root, inventory);
+    const inspection = await deriveShipInspection(root, profile, revision, inventory);
+    if ((await revisionWithInventoryOptions(root, inventoryOptions)) === revision)
+      return { profile, inspection, revision };
   }
   throw new Error("The working tree changed during Ship evidence derivation; retry the gate.");
+}
+
+async function revisionWithInventoryOptions(
+  root: string,
+  inventoryOptions: RepositoryInventoryOptions
+): Promise<string> {
+  const { inventory } = await discoverProjectWithInventory(root, inventoryOptions);
+  return workingTreeRevision(root, inventory);
 }
 
 /**
@@ -800,11 +818,15 @@ async function deriveStableShipState(root: string): Promise<StableShipState> {
 export async function deriveShipInspection(
   root: string,
   profile: ProjectProfile,
-  revision: string
+  revision: string,
+  repositoryInventory?: RepositoryInventory
 ): Promise<ShipInspection> {
   const results = await Promise.all(
-    SHIP_INSPECTION_MODULES.map((module) => inspectSection(module, root, profile))
+    SHIP_INSPECTION_MODULES.map((module) =>
+      inspectSection(module, root, profile, undefined, repositoryInventory)
+    )
   );
+  const limitation = inventoryLimitationFinding(profile, "ship");
   const evidence: GateEvidence[] = [];
   for (const result of results) {
     const artifacts = result.input_paths.map((path) => ({
@@ -848,7 +870,10 @@ export async function deriveShipInspection(
     }
   }
   return {
-    findings: results.flatMap((result) => structuredClone(result.findings)),
+    findings: [
+      ...results.flatMap((result) => structuredClone(result.findings)),
+      ...(limitation === undefined ? [] : [limitation])
+    ],
     evidence
   };
 }

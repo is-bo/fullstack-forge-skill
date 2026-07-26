@@ -284,7 +284,9 @@ Helpful commands:
   forge help advanced                 Show the complete expert CLI reference
 
 Safety: missing evidence never becomes PASS. JSON remains available with --json; use --details
-on simple audit, verify, or ship commands for the complete technical report.`;
+on simple audit, verify, or ship commands for the complete technical report. Reviewed paths can
+be omitted with repeatable --exclude; Forge records that limitation and exits 2 when required
+evidence may be affected.`;
 }
 
 export function renderSimpleMenu(): string {

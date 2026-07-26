@@ -1,5 +1,6 @@
 import { basename, relative } from "node:path";
-import { canonicalDirectory, readTextIfPresent, toPosix, walkFiles } from "./utils.js";
+import { inventoryRepository } from "./repository-inventory.js";
+import { canonicalDirectory, readTextIfPresent, toPosix } from "./utils.js";
 /**
  * Discovery evidence classification.
  *
@@ -414,7 +415,6 @@ function decide(capability, workspace, evidence) {
 function round(value) {
     return Math.round(value * 1000) / 1000;
 }
-const SCAN_EXCLUDED = new Set([".git", ".forge", ".fullstack-forge", "coverage", "node_modules"]);
 /**
  * Scans a repository and returns one assessment per capability per workspace.
  *
@@ -422,17 +422,21 @@ const SCAN_EXCLUDED = new Set([".git", ".forge", ".fullstack-forge", "coverage",
  * generated output, and documentation so that those signals can be observed *and* neutralized
  * instead of being invisible.
  */
-export async function assessProjectCapabilities(rootInput, workspaceRoots = []) {
+export async function assessProjectCapabilities(rootInput, workspaceRoots = [], sharedInventory) {
     const root = await canonicalDirectory(rootInput);
-    const files = await walkFiles(root, {
-        exclude: SCAN_EXCLUDED,
-        maxBytes: 768 * 1024,
-        maxFiles: 15_000,
-        maxTotalBytes: 128 * 1024 * 1024,
-        maxDepth: 64
-    });
+    const inventory = sharedInventory ??
+        (await inventoryRepository(root, {
+            maxFileBytes: 768 * 1024,
+            maxEntries: 15_000,
+            maxDepth: 64,
+            includeNeutralEvidence: true,
+            applyDefaultExclusions: true
+        }));
+    const inspectedEntries = inventory.entries.filter((entry) => entry.status === "INSPECTED" && entry.content !== undefined);
+    const files = inspectedEntries.map((entry) => entry.absolute_path);
+    const contentByFile = new Map(inspectedEntries.map((entry) => [entry.absolute_path, entry.content]));
     const roots = [...new Set([...workspaceRoots, ...inferWorkspaceRoots(root, files)])];
-    const evidence = await collectEvidence(root, files, roots);
+    const evidence = await collectEvidence(root, files, roots, contentByFile);
     return assessCapabilities(evidence, CAPABILITY_RULES.map((rule) => rule.capability), roots);
 }
 function inferWorkspaceRoots(root, files) {
@@ -451,12 +455,12 @@ function inferWorkspaceRoots(root, files) {
     return roots.sort();
 }
 /** Collects classified, capability-tagged evidence for a file list. Deterministic by path. */
-export async function collectEvidence(root, files, workspaceRoots) {
+export async function collectEvidence(root, files, workspaceRoots, contentByFile) {
     const evidence = [];
     for (const file of [...files].sort()) {
         const path = toPosix(relative(root, file));
         const { evidence_class } = classifyEvidencePath(path);
-        const content = await readTextIfPresent(file);
+        const content = contentByFile?.get(file) ?? (await readTextIfPresent(file));
         if (content === undefined)
             continue;
         for (const rule of CAPABILITY_RULES) {

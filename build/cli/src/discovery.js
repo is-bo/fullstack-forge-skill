@@ -1,23 +1,8 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join, relative } from "node:path";
 import { assessProjectCapabilities } from "./discovery-evidence.js";
-import { assertNoSymlinkPath, canonicalDirectory, readTextIfPresent, runFile, toPosix, utcNow, walkFiles } from "./utils.js";
-const EXCLUDED = new Set([
-    ".git",
-    ".forge",
-    ".fullstack-forge",
-    ".next",
-    ".nuxt",
-    ".output",
-    ".tmp",
-    "build",
-    "coverage",
-    "dist",
-    "fixtures",
-    "node_modules",
-    "target",
-    "vendor"
-]);
+import { inventoryRepository } from "./repository-inventory.js";
+import { assertNoSymlinkPath, canonicalDirectory, readTextIfPresent, runFile, toPosix, utcNow } from "./utils.js";
 const RULES = [
     {
         category: "language",
@@ -252,15 +237,19 @@ const RULES = [
         capability: "infrastructure"
     }
 ];
-export async function discoverProject(rootInput) {
+export async function discoverProject(rootInput, options = {}) {
+    return (await discoverProjectWithInventory(rootInput, options)).profile;
+}
+export async function discoverProjectWithInventory(rootInput, options = {}) {
     const root = await canonicalDirectory(rootInput);
-    const files = await walkFiles(root, {
-        exclude: EXCLUDED,
-        maxBytes: 768 * 1024,
-        maxFiles: 15_000,
-        maxTotalBytes: 128 * 1024 * 1024,
-        maxDepth: 64
+    const inventory = await inventoryRepository(root, {
+        ...options,
+        includeNeutralEvidence: true,
+        applyDefaultExclusions: true
     });
+    const inspectedEntries = inventory.entries.filter((entry) => entry.status === "INSPECTED" && entry.content !== undefined);
+    const files = inspectedEntries.map((entry) => entry.absolute_path);
+    const contentByFile = new Map(inspectedEntries.map((entry) => [entry.absolute_path, entry.content]));
     const evidenceByRule = new Map();
     for (const file of files) {
         const rel = toPosix(relative(root, file));
@@ -268,7 +257,7 @@ export async function discoverProject(rootInput) {
         const candidateRules = RULES.filter((rule) => rule.fileNames?.test(name));
         for (const rule of candidateRules)
             addEvidence(evidenceByRule, rule, rel);
-        const text = await readTextIfPresent(file);
+        const text = contentByFile.get(file);
         if (text === undefined)
             continue;
         for (const rule of RULES) {
@@ -313,20 +302,21 @@ export async function discoverProject(rootInput) {
             evidence: ["One or more external runtime providers were detected"]
         };
     }
-    const structured = await buildStructuredProfile(root, files, capabilities);
-    // Evidence classification runs over its own walk so fixtures, examples, generated platform
-    // copies, and documentation are visible and can be explicitly neutralized rather than
-    // silently excluded. It never removes a legacy detection; it only adds a weighted decision.
-    const capabilityAssessments = await assessProjectCapabilities(root, structured.workspaces.map((workspace) => workspace.root ?? "."));
-    return {
+    const structured = await buildStructuredProfile(root, files, capabilities, contentByFile);
+    // Capability weighting consumes the same bounded inventory as primary discovery. Neutral trees
+    // are represented without a second repository walk.
+    const capabilityAssessments = await assessProjectCapabilities(root, structured.workspaces.map((workspace) => workspace.root ?? "."), inventory);
+    const profile = {
         schema_version: 2,
         root,
         generated_at: utcNow(),
         detections: deduplicateDetections(detections),
         capabilities,
         capability_assessments: capabilityAssessments,
+        inventory: inventory.diagnostics,
         ...structured
     };
+    return { profile, inventory };
 }
 export async function writeProjectArtifacts(profile, dryRun = false) {
     const root = await canonicalDirectory(profile.root);
@@ -486,9 +476,9 @@ function deduplicateDetections(detections) {
     }
     return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
-async function buildStructuredProfile(root, files, capabilities) {
+async function buildStructuredProfile(root, files, capabilities, contentByFile) {
     const relativeFiles = files.map((file) => toPosix(relative(root, file)));
-    const manifests = await loadPackageManifests(root, files);
+    const manifests = loadPackageManifests(root, files, contentByFile);
     const repositoryName = manifests.find((manifest) => manifest.path === "package.json")?.name ?? basename(root);
     // `.git` is excluded from the walked file set, so it can never appear in `relativeFiles`.
     // Ask Git directly instead of testing a path that is guaranteed absent.
@@ -504,7 +494,7 @@ async function buildStructuredProfile(root, files, capabilities) {
                     : "repository root"
         ]
     });
-    const declaredWorkspaces = await loadDeclaredWorkspaces(root, manifests);
+    const declaredWorkspaces = loadDeclaredWorkspaces(root, manifests, contentByFile);
     const workspaces = manifests
         .filter((manifest) => manifest.path !== "package.json")
         .map((manifest) => {
@@ -521,7 +511,7 @@ async function buildStructuredProfile(root, files, capabilities) {
     });
     const applications = manifests.map((manifest) => applicationRecord(manifest));
     const languages = languageRecords(root, files);
-    const frameworks = await contentRecords(root, files, [
+    const frameworks = contentRecords(root, files, contentByFile, [
         ["Next.js", "frontend-framework", /["']next["']\s*:/u],
         ["React", "frontend-framework", /["']react["']\s*:/u],
         ["Vue", "frontend-framework", /["']vue["']\s*:/u],
@@ -533,7 +523,7 @@ async function buildStructuredProfile(root, files, capabilities) {
     ]);
     const packageManagers = packageManagerRecords(relativeFiles);
     const databases = capabilityRecords(capabilities, [["database", "database"]]);
-    const orms = await contentRecords(root, files, [
+    const orms = contentRecords(root, files, contentByFile, [
         ["Prisma", "orm", /@prisma\/client|schema\.prisma/iu],
         ["Drizzle", "orm", /drizzle-orm/iu],
         ["TypeORM", "orm", /typeorm/iu],
@@ -543,20 +533,20 @@ async function buildStructuredProfile(root, files, capabilities) {
     const authentication = capabilityRecords(capabilities, [
         ["authentication", "authentication-boundary"]
     ]);
-    const sessions = await contentRecords(root, files, [
+    const sessions = contentRecords(root, files, contentByFile, [
         ["Session handling", "session", /\b(?:session|cookie|refreshToken|accessToken)\b/iu]
     ]);
     const authorization = capabilityRecords(capabilities, [
         ["authorization", "authorization-policy"]
     ]);
-    const roles = await detectNamedValues(root, files, "role", /\b(?:role|roles)\b[^\n]{0,80}["'`]([A-Za-z][A-Za-z0-9_-]{1,30})["'`]/giu);
+    const roles = detectNamedValues(root, files, contentByFile, "role", /\b(?:role|roles)\b[^\n]{0,80}["'`]([A-Za-z][A-Za-z0-9_-]{1,30})["'`]/giu);
     const tenantBoundaries = capabilityRecords(capabilities, [["tenancy", "tenant-boundary"]]);
-    const routes = await routeRecords(root, files);
+    const routes = routeRecords(root, files, contentByFile);
     const storage = capabilityRecords(capabilities, [["storage", "object-storage"]]);
     const uploadPipelines = capabilityRecords(capabilities, [["uploads", "upload-pipeline"]]);
     const caches = capabilityRecords(capabilities, [["cache", "cache"]]);
     const queues = capabilityRecords(capabilities, [["jobs", "queue"]]);
-    const scheduledJobs = await contentRecords(root, files, [
+    const scheduledJobs = contentRecords(root, files, contentByFile, [
         ["Scheduled job", "scheduled-job", /\b(?:cron|schedule|scheduled)\b/iu]
     ]);
     const tests = relativeFiles
@@ -574,7 +564,7 @@ async function buildStructuredProfile(root, files, capabilities) {
     const integrations = capabilityRecords(capabilities, [["integrations", "external-integration"]]);
     const aiProviders = capabilityRecords(capabilities, [["ai", "ai-provider"]]);
     const paymentProviders = capabilityRecords(capabilities, [["payments", "payment-provider"]]);
-    const hosting = await contentRecords(root, files, [
+    const hosting = contentRecords(root, files, contentByFile, [
         ["Vercel", "hosting", /(?:^|\/)vercel\.json$|\bvercel\b/iu],
         ["Cloudflare", "hosting", /wrangler\.(?:jsonc?|toml)|cloudflare/iu],
         ["Netlify", "hosting", /netlify\.toml|\bnetlify\b/iu],
@@ -588,7 +578,7 @@ async function buildStructuredProfile(root, files, capabilities) {
         confidence: "HIGH",
         evidence: [path]
     }));
-    const criticalWorkflows = await contentRecords(root, files, [
+    const criticalWorkflows = contentRecords(root, files, contentByFile, [
         ["Authentication workflow", "critical-workflow", /\b(?:login|signIn|authenticate)\s*\(/u],
         ["Upload workflow", "critical-workflow", /\b(?:upload|multipart)\b/iu],
         ["Payment workflow", "critical-workflow", /\b(?:payment|checkout|invoice|charge)\b/iu],
@@ -644,7 +634,7 @@ async function isInsideGitWorkTree(root) {
  * `package.json` workspaces, pnpm-workspace.yaml, lerna.json, nx.json, and turbo.json.
  * Returns a map of workspace directory to the evidence that declared it.
  */
-async function loadDeclaredWorkspaces(root, manifests) {
+function loadDeclaredWorkspaces(root, manifests, contentByFile) {
     const declared = new Map();
     const patterns = [];
     const rootManifest = manifests.find((manifest) => manifest.path === "package.json");
@@ -657,7 +647,7 @@ async function loadDeclaredWorkspaces(root, manifests) {
     for (const pattern of rootPatterns)
         if (typeof pattern === "string")
             patterns.push({ pattern, evidence: "package.json workspaces" });
-    const pnpm = await readTextIfPresent(join(root, "pnpm-workspace.yaml"));
+    const pnpm = contentByFile.get(join(root, "pnpm-workspace.yaml"));
     if (pnpm !== undefined) {
         for (const match of pnpm.matchAll(/^\s*-\s*["']?([^"'\n#]+?)["']?\s*$/gmu))
             patterns.push({ pattern: (match[1] ?? "").trim(), evidence: "pnpm-workspace.yaml" });
@@ -667,7 +657,7 @@ async function loadDeclaredWorkspaces(root, manifests) {
         ["nx.json", "projects"],
         ["turbo.json", "workspaces"]
     ]) {
-        const content = await readTextIfPresent(join(root, file));
+        const content = contentByFile.get(join(root, file));
         if (content === undefined)
             continue;
         try {
@@ -711,10 +701,10 @@ function matchesWorkspacePattern(directory, pattern) {
         .join("/");
     return new RegExp(`^${expression}$`, "u").test(directory);
 }
-async function loadPackageManifests(root, files) {
+function loadPackageManifests(root, files, contentByFile) {
     const output = [];
     for (const file of files.filter((candidate) => basename(candidate) === "package.json")) {
-        const content = await readTextIfPresent(file);
+        const content = contentByFile.get(file);
         if (content === undefined)
             continue;
         try {
@@ -814,13 +804,13 @@ function packageManagerRecords(files) {
         ? [record(name, "package-manager", { confidence: "HIGH", evidence: [path] })]
         : []);
 }
-async function contentRecords(root, files, patterns, matchPath = false) {
+function contentRecords(root, files, contentByFile, patterns, matchPath = false) {
     const output = [];
     for (const [name, type, pattern] of patterns) {
         const evidence = [];
         for (const file of files) {
             const path = toPosix(relative(root, file));
-            const content = matchPath ? path : await readTextIfPresent(file);
+            const content = matchPath ? path : contentByFile.get(file);
             pattern.lastIndex = 0;
             if (content !== undefined && pattern.test(content) && evidence.length < 12)
                 evidence.push(path);
@@ -830,10 +820,10 @@ async function contentRecords(root, files, patterns, matchPath = false) {
     }
     return output;
 }
-async function detectNamedValues(root, files, type, pattern) {
+function detectNamedValues(root, files, contentByFile, type, pattern) {
     const values = new Map();
     for (const file of files) {
-        const content = await readTextIfPresent(file);
+        const content = contentByFile.get(file);
         if (content === undefined)
             continue;
         pattern.lastIndex = 0;
@@ -850,11 +840,11 @@ async function detectNamedValues(root, files, type, pattern) {
     }
     return [...values.entries()].map(([name, evidence]) => record(name, type, { confidence: "MEDIUM", evidence }));
 }
-async function routeRecords(root, files) {
+function routeRecords(root, files, contentByFile) {
     const output = [];
     const pattern = /\b(?:app|router)\.(get|post|put|patch|delete|use)\s*\(\s*["'`]([^"'`]+)["'`]/giu;
     for (const file of files.filter((candidate) => /\.(?:[cm]?[jt]sx?)$/iu.test(candidate))) {
-        const content = await readTextIfPresent(file);
+        const content = contentByFile.get(file);
         if (content === undefined)
             continue;
         pattern.lastIndex = 0;
@@ -901,7 +891,7 @@ async function routeRecords(root, files) {
             });
         }
     }
-    output.push(...(await frameworkRouteRecords(root, files)));
+    output.push(...frameworkRouteRecords(root, files, contentByFile));
     return output;
 }
 /**
@@ -909,11 +899,11 @@ async function routeRecords(root, files) {
  * Each adapter states which adapter produced the record so coverage is auditable. Middleware
  * inheritance is not resolved, so visibility stays `unknown` unless a guard is directly visible.
  */
-async function frameworkRouteRecords(root, files) {
+function frameworkRouteRecords(root, files, contentByFile) {
     const output = [];
     const methods = "GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS";
     for (const file of files.filter((candidate) => /\.(?:[cm]?[jt]sx?)$/iu.test(candidate))) {
-        const content = await readTextIfPresent(file);
+        const content = contentByFile.get(file);
         if (content === undefined)
             continue;
         const path = toPosix(relative(root, file));

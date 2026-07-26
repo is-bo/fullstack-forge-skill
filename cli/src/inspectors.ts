@@ -1,6 +1,7 @@
 import { readdir } from "node:fs/promises";
 import { basename, extname, join, relative } from "node:path";
 import { runAnalyzers, type AnalyzerScope } from "./analyzers.js";
+import { inventoryRepository, type RepositoryInventory } from "./repository-inventory.js";
 import { MODULE_SLUGS, SECTION_CAPABILITY, type ModuleSlug, type ToolName } from "./constants.js";
 import { classifyEvidencePath } from "./discovery-evidence.js";
 import type {
@@ -11,33 +12,7 @@ import type {
   Observation,
   ProjectProfile
 } from "./types.js";
-import {
-  isTestSourcePath,
-  lineNumber,
-  readTextIfPresent,
-  toPosix,
-  utcNow,
-  walkFiles
-} from "./utils.js";
-
-const EXCLUDED = new Set([
-  ".git",
-  ".forge",
-  ".fullstack-forge",
-  ".agents",
-  ".claude",
-  ".cursor",
-  ".gemini",
-  ".windsurf",
-  ".tmp",
-  "build",
-  "coverage",
-  "dist",
-  "fixtures",
-  "node_modules",
-  "target",
-  "vendor"
-]);
+import { isTestSourcePath, lineNumber, readTextIfPresent, toPosix, utcNow } from "./utils.js";
 
 const TEXT_EXTENSIONS = new Set([
   ".cjs",
@@ -202,13 +177,14 @@ const SECTION_KEYWORDS: Partial<Record<ModuleSlug, RegExp>> = {
 export async function inspectWithTool(
   tool: ToolName,
   root: string,
-  scope?: AnalyzerScope
+  scope?: AnalyzerScope,
+  repositoryInventory?: RepositoryInventory
 ): Promise<InspectionResult> {
-  if (tool === "inspect-env-template") return inspectEnvTemplates(root, scope);
-  if (tool === "scan-secret-patterns") return scanSecretPatterns(root, scope);
+  if (tool === "inspect-env-template") return inspectEnvTemplates(root, scope, repositoryInventory);
+  if (tool === "scan-secret-patterns") return scanSecretPatterns(root, scope, repositoryInventory);
   if (tool === "inspect-dependencies") return inspectDependencies(root);
   if (tool === "inspect-ci")
-    return inspectNamedFiles(root, tool, isCiFile, "CI configuration", scope);
+    return inspectNamedFiles(root, tool, isCiFile, "CI configuration", scope, repositoryInventory);
   if (tool === "inspect-platform-skills") return inspectPlatformSkills(root, scope);
   const patterns = TOOL_PATTERNS[tool];
   if (patterns !== undefined)
@@ -217,7 +193,8 @@ export async function inspectWithTool(
       tool,
       patterns,
       scope,
-      tool === "inspect-deployment-config" ? "configuration" : "runtime"
+      tool === "inspect-deployment-config" ? "configuration" : "runtime",
+      repositoryInventory
     );
   return emptyResult(tool, root);
 }
@@ -226,7 +203,8 @@ export async function inspectSection(
   section: ModuleSlug,
   root: string,
   profile: ProjectProfile,
-  scope?: AnalyzerScope
+  scope?: AnalyzerScope,
+  repositoryInventory?: RepositoryInventory
 ): Promise<InspectionResult> {
   const capability = SECTION_CAPABILITY[section];
   if (capability !== undefined && profile.capabilities[capability] === undefined) {
@@ -251,7 +229,7 @@ export async function inspectSection(
     "uploads"
   ]);
   const analyzerRuns = analyzerSections.has(section)
-    ? await runAnalyzers(section, root, scope)
+    ? await runAnalyzers(section, root, scope, repositoryInventory)
     : [];
   const analyzerFindings = analyzerRuns.flatMap((run) => run.findings);
   const analyzerObservations: Observation[] = analyzerRuns
@@ -264,7 +242,7 @@ export async function inspectSection(
     }));
   const specialized = sectionTool(section);
   if (specialized !== undefined) {
-    const inventory = await inspectWithTool(specialized, root, scope);
+    const inventory = await inspectWithTool(specialized, root, scope, repositoryInventory);
     return result(
       `inspect-${section}`,
       root,
@@ -278,14 +256,16 @@ export async function inspectSection(
   if (regex === undefined) {
     const base = result(`inspect-${section}`, root, analyzerObservations, analyzerFindings);
     return section === "security"
-      ? mergeInspectionResults(base, await scanSecretPatterns(root, scope))
+      ? mergeInspectionResults(base, await scanSecretPatterns(root, scope, repositoryInventory))
       : base;
   }
   const inventory = await scanPatterns(
     root,
     `inspect-${section}`,
     [{ category: section, regex, detail: `${section} implementation signal` }],
-    scope
+    scope,
+    "runtime",
+    repositoryInventory
   );
   const base = result(
     `inspect-${section}`,
@@ -296,7 +276,7 @@ export async function inspectSection(
     inventory.input_paths
   );
   return section === "security"
-    ? mergeInspectionResults(base, await scanSecretPatterns(root, scope))
+    ? mergeInspectionResults(base, await scanSecretPatterns(root, scope, repositoryInventory))
     : base;
 }
 
@@ -305,13 +285,14 @@ async function scanPatterns(
   tool: string,
   patterns: Pattern[],
   scope?: AnalyzerScope,
-  sourceMode: SourceMode = "runtime"
+  sourceMode: SourceMode = "runtime",
+  repositoryInventory?: RepositoryInventory
 ): Promise<InspectionResult> {
   const observations: Observation[] = [];
-  const files = await sourceFiles(root, scope, sourceMode);
+  const selection = await sourceFiles(root, scope, sourceMode, repositoryInventory);
   const inputPaths: string[] = [];
-  for (const file of files) {
-    const content = await readTextIfPresent(file);
+  for (const file of selection.files) {
+    const content = selection.contentByFile.get(file);
     if (content === undefined) continue;
     inputPaths.push(toPosix(relative(root, file)));
     for (const pattern of patterns) {
@@ -331,15 +312,20 @@ async function scanPatterns(
   return result(tool, root, observations, [], [], inputPaths);
 }
 
-async function inspectEnvTemplates(root: string, scope?: AnalyzerScope): Promise<InspectionResult> {
+async function inspectEnvTemplates(
+  root: string,
+  scope?: AnalyzerScope,
+  repositoryInventory?: RepositoryInventory
+): Promise<InspectionResult> {
   const observations: Observation[] = [];
   const findings: Finding[] = [];
   const inputPaths: string[] = [];
-  const files = (await sourceFiles(root, scope, "configuration")).filter((file) =>
+  const selection = await sourceFiles(root, scope, "configuration", repositoryInventory);
+  const files = selection.files.filter((file) =>
     /(?:^|[\\/])\.env(?:\.(?:example|sample|template|defaults))?$|\.env\.example$/iu.test(file)
   );
   for (const file of files) {
-    const content = await readTextIfPresent(file);
+    const content = selection.contentByFile.get(file);
     if (content === undefined) continue;
     inputPaths.push(toPosix(relative(root, file)));
     for (const [index, line] of content.split(/\r?\n/u).entries()) {
@@ -379,7 +365,11 @@ async function inspectEnvTemplates(root: string, scope?: AnalyzerScope): Promise
   return result("inspect-env-template", root, observations, findings, [], inputPaths);
 }
 
-async function scanSecretPatterns(root: string, scope?: AnalyzerScope): Promise<InspectionResult> {
+async function scanSecretPatterns(
+  root: string,
+  scope?: AnalyzerScope,
+  repositoryInventory?: RepositoryInventory
+): Promise<InspectionResult> {
   const observations: Observation[] = [];
   const findings: Finding[] = [];
   const inputPaths: string[] = [];
@@ -404,9 +394,9 @@ async function scanSecretPatterns(root: string, scope?: AnalyzerScope): Promise<
       confidence: "LOW" as const
     }
   ];
-  const files = await sourceFiles(root, scope, "all");
-  for (const file of files) {
-    const content = await readTextIfPresent(file);
+  const selection = await sourceFiles(root, scope, "all", repositoryInventory);
+  for (const file of selection.files) {
+    const content = selection.contentByFile.get(file);
     if (content === undefined) continue;
     inputPaths.push(toPosix(relative(root, file)));
     for (const pattern of patterns) {
@@ -550,9 +540,10 @@ async function inspectNamedFiles(
   tool: string,
   predicate: (relativePath: string) => boolean,
   detail: string,
-  scope?: AnalyzerScope
+  scope?: AnalyzerScope,
+  repositoryInventory?: RepositoryInventory
 ): Promise<InspectionResult> {
-  const files = await sourceFiles(root, scope, "all");
+  const { files } = await sourceFiles(root, scope, "all", repositoryInventory);
   const observations = files
     .map((file) => toPosix(relative(root, file)))
     .filter(predicate)
@@ -653,27 +644,34 @@ function isApplicationInput(path: string, mode: SourceMode): boolean {
 async function sourceFiles(
   root: string,
   scope?: AnalyzerScope,
-  mode: SourceMode = "runtime"
-): Promise<string[]> {
-  return (
-    await walkFiles(root, {
-      exclude: EXCLUDED,
-      maxBytes: 768 * 1024,
-      maxFiles: 10_000,
-      maxTotalBytes: 128 * 1024 * 1024,
-      maxDepth: 64
+  mode: SourceMode = "runtime",
+  repositoryInventory?: RepositoryInventory
+): Promise<{ files: string[]; contentByFile: Map<string, string> }> {
+  const inventory =
+    repositoryInventory ??
+    (await inventoryRepository(root, {
+      includeNeutralEvidence: true,
+      applyDefaultExclusions: true
+    }));
+  const contentByFile = new Map<string, string>();
+  const files = inventory.entries
+    .filter((entry) => entry.status === "INSPECTED" && entry.content !== undefined)
+    .map((entry) => {
+      contentByFile.set(entry.absolute_path, entry.content as string);
+      return entry.absolute_path;
     })
-  ).filter((file) => {
-    const extension = extname(file).toLowerCase();
-    const name = basename(file);
-    const path = toPosix(relative(root, file));
-    return (
-      (scope === undefined || scope.has(path)) &&
-      isApplicationInput(path, mode) &&
-      (TEXT_EXTENSIONS.has(extension) ||
-        /^(?:Dockerfile|Makefile|Procfile|Jenkinsfile|\.env(?:\..+)?)$/u.test(name))
-    );
-  });
+    .filter((file) => {
+      const extension = extname(file).toLowerCase();
+      const name = basename(file);
+      const path = toPosix(relative(root, file));
+      return (
+        (scope === undefined || scope.has(path)) &&
+        isApplicationInput(path, mode) &&
+        (TEXT_EXTENSIONS.has(extension) ||
+          /^(?:Dockerfile|Makefile|Procfile|Jenkinsfile|\.env(?:\..+)?)$/u.test(name))
+      );
+    });
+  return { files, contentByFile };
 }
 
 function sectionTool(section: ModuleSlug): ToolName | undefined {

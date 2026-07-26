@@ -1,26 +1,16 @@
-import { extname, relative } from "node:path";
+import { extname } from "node:path";
 import ts from "typescript";
 import { buildTaintModel } from "./dataflow.js";
-import { isTestSourcePath, lineNumber, readTextIfPresent, sha256, toPosix, walkFiles } from "./utils.js";
-const EXCLUDED = new Set([
-    ".git",
-    ".forge",
-    ".fullstack-forge",
-    ".agents",
-    ".claude",
-    ".cursor",
-    ".gemini",
-    ".windsurf",
-    ".tmp",
-    "build",
-    "coverage",
-    "dist",
-    "fixtures",
-    "node_modules",
-    "target",
-    "vendor"
-]);
+import { isTestSourcePath, lineNumber, sha256, toPosix } from "./utils.js";
+import { inventoryRepository } from "./repository-inventory.js";
 const SCRIPT_EXTENSIONS = new Set([".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"]);
+const NON_APPLICATION_SOURCE_CLASSES = new Set([
+    "documentation",
+    "example",
+    "fixture",
+    "generated",
+    "test"
+]);
 const SPECS = {
     sql: spec("FF-SEC-SQL-001", "js-ts-security", "security", "Request-controlled data reaches an interpolated SQL execution sink", "HIGH", "Request input can alter the query structure and read or modify unintended data.", "Use the database driver's parameter binding and add a negative injection regression test.", false, false, ["Re-run the js-ts-security analyzer", "Run a hostile-input query regression test"], ["OWASP ASVS 5.0", "CWE-89"]),
     nosql: spec("FF-SEC-NOSQL-001", "js-ts-security", "security", "Request-controlled object reaches a NoSQL filter sink", "HIGH", "Request-supplied operators can change query meaning or bypass intended filters.", "Validate an allowlisted scalar filter schema and construct the final query server-side.", false, false, ["Re-run the js-ts-security analyzer", "Run negative operator-injection tests"], ["OWASP ASVS 5.0", "CWE-943"]),
@@ -84,10 +74,15 @@ const SPECS = {
         "Parse vercel.json and inspect the global header rule"
     ], ["OWASP HTTP Headers Cheat Sheet"])
 };
-export async function runAnalyzers(section, root, scope) {
-    const records = await loadSources(root, scope);
+export async function runAnalyzers(section, root, scope, repositoryInventory) {
+    const inventory = repositoryInventory ??
+        (await inventoryRepository(root, {
+            includeNeutralEvidence: true,
+            applyDefaultExclusions: true
+        }));
+    const records = loadSources(scope, inventory);
     const scriptRun = analyzeScripts(records);
-    const configRun = await analyzeStructuredFiles(root, scope);
+    const configRun = analyzeStructuredFiles(scope, inventory);
     return [scriptRun, configRun].map((run) => ({
         ...run,
         findings: run.findings.filter((finding) => section === "all" || finding.section === section)
@@ -250,24 +245,19 @@ function analyzeScripts(files) {
         findings: mergeIssues(issues)
     };
 }
-async function analyzeStructuredFiles(root, scope) {
+function analyzeStructuredFiles(scope, inventory) {
     const issues = [];
     let supported = 0;
-    const files = await walkFiles(root, {
-        exclude: EXCLUDED,
-        maxBytes: 768 * 1024,
-        maxFiles: 10_000,
-        maxTotalBytes: 128 * 1024 * 1024,
-        maxDepth: 64
-    });
-    for (const absolute of files) {
-        const path = toPosix(relative(root, absolute));
+    for (const entry of inventory.entries) {
+        if (entry.status !== "INSPECTED" || entry.content === undefined)
+            continue;
+        if (NON_APPLICATION_SOURCE_CLASSES.has(entry.evidence_class))
+            continue;
+        const path = entry.path;
         if (scope !== undefined && !scope.has(path))
             continue;
-        const content = await readTextIfPresent(absolute);
-        if (content === undefined)
-            continue;
-        const record = syntheticRecord(absolute, path, content);
+        const content = entry.content;
+        const record = syntheticRecord(entry.absolute_path, path, content);
         if (isEnvironmentTemplate(path)) {
             supported += 1;
             for (const [index, line] of content.split(/\r?\n/u).entries()) {
@@ -325,26 +315,23 @@ async function analyzeStructuredFiles(root, scope) {
         findings: mergeIssues(issues)
     };
 }
-async function loadSources(root, scope) {
+function loadSources(scope, inventory) {
     const records = [];
-    for (const absolute of await walkFiles(root, {
-        exclude: EXCLUDED,
-        maxBytes: 768 * 1024,
-        maxFiles: 10_000,
-        maxTotalBytes: 128 * 1024 * 1024,
-        maxDepth: 64
-    })) {
+    for (const entry of inventory.entries) {
+        if (entry.status !== "INSPECTED" || entry.content === undefined)
+            continue;
+        if (NON_APPLICATION_SOURCE_CLASSES.has(entry.evidence_class))
+            continue;
+        const absolute = entry.absolute_path;
         const extension = extname(absolute).toLowerCase();
         if (!SCRIPT_EXTENSIONS.has(extension))
             continue;
-        const path = toPosix(relative(root, absolute));
+        const path = entry.path;
         if (isTestSourcePath(path))
             continue;
         if (scope !== undefined && !scope.has(path))
             continue;
-        const content = await readTextIfPresent(absolute);
-        if (content === undefined)
-            continue;
+        const content = entry.content;
         const kind = scriptKind(extension);
         records.push({
             absolute,

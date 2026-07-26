@@ -49,6 +49,11 @@
       "type": "object",
       "additionalProperties": { "$ref": "#/$defs/detection" }
     },
+    "capability_assessments": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "inventory": { "$ref": "#/$defs/inventory" },
     "repository": { "$ref": "#/$defs/record" },
     "workspaces": { "$ref": "#/$defs/records" },
     "applications": { "$ref": "#/$defs/records" },
@@ -80,6 +85,91 @@
     "critical_workflows": { "$ref": "#/$defs/records" }
   },
   "$defs": {
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "source",
+        "candidate_files_discovered",
+        "files_inspected",
+        "files_skipped",
+        "bytes_considered",
+        "bytes_read",
+        "binary_probe_bytes",
+        "binary_files_skipped",
+        "ignored_paths_excluded",
+        "generated_paths_excluded",
+        "default_paths_excluded",
+        "user_paths_excluded",
+        "required_evidence_excluded",
+        "per_file_limit_bytes",
+        "inspection_budget_bytes",
+        "max_inventory_entries",
+        "max_directory_depth",
+        "forgeignore_patterns",
+        "cli_exclusions",
+        "excluded_paths",
+        "largest_inspected_files",
+        "largest_contributing_directories",
+        "affected_modules",
+        "suggested_actions"
+      ],
+      "properties": {
+        "status": { "enum": ["COMPLETE", "PARTIAL"] },
+        "reason": { "type": "string" },
+        "source": { "enum": ["git", "fallback"] },
+        "git_root": { "type": "string" },
+        "git_failure": { "type": "string" },
+        "candidate_files_discovered": { "type": "integer", "minimum": 0 },
+        "files_inspected": { "type": "integer", "minimum": 0 },
+        "files_skipped": { "type": "integer", "minimum": 0 },
+        "bytes_considered": { "type": "integer", "minimum": 0 },
+        "bytes_read": { "type": "integer", "minimum": 0 },
+        "binary_probe_bytes": { "type": "integer", "minimum": 0 },
+        "binary_files_skipped": { "type": "integer", "minimum": 0 },
+        "ignored_paths_excluded": { "type": "integer", "minimum": 0 },
+        "generated_paths_excluded": { "type": "integer", "minimum": 0 },
+        "default_paths_excluded": { "type": "integer", "minimum": 0 },
+        "user_paths_excluded": { "type": "integer", "minimum": 0 },
+        "required_evidence_excluded": { "type": "boolean" },
+        "per_file_limit_bytes": { "type": "integer", "minimum": 1 },
+        "inspection_budget_bytes": { "type": "integer", "minimum": 1 },
+        "max_inventory_entries": { "type": "integer", "minimum": 1 },
+        "max_directory_depth": { "type": "integer", "minimum": 1 },
+        "forgeignore_patterns": { "type": "array", "items": { "type": "string" } },
+        "cli_exclusions": { "type": "array", "items": { "type": "string" } },
+        "excluded_paths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "category"],
+            "properties": {
+              "path": { "type": "string" },
+              "category": { "type": "string" },
+              "pattern": { "type": "string" }
+            }
+          }
+        },
+        "largest_inspected_files": { "$ref": "#/$defs/contributors" },
+        "largest_contributing_directories": { "$ref": "#/$defs/contributors" },
+        "affected_modules": { "type": "array", "items": { "type": "string" } },
+        "suggested_actions": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "contributors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "bytes"],
+        "properties": {
+          "path": { "type": "string" },
+          "bytes": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
     "detection": {
       "type": "object",
       "additionalProperties": false,

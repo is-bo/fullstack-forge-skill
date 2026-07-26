@@ -3,6 +3,35 @@
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and semantic
 versioning.
 
+## [0.5.2] - 2026-07-26
+
+### Added
+
+- A deterministic Git-aware repository inventory with bounded non-Git fallback, categorized default
+  exclusions, binary/relevance filtering, `.forgeignore`, repeatable `--exclude`, and a strictly
+  bounded `--inspection-budget`.
+- Structured inventory diagnostics in project profiles and reports, including inspected/skipped
+  counts, actual bytes read, excluded classes, largest contributors, affected modules, and actions.
+- Large generated-output, Python environment, binary, runtime-data, partial-budget, ignore, CLI,
+  Git, nested-root, and working-revision regression coverage.
+
+### Changed
+
+- Discovery, capability assessment, analyzers, inspectors, secret scanning, Ship rediscovery, and
+  working-tree revision now share the same classified inventory evidence instead of independent
+  filesystem walks.
+- Budget exhaustion preserves collected evidence, emits `FF-INVENTORY-001` as `NOT_VERIFIED`, and
+  exits `2`; it no longer aborts with a generic 128 MiB filesystem-size error.
+- Working-tree identity no longer buffers binary diffs or reads every untracked file. Skipped dirty
+  state is explicitly labeled `dirty-partial`.
+- Canonical Agent Skills now establish the exact root and bounded inventory before a broad CLI scan.
+
+### Security
+
+- Ignored, generated, vendored, Forge-private, local-environment, runtime-data, binary, and symlink
+  paths are rejected or neutralized before content loading. User exclusions are limitations and
+  cannot satisfy Audit or Ship.
+
 ## [0.5.1] - 2026-07-26
 
 ### Added
@@ -723,7 +752,8 @@ executable evidence rather than documentation.
 - Deterministic ZIP archives, SHA-256 checksums, ownership manifests, clean-install smoke tests,
   fixtures, CI, research attribution, and original branding.
 
-[Unreleased]: https://github.com/thethunderbolt/fullstack-forge-skill/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/thethunderbolt/fullstack-forge-skill/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.5.2
 [0.5.1]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.5.1
 [0.5.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.5.0
 [0.4.0]: https://github.com/thethunderbolt/fullstack-forge-skill/releases/tag/v0.4.0

@@ -9,7 +9,7 @@ Node.js 24 or newer and Git are required. Install the versioned package, then co
 the supported agent directories in this project:
 
 ```bash
-npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.1
+npm install --save-dev github:thethunderbolt/fullstack-forge-skill#v0.5.2
 npx forge init
 npx forge doctor
 ```
@@ -78,6 +78,8 @@ specialist `$forge-<area>` skills remain available.
 The terminal gives a short explanation, the most important actions, safe-fix availability, and the
 next command. Full evidence remains in `.forge/report.md`; stable automation data remains in
 `.forge/report.json`. Use `--details` to print the technical report or `--json` for machine output.
+Discovery is Git-aware and bounded; see [Repository inventory](REPOSITORY_INVENTORY.md) for
+`.forgeignore`, repeatable `--exclude`, budget diagnostics, and exit code `2`.
 
 Continue with [Build your first feature](BUILD_YOUR_FIRST_FEATURE.md),
 [Audit your application](AUDIT_YOUR_APPLICATION.md), or [Troubleshooting](TROUBLESHOOTING.md).
