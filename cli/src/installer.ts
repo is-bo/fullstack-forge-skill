@@ -57,13 +57,16 @@ function normalizePlatformsForScope(selector: string, global: boolean): Platform
     copilot: "github",
     windsurf: "windsurf"
   };
-  const platform = selectors[normalized];
-  if (platform === undefined) {
+  const requested = normalized
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const platforms = requested.map((value) => selectors[value]);
+  if (requested.length === 0 || platforms.some((platform) => platform === undefined))
     throw new Error(
-      `Unknown platform '${selector}'. Expected claude, codex, antigravity, gemini, cursor, windsurf, github, generic, agents, or all.`
+      `Unknown platform selector '${selector}'. Expected a comma-separated subset of claude, codex, antigravity, gemini, cursor, windsurf, github, generic, agents, or all.`
     );
-  }
-  return [platform];
+  return [...new Set(platforms as Platform[])];
 }
 
 export async function install(

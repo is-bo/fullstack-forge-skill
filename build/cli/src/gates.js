@@ -1,7 +1,7 @@
 import { captureEvidenceArtifacts, createEvidenceEnvelope, verifyEvidenceEnvelope } from "./evidence-envelope.js";
+import { deriveApplicationInspection } from "./application-inspection.js";
 import { discoverProjectWithInventory } from "./discovery.js";
 import { validateFinding } from "./finding.js";
-import { inspectSection } from "./inspectors.js";
 import { decideCommandExecution, ledgerRecord } from "./offline-policy.js";
 import { classifyEvidencePath } from "./discovery-evidence.js";
 import { inventoryLimitationFinding } from "./inventory-evidence.js";
@@ -363,11 +363,6 @@ export function capabilityApplicability(gateId, profile, forgeOwned = false) {
             status: "APPLICABLE",
             reasons: decisions.flatMap((decision) => decision.evidence)
         };
-    if (decisions.some((decision) => decision.status === "UNKNOWN"))
-        return {
-            status: "UNKNOWN",
-            reasons: decisions.flatMap((decision) => decision.evidence)
-        };
     if (gateId === "FF-GATE-AUTH-EVAL" && hasApplicationRoute(profile))
         return {
             status: "UNKNOWN",
@@ -375,6 +370,11 @@ export function capabilityApplicability(gateId, profile, forgeOwned = false) {
                 "Current discovery found an application route but no authentication or authorization boundary, so absence is unproven.",
                 ...decisions.flatMap((decision) => decision.evidence)
             ]
+        };
+    if (decisions.some((decision) => decision.status === "UNKNOWN"))
+        return {
+            status: "UNKNOWN",
+            reasons: decisions.flatMap((decision) => decision.evidence)
         };
     return {
         status: "ABSENT",
@@ -423,15 +423,6 @@ async function capabilityGate(root, definition, profile, currentInspectionEviden
     const gate = await evidenceGate(root, definition, currentInspectionEvidence, [], revision);
     return { ...gate, evidence: [...applicability.reasons, ...gate.evidence] };
 }
-const SHIP_INSPECTION_MODULES = [
-    "security",
-    "supply-chain",
-    "authorization",
-    "tenancy",
-    "uploads",
-    "database",
-    "deployment"
-];
 async function deriveStableShipState(root, inventoryOptions = {}) {
     for (let attempt = 0; attempt < 2; attempt += 1) {
         const { profile, inventory } = await discoverProjectWithInventory(root, inventoryOptions);
@@ -451,7 +442,14 @@ async function revisionWithInventoryOptions(root, inventoryOptions) {
  * Persisted report records never enter this function.
  */
 export async function deriveShipInspection(root, profile, revision, repositoryInventory) {
-    const results = await Promise.all(SHIP_INSPECTION_MODULES.map((module) => inspectSection(module, root, profile, undefined, repositoryInventory)));
+    const inventory = repositoryInventory ?? (await discoverProjectWithInventory(root)).inventory;
+    const application = await deriveApplicationInspection({
+        root,
+        profile,
+        inventory,
+        revision
+    });
+    const results = application.results;
     const limitation = inventoryLimitationFinding(profile, "ship");
     const evidence = [];
     for (const result of results) {

@@ -58,7 +58,8 @@ prints the selected modules, progressive references, and workflow with evidence 
 
 Use `forge list --json` for the exact tool catalog. Important agent-first tools include bounded
 project discovery, safe project-command execution, report generation, finding validation,
-`ingest-agent-findings`, platform synchronization, packaging, and clean-install smoke testing.
+`snapshot-evidence`, `ingest-agent-findings`, platform synchronization, packaging, and clean-install
+smoke testing.
 
 Command execution requires `--allow-run` after the detected local definition is reviewed. Offline,
 network, symlink, output ownership, and repository containment policies fail closed.

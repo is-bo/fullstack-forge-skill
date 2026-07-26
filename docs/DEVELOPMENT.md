@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Node.js 24 or newer
+- Node.js 20.19+, 22.13+, or 24+
 - npm with lockfile support
 - Git
 

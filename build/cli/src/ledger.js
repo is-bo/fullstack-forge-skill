@@ -1,4 +1,4 @@
-import { MODULE_CAPABILITY_STATUSES, MODULE_SELECTION_STATUSES, NETWORK_POLICIES, PLANNED_CHECK_STATUSES, RUNTIME_EVIDENCE_STATUSES, TOOL_OWNERSHIPS, TOOL_TRUST_LEVELS, TOOL_VERSION_SOURCES } from "./types.js";
+import { ANALYZER_SUPPORT_STATUSES, MODULE_APPLICABILITY_STATUSES, MODULE_CAPABILITY_STATUSES, MODULE_SELECTION_STATUSES, NETWORK_POLICIES, PLANNED_CHECK_STATUSES, RUNTIME_EVIDENCE_STATUSES, TOOL_OWNERSHIPS, TOOL_TRUST_LEVELS, TOOL_VERSION_SOURCES } from "./types.js";
 /**
  * Append-only ledgers for planned checks, runtime evidence, module decisions, and tool
  * provenance.
@@ -111,6 +111,12 @@ function mergeModuleDecision(current, next) {
     return {
         ...current,
         capability_status: next.capability_status,
+        ...(next.risk_status === undefined ? {} : { risk_status: next.risk_status }),
+        ...(next.control_status === undefined ? {} : { control_status: next.control_status }),
+        ...(next.applicability_status === undefined
+            ? {}
+            : { applicability_status: next.applicability_status }),
+        ...(next.analyzer_support === undefined ? {} : { analyzer_support: next.analyzer_support }),
         selection_status: next.selection_status,
         reasons: union(current.reasons, next.reasons),
         evidence: union(current.evidence, next.evidence),
@@ -230,6 +236,18 @@ export function assertModuleDecisions(values) {
             seen.add(value.module);
         if (!MODULE_CAPABILITY_STATUSES.includes(value.capability_status))
             errors.push(`[${index}] invalid capability_status`);
+        if (value.risk_status !== undefined &&
+            !MODULE_CAPABILITY_STATUSES.includes(value.risk_status))
+            errors.push(`[${index}] invalid risk_status`);
+        if (value.control_status !== undefined &&
+            !MODULE_CAPABILITY_STATUSES.includes(value.control_status))
+            errors.push(`[${index}] invalid control_status`);
+        if (value.applicability_status !== undefined &&
+            !MODULE_APPLICABILITY_STATUSES.includes(value.applicability_status))
+            errors.push(`[${index}] invalid applicability_status`);
+        if (value.analyzer_support !== undefined &&
+            !ANALYZER_SUPPORT_STATUSES.includes(value.analyzer_support))
+            errors.push(`[${index}] invalid analyzer_support`);
         if (!MODULE_SELECTION_STATUSES.includes(value.selection_status))
             errors.push(`[${index}] invalid selection_status`);
         if (!Array.isArray(value.reasons) ||

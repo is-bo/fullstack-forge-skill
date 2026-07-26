@@ -155,7 +155,7 @@ test("install output gives first commands and labels evidence-based agent recomm
     assert.match(recommended, /Optional explicit workflows/u);
     const noMarkers = renderInstallResult("init", "all", false, true, actions, []);
     assert.match(noMarkers, /no existing agent-specific configuration/u);
-    assert.match(noMarkers, /keep selector 'all'/u);
+    assert.match(noMarkers, /generic Agent Skills host was installed/u);
     const unavailable = renderInstallResult("init", "all", false, true, actions, [], "Automatic agent recommendation was unavailable; the compatibility selector 'all' was used.");
     assert.match(unavailable, /Agent detection: Automatic agent recommendation was unavailable/u);
     assert.doesNotMatch(unavailable, /no existing agent-specific configuration/u);

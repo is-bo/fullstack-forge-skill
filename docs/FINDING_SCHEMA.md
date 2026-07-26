@@ -11,7 +11,7 @@ contains these findings is described in [report schema](REPORT_SCHEMA.md).
 | `title`          | Concise, causal summary                                                   |
 | `severity`       | Potential impact: CRITICAL, HIGH, MEDIUM, LOW, INFO                       |
 | `confidence`     | Evidence quality: HIGH, MEDIUM, LOW                                       |
-| `status`         | PASS, FAIL, WARNING, NOT_APPLICABLE, NOT_VERIFIED, BLOCKED                |
+| `status`         | PASS, FAIL, WARNING, NOT_APPLICABLE, NOT_VERIFIED, BLOCKED, SUPERSEDED    |
 | `location`       | Repository-relative paths and optional 1-based lines                      |
 | `evidence`       | Reproducible observations; at least one is required                       |
 | `impact`         | Concrete harm or audit consequence                                        |
@@ -25,7 +25,8 @@ Supported `producer` values are `forge-analyzer`, `forge-command`, `agent-review
 
 Agent-authored findings also require `module`, `producer`, `evidence_type`, `explanation`,
 `safe_fix_classification`, `revision`, `commands_executed`, and `remaining_limitations`. Every
-source location includes a 1-based line. `safe_fix_classification` must agree with `safe_fix`.
+source location includes a 1-based line, and source-review findings require an `evidence_snapshot`
+with the reviewed file hash. `safe_fix_classification` must agree with `safe_fix`.
 `agent-rendered-review` requires evidence type `rendered-review` and at least one structured
 `rendered_evidence` record with its kind and observation; artifact path, URL, viewport, state, and
 input method are recorded when available. It must not be used for source-only inference.
@@ -52,3 +53,9 @@ A `PASS` requires affirmative evidence: direct code/configuration with location,
 automated check, inspected running behavior, a behavior-demonstrating test, or verified
 configuration output. Missing evidence is `NOT_VERIFIED`; demonstrated non-applicability is
 `NOT_APPLICABLE`.
+
+At ingestion, each agent finding is bound to the current content revision as `EXACT`, `EXACT_DIRTY`,
+`REBASED`, or `STALE`. A stale source snapshot is demoted to `NOT_VERIFIED`; invalid revisions or
+hashes are rejected. Stronger bound evidence can mark a contradictory earlier applicability record
+`SUPERSEDED`. The earlier record remains historical and links to the active finding through
+`superseded_by`, `supersedes`, and `retraction_reason`.

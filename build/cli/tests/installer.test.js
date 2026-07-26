@@ -3,7 +3,7 @@ import { mkdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { PACKAGE_ROOT, VERSION } from "../src/constants.js";
-import { install, readInstallManifest, uninstall } from "../src/installer.js";
+import { install, normalizePlatforms, readInstallManifest, uninstall } from "../src/installer.js";
 import { sha256 } from "../src/utils.js";
 import { withTemporaryProject } from "./helpers.js";
 test("dry-run, install, update, and uninstall honor ownership", async () => {
@@ -110,6 +110,20 @@ test("all project platforms receive their official managed instruction shape", a
         ]) {
             assert.match(await readFile(join(root, ...path.split("/")), "utf8"), /automatic activation/u);
         }
+    });
+});
+test("a detected-host selector installs only the requested finite host set", async () => {
+    assert.deepEqual(normalizePlatforms("claude,cursor,claude"), ["claude", "cursor"]);
+    await withTemporaryProject("detected-host-footprint", async (root) => {
+        const selected = await install(root, "claude,cursor", { global: false, dryRun: false });
+        const selectedManifest = await readInstallManifest(root);
+        assert.ok(selectedManifest);
+        assert.deepEqual(new Set(Object.values(selectedManifest.files).map((file) => file.platform)), new Set(["claude", "cursor"]));
+        assert.ok(selected.every((action) => action.path === "CLAUDE.md" ||
+            action.path.startsWith(".claude/") ||
+            action.path.startsWith(".cursor/")));
+        const all = await install(root, "all", { global: false, dryRun: true });
+        assert.ok(selected.length < all.length);
     });
 });
 test("installer refuses unowned conflicts before any managed writes", async () => {

@@ -10,22 +10,23 @@ permissions:
 
 jobs:
   verify:
-    name: Verify (${{ matrix.os }})
+    name: Verify (${{ matrix.os }}, Node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [20, 22, 24]
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Use Node.js 24
+      - name: Use Node.js ${{ matrix.node }}
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version: ${{ matrix.node }}
           cache: npm
       - name: Install locked development dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
@@ -34,6 +35,7 @@ jobs:
       - name: Fail on stale committed build output
         run: git diff --exit-code -- build/
       - name: Report test coverage
+        if: matrix.node == 24
         run: npm run test:coverage
       - name: Audit locked dependencies
         run: npm audit --ignore-scripts
@@ -46,7 +48,7 @@ jobs:
       - name: Verify offline installation from bundled assets
         run: npm run offline:install
       - name: Upload release candidates
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 24
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: fullstack-forge-dist
@@ -56,6 +58,33 @@ jobs:
             dist/manifest.json
           if-no-files-found: error
           retention-days: 14
+
+  verify-ubuntu:
+    name: Verify (ubuntu-latest)
+    if: always()
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm verification matrix passed
+        run: test "${{ needs.verify.result }}" = success
+
+  verify-windows:
+    name: Verify (windows-latest)
+    if: always()
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm verification matrix passed
+        run: test "${{ needs.verify.result }}" = success
+
+  verify-macos:
+    name: Verify (macos-latest)
+    if: always()
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm verification matrix passed
+        run: test "${{ needs.verify.result }}" = success
 
   dependency-review:
     if: github.event_name == 'pull_request'

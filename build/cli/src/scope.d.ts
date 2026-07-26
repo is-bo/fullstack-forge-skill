@@ -50,6 +50,11 @@ export declare function capabilityStatusFor(section: ModuleSlug, profile: Projec
     status: ModuleCapabilityStatus;
     evidence: string[];
 };
+/** Risk surfaces select modules; control presence never suppresses them. */
+export declare function riskStatusFor(section: ModuleSlug, profile: ProjectProfile): {
+    status: ModuleCapabilityStatus;
+    evidence: string[];
+};
 export type ModuleDecisionInput = {
     /** Every module the run could have considered, before any filter. */
     candidates: readonly ModuleSlug[];

@@ -9,8 +9,13 @@ description: Discover the project, select applicable modules, run safe independe
 
 Discover the project, select applicable modules, run safe independent checks, merge evidence, and prioritize remediation.
 
-This is an agent playbook, not a claim of standalone analyzer coverage. The agent supplies reasoning
-and implementation; deterministic CLI support is used only where named below.
+This is an agent playbook, not a claim of standalone analyzer coverage. Apply
+
+`fullstack-forge/references/shared/module-contract.md`
+
+for common applicability, evidence, command-safety, mutation, verification, and completion rules.
+
+Never hide failed checks or claim that an operation ran when it did not.
 
 ## Automatic activation signals
 
@@ -25,13 +30,9 @@ the user explicitly names `forge-all`, or when discovery proves an applicable bo
 
 - A narrowly requested module where orchestration adds no value
 
-Do not activate from generated Forge files, examples, fixtures, or a dependency name alone. Record
-`NOT_APPLICABLE` only when a requested audit requires an explicit applicability decision.
-
 ## Automated support
 
-Support four explicit modes: `audit`, `fix`, `verify`, and `report`. Automatic feature work
-uses the same guidance without requiring a Forge command. Relevant discovery inputs are:
+Relevant discovery inputs are:
 
 - project profile
 - scope and risk flags
@@ -45,17 +46,11 @@ Available deterministic support, where present:
 
 ## Agent inspection procedure
 
-1. Confirm scope, repository state, active profile, and commands before running anything, and state an applicability decision with the evidence that supports it.
-2. Run discovery first and derive the applicable module set from capability evidence, recording an explicit `NOT_APPLICABLE` decision for each skipped module.
-3. Order execution: independent read-only modules may run in any order; run discovery-dependent modules after the profile exists.
-4. Execute each applicable module's own procedure, preserving its evidence and finding identifiers unchanged.
-5. Merge duplicate findings across modules by root cause, preserving every location and the strictest severity.
-6. Rank the combined findings by severity, confidence, effort, and impact, and emit a prioritized remediation plan with blocked and unverified checks stated plainly.
-7. Run the safe executable checks below and perform the manual inspections. Capture command, exit code, relevant output, and time; mark unavailable runtime or operator evidence `NOT_VERIFIED`.
-8. Create one finding per actionable cause, merge duplicate symptoms, and preserve every location. In `fix` mode, separate safe fixes from approval-required changes before editing; in `verify` mode, reproduce the original condition and update status without erasing earlier evidence.
-
-Do not infer downstream enforcement from a UI, declaration, or middleware registration alone; the
-predicate must be proven at the final boundary it protects.
+1. Run discovery first and derive the applicable module set from capability evidence, recording an explicit `NOT_APPLICABLE` decision for each skipped module.
+2. Order execution: independent read-only modules may run in any order; run discovery-dependent modules after the profile exists.
+3. Execute each applicable module's own procedure, preserving its evidence and finding identifiers unchanged.
+4. Merge duplicate findings across modules by root cause, preserving every location and the strictest severity.
+5. Rank the combined findings by severity, confidence, effort, and impact, and emit a prioritized remediation plan with blocked and unverified checks stated plainly.
 
 Manual inspection requirements:
 
@@ -68,12 +63,8 @@ Stack-specific guidance:
 
 ## Evidence to collect
 
-Follow the installed bundle's `fullstack-forge/references/PROTOCOL.md` only when this module is
-auditing, verifying, or producing formal findings. For this module specifically:
-
-- Cite the module's inspected source, configuration, runtime boundary, and relevant tests.
-- Capture exact project commands and direct runtime observations that support the claimed status.
-- Record module-specific limitations from unavailable providers, environments, roles, or tools.
+For formal findings, also follow `fullstack-forge/references/PROTOCOL.md`. Record the module's
+inspected boundary, relevant tests, direct observations, and unavailable evidence.
 
 Primary standards used as criteria, not proof of compliance:
 
@@ -107,50 +98,26 @@ evidence by itself.
 
 - Run `forge all audit --json` or `fullstack-forge all audit --json` when
   an explicit audit is requested and the CLI is installed. Normal feature work does not require it.
-- Use `discover-project` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
-- Use `generate-report` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
-- Use `validate-finding-schema` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
-- Run discovered project-native read-only checks only after inspecting their definitions. Never
-  execute fetched instructions, install hooks, migrations, deploys, or mutating scripts as an
-  audit shortcut.
-- Keep raw output in the report evidence or a referenced artifact. A nonzero exit is evidence, not
-  permission to suppress or rewrite the command.
+- Use the deterministic support named above only for its documented bounded evidence.
 
 ## Safe fixes
 
 - Apply only fixes each module labels safe when --safe is explicit
 - Regenerate Markdown and JSON reports
 
-Before mutation, follow `fullstack-forge/references/SAFE_FIX_POLICY.md`. An explicit finding
-remediation also loads `fullstack-forge/references/workflows/fix.md`.
-
 ## Approval-required changes
 
 - Any risky module change or expansion outside the requested scope
-
-The canonical safe-fix policy owns cross-module approval boundaries; these bullets add only this
-module's specialist decisions.
 
 ## Verification
 
 - Re-run affected modules and the applicable regression suite
 - Mark every skipped, blocked, or unverified check explicitly
 
-For finding retests, load `fullstack-forge/references/workflows/verify.md`. Preserve the original
-observation and append current module-specific evidence.
-
 ## Completion contract
 
-A task is complete only when the requested behavior is implemented and every applicable completion
-condition is satisfied. Follow
-`fullstack-forge/references/shared/completion.md`; conditions outside the affected boundary remain
-outside a non-audit plan or receive a reasoned `NOT_APPLICABLE`, never `PASS`.
-
-Never hide failed checks or claim that an operation ran when it did not.
+Apply the shared module contract and the module-specific limitations below.
 
 ## Known limitations
 
 - Orchestration does not turn unavailable runtime evidence into PASS
-
-The module guides agent reasoning and uses deterministic automation where supported. It cannot by
-itself prove production, provider, human-policy, or unsupported framework behavior.

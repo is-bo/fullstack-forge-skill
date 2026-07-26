@@ -21,7 +21,7 @@
     "software-audit"
   ],
   "engines": {
-    "node": ">=24"
+    "node": "^20.19.0 || ^22.13.0 || >=24"
   },
   "bin": {
     "fullstack-forge": "build/cli/src/index.js",
@@ -80,7 +80,7 @@
     "smoke:install": "npm run build && node scripts/smoke-install.mjs",
     "smoke:upgrade": "npm run build && node scripts/upgrade-install.mjs fixture",
     "offline:install": "npm run build && node scripts/offline-install.mjs",
-    "test": "npm run build && node --test build/cli/tests/**/*.test.js scripts/tests/**/*.test.mjs",
+    "test": "npm run build && node scripts/run-tests.mjs",
     "test:evals:v030": "npm run build && node --test build/cli/tests/v030-build-mode-evals.test.js build/cli/tests/v030-prevention-evals.test.js",
     "test:coverage": "npm run build && node scripts/run-coverage.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",

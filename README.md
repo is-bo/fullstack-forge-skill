@@ -13,7 +13,7 @@ agent-guided, with deterministic CLI checks and evidence gates where supported.
 
 ## Install
 
-Requires Node.js 24 or newer.
+Requires Node.js 20.19+, 22.13+, or 24+.
 
 ```bash
 npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.1.0"

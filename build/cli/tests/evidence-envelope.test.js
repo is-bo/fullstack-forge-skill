@@ -210,7 +210,7 @@ test("reasoned Build exclusions are producer-restricted and bind the exclusion r
             status: "NOT_APPLICABLE",
             producer: "fullstack-forge/build-applicability/auth",
             producer_version: BUILD_PRODUCER_VERSION,
-            evidence: ["Discovery directly proved no authentication capability."],
+            evidence: ["No authentication risk surface was observed in the bounded scanned scope."],
             limitations: [],
             files: [{ path: "package.json", sha256: sha256(await readFile(join(root, "package.json"))) }],
             instance_ids: [],

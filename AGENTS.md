@@ -18,4 +18,4 @@ Before declaring work complete:
 7. Keep local specifications, credentials, temporary research clones, reports, and release staging
    out of commits and packages.
 
-Node.js 24 or newer is required. See `docs/DEVELOPMENT.md` and `SECURITY.md`.
+Node.js 20.19+, 22.13+, or 24+ is required. See `docs/DEVELOPMENT.md` and `SECURITY.md`.

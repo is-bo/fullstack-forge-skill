@@ -130,6 +130,6 @@ test("a summary-only unsupported signal stays unresolved and direct ABSENT suppo
     if (uploads === undefined)
         throw new Error("uploads decision unexpectedly missing");
     assert.equal(uploads.status, "EXCLUDED");
-    assert.match(uploads.exclusion_reason ?? "", /directly proved/u);
+    assert.match(uploads.exclusion_reason ?? "", /bounded scanned scope/u);
 });
 //# sourceMappingURL=build-applicability.test.js.map

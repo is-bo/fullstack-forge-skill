@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Node.js 24 or newer
+- Node.js 20.19+, 22.13+, or 24+
 - A Git repository containing an application
 - A supported AI coding agent or generic Agent Skills host
 
@@ -23,6 +23,8 @@ automatically.
 `forge init` detects project and user agent markers, installs the relevant skills, writes managed
 automatic-activation instructions, and records ownership in
 `.fullstack-forge/install-manifest.json`. Use `forge init all` only when every platform is wanted.
+When no supported marker is found, the installer uses the generic `.agents/skills/` host. Multiple
+detected hosts are installed together without copying unrelated platform bundles.
 
 ## First request
 

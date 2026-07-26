@@ -184,7 +184,7 @@ export function deriveBuildApplicability(input: BuildApplicabilityInput): BuildA
         status: "EXCLUDED",
         confidence: "HIGH",
         evidence: capability.evidence,
-        exclusion_reason: `Discovery directly proved the ${current.discipline} capability absent.`
+        exclusion_reason: `No matching ${current.discipline} risk surface was observed; it is absent only from the bounded scanned scope.`
       });
     }
   }

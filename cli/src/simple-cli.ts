@@ -280,7 +280,7 @@ Start here:
 
 Helpful commands:
   forge doctor                        Diagnose installation and project setup
-  forge init                          Detect agent configuration and install every bundled skill
+  forge init                          Detect configured hosts; use generic Agent Skills as fallback
   forge frontend build                Select the agent-led interface build workflow
   forge ui review                     Run the UI audit workflow
   forge ux review                     Run the UX audit workflow
@@ -493,7 +493,7 @@ export function renderInstallResult(
       lines.push(
         "",
         "Agent detection: no existing agent-specific configuration was found.",
-        "Recommendation: keep selector 'all' for the broadest compatible project install."
+        "Fallback: the generic Agent Skills host was installed. Use 'forge init all' only when broad compatibility is intentional."
       );
     } else {
       lines.push("", "Detected compatible configuration before install:");
@@ -502,7 +502,7 @@ export function renderInstallResult(
           `  - ${recommendation.label}: ${recommendation.evidence.join(", ")} (selector '${recommendation.selector}')`
         );
       lines.push(
-        `Recommendation: use ${recommendations.map((item) => `'forge init ${item.selector}'`).join(" or ")} for a narrower future install.`
+        `Installed only the detected host set (${recommendations.map((item) => item.selector).join(", ")}).`
       );
     }
   }

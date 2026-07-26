@@ -12,8 +12,8 @@ npm ci
 npm run check
 ```
 
-Node.js 24 or newer is required. Use the locked npm dependency graph. Do not execute scripts from
-research repositories; they are conceptual references only.
+Node.js 20.19+, 22.13+, or 24+ is required. Use the locked npm dependency graph. Do not execute
+scripts from research repositories; they are conceptual references only.
 
 ## Change workflow
 

@@ -76,9 +76,11 @@ Terminal equivalents use `npx forge frontend build`, `npx forge ui review`, and 
 
 ```text
 forge tool validate-finding-schema .forge/agent-findings.json
+forge tool snapshot-evidence <path> [line]
 forge tool ingest-agent-findings .forge/agent-findings.json
 forge tool generate-report .forge/findings.json
 ```
 
-Agent ingestion accepts only agent producer types with complete provenance and writes matching
-`.forge/report.json` and `.forge/report.md`.
+`snapshot-evidence` records the current content and optional line hash used by source-review
+findings. Agent ingestion accepts only agent producer types with complete provenance, binds those
+snapshots to the reported revision, and writes matching `.forge/report.json` and `.forge/report.md`.

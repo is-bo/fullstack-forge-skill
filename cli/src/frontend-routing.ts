@@ -68,8 +68,12 @@ const AMBIGUOUS_FRONTEND =
   /\b(?:page|table|form|component|layout|state|dashboard|chart|interface)\b/iu;
 const AMBIGUOUS_UI = /\b(?:component|layout|state|dashboard|chart|table|interface)\b/iu;
 const AMBIGUOUS_UX = /\b(?:form|booking|recovery|error|state|flow)\b/iu;
+const USER_INTERFACE_SYMPTOM =
+  /\b(?:overflows?|horizontal scrolling|scrolls sideways|cut off|does not fit|do not fit|off screen|overlapping|misaligned|hard to read|hard to use|difficult to use|unreadable|on my phone|on mobile|small screen|flickers?|janky|slow page)\b/iu;
+const USER_EXPERIENCE_SYMPTOM =
+  /\b(?:hard to use|difficult to use|unreadable|hard to read|flickers?|janky|slow page)\b/iu;
 const BACKEND_ONLY =
-  /\b(?:backend|server library|database|schema|migration|prisma|sql|orm|api pagination|api page size|form parser|request parser|service layer|repository layer)\b/iu;
+  /\b(?:backend|server library|database|schema|migration|prisma|sql|orm|api pagination|api page size|form parser|request parser|service layer|repository layer|integer overflow|buffer overflow|query plan|memory|protocol|package manifest|dependency component graph)\b/iu;
 const FRONTEND_PATH =
   /(?:^|\/)(?:app|pages?|components?|client|frontend|web)(?:\/|$)|\.(?:jsx|tsx|vue|svelte|css|scss|sass|less|html)$/iu;
 const REVIEW = /\b(?:review|audit|improve|fix|inconsistent|existing|preserve|regression)\b/iu;
@@ -215,6 +219,8 @@ export function routeFrontendRequest(
   const strongFrontend = STRONG_FRONTEND.test(text) && !reactIndependent;
   const strongUi = STRONG_UI.test(text);
   const strongUx = STRONG_UX.test(text);
+  const userSymptom = USER_INTERFACE_SYMPTOM.test(text);
+  const userExperienceSymptom = USER_EXPERIENCE_SYMPTOM.test(text);
   const interfaceCrossCuttingEvidence =
     /\b(?:arabic|rtl|right[- ]to[- ]left|locale|localization|localisation|translation|internationalization|internationalisation)\b/iu.test(
       text
@@ -236,18 +242,26 @@ export function routeFrontendRequest(
   const references = new Set<FrontendReferenceId>();
   const reasons: string[] = [];
   const supportingEvidence =
-    strongFrontend || strongUi || strongUx || interfaceCrossCuttingEvidence || repositorySupport;
+    strongFrontend ||
+    strongUi ||
+    strongUx ||
+    interfaceCrossCuttingEvidence ||
+    repositorySupport ||
+    (userSymptom && repositorySupport);
   const frontend =
     area === "frontend" ||
     strongFrontend ||
+    (userSymptom && repositorySupport && !backendEvidence) ||
     (AMBIGUOUS_FRONTEND.test(text) && supportingEvidence && !backendEvidence);
   const ui =
     area === "ui" ||
     strongUi ||
+    (userSymptom && repositorySupport && !backendEvidence) ||
     (AMBIGUOUS_UI.test(text) && supportingEvidence && !backendEvidence);
   const ux =
     area === "ux" ||
     strongUx ||
+    (userExperienceSymptom && repositorySupport && !backendEvidence) ||
     (AMBIGUOUS_UX.test(text) && supportingEvidence && !backendEvidence);
 
   if (frontend) modules.add("frontend");

@@ -54,9 +54,7 @@ test("specialists share evidence, safe-fix, verification, and completion owners"
   for (const name of specialistNames) {
     const content = await readFile(join(commandRoot, name, "SKILL.md"), "utf8");
     assert.match(content, /fullstack-forge\/references\/PROTOCOL\.md/u);
-    assert.match(content, /fullstack-forge\/references\/SAFE_FIX_POLICY\.md/u);
-    assert.match(content, /fullstack-forge\/references\/workflows\/verify\.md/u);
-    assert.match(content, /fullstack-forge\/references\/shared\/completion\.md/u);
+    assert.match(content, /fullstack-forge\/references\/shared\/module-contract\.md/u);
     assert.doesNotMatch(content, /Authentication and authorization are verified\./u);
     assert.doesNotMatch(content, /Database behavior is reviewed\./u);
   }
@@ -72,6 +70,7 @@ test("required progressive references exist in every generated platform bundle",
     ".windsurf/skills"
   ]) {
     for (const relative of [
+      "references/shared/module-contract.md",
       "references/shared/completion.md",
       "references/workflows/audit.md",
       "references/workflows/fix.md",

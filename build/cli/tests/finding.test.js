@@ -96,6 +96,9 @@ test("agent-authored findings require complete provenance and verification metad
         explanation: "The login handler preserves the pre-authentication session identifier.",
         safe_fix_classification: "approval-required",
         revision: "worktree:1234",
+        evidence_snapshot: [
+            { path: "src/auth.ts", line: 1, sha256: "a".repeat(64), excerpt_hash: "b".repeat(64) }
+        ],
         commands_executed: [{ command: "npm test -- auth", exit_code: 1 }],
         remaining_limitations: ["The production session store was not available."]
     };
