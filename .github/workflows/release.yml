@@ -76,7 +76,7 @@ jobs:
             --draft \
             --verify-tag \
             --notes-file "$notes" \
-            --title "Fullstack Forge $GITHUB_REF_NAME"
+            --title "Fullstack Forge $GITHUB_REF_NAME — First supported agent-first release"
       - name: Download and verify draft release assets
         env:
           GH_TOKEN: ${{ github.token }}
