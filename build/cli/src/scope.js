@@ -80,6 +80,19 @@ export function riskStatusFor(section, profile) {
             status: "PRESENT",
             evidence: direct.map((item) => `${item.risk} at ${item.path}${item.line === undefined ? "" : `:${item.line}`} (${item.confidence}): ${item.reason}.`)
         };
+    // Tenancy applicability is decided by the ownership-boundary inference recorded on the profile,
+    // not by an identifier allowlist. A boundary named `clinicId` is exactly as activating as one
+    // named `tenantId`, and an ambiguous boundary stays UNKNOWN rather than being guessed.
+    if (section === "tenancy" && profile.tenancy !== undefined)
+        return {
+            status: profile.tenancy.status,
+            evidence: [
+                profile.tenancy.key === undefined
+                    ? `Ownership-boundary inference returned ${profile.tenancy.status} (${profile.tenancy.confidence}) with candidates ${profile.tenancy.candidates.join(", ") || "none"}.`
+                    : `Ownership boundary '${profile.tenancy.key}' inferred ${profile.tenancy.status} (${profile.tenancy.confidence}).`,
+                ...profile.tenancy.evidence.slice(0, 6)
+            ]
+        };
     const capability = SECTION_CAPABILITY[section];
     if (capability !== undefined && capabilityKindFor(capability) === "surface")
         return capabilityStatusFor(section, profile);

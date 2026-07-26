@@ -337,14 +337,62 @@ const TENANCY_KEY_NAMES = [
     "storeId",
     "projectId"
 ];
-function inferTenancyProfile(inventory) {
-    const scores = new Map();
+/**
+ * Discovers ownership-key candidates structurally, without consulting any name list.
+ *
+ * A field shaped `<entity>Id` that appears on two or more declared models, and is not that
+ * model's own primary key, is an ownership boundary regardless of what the domain calls it. This
+ * is what lets `clinicId`, `cabinetId`, or an unforeseen `franchiseId` activate tenancy on equal
+ * footing with `tenantId`.
+ */
+function structuralOwnershipCandidates(inventory) {
+    const byKey = new Map();
     for (const entry of inventory.entries) {
         if (entry.status !== "INSPECTED" || entry.content === undefined)
             continue;
         if (["documentation", "example", "fixture", "generated", "test"].includes(entry.evidence_class))
             continue;
-        for (const key of TENANCY_KEY_NAMES) {
+        const models = [...entry.content.matchAll(/\bmodel\s+([A-Za-z_$][\w$]*)\s*\{([\s\S]*?)\}/gu)];
+        for (const model of models) {
+            const modelName = model[1] ?? "unknown";
+            const body = model[2] ?? "";
+            for (const field of body.matchAll(/^\s*([a-z][\w$]*)(?:Id|_id)\b/gimu)) {
+                const prefix = field[1];
+                if (prefix === undefined)
+                    continue;
+                const key = `${prefix}Id`;
+                // The model's own identifier is not an ownership boundary.
+                if (prefix.toLowerCase() === modelName.toLowerCase())
+                    continue;
+                if (!byKey.has(key))
+                    byKey.set(key, new Set());
+                byKey.get(key)?.add(modelName);
+            }
+        }
+    }
+    for (const [key, models] of byKey)
+        if (models.size < 2)
+            byKey.delete(key);
+    return byKey;
+}
+function inferTenancyProfile(inventory) {
+    const scores = new Map();
+    const structural = structuralOwnershipCandidates(inventory);
+    const candidateKeys = [...new Set([...TENANCY_KEY_NAMES, ...structural.keys()])];
+    for (const [key, models] of structural) {
+        const current = scores.get(key) ?? { score: 0, evidence: [], models: new Set() };
+        for (const model of models)
+            current.models.add(model);
+        current.score += models.size * 2;
+        current.evidence.push(`schema: '${key}' is a shared ownership field on ${[...models].sort().join(", ")}`);
+        scores.set(key, current);
+    }
+    for (const entry of inventory.entries) {
+        if (entry.status !== "INSPECTED" || entry.content === undefined)
+            continue;
+        if (["documentation", "example", "fixture", "generated", "test"].includes(entry.evidence_class))
+            continue;
+        for (const key of candidateKeys) {
             const snake = key.replace(/Id$/u, "_id");
             const pattern = new RegExp(`\\b(?:${key}|${snake})\\b`, "gu");
             const matches = entry.content.match(pattern) ?? [];

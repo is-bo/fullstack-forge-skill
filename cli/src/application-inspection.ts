@@ -42,9 +42,19 @@ export async function deriveApplicationInspection(input: {
           .filter((decision) => decision.selection_status === "SELECTED")
           .map((decision) => decision.module as ModuleSlug)
       : candidates;
+  // Execution consumes the decision the report will publish, so `module_decisions`, analyzer
+  // execution, and finding status cannot disagree.
+  const decisionByModule = new Map(decisions.map((decision) => [decision.module, decision]));
   const results = await Promise.all(
     modules.map((module) =>
-      inspectSection(module, input.root, input.profile, input.scope, input.inventory)
+      inspectSection(
+        module,
+        input.root,
+        input.profile,
+        input.scope,
+        input.inventory,
+        decisionByModule.get(module)
+      )
     )
   );
   for (const result of results)
