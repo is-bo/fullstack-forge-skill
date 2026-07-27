@@ -26,8 +26,8 @@ nothing here is estimated or inferred.
 | Item                      | Value                                                                     |
 | ------------------------- | ------------------------------------------------------------------------- |
 | Branch                    | `fix/complete-external-readiness`                                         |
-| Candidate SHA             | `62e97e97734ef95d112510adba2422440977059c`                                |
-| Commits ahead of baseline | 8                                                                         |
+| Candidate SHA             | `91eafab012f9c99d401c5f1875d7399332be8424`                                |
+| Commits ahead of baseline | 10                                                                        |
 | Pull request              | https://github.com/is-bo/fullstack-forge-skill/pull/54 (open, not merged) |
 | Version bump              | None                                                                      |
 | Tag / release             | None                                                                      |
@@ -180,9 +180,33 @@ indirectly by existing installer tests but were not driven as named scenarios.
 
 ## Playbook deduplication
 
-**Not performed.** `scripts/measure-boilerplate.mjs` exists as an uncommitted artefact from the
-terminated agent; no measurement was taken and no content was moved. Boilerplate remains at whatever
-its current level is — the frequently cited ~34% figure was not reproduced or verified here.
+**Measured, not performed.** No content was moved and no shared references were extracted. The
+deduplication itself remains outstanding.
+
+The measurement script left by the terminated agent was reviewed, its dangling reference to a
+never-written normative document was removed, and it was run to establish an honest baseline.
+
+Method: units are semantic — a frontmatter entry, heading, list item, or paragraph — then lowercased
+and whitespace-collapsed, so re-wrapping prose cannot move the score. A unit counts as shared
+boilerplate when it appears in at least 3 distinct files of the corpus. Units are weighted by token
+count and every occurrence is weighted. A wrapping-independent 8-word shingle cross-check is
+reported alongside.
+
+Corpus: the 42 canonical specialist playbooks at
+`src/fullstack-forge/commands/forge-<slug>/SKILL.md`.
+
+| Measure                                   | Value                     |
+| ----------------------------------------- | ------------------------- |
+| Total tokens                              | 25,981                    |
+| Shared tokens                             | 8,545                     |
+| **Primary (literal units)**               | **32.89%**                |
+| Masked variant (module name/title masked) | 42.19%                    |
+| Shingle-8 cross-check                     | 27.31%                    |
+| Worst file                                | 37.80% (`forge-realtime`) |
+
+Target is below 25%. The primary figure of 32.89% approximately corroborates the previously cited
+~34%, which had not been reproduced before now. No before/after pair can be reported because no
+deduplication was carried out.
 
 ## Upload analysis
 
@@ -267,7 +291,8 @@ matrix.
    fixtures were added for them, and non-multer upload paths — presigned S3/GCS, busboy, formidable,
    Next.js route handlers — remain entirely unanalysed. Their "clean" result is indistinguishable
    from genuinely hardened code, which is the more dangerous failure mode.
-2. Playbook deduplication is unimplemented and unmeasured.
+2. Playbook deduplication is unimplemented. It is now measured at 32.89% against a below-25% target,
+   but no content was moved and no shared references were extracted.
 3. `FF-AUTHZ-OBJECT-001` reports HIGH on `delete({ where: { id } })` even behind a proven admin
    guard. Defensible in principle, but likely a systemic HIGH false-positive class on real
    repositories. Pre-existing; flagged rather than changed, because suppressing it when a role guard
@@ -281,5 +306,5 @@ matrix.
 
 ## Final candidate
 
-`62e97e97734ef95d112510adba2422440977059c` on `fix/complete-external-readiness`, pushed, PR #54 open
+`91eafab012f9c99d401c5f1875d7399332be8424` on `fix/complete-external-readiness`, pushed, PR #54 open
 and unmerged. Package version unchanged at `0.1.0`. No tag, no release.
