@@ -8,6 +8,7 @@
 - Decide which actions need step-up or reauthentication: destructive, financial, or credential-changing operations.
 - Prefer a shared authorization policy function over a one-off check so drift is caught in one place.
 - List the roles that must be explicitly denied, not only the roles that are allowed.
+- Decide the object scope of every administrative role: a platform administrator may act on any object of an unpartitioned resource, while an organisation or workspace administrator proves nothing about another partition's object.
 
 ## Evidence to produce while building
 
@@ -16,3 +17,5 @@
 - A file:line citation showing the authorization predicate runs at the final server boundary, not only in UI or middleware registration.
 - Evidence the tenant filter is applied to the actual query or lookup, not assumed from context.
 - Confirmation that admin and internal endpoints require the same server-side check as user-facing ones.
+- Evidence that each rejection path is controlled by an authorization question (subject, role, permission, scope, ownership, tenancy, policy) rather than by a status code alone; CSRF, quota, rate-limit, MIME, geographic, maintenance, and schema rejections also answer 401/403 and prove no authority.
+- For an object operation cleared only by an administrator role, the declared role-to-scope mapping plus a negative test proving a partition administrator cannot reach another partition's object.

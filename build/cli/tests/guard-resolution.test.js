@@ -13,18 +13,18 @@ app.delete("/accounts/:id", ${guard}, async (req, res) => {
   res.end();
 });
 `;
-async function authorizationIds(name, files) {
-    let ids = new Set();
-    await withTemporaryProject(name, async (root) => {
+async function authorizationFindings(name, files) {
+    return withTemporaryProject(name, async (root) => {
         for (const [relative, source] of Object.entries(files)) {
             const full = join(root, relative);
             await mkdir(dirname(full), { recursive: true });
             await writeFile(full, source, "utf8");
         }
-        const findings = (await runAnalyzers("authorization", root)).flatMap((run) => run.findings);
-        ids = new Set(findings.map((finding) => finding.id));
+        return (await runAnalyzers("authorization", root)).flatMap((run) => run.findings);
     });
-    return ids;
+}
+async function authorizationIds(name, files) {
+    return new Set((await authorizationFindings(name, files)).map((finding) => finding.id));
 }
 const DENYING_BODY = `  if (!req.user || req.user.role !== "admin") return res.status(403).json({ error: "denied" });
   next();`;
@@ -122,5 +122,243 @@ app.delete("/accounts/:id", mod.requireAdmin, async (req, res) => {
     });
     assert.ok(ids.has(UNRESOLVED), "a dynamic import is unresolvable and must be reported as such");
     assert.ok(!ids.has(ROUTE), "an unresolved dynamic guard must not become a confident failure");
+});
+/*
+ * Authorization precision.
+ *
+ * Every middleware below terminates the request with 401 or 403. Only the ones whose terminating
+ * branch is controlled by an authorization question may clear the route; a status code paired with
+ * a CSRF, quota, MIME, or rate-limit predicate must leave the route reported.
+ */
+/** Middleware that reject for a reason that says nothing about the caller's authority. */
+const UNRELATED_MIDDLEWARE = {
+    csrf: `export function verifyCsrf(req, res, next) {
+  if (req.headers["x-csrf-token"] !== req.body._csrf)
+    return res.status(403).json({ error: "invalid csrf token" });
+  next();
+}
+`,
+    quota: `const MONTHLY_QUOTA = 1000;
+export function enforceQuota(req, res, next) {
+  const used = counters.get(req.user.id) ?? 0;
+  if (used >= MONTHLY_QUOTA) return res.status(403).json({ error: "quota exceeded" });
+  next();
+}
+`,
+    mime: `const ALLOWED_MIME_TYPES = ["image/png"];
+export function onlyImages(req, res, next) {
+  if (!ALLOWED_MIME_TYPES.includes(req.file.mimetype))
+    return res.status(403).send("unsupported type");
+  next();
+}
+`,
+    rateLimit: `export function limitRequests(req, res, next) {
+  const hits = bucket.take(req.ip);
+  if (hits > 60) return res.sendStatus(429);
+  if (bucket.isBanned(req.ip)) return res.status(403).end();
+  next();
+}
+`,
+    maintenance: `export function maintenanceWindow(req, res, next) {
+  if (config.maintenance) return res.status(403).send("maintenance");
+  next();
+}
+`,
+    featureFlag: `export function featureGate(req, res, next) {
+  if (!flags.featureFlag("accounts.delete")) return res.status(403).end();
+  next();
+}
+`,
+    geography: `export function regionGate(req, res, next) {
+  if (!SERVED_COUNTRIES.has(req.headers["cf-ipcountry"])) return res.status(451).end();
+  if (geoBlocked(req.ip)) return res.status(403).end();
+  next();
+}
+`,
+    shape: `export function validateBody(req, res, next) {
+  if (!requestSchema.safeParse(req.body).success) return res.status(400).end();
+  if (typeof req.params.id !== "string") return res.status(403).end();
+  next();
+}
+`
+};
+const UNRELATED_EXPORTS = {
+    csrf: "verifyCsrf",
+    quota: "enforceQuota",
+    mime: "onlyImages",
+    rateLimit: "limitRequests",
+    maintenance: "maintenanceWindow",
+    featureFlag: "featureGate",
+    geography: "regionGate",
+    shape: "validateBody"
+};
+for (const [concern, source] of Object.entries(UNRELATED_MIDDLEWARE)) {
+    const exported = UNRELATED_EXPORTS[concern];
+    test(`a ${concern} rejection is not accepted as an authorization guard`, async () => {
+        const ids = await authorizationIds(`guard-unrelated-${concern}`, {
+            "middleware/unrelated.ts": source,
+            "routes.ts": ROUTE_SOURCE(`import { ${exported} } from "./middleware/unrelated.js";`, exported ?? "")
+        });
+        assert.ok(ids.has(ROUTE), `a ${concern} rejection answers 401/403 without deciding authority and must not clear the route`);
+        assert.ok(!ids.has(UNRESOLVED), "the body was read, so the verdict is a failure, not unknown");
+    });
+}
+/** Guards whose terminating branch is controlled by a genuine authorization question. */
+const AUTHORIZATION_MIDDLEWARE = {
+    role: [
+        "requireEditorRole",
+        `export function requireEditorRole(req, res, next) {
+  if (req.user.role !== "editor") return res.status(403).end();
+  next();
+}
+`
+    ],
+    ownership: [
+        "requireOwnership",
+        `export async function requireOwnership(req, res, next) {
+  const account = await db.account.findUnique({ where: { id: req.params.id } });
+  if (account.ownerId !== req.user.id) return res.status(403).end();
+  next();
+}
+`
+    ],
+    tenantMembership: [
+        "requireTenantMembership",
+        `export async function requireTenantMembership(req, res, next) {
+  const membership = await db.membership.findFirst({
+    where: { userId: req.user.id, tenantId: req.params.tenantId }
+  });
+  if (membership === null) return res.status(403).end();
+  next();
+}
+`
+    ],
+    subjectPresence: [
+        "requireSession",
+        `export function requireSession(req, res, next) {
+  if (!req.user) {
+    res.status(401).json({ error: "unauthenticated" });
+    return;
+  }
+  next();
+}
+`
+    ],
+    aliasedPolicy: [
+        "requirePolicy",
+        `export async function requirePolicy(req, res, next) {
+  const verdict = await evaluatePermission(req.user, "accounts.delete");
+  if (!verdict) return res.status(403).end();
+  next();
+}
+`
+    ],
+    positiveEarlyExit: [
+        "adminOrReject",
+        `export function adminOrReject(req, res, next) {
+  if (req.user.roles.includes("editor")) return next();
+  return res.status(403).end();
+}
+`
+    ],
+    delegatedAssertion: [
+        "requireGrantedAccess",
+        `function assertGranted(user) {
+  if (!user || !user.permissions.includes("accounts.delete")) throw new ForbiddenError();
+}
+export function requireGrantedAccess(req, res, next) {
+  assertGranted(req.user);
+  next();
+}
+`
+    ]
+};
+for (const [shape, [exported, source]] of Object.entries(AUTHORIZATION_MIDDLEWARE)) {
+    test(`a guard deciding on ${shape} clears the route`, async () => {
+        const ids = await authorizationIds(`guard-authorization-${shape}`, {
+            "middleware/guard.ts": source,
+            "routes.ts": ROUTE_SOURCE(`import { ${exported} } from "./middleware/guard.js";`, exported)
+        });
+        assert.ok(!ids.has(ROUTE), `${shape} is an authorization ground and must clear the route`);
+        assert.ok(!ids.has(UNRESOLVED), `${shape} was resolved and must not be reported as unknown`);
+    });
+}
+test("a guard declared in the route file itself is resolved", async () => {
+    const ids = await authorizationIds("guard-local-declaration", {
+        "routes.ts": `function ensureAdmin(req, res, next) {
+${DENYING_BODY}
+}
+${ROUTE_SOURCE("", "ensureAdmin")}`
+    });
+    assert.ok(!ids.has(ROUTE), "a local guard body must be read like an imported one");
+});
+test("an unrelated middleware beside a real guard does not hide the guard", async () => {
+    const ids = await authorizationIds("guard-unrelated-plus-real", {
+        "middleware/unrelated.ts": UNRELATED_MIDDLEWARE["csrf"] ?? "",
+        "middleware/guard.ts": `export function ensureAdmin(req, res, next) {\n${DENYING_BODY}\n}\n`,
+        "routes.ts": ROUTE_SOURCE(`import { verifyCsrf } from "./middleware/unrelated.js";
+import { ensureAdmin } from "./middleware/guard.js";`, "verifyCsrf, ensureAdmin")
+    });
+    assert.ok(!ids.has(ROUTE), "one proven guard in the chain is enough");
+});
+test("a branch that delegates after answering is not a denial", async () => {
+    const ids = await authorizationIds("guard-delegating-branch", {
+        "middleware/auth.ts": `export function auditOnly(req, res, next) {
+  if (!req.user) {
+    res.set("x-anonymous", "1");
+    next();
+    return;
+  }
+  next();
+}
+`,
+        "routes.ts": ROUTE_SOURCE(`import { auditOnly } from "./middleware/auth.js";`, "auditOnly")
+    });
+    assert.ok(ids.has(ROUTE), "a branch that calls next() has not denied the request");
+});
+test("a success response inside an authorization branch is not a denial", async () => {
+    const ids = await authorizationIds("guard-success-branch", {
+        "middleware/auth.ts": `export function annotate(req, res, next) {
+  if (req.user.role === "admin") res.locals.elevated = true;
+  next();
+}
+`,
+        "routes.ts": ROUTE_SOURCE(`import { annotate } from "./middleware/auth.js";`, "annotate")
+    });
+    assert.ok(ids.has(ROUTE), "an authorization branch that never rejects is not a guard");
+});
+test("a thrown authorization error only counts when a predicate controls it", async () => {
+    const unconditional = await authorizationIds("guard-throw-unconditional", {
+        "middleware/auth.ts": `export function tagRequest(req, res, next) {
+  try {
+    req.tag = decorate(req);
+  } catch (error) {
+    throw new ForbiddenError("Unauthorized");
+  }
+  next();
+}
+`,
+        "routes.ts": ROUTE_SOURCE(`import { tagRequest } from "./middleware/auth.js";`, "tagRequest")
+    });
+    assert.ok(unconditional.has(ROUTE), "a Forbidden error thrown from a catch block decides no authorization question");
+    const connected = await authorizationIds("guard-throw-connected", {
+        "middleware/auth.ts": `export function requireScope(req, res, next) {
+  if (!req.auth.scopes.includes("accounts:delete")) throw new ForbiddenError();
+  next();
+}
+`,
+        "routes.ts": ROUTE_SOURCE(`import { requireScope } from "./middleware/auth.js";`, "requireScope")
+    });
+    assert.ok(!connected.has(ROUTE), "a throw controlled by a scope predicate is a real denial");
+});
+test("route findings are byte-identical across repeated runs", async () => {
+    const files = {
+        "middleware/unrelated.ts": UNRELATED_MIDDLEWARE["quota"] ?? "",
+        "routes.ts": ROUTE_SOURCE(`import { enforceQuota } from "./middleware/unrelated.js";`, "enforceQuota")
+    };
+    const first = await authorizationFindings("guard-determinism-a", files);
+    const second = await authorizationFindings("guard-determinism-b", files);
+    assert.ok(first.length > 0, "the fixture must produce findings to compare");
+    assert.deepEqual(first.map((finding) => [finding.id, finding.instance_id, finding.status, finding.evidence]), second.map((finding) => [finding.id, finding.instance_id, finding.status, finding.evidence]));
 });
 //# sourceMappingURL=guard-resolution.test.js.map

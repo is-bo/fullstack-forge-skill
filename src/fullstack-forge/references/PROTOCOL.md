@@ -56,6 +56,26 @@ consumption. Treat legacy, expired, cross-root/revision, unregistered, malformed
 Build-domain records as diagnostics, never release proof. The envelope proves local integrity and
 freshness; it does not expand the producer's bounded coverage or serve as an external signature.
 
+## Authorization proof
+
+An authorization control is proven only when the branch that terminates the request is structurally
+controlled by an authorization question: authenticated-subject presence, user or service identity,
+role, permission, scope or claim, ownership, tenancy, or a policy verdict. A 401 or 403 status is a
+symptom, not a proof — CSRF, quota, rate-limit, content-type, geographic, maintenance, feature-flag,
+and request-shape rejections answer the same codes while deciding nothing about authority. A thrown
+`Forbidden` or `Unauthorized` error counts only when the throw is controlled by such a predicate or
+delegated to a helper whose body was read. An identifier's spelling never proves a control; a
+middleware whose body cannot be reached is `NOT_VERIFIED`.
+
+Object-level authorization asks whether the caller may act on this specific object, so a role gate
+answers it only under an explicit rule. A predicate bound to the object always decides. A proven
+platform administrator acting on a resource with no observable owner or tenant partition is an
+administrative operation and is published as a low-severity policy note, never as silence. A
+partition administrator — organisation, workspace, team, or membership scoped — addressing an object
+by a global identifier stays a defect. An administrative gate whose object scope the source never
+states, or whose body was never read, is `NOT_VERIFIED`. Any other role gate is not administrative
+evidence and never suppresses the object rule.
+
 ## Finding lifecycle
 
 Use a stable module prefix and monotonically increasing suffix. Preserve an identifier across
