@@ -1,4 +1,5 @@
 import ts from "typescript";
+import { type ModuleSourceFile } from "./module-resolution.js";
 /**
  * Bounded cross-file resolution of route authorization middleware.
  *
@@ -9,14 +10,11 @@ import ts from "typescript";
  * like a guard is exactly the defect an external-repository audit has to catch, so this module
  * replaces the heuristic with real resolution across modules.
  *
- * Scope and limits — deliberately NOT a whole-program resolver:
- *  - Only relative specifiers are followed, and only into the analyzed source corpus. A bare
- *    specifier (an installed package) is never resolved and is reported unresolved, never proven.
- *  - Named, default, aliased, renamed re-export, `export *` barrel, and CommonJS `exports.x` /
- *    `module.exports` forms are followed. Computed, conditional, or dynamically produced exports
- *    are not.
- *  - Module jumps, opened modules, barrel branches, and factory unwrapping are each capped, and a
- *    visited set makes cyclic imports terminate.
+ * The module-opening machinery — relative specifiers only, named/default/renamed/barrel/CommonJS
+ * exports, hop and file budgets, cycle termination — lives in `module-resolution.js`, because
+ * upload analysis needs the identical primitive under the identical guarantee and two copies of
+ * it would drift apart. What stays here is the authorization semantics: what counts as a denial,
+ * and how a middleware list maps onto a route verdict.
  *
  * Every outcome is one of three, and the distinction is the correctness contract:
  *  - `proven`      a body was read and it denies the request;
@@ -39,12 +37,7 @@ export declare const MAX_FACTORY_DEPTH = 2;
  * Structurally compatible with the analyzer's internal `SourceRecord`, so the analyzer can pass
  * its own records without conversion.
  */
-export type GuardSourceFile = {
-    /** Repository-relative POSIX path — the key module specifiers resolve against. */
-    path: string;
-    content: string;
-    sourceFile: ts.SourceFile;
-};
+export type GuardSourceFile = ModuleSourceFile;
 export type GuardVerdict = "proven" | "not-guard" | "unresolved";
 export type GuardResolution = {
     verdict: GuardVerdict;
