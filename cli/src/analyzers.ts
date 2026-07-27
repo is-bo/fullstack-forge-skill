@@ -18,6 +18,7 @@ import {
 import { isTestSourcePath, lineNumber, sha256, toPosix } from "./utils.js";
 import { inventoryRepository, type RepositoryInventory } from "./repository-inventory.js";
 import { analyzeTransactionFile } from "./transactions.js";
+import { createUploadAnalyzer, type UploadAnalyzer } from "./uploads.js";
 import {
   createGuardResolver,
   functionDeniesAuthorization,
@@ -470,6 +471,32 @@ const SPECS = {
     ["Re-run the js-ts-uploads analyzer", "Exercise boundary and over-limit cases"],
     ["OWASP File Upload Cheat Sheet", "CWE-400"]
   ),
+  uploadDirectVerify: spec(
+    "FF-UPLOAD-DIRECT-VERIFY-001",
+    "js-ts-uploads",
+    "uploads",
+    "Direct-to-storage upload is not verified server-side",
+    "HIGH",
+    "The server never observes the bytes a presigned grant wrote, so type, size, and content policy rest on the client.",
+    "Verify the stored object server-side after upload and gate release on that verification.",
+    false,
+    false,
+    ["Re-run the js-ts-uploads analyzer", "Upload a disallowed object through the signed grant"],
+    ["OWASP File Upload Cheat Sheet", "CWE-345"]
+  ),
+  uploadFlowUnresolved: spec(
+    "FF-UPLOAD-FLOW-NOT-VERIFIED-001",
+    "js-ts-uploads",
+    "uploads",
+    "Upload parser is outside the analyzer's supported flow shapes",
+    "MEDIUM",
+    "The acceptance decision runs in a parser this analyzer does not model, so its upload controls are unmeasured.",
+    "Document or adapt the upload flow so its acceptance decision is resolvable, then rerun the analyzer.",
+    false,
+    false,
+    ["Inspect the upload pipeline manually", "Run hostile-file tests against the parser"],
+    ["OWASP File Upload Cheat Sheet"]
+  ),
   nPlusOne: spec(
     "FF-QUERY-N1-001",
     "js-ts-queries-cache",
@@ -802,6 +829,8 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
   // Built once over the whole corpus so an imported guard is resolved by reading the body it
   // actually names, rather than by trusting the identifier it was imported under.
   const guards = createGuardResolver(files);
+  // Same reason, same corpus: an upload validation helper is proven by reading the body it names.
+  const uploads = createUploadAnalyzer(files);
   for (const file of files) {
     const labelIds = collectLabelIds(file.sourceFile);
     const functions = collectFunctionRanges(file.sourceFile);
@@ -1044,7 +1073,7 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
       if (ts.isTaggedTemplateExpression(node)) analyzeTaggedSql(issues, file, node, taint);
     });
     analyzeAuthorizationRoutes(issues, file, guards);
-    analyzeUploadFile(issues, file);
+    analyzeUploadFile(issues, file, uploads);
     analyzeAiFile(issues, file);
     analyzeWebhookFile(issues, file);
     analyzeCsvExport(issues, file);
@@ -1282,145 +1311,26 @@ function classifyRouteGuards(
 }
 
 /**
- * Names an imported function that the upload payload is passed to, when there is one.
+ * Thin delegation to `uploads.ts`, which owns upload-flow discovery and rule evaluation.
  *
- * Signature and decoded-content validation is commonly factored into a shared helper. The in-file
- * regex cannot see that body, so without this a hardened upload path is reported as a confident
- * HIGH failure purely because its validation lives in another module.
+ * The rule catalogue stays here so every finding identity is declared in one place; the decision
+ * about when each rule fires needs cross-file resolution and structural flow discovery, which is
+ * more than an in-file regex pass can honestly do.
  */
-function importedValidationDelegate(file: SourceRecord): string | undefined {
-  const imported = new Set<string>();
-  for (const statement of file.sourceFile.statements) {
-    if (!ts.isImportDeclaration(statement)) continue;
-    const clause = statement.importClause;
-    if (clause === undefined) continue;
-    if (clause.name !== undefined) imported.add(clause.name.text);
-    const bindings = clause.namedBindings;
-    if (bindings === undefined) continue;
-    if (ts.isNamespaceImport(bindings)) imported.add(bindings.name.text);
-    else for (const element of bindings.elements) imported.add(element.name.text);
-  }
-  if (imported.size === 0) return undefined;
-  let found: string | undefined;
-  const walk = (node: ts.Node): void => {
-    if (found !== undefined) return;
-    if (ts.isCallExpression(node)) {
-      const callee = ts.isPropertyAccessExpression(node.expression)
-        ? node.expression.expression
-        : node.expression;
-      if (
-        ts.isIdentifier(callee) &&
-        imported.has(callee.text) &&
-        node.arguments.some((argument) =>
-          /\b(?:buffer|mimetype|originalname|file)\b/iu.test(argument.getText(file.sourceFile))
-        )
-      ) {
-        found = callee.text;
-        return;
-      }
-    }
-    ts.forEachChild(node, walk);
-  };
-  ts.forEachChild(file.sourceFile, walk);
-  return found;
-}
-
-function analyzeUploadFile(issues: Issue[], file: SourceRecord): void {
-  const content = file.content;
-  if (!/upload\.(?:any|array|fields|single)\s*\(/u.test(content)) return;
-  const extension = /(?:originalname|filename)[^\n;]*\.endsWith\s*\(/u.exec(content);
-  if (extension !== null)
-    issues.push(
-      textIssue(
-        SPECS.uploadExtension,
-        file,
-        extension.index,
-        "original filename extension",
-        "upload acceptance branch"
-      )
-    );
-  const mime = /\b(?:mimetype|contentType|content-type)\b/iu.exec(content);
-  if (mime !== null && !/magic|signature|fileTypeFromBuffer|decode|sniff/iu.test(content)) {
-    const candidate = textIssue(
-      SPECS.uploadMime,
-      file,
-      mime.index,
-      "client-provided MIME",
-      "upload acceptance branch"
-    );
-    // Type validation is often factored into a shared helper. The in-file signature check cannot
-    // read that body, so this is unresolved indirection rather than proof of a missing control and
-    // must not be published as a confident HIGH failure.
-    const delegate = importedValidationDelegate(file);
-    if (delegate !== undefined) {
-      candidate.status = "NOT_VERIFIED";
-      candidate.evidence += ` The upload payload is passed to imported \`${delegate}\`, declared outside this file, so decoded/signature validation is neither proven nor disproven.`;
-    }
-    issues.push(candidate);
-  }
-  const publicStorage =
-    /(?:save|put|writeFile|upload)\s*\([^\n;]*(?:public[\\/]|public\/|publicPath)/iu.exec(content);
-  const scan = /\b(?:scanner\.)?scan\s*\(/iu.exec(content);
-  if (publicStorage !== null && (scan === null || publicStorage.index < scan.index))
-    issues.push(
-      textIssue(
-        SPECS.uploadPublic,
-        file,
-        publicStorage.index,
-        "untrusted upload bytes",
-        "public storage before approval"
-      )
-    );
-  if (scan === null)
-    issues.push(
-      textIssue(
-        SPECS.uploadScan,
-        file,
-        content.search(/upload\./u),
-        "upload middleware",
-        "durable/released storage"
-      )
-    );
-  const failOpen = /catch\s*(?:\([^)]*\))?\s*\{\s*(?:\/\/[^\n]*\n\s*)?\}/u.exec(content);
-  if (
-    scan !== null &&
-    failOpen !== null &&
-    /(?:res\.|send|url|release|extract)/u.test(content.slice(failOpen.index + failOpen[0].length))
-  )
-    issues.push(
-      textIssue(
-        SPECS.uploadFailOpen,
-        file,
-        failOpen.index,
-        "scanner error",
-        "continued release path"
-      )
-    );
-  const originalPath = /(?:save|put|writeFile|upload)\s*\([^\n;]*(?:originalname|filename)/iu.exec(
-    content
+function analyzeUploadFile(issues: Issue[], file: SourceRecord, uploads: UploadAnalyzer): void {
+  issues.push(
+    ...uploads(file, {
+      extension: SPECS.uploadExtension,
+      mime: SPECS.uploadMime,
+      publicStorage: SPECS.uploadPublic,
+      scan: SPECS.uploadScan,
+      failOpen: SPECS.uploadFailOpen,
+      filename: SPECS.uploadFilename,
+      limits: SPECS.uploadLimits,
+      directVerify: SPECS.uploadDirectVerify,
+      unsupportedFlow: SPECS.uploadFlowUnresolved
+    })
   );
-  if (originalPath !== null)
-    issues.push(
-      textIssue(
-        SPECS.uploadFilename,
-        file,
-        originalPath.index,
-        "client original filename",
-        "storage object path"
-      )
-    );
-  if (
-    !/\b(?:limits|fileSize|maxFiles|maxBytes|maxEntries|maxDepth|maxRatio|timeout)\b/u.test(content)
-  )
-    issues.push(
-      textIssue(
-        SPECS.uploadLimits,
-        file,
-        content.search(/upload\./u),
-        "multipart/archive input",
-        "parser and storage resources"
-      )
-    );
 }
 
 function analyzeAiFile(issues: Issue[], file: SourceRecord): void {
