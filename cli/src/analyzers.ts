@@ -1281,6 +1281,50 @@ function classifyRouteGuards(
   return guards.classifyMiddlewareList(node.arguments.slice(1, -1), file);
 }
 
+/**
+ * Names an imported function that the upload payload is passed to, when there is one.
+ *
+ * Signature and decoded-content validation is commonly factored into a shared helper. The in-file
+ * regex cannot see that body, so without this a hardened upload path is reported as a confident
+ * HIGH failure purely because its validation lives in another module.
+ */
+function importedValidationDelegate(file: SourceRecord): string | undefined {
+  const imported = new Set<string>();
+  for (const statement of file.sourceFile.statements) {
+    if (!ts.isImportDeclaration(statement)) continue;
+    const clause = statement.importClause;
+    if (clause === undefined) continue;
+    if (clause.name !== undefined) imported.add(clause.name.text);
+    const bindings = clause.namedBindings;
+    if (bindings === undefined) continue;
+    if (ts.isNamespaceImport(bindings)) imported.add(bindings.name.text);
+    else for (const element of bindings.elements) imported.add(element.name.text);
+  }
+  if (imported.size === 0) return undefined;
+  let found: string | undefined;
+  const walk = (node: ts.Node): void => {
+    if (found !== undefined) return;
+    if (ts.isCallExpression(node)) {
+      const callee = ts.isPropertyAccessExpression(node.expression)
+        ? node.expression.expression
+        : node.expression;
+      if (
+        ts.isIdentifier(callee) &&
+        imported.has(callee.text) &&
+        node.arguments.some((argument) =>
+          /\b(?:buffer|mimetype|originalname|file)\b/iu.test(argument.getText(file.sourceFile))
+        )
+      ) {
+        found = callee.text;
+        return;
+      }
+    }
+    ts.forEachChild(node, walk);
+  };
+  ts.forEachChild(file.sourceFile, walk);
+  return found;
+}
+
 function analyzeUploadFile(issues: Issue[], file: SourceRecord): void {
   const content = file.content;
   if (!/upload\.(?:any|array|fields|single)\s*\(/u.test(content)) return;
@@ -1296,16 +1340,24 @@ function analyzeUploadFile(issues: Issue[], file: SourceRecord): void {
       )
     );
   const mime = /\b(?:mimetype|contentType|content-type)\b/iu.exec(content);
-  if (mime !== null && !/magic|signature|fileTypeFromBuffer|decode|sniff/iu.test(content))
-    issues.push(
-      textIssue(
-        SPECS.uploadMime,
-        file,
-        mime.index,
-        "client-provided MIME",
-        "upload acceptance branch"
-      )
+  if (mime !== null && !/magic|signature|fileTypeFromBuffer|decode|sniff/iu.test(content)) {
+    const candidate = textIssue(
+      SPECS.uploadMime,
+      file,
+      mime.index,
+      "client-provided MIME",
+      "upload acceptance branch"
     );
+    // Type validation is often factored into a shared helper. The in-file signature check cannot
+    // read that body, so this is unresolved indirection rather than proof of a missing control and
+    // must not be published as a confident HIGH failure.
+    const delegate = importedValidationDelegate(file);
+    if (delegate !== undefined) {
+      candidate.status = "NOT_VERIFIED";
+      candidate.evidence += ` The upload payload is passed to imported \`${delegate}\`, declared outside this file, so decoded/signature validation is neither proven nor disproven.`;
+    }
+    issues.push(candidate);
+  }
   const publicStorage =
     /(?:save|put|writeFile|upload)\s*\([^\n;]*(?:public[\\/]|public\/|publicPath)/iu.exec(content);
   const scan = /\b(?:scanner\.)?scan\s*\(/iu.exec(content);
