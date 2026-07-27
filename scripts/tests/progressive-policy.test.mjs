@@ -60,7 +60,25 @@ test("specialists share evidence, safe-fix, verification, and completion owners"
   }
 });
 
-test("required progressive references exist in every generated platform bundle", async () => {
+test("required progressive references are reachable from every generated platform bundle", async () => {
+  const required = [
+    "references/shared/module-contract.md",
+    "references/shared/completion.md",
+    "references/workflows/audit.md",
+    "references/workflows/fix.md",
+    "references/workflows/verify.md",
+    "references/workflows/report.md",
+    "references/workflows/build.md",
+    "references/workflows/ship.md"
+  ];
+
+  // One managed copy carries the references for every host.
+  for (const relative of required)
+    await access(
+      join(projectRoot, ".fullstack-forge", "skills", "fullstack-forge", ...relative.split("/"))
+    );
+
+  // Each host reaches them through its adapter, which must name the canonical playbook.
   for (const root of [
     ".agents/skills",
     ".claude/skills",
@@ -69,19 +87,10 @@ test("required progressive references exist in every generated platform bundle",
     ".github/skills",
     ".windsurf/skills"
   ]) {
-    for (const relative of [
-      "references/shared/module-contract.md",
-      "references/shared/completion.md",
-      "references/workflows/audit.md",
-      "references/workflows/fix.md",
-      "references/workflows/verify.md",
-      "references/workflows/report.md",
-      "references/workflows/build.md",
-      "references/workflows/ship.md"
-    ])
-      await access(
-        join(projectRoot, ...root.split("/"), "fullstack-forge", ...relative.split("/"))
-      );
+    const adapter = join(projectRoot, ...root.split("/"), "fullstack-forge", "SKILL.md");
+    await access(adapter);
+    const text = await readFile(adapter, "utf8");
+    assert.match(text, /\.fullstack-forge\/skills\/fullstack-forge\/SKILL\.md/u, root);
   }
 });
 

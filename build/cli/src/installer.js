@@ -1,11 +1,22 @@
 import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rmdir, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { PACKAGE_ROOT, PLATFORM_ALIASES, PLATFORM_CONFIG, PLATFORMS, VERSION } from "./constants.js";
 import { PROJECT_INSTRUCTIONS, extractManagedSection, removeManagedSection, upsertManagedSection } from "./automatic-activation.js";
+import { CANONICAL_ROOT_POSIX, CANONICAL_ROOT_SEGMENTS, adapterPointer, extractFrontmatter, isVerbatimHostFile, renderAdapter } from "./managed-layout.js";
 import { assertNoSymlinkPath, assertSafeRelative, canonicalDirectory, isInside, readTextIfPresent, resolveInside, sha256, toPosix, utcNow, walkFiles } from "./utils.js";
 const MANIFEST_RELATIVE = ".fullstack-forge/install-manifest.json";
+const MANIFEST_SCHEMA_VERSION = 2;
+/** Bundled canonical managed content. One copy serves every installed host. */
+const CANONICAL_SOURCE_ROOT = join(PACKAGE_ROOT, ...CANONICAL_ROOT_SEGMENTS);
+/**
+ * Hosts whose skills root must also receive verbatim copies of the Codex agent metadata and its
+ * icon. Codex reads `agents/openai.yaml` with ordinary tooling rather than with an agent that can
+ * follow a prose pointer, and that file names `./assets/fullstack-forge-icon.png` relative to
+ * itself. Every other host consumes only `SKILL.md` and therefore receives adapters alone.
+ */
+const VERBATIM_PLATFORMS = new Set(["agents", "antigravity"]);
 export function normalizePlatforms(selector) {
     return normalizePlatformsForScope(selector, false);
 }
@@ -33,6 +44,34 @@ function normalizePlatformsForScope(selector, global) {
         throw new Error(`Unknown platform selector '${selector}'. Expected a comma-separated subset of claude, codex, antigravity, gemini, cursor, windsurf, github, generic, agents, or all.`);
     return [...new Set(platforms)];
 }
+/** Reads the bundled canonical tree once per invocation. */
+async function readCanonicalSource() {
+    const files = await walkFiles(CANONICAL_SOURCE_ROOT, {
+        maxFiles: 5_000,
+        maxTotalBytes: 256 * 1024 * 1024,
+        maxDepth: 64
+    });
+    const map = new Map();
+    for (const path of files) {
+        const rel = toPosix(relative(CANONICAL_SOURCE_ROOT, path));
+        if (rel.endsWith(".fullstack-forge-generated.json"))
+            continue;
+        assertSafeRelative(rel);
+        map.set(rel, await readFile(path));
+    }
+    if (map.size === 0)
+        throw new Error(`Bundled canonical managed content is missing at ${CANONICAL_SOURCE_ROOT}`);
+    return new Map([...map.entries()].sort(([a], [b]) => a.localeCompare(b)));
+}
+function skillNamesOf(canonical) {
+    const names = new Set();
+    for (const rel of canonical.keys()) {
+        const parts = rel.split("/");
+        if (parts.length === 2 && parts[1] === "SKILL.md" && parts[0])
+            names.add(parts[0]);
+    }
+    return [...names].sort();
+}
 export async function install(rootInput, selector, options) {
     if (options.interruptAfter !== undefined &&
         (!Number.isSafeInteger(options.interruptAfter) || options.interruptAfter < 0))
@@ -42,69 +81,76 @@ export async function install(rootInput, selector, options) {
         : await canonicalDirectory(rootInput);
     const platforms = normalizePlatformsForScope(selector, options.global);
     const previous = await readManifest(root);
+    const canonical = await readCanonicalSource();
+    const skills = skillNamesOf(canonical);
     const planned = [];
+    const plannedPaths = new Set();
+    // 1. The single canonical managed copy, shared by every selected host.
+    const canonicalRoot = resolve(root, ...CANONICAL_ROOT_SEGMENTS);
+    if (!isInside(root, canonicalRoot))
+        throw new Error(`Canonical destination escapes install root: ${canonicalRoot}`);
+    await assertNoSymlinkPath(root, canonicalRoot);
+    for (const [rel, bytes] of canonical) {
+        const target = resolveInside(canonicalRoot, rel);
+        await assertNoSymlinkPath(root, target);
+        const manifestRelative = toPosix(relative(root, target));
+        assertSafeRelative(manifestRelative);
+        const write = await planFileWrite({
+            root,
+            manifestRelative,
+            target,
+            bytes,
+            previous,
+            platform: platforms[0],
+            kind: "canonical",
+            platforms
+        });
+        planned.push(write);
+        plannedPaths.add(manifestRelative);
+    }
+    // 2. Thin per-host adapters plus the documented verbatim exception.
     for (const platform of platforms) {
         const config = PLATFORM_CONFIG[platform];
-        const sourceRoot = join(PACKAGE_ROOT, ...config.sourcePath);
         const targetParts = options.global ? config.globalPath : config.projectPath;
+        const hostRootPosix = targetParts.join("/");
         const targetRoot = resolve(root, ...targetParts);
         if (!isInside(root, targetRoot))
             throw new Error(`Platform destination escapes install root: ${targetRoot}`);
         await assertNoSymlinkPath(root, targetRoot);
-        const sourceFiles = (await walkFiles(sourceRoot, {
-            maxFiles: 5_000,
-            maxTotalBytes: 256 * 1024 * 1024,
-            maxDepth: 64
-        })).filter((path) => !path.endsWith(".fullstack-forge-generated.json"));
-        if (sourceFiles.length === 0)
-            throw new Error(`Bundled platform assets are missing for ${platform}`);
-        for (const source of sourceFiles) {
-            const sourceRelative = toPosix(relative(sourceRoot, source));
-            assertSafeRelative(sourceRelative);
-            const target = resolveInside(targetRoot, sourceRelative);
+        const hostFiles = new Map();
+        for (const skill of skills) {
+            const source = canonical.get(`${skill}/SKILL.md`);
+            if (source === undefined)
+                throw new Error(`Bundled canonical skill is missing: ${skill}`);
+            const frontmatter = extractFrontmatter(source.toString("utf8"), `${skill}/SKILL.md`);
+            const pointer = adapterPointer(hostRootPosix, skill);
+            // A pointer is prose, not a link, but it must still resolve inside the install root.
+            const pointerTarget = resolve(targetRoot, skill, ...pointer.split("/"));
+            if (!isInside(root, pointerTarget))
+                throw new Error(`Adapter pointer escapes the managed root: ${pointer}`);
+            if (pointerTarget !== resolveInside(canonicalRoot, `${skill}/SKILL.md`))
+                throw new Error(`Adapter pointer does not resolve to canonical content: ${pointer}`);
+            hostFiles.set(`${skill}/SKILL.md`, Buffer.from(renderAdapter({ skill, pointer, frontmatter })));
+        }
+        if (VERBATIM_PLATFORMS.has(platform))
+            for (const [rel, bytes] of canonical)
+                if (isVerbatimHostFile(rel))
+                    hostFiles.set(rel, bytes);
+        for (const [rel, bytes] of [...hostFiles.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+            const target = resolveInside(targetRoot, rel);
             await assertNoSymlinkPath(root, target);
             const manifestRelative = toPosix(relative(root, target));
             assertSafeRelative(manifestRelative);
-            const bytes = await readFile(source);
-            const hash = sha256(bytes);
-            const oldRecord = previous.files[manifestRelative];
-            let existingHash;
-            try {
-                existingHash = sha256(await readFile(target));
-            }
-            catch (error) {
-                if (error.code !== "ENOENT")
-                    throw error;
-            }
-            if (oldRecord !== undefined) {
-                if (oldRecord.platform !== platform)
-                    throw new Error(`Ownership platform mismatch for ${manifestRelative}`);
-                if (oldRecord.owned &&
-                    existingHash !== undefined &&
-                    existingHash !== oldRecord.hash &&
-                    existingHash !== hash) {
-                    throw new Error(`Refusing to overwrite a modified owned file: ${manifestRelative}`);
-                }
-                if (!oldRecord.owned && existingHash !== hash) {
-                    throw new Error(`Refusing to update a pre-existing unowned file: ${manifestRelative}`);
-                }
-            }
-            else if (existingHash !== undefined && existingHash !== hash) {
-                throw new Error(`Refusing to overwrite an unowned file: ${manifestRelative}`);
-            }
-            const owned = oldRecord?.owned ?? existingHash === undefined;
-            const action = existingHash === undefined
-                ? "create"
-                : existingHash === hash
-                    ? "preserve-identical"
-                    : "update";
-            planned.push({
-                action: { action, path: manifestRelative, platform },
+            planned.push(await planFileWrite({
+                root,
+                manifestRelative,
                 target,
                 bytes,
-                record: { hash, platform, owned, management: "file" },
-                ...(existingHash === undefined ? {} : { previousHash: existingHash })
-            });
+                previous,
+                platform,
+                kind: "adapter"
+            }));
+            plannedPaths.add(manifestRelative);
         }
         if (!options.global) {
             const instruction = PROJECT_INSTRUCTIONS[platform];
@@ -142,11 +188,12 @@ export async function install(rootInput, selector, options) {
                                     ? "preserve-identical"
                                     : "update",
                             path: manifestRelative,
-                            platform
+                            platform,
+                            kind: "instructions"
                         },
                         target,
                         bytes,
-                        record: { hash, platform, owned, management: "file" },
+                        record: { hash, platform, owned, management: "file", kind: "instructions" },
                         ...(currentFileHash === undefined ? {} : { previousHash: currentFileHash })
                     });
                 }
@@ -178,21 +225,72 @@ export async function install(rootInput, selector, options) {
                                     ? "preserve-identical"
                                     : "update",
                             path: manifestRelative,
-                            platform
+                            platform,
+                            kind: "instructions"
                         },
                         target,
                         bytes: Buffer.from(nextContent, "utf8"),
-                        record: { hash: nextHash, platform, owned, management: "section" },
+                        record: {
+                            hash: nextHash,
+                            platform,
+                            owned,
+                            management: "section",
+                            kind: "instructions"
+                        },
                         ...(currentFileHash === undefined ? {} : { previousHash: currentFileHash })
                     });
                 }
+                plannedPaths.add(manifestRelative);
             }
         }
     }
+    // 3. Migration: retire previous-layout files this install no longer owns. Only Forge-owned,
+    //    unmodified files are removed; anything the user changed is preserved and reported.
+    const selected = new Set(platforms);
+    const retirable = [];
+    for (const [rel, record] of Object.entries(previous.files).sort(([a], [b]) => a.localeCompare(b))) {
+        if (plannedPaths.has(rel))
+            continue;
+        if (record.kind === "canonical")
+            continue;
+        if (!selected.has(record.platform))
+            continue;
+        assertSafeRelative(rel);
+        const target = resolveInside(root, rel);
+        await assertNoSymlinkPath(root, target);
+        const currentHash = await hashIfPresent(target);
+        if (currentHash === undefined) {
+            // Already retired by an interrupted earlier attempt; just drop the stale record.
+            retirable.push({
+                action: { action: "remove", path: rel, platform: record.platform, kind: "retired" },
+                target,
+                expectedHash: record.hash
+            });
+            continue;
+        }
+        if (!record.owned || currentHash !== record.hash) {
+            retirable.push({
+                action: {
+                    action: "preserve-modified",
+                    path: rel,
+                    platform: record.platform,
+                    kind: "retired"
+                },
+                target,
+                expectedHash: record.hash
+            });
+            continue;
+        }
+        retirable.push({
+            action: { action: "remove", path: rel, platform: record.platform, kind: "retired" },
+            target,
+            expectedHash: record.hash
+        });
+    }
     if (options.dryRun)
-        return planned.map((item) => item.action);
+        return [...planned.map((item) => item.action), ...retirable.map((item) => item.action)];
     const next = {
-        schemaVersion: 1,
+        schemaVersion: MANIFEST_SCHEMA_VERSION,
         packageVersion: VERSION,
         root,
         installedAt: utcNow(),
@@ -207,10 +305,7 @@ export async function install(rootInput, selector, options) {
     // safely replaced, so either the old or new hash remains recoverable after a crash.
     const created = planned.filter((item) => item.action.action === "create");
     if (created.length > 0) {
-        const prepared = {
-            ...next,
-            files: { ...next.files }
-        };
+        const prepared = { ...next, files: { ...next.files } };
         for (const item of created)
             prepared.files[item.action.path] = item.record;
         await writeManifest(root, prepared);
@@ -231,10 +326,72 @@ export async function install(rootInput, selector, options) {
             if (options.interruptAfter !== undefined && processedWrites >= options.interruptAfter)
                 throw new Error(`Injected installer interruption after ${processedWrites} managed write(s).`);
         }
-        next.files[item.action.path] = item.record;
+        next.files[item.action.path] = mergeCanonicalRecord(next.files[item.action.path], item.record);
     }
     await writeManifest(root, next);
-    return planned.map((item) => item.action);
+    // Retirement runs only after every new file is durably in place, so an interruption leaves both
+    // layouts present and usable. The manifest still records anything not yet retired, so a rerun
+    // resumes exactly where it stopped.
+    if (retirable.length > 0) {
+        const prunable = new Set();
+        for (const item of retirable) {
+            if (item.action.action !== "remove")
+                continue;
+            await unlink(item.target).catch((error) => {
+                if (error.code !== "ENOENT")
+                    throw error;
+            });
+            delete next.files[item.action.path];
+            prunable.add(dirname(item.target));
+        }
+        await writeManifest(root, next);
+        for (const directory of [...prunable].sort((a, b) => b.length - a.length))
+            await pruneEmptyDirectories(root, directory);
+    }
+    return [...planned.map((item) => item.action), ...retirable.map((item) => item.action)];
+}
+async function planFileWrite(input) {
+    const { manifestRelative, target, bytes, previous, platform, kind } = input;
+    const hash = sha256(bytes);
+    const oldRecord = previous.files[manifestRelative];
+    const existingHash = await hashIfPresent(target);
+    if (oldRecord !== undefined) {
+        if (kind !== "canonical" && oldRecord.platform !== platform)
+            throw new Error(`Ownership platform mismatch for ${manifestRelative}`);
+        if (oldRecord.owned &&
+            existingHash !== undefined &&
+            existingHash !== oldRecord.hash &&
+            existingHash !== hash)
+            throw new Error(`Refusing to overwrite a modified owned file: ${manifestRelative}`);
+        if (!oldRecord.owned && existingHash !== hash)
+            throw new Error(`Refusing to update a pre-existing unowned file: ${manifestRelative}`);
+    }
+    else if (existingHash !== undefined && existingHash !== hash) {
+        throw new Error(`Refusing to overwrite an unowned file: ${manifestRelative}`);
+    }
+    const owned = oldRecord?.owned ?? existingHash === undefined;
+    const action = existingHash === undefined ? "create" : existingHash === hash ? "preserve-identical" : "update";
+    const record = { hash, platform, owned, management: "file", kind };
+    if (kind === "canonical") {
+        const merged = new Set([...(oldRecord?.platforms ?? []), ...(input.platforms ?? [])]);
+        record.platforms = [...merged].sort();
+        record.platform = (record.platforms[0] ?? platform);
+    }
+    return {
+        action: { action, path: manifestRelative, platform: record.platform, kind },
+        target,
+        bytes,
+        record,
+        ...(existingHash === undefined ? {} : { previousHash: existingHash })
+    };
+}
+/** Canonical records accumulate the set of hosts that depend on them. */
+function mergeCanonicalRecord(existing, next) {
+    if (next.kind !== "canonical")
+        return next;
+    const merged = new Set([...(existing?.platforms ?? []), ...(next.platforms ?? [])]);
+    const platforms = [...merged].sort();
+    return { ...next, platforms, platform: platforms[0] ?? next.platform };
 }
 export async function uninstall(rootInput, selector, options) {
     const root = options.global
@@ -244,11 +401,28 @@ export async function uninstall(rootInput, selector, options) {
     const manifest = await readManifest(root, true);
     const actions = [];
     const remaining = { ...manifest.files };
+    const prunable = new Set();
     for (const [rel, record] of Object.entries(manifest.files).sort(([a], [b]) => a.localeCompare(b))) {
-        if (!selected.has(record.platform))
-            continue;
         assertSafeRelative(rel);
         const target = resolveInside(root, rel);
+        if (record.kind === "canonical") {
+            const owners = record.platforms ?? [record.platform];
+            const retained = owners.filter((platform) => !selected.has(platform));
+            if (retained.length === owners.length)
+                continue;
+            if (retained.length > 0) {
+                // Another installed host still depends on this canonical file; keep it and record the
+                // narrowed owner set instead of orphaning or deleting shared content.
+                remaining[rel] = {
+                    ...record,
+                    platforms: retained,
+                    platform: retained[0] ?? record.platform
+                };
+                continue;
+            }
+        }
+        else if (!selected.has(record.platform))
+            continue;
         await assertNoSymlinkPath(root, target);
         let currentHash;
         try {
@@ -275,11 +449,17 @@ export async function uninstall(rootInput, selector, options) {
                 actions.push({
                     action: "preserve-modified",
                     path: rel,
-                    platform: record.platform
+                    platform: record.platform,
+                    ...(record.kind === undefined ? {} : { kind: record.kind })
                 });
                 continue;
             }
-            actions.push({ action: "remove", path: rel, platform: record.platform });
+            actions.push({
+                action: "remove",
+                path: rel,
+                platform: record.platform,
+                ...(record.kind === undefined ? {} : { kind: record.kind })
+            });
             if (!options.dryRun) {
                 const next = removeManagedSection(current);
                 if (next.length === 0)
@@ -294,14 +474,21 @@ export async function uninstall(rootInput, selector, options) {
             actions.push({
                 action: "preserve-modified",
                 path: rel,
-                platform: record.platform
+                platform: record.platform,
+                ...(record.kind === undefined ? {} : { kind: record.kind })
             });
             continue;
         }
-        actions.push({ action: "remove", path: rel, platform: record.platform });
+        actions.push({
+            action: "remove",
+            path: rel,
+            platform: record.platform,
+            ...(record.kind === undefined ? {} : { kind: record.kind })
+        });
         if (!options.dryRun) {
             await unlink(target);
             delete remaining[rel];
+            prunable.add(dirname(target));
         }
     }
     if (!options.dryRun) {
@@ -317,6 +504,7 @@ export async function uninstall(rootInput, selector, options) {
         else {
             await writeManifest(root, {
                 ...manifest,
+                schemaVersion: MANIFEST_SCHEMA_VERSION,
                 files: remaining,
                 installedAt: utcNow(),
                 automatic_activation: Object.entries(remaining).some(([rel, record]) => {
@@ -325,8 +513,39 @@ export async function uninstall(rootInput, selector, options) {
                 })
             });
         }
+        for (const directory of [...prunable].sort((a, b) => b.length - a.length))
+            await pruneEmptyDirectories(root, directory);
     }
     return actions;
+}
+/**
+ * Removes managed directories that removal left empty, walking upward until a non-empty directory
+ * or the install root is reached. A directory holding any user file is never removed.
+ */
+async function pruneEmptyDirectories(root, start) {
+    let current = start;
+    while (isInside(root, current) && current !== root) {
+        let entries;
+        try {
+            entries = await readdir(current);
+        }
+        catch (error) {
+            if (error.code === "ENOENT") {
+                current = dirname(current);
+                continue;
+            }
+            return;
+        }
+        if (entries.length > 0)
+            return;
+        try {
+            await rmdir(current);
+        }
+        catch {
+            return;
+        }
+        current = dirname(current);
+    }
 }
 export async function readInstallManifest(rootInput) {
     const root = await canonicalDirectory(rootInput);
@@ -339,6 +558,10 @@ export async function readInstallManifest(rootInput) {
         throw error;
     }
 }
+/** The canonical managed root, relative to an installation root. */
+export function canonicalManagedRoot() {
+    return CANONICAL_ROOT_POSIX;
+}
 async function readManifest(root, required = false) {
     const path = resolveInside(root, MANIFEST_RELATIVE);
     const text = await readTextIfPresent(path);
@@ -346,7 +569,7 @@ async function readManifest(root, required = false) {
         if (required)
             throw new Error(`No Fullstack Forge ownership manifest at ${path}`);
         return {
-            schemaVersion: 1,
+            schemaVersion: MANIFEST_SCHEMA_VERSION,
             packageVersion: VERSION,
             root,
             installedAt: utcNow(),
@@ -363,7 +586,7 @@ async function readManifest(root, required = false) {
         throw new Error(`Invalid Fullstack Forge ownership manifest at ${path}`);
     }
     if (!isRecord(parsed) ||
-        parsed.schemaVersion !== 1 ||
+        (parsed.schemaVersion !== 1 && parsed.schemaVersion !== 2) ||
         parsed.root !== root ||
         typeof parsed.packageVersion !== "string" ||
         typeof parsed.installedAt !== "string" ||
@@ -381,18 +604,32 @@ async function readManifest(root, required = false) {
             typeof record.hash !== "string" ||
             !/^[a-f0-9]{64}$/u.test(record.hash) ||
             typeof record.owned !== "boolean" ||
-            ("management" in record && record.management !== "file" && record.management !== "section")) {
+            ("management" in record && record.management !== "file" && record.management !== "section") ||
+            ("kind" in record &&
+                record.kind !== "canonical" &&
+                record.kind !== "adapter" &&
+                record.kind !== "instructions") ||
+            ("platforms" in record &&
+                (!Array.isArray(record.platforms) ||
+                    record.platforms.length === 0 ||
+                    record.platforms.some((value) => !PLATFORMS.includes(value))))) {
             throw new Error(`Invalid ownership record for ${rel}`);
         }
         files[rel] = {
             platform: record.platform,
             hash: record.hash,
             owned: record.owned,
-            management: record.management === "section" ? "section" : "file"
+            management: record.management === "section" ? "section" : "file",
+            // A schema-1 manifest predates the canonical layout: every record it holds is a
+            // previous-layout host file, which is exactly what migration retires.
+            ...(typeof record.kind === "string" ? { kind: record.kind } : {}),
+            ...(Array.isArray(record.platforms)
+                ? { platforms: [...new Set(record.platforms)].sort() }
+                : {})
         };
     }
     return {
-        schemaVersion: 1,
+        schemaVersion: parsed.schemaVersion,
         packageVersion: parsed.packageVersion,
         root,
         installedAt: parsed.installedAt,

@@ -454,15 +454,26 @@ export type Observation = {
   confidence: Confidence;
 };
 
+/**
+ * A Forge-owned installed file.
+ *
+ * `kind` distinguishes the canonical managed copy from the thin per-host adapters that point at
+ * it, so uninstall and `doctor` can tell managed content, adapters, and user files apart. A
+ * `canonical` record is shared by every host that depends on it and therefore carries the full
+ * `platforms` set; `platform` stays populated as the lowest-sorted member for schema-v1 readers.
+ */
 export type InstallFile = {
   hash: string;
   platform: string;
   owned: boolean;
-  management?: "file" | "section";
+  management?: "file" | "section" | undefined;
+  kind?: "canonical" | "adapter" | "instructions" | "retired" | undefined;
+  platforms?: string[] | undefined;
 };
 
 export type InstallManifest = {
-  schemaVersion: 1;
+  /** 1 = legacy full-copy layout; 2 = canonical managed content plus host adapters. */
+  schemaVersion: 1 | 2;
   packageVersion: string;
   root: string;
   installedAt: string;
