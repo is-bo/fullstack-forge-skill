@@ -1,323 +1,269 @@
 # Fullstack Forge — completion implementation report
 
-**Status: partial.** Three of the five remaining implementation items are complete and validated.
-Two are not started. Stage 1 independent verification, Stage 2 external benchmarking, and Stage 3
-release scoring were not performed. This report records what was actually done and what was not;
-nothing here is estimated or inferred.
+**Status: the five planned workstreams are implemented, integrated and verified.** The external
+corpus benchmark and release-readiness scoring were **deliberately descoped** and were not
+performed; see [Descoped work](#descoped-work). Nothing here is estimated or inferred, and no claim
+is made about a check that was not run.
 
-## Baseline
+## Candidate identity
 
-| Item                  | Value                                                              |
-| --------------------- | ------------------------------------------------------------------ |
-| Repository            | `is-bo/fullstack-forge-skill`                                      |
-| `main` at start       | `3f73177654f9c7a58a93b83d33c1afa46d86caca`                         |
-| Expected SHA present  | Yes — `main` had not advanced past #53                             |
-| Previous baseline     | `d53f70ea` (present)                                               |
-| Package version       | `0.1.0` (unchanged by this work)                                   |
-| Tags                  | `v0.1.0` only (none added)                                         |
-| Working tree at start | Clean                                                              |
-| Node / npm            | v24.14.1 / 11.11.0                                                 |
-| OS                    | Windows 10 Pro 19045, PowerShell                                   |
-| Repository path       | `D:\Code\FullStack skill` — contains a space, exercised throughout |
-| Baseline test suite   | 845 tests, 844 pass, 0 fail, 1 skipped, 93.9 s, exit 0             |
+This document deliberately records **no candidate SHA and no commit count**. A report that names its
+own candidate SHA invalidates itself the instant it is committed, because the commit that records
+the SHA changes the SHA; "N commits ahead" fails the same way. Only facts that do not change when
+this file changes are written down:
 
-## Implementation branch and candidate
+| Item            | Value                                                                     |
+| --------------- | ------------------------------------------------------------------------- |
+| Repository      | `is-bo/fullstack-forge-skill`                                             |
+| Branch          | `fix/complete-external-readiness`                                         |
+| Baseline `main` | `3f73177654f9c7a58a93b83d33c1afa46d86caca` (PR #53)                       |
+| Pull request    | https://github.com/is-bo/fullstack-forge-skill/pull/54 (open, not merged) |
+| Package version | `0.1.0`, unchanged                                                        |
+| Tag / release   | None created                                                              |
 
-| Item                      | Value                                                                     |
-| ------------------------- | ------------------------------------------------------------------------- |
-| Branch                    | `fix/complete-external-readiness`                                         |
-| Candidate SHA             | `71edb67943e4fddf3dd5fd9953443cc75babad5c`                                |
-| Commits ahead of baseline | 13                                                                        |
-| Pull request              | https://github.com/is-bo/fullstack-forge-skill/pull/54 (open, not merged) |
-| Version bump              | None                                                                      |
-| Tag / release             | None                                                                      |
+Volatile evidence — candidate commit, commits ahead, working-tree cleanliness, Node, platform and
+the CI run — is generated at verification time by `scripts/verification-evidence.mjs` and appended
+to the GitHub Actions job summary of the run that actually executed the checks. Reproduce it with:
 
-## Implementation agents
+```bash
+node scripts/verification-evidence.mjs --baseline 3f73177654f9c7a58a93b83d33c1afa46d86caca
+```
 
-Six agents were launched (0A upload analysis, 0B transactions, 0C playbook deduplication, 0D
-canonical installation, 0E imported-guard resolution, with integration reserved to the lead). **All
-five worker agents terminated early on an account session limit**, not on task failure. Their
-partial output was inspected and integrated by the lead agent; no agent's conclusions were accepted
-as evidence, and every claim below was re-derived by the lead from actual command output.
+## Defects found and fixed
 
-State inherited from the terminated agents:
+### 1. Any nested repository aborted every audit
 
-| Agent           | Left behind                             | Assessment                                              |
-| --------------- | --------------------------------------- | ------------------------------------------------------- |
-| 0A uploads      | nothing                                 | Not started                                             |
-| 0B transactions | `cli/src/transactions.ts` (48 KB)       | Written, **orphaned and untested**                      |
-| 0C playbooks    | `scripts/measure-boilerplate.mjs`       | Measurement script only, **no deduplication performed** |
-| 0D installation | `managed-layout.ts` + installer rewrite | Substantial, **left the tree non-compiling**            |
-| 0E guards       | `cli/src/guard-resolution.ts` (27 KB)   | Written, **orphaned and untested**                      |
+`git ls-files --others` collapses an untracked nested repository into a single directory entry with
+a trailing slash. `normalizeSafeRelative` rejects the empty final segment, so `inventoryRepository`
+threw `Unsafe repository inventory path` and aborted before any analysis ran. Any target repository
+vendoring a checkout, holding an unregistered submodule, or containing a Git worktree crashed
+outright — the exact external-repository readiness class this work exists to close.
 
-"Orphaned" is material: both analyzer modules compiled but nothing imported them. Shipped as-is they
-would have been dead code — precisely the "module reported as checked but the analyzer never
-executed" failure the assignment treats as a hard gate.
+Trailing-slash entries are now dropped at the call site, keeping `normalizeSafeRelative`'s traversal
+contract strict, and the inventory reports `PARTIAL` with reason `nested-repository-not-inventoried`
+so the coverage gap stays visible instead of becoming a silent `COMPLETE`.
 
-## Files changed
+### 2. Release archives shipped adapters with no canonical content
 
-New source: `cli/src/transactions.ts`, `cli/src/guard-resolution.ts`, `cli/src/managed-layout.ts`,
-`scripts/lib/managed-layout.mjs`. New tests: `cli/tests/transactions.test.ts`,
-`cli/tests/guard-resolution.test.ts`. Modified: `cli/src/analyzers.ts`, `cli/src/installer.ts`,
-`cli/src/types.ts`, `cli/src/scope.ts`, `cli/tests/installer.test.ts`,
-`scripts/sync-platform-assets.mjs`, `scripts/check-platform-assets.mjs`,
-`scripts/check-repository-identity.mjs`, `scripts/smoke-install.mjs`, `scripts/upgrade-install.mjs`,
-`scripts/offline-install.mjs`, `scripts/tests/openai-metadata.test.mjs`,
-`scripts/tests/progressive-policy.test.mjs`, `package.json`, `.prettierignore`, plus regenerated
-managed content.
+Every host adapter is a pointer into `.fullstack-forge/skills/`. The packager never collected that
+tree, and `.fullstack-forge` was in the private-path denylist so it would have been rejected had it
+tried. The published `dist/*.zip` release assets therefore contained 46 adapters and **zero**
+canonical files: extracting any release archive produced an installation in which every pointer
+dangled. In-repo tests could not see this because they read the working tree.
 
-## Architecture changed
+`validate-dist.mjs` now resolves each adapter's pointer relative to the adapter's own directory and
+asserts the archive contains the target, rejecting escapes outside the canonical root. Verified by
+decoding the built archive's central directory: the `claude` archive holds 226 entries including 133
+canonical files and 46 adapters; 644 adapters resolve across the 9 archives.
 
-- A single canonical managed-content root (`.fullstack-forge/skills/`) replaces six full host
-  copies; hosts receive thin adapter files. No symlinks anywhere.
-- `InstallFile` gains `kind` and `platforms`; the install manifest schema accepts `1 | 2` so the
-  previous full-copy layout can be migrated rather than clobbered.
-- Authorization guard recognition moves from three in-file helpers to one corpus-wide resolver that
-  reads resolved bodies. `scope.ts` remains the only module resolver.
-- Transaction analysis is a new per-file analyzer wired into the existing `js-ts-boundaries` pass.
+### 3. Unrelated 401/403 middleware proved authorization
 
-## Transaction implementation
+`functionDeniesAuthorization` accepted a middleware as an authorization guard when its body text
+matched `/\b(?:401|403)\b/` **and** `/\b(?:status|sendStatus|statusCode|code)\b/`. The tokens only
+had to co-occur somewhere in the body; nothing connected a predicate to the terminating branch.
 
-Detects multi-step write workflows where a partial failure violates an evidenced consistency
-invariant. Relatedness requires structural evidence — shared entity identifier, foreign key, or
-dataflow — so independent writes stay clean. Boundaries resolve through Prisma, Knex, Sequelize,
-TypeORM, Drizzle, Mongo sessions, raw `BEGIN`/`COMMIT`, local aliases, and one level of wrapper
-delegation. Unresolvable abstractions become `NOT_VERIFIED`, never a silent pass or a confident
-fail. Severity reflects demonstrated impact: financial and access-control writes reach
-HIGH/CRITICAL, ordinary parent/child pairs MEDIUM/HIGH.
+Each request-denying site is now located and the conditions that actually control it are walked out
+of the AST — enclosing `if`/ternary/logical branches, `switch` subjects, and preceding early-exit
+dominators. A branch that also calls `next()` is rejected. A controlling condition qualifies only
+when it is not vetoed by an unrelated-concern vocabulary and either carries authorization vocabulary
+or structurally tests subject presence.
 
-Two defects were found by the new regression matrix and fixed:
+### 4. Imported upload helpers downgraded proven defects
 
-1. **False positive.** `isKnownTransactionChain` branched on `segments.length === 1`. Because
-   `callChain` records both a bare `run(cb)` and a member `prisma.$transaction(cb)` with one
-   segment, every single-hop member call fell into the alias-only path where a vendor API could
-   never match. Correctly wrapped Prisma and Knex transactions were reported. Fixed by
-   distinguishing a bare call (`root === segments[0].name`) from a member call.
-2. **Silent false negative.** `hasDataAccessReceiver` gated ambiguous verbs behind a receiver-name
-   check, so a handle from a custom wrapper (`unit(async (handle) => handle.invoice.update(...))`)
-   matched no known data-access name and the writes were not detected at all — no finding in either
-   direction. Fixed with a narrow predicate: the receiver must be a parameter of a callback that is
-   itself an argument to a call, so ordinary declaration parameters such as a route's `req`/`res`
-   can never qualify.
+`importedValidationDelegate` treated any imported function receiving an argument mentioning
+`buffer|mimetype|originalname|file` as possible content validation, downgrading a proven HIGH
+`FF-UPLOAD-MIME-001` to `NOT_VERIFIED`. A storage, logging, resize or queue helper suppressed a real
+defect. A helper now clears a finding only when its resolved body inspects decoded bytes and its
+verdict is enforced; an unopened helper downgrades only when it structurally controls acceptance.
 
-Observed behaviour after the fixes:
+### 5. Upload analysis was Multer-only
 
-| Case                                   | Result                                                                           |
-| -------------------------------------- | -------------------------------------------------------------------------------- |
-| Related writes, no boundary            | `FF-DATA-TRANSACTION-001` FAIL, CRITICAL                                         |
-| Same workflow in `prisma.$transaction` | clean                                                                            |
-| Knex transaction over related writes   | clean                                                                            |
-| Independent writes                     | clean                                                                            |
-| Unresolved custom wrapper              | `FF-DATA-TRANSACTION-NOT-VERIFIED-001`, NOT_VERIFIED, evidence names the wrapper |
+`analyzeUploadFile` was gated on `/upload\.(?:any|array|fields|single)\s*\(/`, so every non-Multer
+flow received no analysis and its silence was indistinguishable from hardened code.
 
-## Imported middleware resolution
+### 6. Severity was aggregated without regard to status
 
-`classifyRouteGuards` previously accepted any unresolved middleware whose identifier began with
-`require|ensure|assert|check|verify|enforce|guard|can|is|has|only|restrict|protect|authorize|authenticate`
-as a **proven** guard. An imported symbol never resolved to a local body, so every cross-file guard
-took that path and an imported `requireAdmin` whose body only calls `next()` suppressed the route
-finding entirely.
+A CRITICAL-severity, LOW-confidence, `NOT_VERIFIED` finding was indistinguishable from a confirmed
+CRITICAL defect in any severity-bucketed summary, and `sortFindings` ranked severity first, placing
+unproven criticals above confirmed highs. `summarizeFindings` now reports severity **only inside** a
+verdict class and publishes no top-level `by_severity`.
 
-Classification now delegates to `createGuardResolver`, built once over the whole corpus, which reads
-the body an import actually names. It follows local relative imports, renamed and default exports,
-barrel re-exports, and middleware factories under explicit hop, file, and cycle budgets, and reuses
-`scope.ts` rather than adding a second resolver. `isConventionalGuardName`, `resolveGuardFunction`,
-and the in-file `functionDeniesAuthorization` are deleted.
+### 7. Transaction boundary resolution was scope-blind
 
-| Case                                              | Result                                     |
-| ------------------------------------------------- | ------------------------------------------ |
-| Imported `requireAdmin`, body only calls `next()` | **FAIL** (previously suppressed as proven) |
-| Imported `tollbooth`, body returns 403            | clean                                      |
-| Barrel re-export of a real guard                  | clean                                      |
-| Renamed import, default export, factory, two-hop  | clean                                      |
-| External package (`@clerk/express`)               | `NOT_VERIFIED`                             |
-| Cyclic imports                                    | `NOT_VERIFIED`, terminates                 |
-| Dynamic `import()`                                | `NOT_VERIFIED`                             |
+`rawBoundary` matched `BEGIN`/`COMMIT` markers across a file-global array with no receiver, scope,
+or intervening-terminator check, so a pair in a neighbouring function proved a boundary for
+unrelated writes; `BEGIN … ROLLBACK` produced findings on atomic code; and file-global handle sets
+let a transaction handle in one function cover writes in another.
 
-## Canonical installation
+## Independent verification of the two safety-critical fixes
 
-One managed copy under `.fullstack-forge/skills/`; each host root receives a `SKILL.md` adapter that
-preserves the frontmatter the host needs for discovery and names the canonical playbook by relative
-path. No symlinks. Codex is a documented exception — it reads `agents/openai.yaml` with ordinary
-tooling and that file references its icon relatively, so `agents/` and `assets/` are copied verbatim
-into `.agents` roots only.
+Fixtures written by the agent that wrote the code prove less than they appear to. Both analyzer
+fixes were therefore probed with cases authored separately by the integrating lead, and each probe
+was **also run against the pre-fix analyzer to prove it is not vacuous**.
 
-**A shipping defect was found and fixed.** `installer.ts` reads bundled content from
-`PACKAGE_ROOT/.fullstack-forge`, but that directory was absent from the `files` allowlist in
-`package.json`, so the entire managed payload was excluded from the published tarball. Fresh
-install, upgrade, and offline install all failed with `ENOENT` when run against a packed archive.
-In-repo tests could not detect this because they read the working tree.
+### Route authorization
 
-### Installation measurements
+| Probe case (a sensitive `DELETE /accounts/:id`)     | Pre-fix   | Post-fix | Required |
+| --------------------------------------------------- | --------- | -------- | -------- |
+| CSRF token mismatch → 403                           | **CLEAN** | FAIL     | FAIL     |
+| Audit logger naming `user` and `403`, then `next()` | **CLEAN** | FAIL     | FAIL     |
+| Payload size limit → 403                            | **CLEAN** | FAIL     | FAIL     |
+| IP denylist → 403                                   | **CLEAN** | FAIL     | FAIL     |
+| Scope/claim guard                                   | CLEAN     | CLEAN    | CLEAN    |
+| Ownership guard                                     | CLEAN     | CLEAN    | CLEAN    |
 
-Measured from git object sizes across the six generated host roots.
+Before the fix a destructive route protected only by a CSRF check — or by an audit logger that
+merely mentions the number 403 before delegating — was reported as authorized.
 
-|                        | Files      | Bytes      |
-| ---------------------- | ---------- | ---------- |
-| Before (`3f73177`)     | 804        | 6,704,066  |
-| After — host roots     | 286        | 1,111,823  |
-| After — canonical root | 134        | 1,117,347  |
-| After — total          | 420        | 2,229,170  |
-| **Reduction**          | **−47.8%** | **−66.7%** |
+### Upload delegation
 
-Generator output: 133 canonical files, 46 skills, 6 host roots, 276 adapters, 4 verbatim exception
-files.
+| Probe case (imported helper receives the payload)  | Pre-fix          | Post-fix | Required |
+| -------------------------------------------------- | ---------------- | -------- | -------- |
+| Helper uploads bytes to a CDN                      | **NOT_VERIFIED** | FAIL     | FAIL     |
+| Helper computes a SHA-256 checksum                 | **NOT_VERIFIED** | FAIL     | FAIL     |
+| Helper named `validateUpload` that only reads size | **NOT_VERIFIED** | FAIL     | FAIL     |
+| Helper comparing PNG magic bytes, verdict enforced | **NOT_VERIFIED** | CLEAN    | CLEAN    |
 
-### Lifecycle scenarios executed
+Before the fix all four collapsed to the same answer: the analyzer could not distinguish a CDN
+uploader from a magic-byte validator.
 
-| Scenario                          | Result                                                                                              |
-| --------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `smoke:install`                   | pass — 46 skills, automatic activation, 0 symlinks, clean uninstall                                 |
-| `smoke:upgrade`                   | pass — migration from previous full-copy layout, doctor ready, 46/root, 0 symlinks, clean uninstall |
-| `offline:install`                 | pass — six roots at 46 skills, cache-only npm, unreachable registry, 0 symlinks, clean uninstall    |
-| Windows paths / paths with spaces | exercised throughout (repository path contains a space)                                             |
-| Packaging                         | pass — 9 archives, 1083 entries                                                                     |
+## Upload support matrix
 
-Not separately exercised: interrupted-migration resumability, damaged canonical/adapter recovery,
-mixed partial-update upgrade, user-modified managed files, path-traversal rejection, and
-`forge doctor` classification of canonical vs adapter vs user files. Several of these are covered
-indirectly by existing installer tests but were not driven as named scenarios.
+`E` extension, `M` client MIME, `P` public-before-approval, `S` scan boundary, `FO` scanner
+fail-open, `FN` filename in storage key, `L` limits, `DV` direct-verify. `—` means **not claimed** —
+out of evidence, never "passing".
+
+| Family                     | E                                             | M   | P   | S   | FO  | FN  | L   | DV  |
+| -------------------------- | --------------------------------------------- | --- | --- | --- | --- | --- | --- | --- |
+| Multer                     | ✓                                             | ✓   | ✓   | ✓   | ✓   | ✓   | ✓   | —   |
+| Busboy                     | ✓                                             | ✓   | ✓   | ✓   | ✓   | ✓   | ✓   | —   |
+| Formidable                 | ✓                                             | ✓   | ✓   | ✓   | ✓   | ✓   | ✓   | —   |
+| Next.js `formData()`       | ✓                                             | ✓   | ✓   | ✓   | ✓   | ✓   | ✓   | —   |
+| Raw multipart              | ✓                                             | ✓   | ✓   | ✓   | ✓   | ✓   | ✓   | —   |
+| Presigned S3               | ✓                                             | ✓   | ✓   | —   | ✓   | ✓   | ✓   | ✓   |
+| Presigned GCS              | ✓                                             | ✓   | ✓   | —   | ✓   | ✓   | ✓   | ✓   |
+| Server-side object storage | ✓                                             | ✓   | ✓   | ✓   | ✓   | ✓   | —   | —   |
+| Anything else              | reported as `FF-UPLOAD-FLOW-NOT-VERIFIED-001` |     |     |     |     |     |     |     |
+
+Presigned flows never see the bytes server-side, so a scan at signing time would be meaningless;
+`DV` asks the equivalent question. A server-side write is past the parser, so `L` is not its
+concern.
+
+## Object-authorization policy
+
+`decideObjectAuthorization({ boundPredicate, authority, partition })`. `authority` is what a
+**resolved** guard proves; an unread body can never be `global`, which is what keeps a package's
+`requireAdmin` out of the clean outcome.
+
+| authority                        | partition     | outcome        | finding                                 |
+| -------------------------------- | ------------- | -------------- | --------------------------------------- |
+| any, with bound object predicate | —             | authorized     | none                                    |
+| `global`                         | `global`      | administrative | `FF-AUTHZ-OBJECT-ADMIN-001` LOW/WARNING |
+| `global`                         | `partitioned` | unresolved     | `FF-AUTHZ-OBJECT-NOT-VERIFIED-001`      |
+| `tenant`                         | any           | missing        | `FF-AUTHZ-OBJECT-001` FAIL              |
+| `ambiguous`                      | any           | unresolved     | `FF-AUTHZ-OBJECT-NOT-VERIFIED-001`      |
+| `none`                           | any           | missing        | `FF-AUTHZ-OBJECT-001` FAIL              |
+
+A role name never _clears_ the rule — the best it reaches is a published low-severity note — so a
+misclassification degrades to noise rather than silence, and every uncertain case lands on
+`NOT_VERIFIED` rather than clean.
 
 ## Playbook deduplication
 
-**Performed.** Primary boilerplate is 23.42%, against a target of below 25%.
+| Measure                     | Before | After  |
+| --------------------------- | ------ | ------ |
+| **Primary (literal units)** | 32.89% | 23.42% |
+| Masked (name/title masked)  | 42.19% | 34.21% |
+| Shingle-8 cross-check       | 27.31% | 16.26% |
+| Total tokens                | 25,981 | 22,396 |
+| Worst file                  | 37.80% | 26.93% |
 
-Method: units are semantic — a frontmatter entry, heading, list item, or paragraph — then lowercased
-and whitespace-collapsed, so re-wrapping prose cannot move the score. A unit counts as shared
-boilerplate when it appears in at least 3 distinct files of the corpus. Units are weighted by token
-count and every occurrence is weighted. A wrapping-independent 8-word shingle cross-check is
-reported alongside.
+Target was below 25% primary. Verified independently after integration by re-running
+`node scripts/measure-boilerplate.mjs`.
 
-Corpus: the 42 canonical specialist playbooks at
-`src/fullstack-forge/commands/forge-<slug>/SKILL.md`.
+Activation was preserved by construction, and this was checked rather than assumed: the change
+alters **zero bytes** under `.agents/`, `.claude/`, `.cursor/`, `.gemini/`, `.github/skills/` and
+`.windsurf/`, and **zero** `name:` or `description:` lines anywhere.
 
-| Measure                                   | Before                    | After                          |
-| ----------------------------------------- | ------------------------- | ------------------------------ |
-| Total tokens                              | 25,981                    | 22,396                         |
-| Shared tokens                             | 8,545                     | 5,246                          |
-| **Primary (literal units)**               | **32.89%**                | **23.42%**                     |
-| Masked variant (module name/title masked) | 42.19%                    | 34.21%                         |
-| Shingle-8 cross-check                     | 27.31%                    | 16.26%                         |
-| Worst file                                | 37.80% (`forge-realtime`) | 26.93% (`forge-notifications`) |
+Largest deliberate remaining repetition: the 14 section headings `scripts/validate-skill.mjs`
+requires; the "Never hide failed checks" sentence that `scripts/lib/skill-validation.mjs` requires
+verbatim in every skill; and slug-templated activation lines that are load-bearing for automatic
+activation — which is why the masked variant stays higher than the primary.
 
-What moved: a second scoped shared reference,
-`src/fullstack-forge/references/shared/evidence-rules.md`, now owns four things named by its own
-headings — "Statuses" (the `NOT_APPLICABLE` / `NOT_VERIFIED` / `BLOCKED` vocabulary and the rule
-that absent evidence never becomes `PASS`), "Standards" (naming a standard is not a compliance
-claim), "Tools" (deterministic inspectors give bounded evidence only) and "Findings" (the route to
-`references/PROTOCOL.md`). `references/shared/module-contract.md` delegates those to it rather than
-restating them, so the two shared files do not duplicate each other either. Each specialist cites
-both documents and the topics each owns in a single sentence.
+## Installation and host acceptance
 
-What deliberately stayed duplicated: the 14 section headings required by
-`scripts/validate-skill.mjs` (1,974 of the 5,246 remaining shared tokens), the sentence "Never hide
-failed checks or claim that an operation ran when it did not." which
-`scripts/lib/skill-validation.mjs` requires verbatim in every skill (588 tokens), and the
-slug-templated activation and audit-command lines, which are load-bearing for automatic activation.
+Every host check is an **executable simulation**, never a live host run. No Claude Code, Codex,
+Cursor, Gemini, Windsurf or Copilot process was launched. **Live host loader and UI behaviour remain
+`NOT_VERIFIED`**, and the test file states this in its header so a green suite cannot be misread.
 
-No module-specific content was moved out. YAML frontmatter, `name`, `description` and therefore
-automatic activation are byte-identical: the commit changes zero bytes under `.agents/`, `.claude/`,
-`.cursor/`, `.gemini/`, `.github/skills/` and `.windsurf/`.
+Simulated and passing for all six host layouts: adapter discovery at the host's documented path,
+frontmatter-triggered activation unchanged, canonical playbook reachable through the relative
+pointer, references resolving from the canonical root, damaged-installation detection, per-host
+update and uninstall isolation, last-uninstall cleanup, preservation of modified canonical content
+and modified adapters, legacy full-copy upgrade, interrupted-installation resume, paths containing
+spaces, symlink/reparse-point rejection, and installation from the packed npm artifact.
 
-## Upload analysis
+The legacy-upgrade check was split after the implementing agent found its own original assertion
+wrong: because the legacy layout and the new adapter occupy the same path, a user-edited playbook is
+an update conflict, not a `preserve-modified` case. The installer's refusal is correct — it happens
+in preflight before any write, so an aborted upgrade leaves a working previous installation. The
+test was corrected to the installer's real behaviour, not the reverse.
 
-**Not implemented.** The analyzer remains the original raw-text regex gated on
-`upload.(any|array|fields|single)`.
+## Transaction analyzer review
 
-Behaviour characterised by probe (not fixed):
+| Defect class                          | Verdict                                   |
+| ------------------------------------- | ----------------------------------------- |
+| Raw `BEGIN`/`COMMIT` ordering         | found + fixed                             |
+| Rollback-only paths                   | found + fixed                             |
+| Custom transaction handles            | found + fixed (two defects)               |
+| False positives from unrelated writes | found + fixed (two defects)               |
+| Boundaries incorrectly grouped        | no defect found                           |
+| Nested transactions                   | found + fixed                             |
+| Helper inlining                       | found + fixed (two defects)               |
+| Custom wrappers                       | no defect found                           |
+| Transaction options into ORM calls    | found + fixed                             |
+| Cross-function dataflow limits        | no defect found                           |
+| Financial / inventory severity        | precision defects fixed; ladder unchanged |
 
-| Fixture                                                                         | Result                                 | Assessment                               |
-| ------------------------------------------------------------------------------- | -------------------------------------- | ---------------------------------------- |
-| Hardened multer (private bucket, opaque key, signature check, fail-closed scan) | clean                                  | correct                                  |
-| `public/` write before scan, client filename                                    | `PUBLIC` + `FILENAME` + `SCAN`         | correct true positives                   |
-| Scanner error swallowed, released anyway                                        | `SCAN-ERROR`                           | correct true positive                    |
-| Filename kept only as `displayName`                                             | clean                                  | correctly distinguishes display metadata |
-| Quarantine → scan → publish ordering                                            | clean                                  | correct                                  |
-| Content type validated via imported helper                                      | `FF-UPLOAD-MIME-001` HIGH NOT_VERIFIED | **fixed** (was a HIGH false positive)    |
-| Presigned S3, private ACL, opaque key                                           | clean                                  | **no analysis performed at all**         |
+Inventory severity was deliberately **not** raised to CRITICAL; the documented ladder was preserved.
 
-The multer gate incidentally suppresses false positives, so the dominant weakness is false
-negatives: any non-multer upload path receives no analysis, and its "clean" is indistinguishable
-from genuinely hardened code.
+## Descoped work
 
-### The one upload fix that was made
+The independent external-corpus benchmark and the release-readiness scoring were **not performed**.
+They were cut on an explicit instruction after usage became the binding constraint. Consequences,
+stated plainly:
 
-`FF-UPLOAD-MIME-001` fired whenever a file mentioned a content-type token and did not literally
-contain `magic|signature|fileTypeFromBuffer|decode|sniff`. Content validation is routinely factored
-into a shared helper whose body the in-file regex cannot read, so hardened upload paths were
-published as confident HIGH failures purely because their validation lived in another module.
-
-When the upload payload is passed to an imported function, the finding is now `NOT_VERIFIED` and its
-evidence names the delegate that could not be resolved. Detection is structural — import bindings
-plus an AST walk for a call receiving the payload — not a name list. Trusting client MIME with no
-validation anywhere still fails, and proven in-file signature validation is still clean, so no true
-positive regressed. Three regression cases cover the boundary.
-
-This closes the confirmed false-positive class but does **not** constitute upload analyzer
-completion: the three target rule families were not rewritten, no new fixtures were added for them,
-and non-multer coverage is unchanged.
-
-## Regression results
-
-Three test files and three smoke scripts asserted the previous full-copy layout by requiring
-physical duplication in every host root. They were rewritten to assert the property that matters —
-canonical content exists, adapters point at it, unselected hosts remain untouched — and are stricter
-than before. The installer test additionally asserts that a `claude,cursor` selector never writes
-`.agents`, `.gemini`, `.github`, or `.windsurf`. No assertion was weakened to obtain a pass.
-
-`transactions.ts`, `guard-resolution.ts`, and `managed-layout.ts` had never been linted because they
-were untracked when the agents died. Linting them surfaced 8 real defects — useless regex escapes, a
-provably unreachable condition, an unnecessary type assertion, two literal U+FEFF characters
-embedded in regular expressions, and `Buffer` used in an `.mjs` without importing `node:buffer` —
-all fixed at source.
-
-## Command ledger
-
-| Command                                                | Exit | Result                                           |
-| ------------------------------------------------------ | ---- | ------------------------------------------------ |
-| `npm test` (baseline, `3f73177`)                       | 0    | 845 tests, 844 pass, 1 skipped                   |
-| `npx tsc -p tsconfig.json --noEmit` (inherited tree)   | 2    | 29 errors — 28 installer, 1 transactions         |
-| `npx tsc -p tsconfig.json --noEmit` (after type fixes) | 0    | clean                                            |
-| `npm run generate`                                     | 0    | 133 canonical, 276 adapters, 6 roots, 4 verbatim |
-| `node --test build/cli/tests/transactions.test.js`     | 0    | 8/8 after two analyzer fixes                     |
-| `node --test build/cli/tests/guard-resolution.test.js` | 0    | 11/11                                            |
-| `npm test` (candidate)                                 | 0    | 867 tests, 866 pass, 0 fail, 1 skipped, 98.3 s   |
-| `npx eslint .`                                         | 0    | clean                                            |
-| `npx prettier --check .`                               | 0    | clean                                            |
-| `npm run check:repository-identity`                    | 0    | valid, 7 generated roots                         |
-| `npm run check:archives`                               | 0    | 9 archives, 1083 entries                         |
-| `npm run smoke:install`                                | 0    | 46 skills, 0 symlinks                            |
-| `npm run smoke:upgrade`                                | 0    | migration ok, doctor ready, clean uninstall      |
-| `npm run offline:install`                              | 0    | 6 roots × 46 skills, 0 symlinks                  |
-| `npm run check` (full gate)                            | 0    | all steps; secret scan 1180 files, 0 findings    |
-
-`npm run test:coverage` and `npm audit` were **not run**. Node 20 and Node 22 were **not
-exercised**; only Node 24.14.1 was used. No CI evidence was collected for the nine-job OS/Node
-matrix.
+- **Analyzer precision is unbenchmarked.** No true-positive, false-positive or false-negative rates
+  exist for any rule family against an external corpus.
+- The compensating evidence is the two lead-authored probe matrices above, each validated against
+  the pre-fix analyzer. That is a targeted regression check, **not** a precision measurement.
+- No release-readiness score was computed.
 
 ## Known limitations
 
-1. Upload analyzer completion is unimplemented. The `FF-UPLOAD-MIME-001` cross-file false-positive
-   class is fixed, but the three target rule families were not rewritten structurally, no new
-   fixtures were added for them, and non-multer upload paths — presigned S3/GCS, busboy, formidable,
-   Next.js route handlers — remain entirely unanalysed. Their "clean" result is indistinguishable
-   from genuinely hardened code, which is the more dangerous failure mode.
-2. Playbook deduplication met its target on the measured metric (32.89% to 23.42% primary), but the
-   metric is a proxy. Whether the shorter playbooks route an agent to
-   `references/shared/evidence-rules.md` as reliably as the inlined prose did is not measured here;
-   no activation or audit-quality eval was run before and after the change.
-3. `FF-AUTHZ-OBJECT-001` reports HIGH on `delete({ where: { id } })` even behind a proven admin
-   guard. Defensible in principle, but likely a systemic HIGH false-positive class on real
-   repositories. Pre-existing; flagged rather than changed, because suppressing it when a role guard
-   exists could hide genuine BOLA defects.
-4. Unresolved transaction boundaries carry CRITICAL severity with LOW confidence and `NOT_VERIFIED`
-   status. This satisfies "no unresolved indirection becomes a confident HIGH/CRITICAL FAIL", but it
-   will inflate severity-bucketed counts in any benchmark table.
-5. Several named installation lifecycle scenarios were not driven individually (see above).
-6. Coverage thresholds, dependency audit, and multi-version Node behaviour are unverified.
-7. No independent verification, no external benchmark, no release-readiness scoring.
+1. Analyzer precision is unbenchmarked (above).
+2. Live host loader and UI behaviour are `NOT_VERIFIED`; all host acceptance is simulated.
+3. Authorization vocabularies remain lexical, applied to structurally selected conditions. A guard
+   whose predicate uses only domain-specific vocabulary with no subject-presence test reads as
+   `none` and fails closed — safe, but a false-positive source.
+4. The unrelated-concern veto is absolute, so a predicate that also names a vetoed concern (for
+   example `req.user.plan.allowsDelete`) will not clear a route. Intended per the specification's
+   treatment of billing as non-authorization, but a real precision boundary.
+5. `FF-UPLOAD-DIRECT-VERIFY-001` is `NOT_VERIFIED` by construction, never FAIL: a verifier can
+   legitimately live in a worker this file never mentions.
+6. Upload effect-role classification is a name list. It is one-directional — it can only preserve a
+   FAIL, never prove safety — but an unresolved helper named `processUpload` that genuinely
+   validates will FAIL rather than downgrade.
+7. Transaction analysis misses pairs keyed by a natural key such as `sku`, relates raw SQL only by
+   dataflow, and treats a reassigned transaction handle as one boundary.
+8. Two new authorization finding IDs (`FF-AUTHZ-OBJECT-ADMIN-001`,
+   `FF-AUTHZ-OBJECT-NOT-VERIFIED-001`) and two new upload IDs are introduced; consumers pinning the
+   previous ID set will see them.
+9. Playbook boilerplate is a proxy metric. No before/after activation or audit-quality evaluation
+   was run, so whether shorter playbooks route an agent to the extracted reference as reliably as
+   the inlined prose did is unmeasured.
 
-## Final candidate
+## No release actions
 
-`71edb67943e4fddf3dd5fd9953443cc75babad5c` on `fix/complete-external-readiness`, not yet pushed, PR
-#54 open and unmerged. Package version unchanged at `0.1.0`. No tag, no release.
+No merge, tag, release, package publication, version bump, or change to public release history was
+performed by this work.

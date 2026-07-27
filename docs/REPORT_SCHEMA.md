@@ -14,13 +14,13 @@ Because of that, **no summary may bucket findings by severity alone**. A severit
 statuses counts unproven possibilities as confirmed defects. Both outputs therefore carry a derived
 `summary` that separates verdict classes before reporting severity:
 
-| Class            | Statuses                | Meaning                                            |
-| ---------------- | ----------------------- | -------------------------------------------------- |
-| `confirmed`      | `FAIL`, `WARNING`       | a defect was demonstrated; the only defect count    |
+| Class            | Statuses                  | Meaning                                            |
+| ---------------- | ------------------------- | -------------------------------------------------- |
+| `confirmed`      | `FAIL`, `WARNING`         | a defect was demonstrated; the only defect count   |
 | `evidence_gap`   | `NOT_VERIFIED`, `BLOCKED` | potential impact recorded, verdict not established |
-| `passed`         | `PASS`                  | checked and clean                                   |
-| `not_applicable` | `NOT_APPLICABLE`        | outside the audited capability                      |
-| `superseded`     | `SUPERSEDED`            | retracted history, not an active verdict            |
+| `passed`         | `PASS`                    | checked and clean                                  |
+| `not_applicable` | `NOT_APPLICABLE`          | outside the audited capability                     |
+| `superseded`     | `SUPERSEDED`              | retracted history, not an active verdict           |
 
 `summary` is always recomputed from `findings`, never authored, and there is deliberately no
 top-level `by_severity` field. `confirmed_critical` and `confirmed_high` exclude every
