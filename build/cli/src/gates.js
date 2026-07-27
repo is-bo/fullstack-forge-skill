@@ -249,7 +249,13 @@ async function auditFreshnessGate(root, evidence, revision) {
         ? [`Validated ${evidence.length} current, root-bound evidence record(s) for ${revision}.`]
         : rejected.slice(0, 20));
 }
-function openFindingsGate(findings) {
+/**
+ * Exported for direct regression coverage only; behavior is unchanged. The separation this gate
+ * already makes — FAIL/WARNING fails the gate, BLOCKED/NOT_VERIFIED blocks it — is the fail-closed
+ * counterpart of the report's status-aware aggregation, and a test must be able to prove that
+ * presenting an unverified critical honestly did not also let it through.
+ */
+export function openFindingsGate(findings) {
     const failed = findings.filter((finding) => finding.section !== "ship" &&
         ["FAIL", "WARNING"].includes(finding.status) &&
         ["CRITICAL", "HIGH"].includes(finding.severity));

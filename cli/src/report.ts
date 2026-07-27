@@ -4,13 +4,18 @@ import { join } from "node:path";
 import type { ChangedScopeEvidence } from "./scope.js";
 import {
   GATE_EVIDENCE_TYPES,
+  SEVERITIES,
+  STATUSES,
   type AnalyzerCoverage,
+  type Confidence,
   type Finding,
   type GateEvidence,
   type ModuleDecision,
   type PlannedCheck,
   type ProjectProfile,
   type RuntimeEvidence,
+  type Severity,
+  type Status,
   type ToolRecord
 } from "./types.js";
 import {
@@ -67,6 +72,141 @@ export type ReportMigration = {
   notes: string[];
 };
 
+/* -------------------------------------------------------------------------- */
+/* Status-aware finding aggregation                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Verdict classes. Severity in this schema is *potential impact* (`docs/FINDING_SCHEMA.md`), not a
+ * verdict, so severity alone never says whether anything was proven. Status carries the verdict,
+ * and any count that mixes the two is unreadable: an analyzer may legitimately record CRITICAL
+ * potential impact with LOW confidence and `NOT_VERIFIED` status, and a severity-only rollup then
+ * reports that unproven possibility as a confirmed critical defect.
+ *
+ * These classes keep the two axes separate. Nothing here changes a finding's status, severity, or
+ * confidence, and nothing here relaxes a gate — an unverified critical still blocks release in
+ * `gates.ts`. It only stops presentation from asserting more than the evidence supports.
+ */
+export const FINDING_STATUS_CLASSES = [
+  "confirmed",
+  "evidence_gap",
+  "passed",
+  "not_applicable",
+  "superseded"
+] as const;
+export type FindingStatusClass = (typeof FINDING_STATUS_CLASSES)[number];
+
+const STATUS_CLASS: Record<Status, FindingStatusClass> = {
+  FAIL: "confirmed",
+  WARNING: "confirmed",
+  NOT_VERIFIED: "evidence_gap",
+  BLOCKED: "evidence_gap",
+  PASS: "passed",
+  NOT_APPLICABLE: "not_applicable",
+  SUPERSEDED: "superseded"
+};
+
+const STATUS_CLASS_MEANING: Record<FindingStatusClass, string> = {
+  confirmed: "a defect was demonstrated (FAIL, WARNING)",
+  evidence_gap:
+    "potential impact recorded, verdict not established (NOT_VERIFIED, BLOCKED); never a confirmed defect",
+  passed: "checked and clean (PASS)",
+  not_applicable: "outside the audited capability (NOT_APPLICABLE)",
+  superseded: "retracted history, not an active verdict (SUPERSEDED)"
+};
+
+export type SeverityCounts = Record<Severity, number>;
+export type ConfidenceCounts = Record<Confidence, number>;
+
+export type StatusClassSummary = {
+  total: number;
+  /** The exact statuses folded into this class, with their own counts. */
+  by_status: Partial<Record<Status, number>>;
+  /** Potential impact within this class only. Never comparable across classes. */
+  by_severity: SeverityCounts;
+  by_confidence: ConfidenceCounts;
+};
+
+export type FindingSummary = {
+  total: number;
+  by_status: Partial<Record<Status, number>>;
+  /**
+   * Severity is only ever reported inside a verdict class. There is deliberately no top-level
+   * `by_severity`: publishing one would reintroduce exactly the number this aggregation exists to
+   * prevent, and any consumer reading it would have no way to tell proven from unproven.
+   */
+  by_class: Record<FindingStatusClass, StatusClassSummary>;
+  /** The count a defect total may quote: demonstrated defects only. */
+  confirmed_defects: number;
+  /** Confirmed critical and high defects. Excludes every NOT_VERIFIED and BLOCKED finding. */
+  confirmed_critical: number;
+  confirmed_high: number;
+  /**
+   * Unproven findings whose *potential* impact is critical or high. These block a release through
+   * the Ship gate exactly as before; they are counted here so a reader sees them without them being
+   * added to the confirmed totals.
+   */
+  unverified_critical_or_high: number;
+};
+
+function emptySeverityCounts(): SeverityCounts {
+  return Object.fromEntries(SEVERITIES.map((severity) => [severity, 0])) as SeverityCounts;
+}
+
+function emptyClassSummary(): StatusClassSummary {
+  return {
+    total: 0,
+    by_status: {},
+    by_severity: emptySeverityCounts(),
+    by_confidence: { HIGH: 0, MEDIUM: 0, LOW: 0 }
+  };
+}
+
+/**
+ * Aggregates findings on both axes at once.
+ *
+ * Every number this returns is derived from the findings passed in, so it can be recomputed at any
+ * time and can never drift from the finding list it describes. A status the schema does not know is
+ * counted as an evidence gap rather than silently dropped, because an unrecognised verdict is
+ * precisely the case that must not be read as "clean".
+ */
+export function summarizeFindings(findings: readonly Finding[]): FindingSummary {
+  const byClass = Object.fromEntries(
+    FINDING_STATUS_CLASSES.map((name) => [name, emptyClassSummary()])
+  ) as Record<FindingStatusClass, StatusClassSummary>;
+  const byStatus: Partial<Record<Status, number>> = {};
+  for (const finding of findings) {
+    const status: Status = STATUSES.includes(finding.status) ? finding.status : "NOT_VERIFIED";
+    const bucket = byClass[STATUS_CLASS[status]];
+    byStatus[status] = (byStatus[status] ?? 0) + 1;
+    bucket.total += 1;
+    bucket.by_status[status] = (bucket.by_status[status] ?? 0) + 1;
+    if (SEVERITIES.includes(finding.severity)) bucket.by_severity[finding.severity] += 1;
+    if (finding.confidence in bucket.by_confidence) bucket.by_confidence[finding.confidence] += 1;
+  }
+  const confirmed = byClass.confirmed;
+  const gaps = byClass.evidence_gap;
+  return {
+    total: findings.length,
+    by_status: byStatus,
+    by_class: byClass,
+    confirmed_defects: confirmed.total,
+    confirmed_critical: confirmed.by_severity.CRITICAL,
+    confirmed_high: confirmed.by_severity.HIGH,
+    unverified_critical_or_high: gaps.by_severity.CRITICAL + gaps.by_severity.HIGH
+  };
+}
+
+/**
+ * Returns the report with its summary recomputed from its own findings.
+ *
+ * Serialization goes through this so the JSON a consumer reads and the Markdown a person reads are
+ * derived from the same finding list in the same call, and neither can carry a stale rollup.
+ */
+export function withFindingSummary(report: AuditReport): AuditReport {
+  return { ...report, summary: summarizeFindings(report.findings) };
+}
+
 export type ReportLedgers = {
   tools?: ToolRecord[];
   planned_checks?: PlannedCheck[];
@@ -83,6 +223,11 @@ export type AuditReport = {
   scope: string;
   profile: ProjectProfile;
   findings: Finding[];
+  /**
+   * Status-aware rollup of `findings`. Always derived, never authored: a reader that buckets
+   * `findings` by severity alone counts unproven potential impact as confirmed defects.
+   */
+  summary?: FindingSummary;
   execution: ExecutionRecord[];
   assumptions: string[];
   residual_risk: string[];
@@ -113,8 +258,9 @@ export async function writeReport(
   await assertNoSymlinkPath(report.root, jsonPath);
   await assertNoSymlinkPath(report.root, markdownPath);
   assertReportLedgers(report);
-  await writeFile(jsonPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-  await writeFile(markdownPath, renderMarkdown(report), "utf8");
+  const published = withFindingSummary(report);
+  await writeFile(jsonPath, `${JSON.stringify(published, null, 2)}\n`, "utf8");
+  await writeFile(markdownPath, renderMarkdown(published), "utf8");
   return [jsonPath, markdownPath];
 }
 
@@ -164,15 +310,20 @@ export function migrateReport(value: unknown): AuditReport {
   const plannedChecks = take<PlannedCheck>("planned_checks");
   const runtimeEvidence = take<RuntimeEvidence>("runtime_evidence");
   const moduleDecisions = take<ModuleDecision>("module_decisions");
+  const base = source as unknown as AuditReport;
   const migrated: AuditReport = {
-    ...(source as unknown as AuditReport),
+    ...base,
     schema_version: REPORT_SCHEMA_VERSION,
     gate_evidence: gateEvidence,
     analyzer_coverage: analyzerCoverage,
     tools,
     planned_checks: plannedChecks,
     runtime_evidence: runtimeEvidence,
-    module_decisions: moduleDecisions
+    module_decisions: moduleDecisions,
+    // Recomputed rather than carried over. A summary written by an older release cannot be trusted
+    // to separate verdicts, and it is a pure projection of findings the report already contains, so
+    // deriving it invents nothing.
+    summary: summarizeFindings(Array.isArray(base.findings) ? base.findings : [])
   };
   const untrustedGateEvidence = gateEvidence.filter((evidence) => evidence.envelope === undefined);
   if (from === REPORT_SCHEMA_VERSION && absent.length === 0 && untrustedGateEvidence.length === 0)
@@ -287,6 +438,7 @@ export function createReport(
   // report can never publish both "module does not apply" and a verdict produced by that module.
   const reconciled = reconcileApplicabilityConclusions(findings);
   assertNoContradictoryApplicability(reconciled);
+  const sorted = sortFindings(deduplicateFindings(reconciled));
   return {
     schema_version: REPORT_SCHEMA_VERSION,
     generated_at: utcNow(),
@@ -294,7 +446,8 @@ export function createReport(
     scope,
     ...(environment === undefined ? {} : { environment }),
     profile,
-    findings: sortFindings(deduplicateFindings(reconciled)),
+    findings: sorted,
+    summary: summarizeFindings(sorted),
     execution,
     assumptions,
     residual_risk: residualRisk,
@@ -425,6 +578,7 @@ export function renderMarkdown(report: AuditReport): string {
   const summary =
     [...counts.entries()].map(([status, count]) => `- ${status}: ${count}`).join("\n") ||
     "- No findings were recorded.";
+  const verdictSummary = renderVerdictSummary(summarizeFindings(report.findings));
   const activeFindings = report.findings.filter((finding) => finding.status !== "SUPERSEDED");
   const supersededFindings = report.findings.filter((finding) => finding.status === "SUPERSEDED");
   const findings =
@@ -504,6 +658,10 @@ ${renderMigration(report)}
 
 ${summary}
 
+## Severity by verdict
+
+${verdictSummary}
+
 ## Detected profile
 
 ${report.profile.detections.map((detection) => `- **${detection.name}** (${detection.confidence}): ${detection.evidence.join(", ")}`).join("\n") || "- No technologies detected."}
@@ -564,6 +722,31 @@ ${assumptions}
 
 ${residual}
 `;
+}
+
+/**
+ * Renders severity strictly inside its verdict class, and states the contract in the document.
+ *
+ * The reading this prevents is the one a severity-only table invites: "1 CRITICAL" next to a
+ * finding that was never verified. The unverified critical/high line is printed even when zero, so
+ * its absence is a fact about the run and not an omission from the template.
+ */
+function renderVerdictSummary(summary: FindingSummary): string {
+  const rows = FINDING_STATUS_CLASSES.map((name) => {
+    const bucket = summary.by_class[name];
+    const severities = SEVERITIES.filter((severity) => bucket.by_severity[severity] > 0)
+      .map((severity) => `${severity} ${bucket.by_severity[severity]}`)
+      .join(", ");
+    return `- **${name}** (${STATUS_CLASS_MEANING[name]}) — ${bucket.total} finding(s)${
+      severities.length === 0 ? "" : `; potential impact: ${severities}`
+    }`;
+  });
+  return [
+    `- Confirmed defects: ${summary.confirmed_defects} (CRITICAL ${summary.confirmed_critical}, HIGH ${summary.confirmed_high}). Only these are proven defects.`,
+    `- Unverified or blocked findings whose potential impact is CRITICAL or HIGH: ${summary.unverified_critical_or_high}. These are evidence gaps, not confirmed defects; they still block release through the Ship open-findings gate.`,
+    "- Severity in this report is potential impact, not a verdict. A severity total that mixes verdict classes is not a defect count.",
+    ...rows
+  ].join("\n");
 }
 
 function renderMigration(report: AuditReport): string {
@@ -762,13 +945,23 @@ function deduplicateFindings(findings: Finding[]): Finding[] {
   return [...byKey.values()];
 }
 
+/**
+ * Orders findings by verdict class first, then by potential impact within the class.
+ *
+ * Sorting on severity alone put every unproven CRITICAL above every confirmed HIGH, so the head of
+ * the list — which is what a reader skims, and what `simple-cli` slices for its "top actions" —
+ * read as the worst confirmed defects while containing findings that prove nothing. Class ordering
+ * fixes the reading without touching any finding's status, severity, or confidence, and without
+ * removing anything from the list.
+ */
 function sortFindings(findings: Finding[]): Finding[] {
-  const severity = new Map(
-    ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"].map((value, index) => [value, index])
-  );
+  const classRank = new Map(FINDING_STATUS_CLASSES.map((value, index) => [value, index]));
+  const severity = new Map(SEVERITIES.map((value, index) => [value, index]));
   const confidence = new Map(["HIGH", "MEDIUM", "LOW"].map((value, index) => [value, index]));
+  const rank = (finding: Finding): number => classRank.get(STATUS_CLASS[finding.status]) ?? 99;
   return findings.sort(
     (a, b) =>
+      rank(a) - rank(b) ||
       (severity.get(a.severity) ?? 99) - (severity.get(b.severity) ?? 99) ||
       (confidence.get(a.confidence) ?? 99) - (confidence.get(b.confidence) ?? 99) ||
       a.id.localeCompare(b.id)
