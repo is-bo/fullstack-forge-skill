@@ -33,6 +33,23 @@ const archives = [
   { name: `fullstack-forge-github-v${version}.zip`, platforms: ["github"] }
 ];
 
+// Every host adapter is a pointer into the shared canonical tree, so each archive must carry that
+// tree as well as its host roots. Shipping host roots alone would extract into an installation
+// whose adapters all dangle. Collected once and reused, since the bytes are identical per archive.
+const canonicalEntries = [];
+{
+  const canonicalManagedRoot = join(projectRoot, ".fullstack-forge", "skills");
+  await assertNoSymlinkPath(projectRoot, canonicalManagedRoot);
+  for (const file of await walk(canonicalManagedRoot)) {
+    if (basename(file) === ".fullstack-forge-generated.json") continue;
+    const entryPath = relative(projectRoot, file).split(sep).join("/");
+    assertPublishableArchivePath(entryPath, version);
+    canonicalEntries.push({ path: entryPath, data: await readFile(file) });
+  }
+}
+if (canonicalEntries.length === 0)
+  throw new Error("Canonical managed content is missing; release archives would be unusable");
+
 const previous = await readOwnership();
 const outputs = new Map();
 for (const archive of archives) {
@@ -41,6 +58,7 @@ for (const archive of archives) {
     assertPublishableArchivePath(path, version);
     entries.push({ path, data: await readRequired(join(projectRoot, ...path.split("/"))) });
   }
+  entries.push(...canonicalEntries);
   for (const id of archive.platforms) {
     const platform = byId.get(id);
     if (platform === undefined) throw new Error(`Unknown package platform ${id}`);

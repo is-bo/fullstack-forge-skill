@@ -132,29 +132,17 @@ try {
   const installed = {};
   for (const root of roots) {
     const skillsRoot = join(consumerRoot, root, "skills");
-    // Every host root holds adapters; the playbook text is installed once under the canonical
-    // root. Both halves are asserted so a broken pointer still fails the offline path.
-    for (const [adapterPath, name] of [
-      [join(skillsRoot, "fullstack-forge", "SKILL.md"), "fullstack-forge"],
-      [join(skillsRoot, "forge", "SKILL.md"), "forge"]
+    // Every host root holds adapters; the playbook text is installed once under the canonical root.
+    // Follow each pointer from the adapter's own directory, so a broken pointer or missing managed
+    // content fails the offline path instead of passing on the adapter's presence alone.
+    for (const [adapterPath, expectedHeading] of [
+      [join(skillsRoot, "fullstack-forge", "SKILL.md"), "# Fullstack Forge"],
+      [join(skillsRoot, "forge", "SKILL.md"), "# forge: Simple product workflow"]
     ]) {
-      const adapter = await readFile(adapterPath, "utf8");
-      if (!adapter.includes(`.fullstack-forge/skills/${name}/SKILL.md`))
-        throw new Error(`offline install produced a ${name} adapter in ${root} without a pointer`);
+      const playbook = await resolveAdapter(adapterPath);
+      if (!playbook.includes(expectedHeading))
+        throw new Error(`offline install produced an invalid playbook behind ${adapterPath}`);
     }
-    const canonicalSkills = join(consumerRoot, ".fullstack-forge", "skills");
-    if (
-      !(await readFile(join(canonicalSkills, "fullstack-forge", "SKILL.md"), "utf8")).includes(
-        "# Fullstack Forge"
-      )
-    )
-      throw new Error(`offline install produced an invalid master skill in ${root}`);
-    if (
-      !(await readFile(join(canonicalSkills, "forge", "SKILL.md"), "utf8")).includes(
-        "# forge: Simple product workflow"
-      )
-    )
-      throw new Error(`offline install produced an invalid simple forge skill in ${root}`);
     await assertNoLinks(skillsRoot);
     installed[root] = await countSkills(skillsRoot);
     if (installed[root] !== 46)
@@ -198,6 +186,29 @@ try {
 } finally {
   validateTemporary(temporary);
   await rm(temporary, { recursive: true });
+}
+
+/**
+ * Reads an installed adapter and returns the canonical playbook it names.
+ *
+ * A host simulation, not a live host run: it performs the same relative resolution an agent reading
+ * the adapter would perform, from the adapter's own directory.
+ */
+async function resolveAdapter(adapterPath) {
+  const adapter = await readFile(adapterPath, "utf8");
+  const pointer = /canonical=(\S+) -->/u.exec(adapter)?.[1];
+  if (pointer === undefined) throw new Error(`${adapterPath} carries no managed-adapter pointer`);
+  if (!adapter.includes(`\`${pointer}\``))
+    throw new Error(`${adapterPath} does not state its pointer in readable prose`);
+  const target = resolve(dirname(adapterPath), ...pointer.split("/"));
+  try {
+    return await readFile(target, "utf8");
+  } catch (error) {
+    throw new Error(
+      `${adapterPath} points at ${pointer}, which does not resolve to readable canonical content (${error.message})`,
+      { cause: error }
+    );
+  }
 }
 
 async function countSkills(root) {

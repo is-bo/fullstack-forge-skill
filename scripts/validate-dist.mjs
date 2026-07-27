@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { validateArchiveBytes } from "./lib/archive-validation.mjs";
 import { assertNoSymlinkPath, assertRegularFile } from "./lib/fs-safety.mjs";
-import { projectRoot } from "./project.mjs";
+import { CANONICAL_ROOT_POSIX, readAdapterMarker } from "./lib/managed-layout.mjs";
+import { platformTargets, projectRoot } from "./project.mjs";
 
 const distRoot = join(projectRoot, "dist");
 await assertNoSymlinkPath(projectRoot, distRoot);
@@ -55,7 +56,40 @@ for (const line of checksumText.trim().split(/\r?\n/u)) {
 if (JSON.stringify([...checksums.keys()].sort()) !== JSON.stringify([...expected].sort()))
   throw new Error("SHA256SUMS archive set is incomplete or contains extras");
 
+/**
+ * Resolves every host adapter inside one archive the way an agent on that host would.
+ *
+ * A release archive is extracted straight into a project, so the archive namespace *is* the
+ * installation layout. Asserting that some `SKILL.md` exists is not enough: each adapter is only a
+ * pointer, so the archive must also carry the canonical file that pointer names, resolved from the
+ * adapter's own directory. Returns the number of adapters proved resolvable.
+ */
+function assertArchiveResolves(archiveName, entries) {
+  const byName = new Map(entries.map((entry) => [entry.name, entry.data]));
+  let resolved = 0;
+  for (const [name, data] of byName) {
+    const hostRoot = platformTargets.find((target) => name.startsWith(`${target.path}/`));
+    if (hostRoot === undefined || !name.endsWith("/SKILL.md")) continue;
+    const marker = readAdapterMarker(data.toString("utf8"));
+    if (marker === undefined)
+      throw new Error(
+        `${archiveName}:${name} is not a managed adapter and names no canonical file`
+      );
+    const target = posix.normalize(posix.join(posix.dirname(name), marker.canonical));
+    if (target.startsWith("..") || !target.startsWith(`${CANONICAL_ROOT_POSIX}/`))
+      throw new Error(`${archiveName}:${name} points outside the canonical root: ${target}`);
+    if (!byName.has(target))
+      throw new Error(
+        `${archiveName}:${name} points at ${target}, which the archive does not contain; extracting this archive would produce a damaged installation`
+      );
+    resolved += 1;
+  }
+  if (resolved === 0) throw new Error(`${archiveName} contains no resolvable host adapter`);
+  return resolved;
+}
+
 let totalEntries = 0;
+let totalResolvedAdapters = 0;
 for (const name of expected) {
   await assertRegularFile(join(distRoot, name), "distribution archive");
   const bytes = await readFile(join(distRoot, name));
@@ -71,11 +105,20 @@ for (const name of expected) {
     if (!names.has(required)) throw new Error(`${name} is missing ${required}`);
   if (![...names].some((entry) => entry.endsWith("/fullstack-forge/SKILL.md")))
     throw new Error(`${name} contains no Fullstack Forge master skill`);
+  if (!names.has(`${CANONICAL_ROOT_POSIX}/fullstack-forge/SKILL.md`))
+    throw new Error(`${name} is missing the canonical managed content its adapters point at`);
+  totalResolvedAdapters += assertArchiveResolves(name, entries);
 }
 
 console.log(
   JSON.stringify(
-    { valid: true, version, archives: expected.length, entries: totalEntries },
+    {
+      valid: true,
+      version,
+      archives: expected.length,
+      entries: totalEntries,
+      resolved_adapters: totalResolvedAdapters
+    },
     null,
     2
   )
