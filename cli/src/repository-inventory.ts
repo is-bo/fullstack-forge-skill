@@ -807,12 +807,31 @@ async function discoverCandidates(
         16 * 1024 * 1024
       );
       if (all.exitCode === 0 && tracked.exitCode === 0) {
-        const trackedSet = new Set(splitNul(tracked.stdout).map(normalizeSafeRelative));
-        const paths = [...new Set(splitNul(all.stdout).map(normalizeSafeRelative))].sort(
-          compareText
+        // `git ls-files --others` reports an untracked nested repository as a single directory
+        // entry with a trailing slash, never as its individual files. Those entries are not files
+        // and cannot be inventoried, but they must not abort the run either: `normalizeSafeRelative`
+        // rejects the empty final segment, so passing them through crashes every audit of a target
+        // repository that vendors a checkout, holds an unregistered submodule, or has a worktree.
+        // They are dropped and the inventory is marked PARTIAL so the gap stays visible.
+        const nestedRepositories = splitNul(all.stdout).filter((entry) => entry.endsWith("/"));
+        const trackedSet = new Set(
+          splitNul(tracked.stdout)
+            .filter((entry) => !entry.endsWith("/"))
+            .map(normalizeSafeRelative)
         );
+        const paths = [
+          ...new Set(
+            splitNul(all.stdout)
+              .filter((entry) => !entry.endsWith("/"))
+              .map(normalizeSafeRelative)
+          )
+        ].sort(compareText);
         const partialReason =
-          paths.length > options.maxEntries ? "inventory-entry-limit-exceeded" : undefined;
+          paths.length > options.maxEntries
+            ? "inventory-entry-limit-exceeded"
+            : nestedRepositories.length > 0
+              ? "nested-repository-not-inventoried"
+              : undefined;
         return {
           source: "git",
           gitRoot,

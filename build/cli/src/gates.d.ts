@@ -46,6 +46,13 @@ export type ShipGateResult = {
 };
 export declare function runShipGates(root: string, profile: ProjectProfile, previous: AuditReport | undefined, commands: CommandDefinition[], allowRun: boolean, policy?: PolicyContext, inventoryOptions?: RepositoryInventoryOptions): Promise<ShipGateResult>;
 export declare function evaluateGateOutcome(gates: ShipGate[]): "PASS" | "FAIL" | "BLOCKED";
+/**
+ * Exported for direct regression coverage only; behavior is unchanged. The separation this gate
+ * already makes — FAIL/WARNING fails the gate, BLOCKED/NOT_VERIFIED blocks it — is the fail-closed
+ * counterpart of the report's status-aware aggregation, and a test must be able to prove that
+ * presenting an unverified critical honestly did not also let it through.
+ */
+export declare function openFindingsGate(findings: Finding[]): ShipGate;
 type CapabilityApplicability = {
     status: "APPLICABLE" | "ABSENT" | "UNKNOWN";
     reasons: string[];

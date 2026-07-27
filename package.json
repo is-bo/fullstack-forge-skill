@@ -30,6 +30,7 @@
   "files": [
     "build/cli/src/",
     "config/",
+    ".fullstack-forge/",
     ".agents/",
     ".claude/",
     ".cursor/",
@@ -71,6 +72,7 @@
     "check:traceability": "node scripts/check-traceability.mjs",
     "generate:traceability": "node scripts/generate-traceability-matrix.mjs",
     "check:workflows": "node scripts/check-workflows.mjs",
+    "evidence:candidate": "node scripts/verification-evidence.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "generate": "node scripts/generate-modules.mjs && node scripts/generate-build.mjs && node scripts/sync-platform-assets.mjs",

@@ -651,7 +651,16 @@ async function buildImportGraphs(
   return { forward, reverse };
 }
 
-function resolveImport(importer: string, request: string, files: Set<string>): string | undefined {
+/**
+ * Resolves a relative module specifier against the analyzed file set.
+ *
+ * Shared with cross-file guard resolution so the audit has exactly one module resolver.
+ */
+export function resolveImport(
+  importer: string,
+  request: string,
+  files: Set<string>
+): string | undefined {
   const base = toPosix(join(dirname(importer), request));
   const candidates = [
     base,

@@ -60,7 +60,10 @@ const releaseWorkflow = await readFile(
 if (!releaseWorkflow.includes("GITHUB_REPOSITORY"))
   errors.push("Release workflow must derive public URLs from GITHUB_REPOSITORY");
 
+// Host roots now hold thin adapters; the managed content they point at lives once under the
+// canonical root, which is where the attributable references moved with it.
 const generatedPrefixes = [
+  ".fullstack-forge/skills/",
   ".agents/skills/",
   ".claude/skills/",
   ".cursor/skills/",

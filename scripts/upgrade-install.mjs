@@ -195,7 +195,21 @@ async function assertInstalledRoots(root, expectRouterMetadata) {
     if ((await countSkills(skillsRoot)) !== 46)
       throw new Error(`${platformRoot} does not contain exactly 46 skills`);
     if (expectRouterMetadata) {
-      const metadata = await readFile(join(skillsRoot, "forge", "agents", "openai.yaml"), "utf8");
+      // After migration every host file is an adapter, so resolve the whole set through its pointer
+      // rather than trusting file presence. The previous full-copy layout has no pointers, which is
+      // why this runs only on the migrated side.
+      for (const entry of await readdir(skillsRoot, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        await resolveAdapter(join(skillsRoot, entry.name, "SKILL.md"));
+      }
+
+      // The picker metadata is canonical content. Codex reads it with ordinary tooling, so it is
+      // also copied verbatim into .agents; every other host reaches it through the canonical root.
+      const metadataPath =
+        platformRoot === ".agents"
+          ? join(skillsRoot, "forge", "agents", "openai.yaml")
+          : join(root, ".fullstack-forge", "skills", "forge", "agents", "openai.yaml");
+      const metadata = await readFile(metadataPath, "utf8");
       if (!metadata.includes('short_description: "Automatic Build · Fix · Verify · Ship guidance"'))
         throw new Error(`${platformRoot} did not receive the Forge picker metadata`);
     }
@@ -215,6 +229,29 @@ async function convertToDevelopmentPreviewFixture(root) {
     await rm(target, { force: true });
   }
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+}
+
+/**
+ * Reads an installed adapter and returns the canonical playbook it names.
+ *
+ * A host simulation, not a live host run: it performs the same relative resolution an agent reading
+ * the adapter would perform, from the adapter's own directory.
+ */
+async function resolveAdapter(adapterPath) {
+  const adapter = await readFile(adapterPath, "utf8");
+  const pointer = /canonical=(\S+) -->/u.exec(adapter)?.[1];
+  if (pointer === undefined) throw new Error(`${adapterPath} carries no managed-adapter pointer`);
+  if (!adapter.includes(`\`${pointer}\``))
+    throw new Error(`${adapterPath} does not state its pointer in readable prose`);
+  const target = resolve(dirname(adapterPath), ...pointer.split("/"));
+  try {
+    return await readFile(target, "utf8");
+  } catch (error) {
+    throw new Error(
+      `${adapterPath} points at ${pointer}, which does not resolve to readable canonical content (${error.message})`,
+      { cause: error }
+    );
+  }
 }
 
 async function countSkills(root) {

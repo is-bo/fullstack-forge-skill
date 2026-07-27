@@ -163,14 +163,23 @@ test("a detected-host selector installs only the requested finite host set", asy
       new Set(Object.values(selectedManifest.files).map((file) => file.platform)),
       new Set(["claude", "cursor"])
     );
+    // Host adapters live under the selected host roots; the single managed copy they point at
+    // lives under the shared canonical root. No unselected host may be touched.
     assert.ok(
       selected.every(
         (action) =>
           action.path === "CLAUDE.md" ||
           action.path.startsWith(".claude/") ||
-          action.path.startsWith(".cursor/")
-      )
+          action.path.startsWith(".cursor/") ||
+          action.path.startsWith(".fullstack-forge/")
+      ),
+      `unexpected install path: ${selected.map((action) => action.path).join(", ")}`
     );
+    for (const unselected of [".agents/", ".gemini/", ".github/", ".windsurf/"])
+      assert.ok(
+        selected.every((action) => !action.path.startsWith(unselected)),
+        `${unselected} must not be installed by a claude,cursor selector`
+      );
 
     const all = await install(root, "all", { global: false, dryRun: true });
     assert.ok(selected.length < all.length);

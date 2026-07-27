@@ -84,3 +84,9 @@ export declare function decideModules(input: ModuleDecisionInput): ModuleDecisio
  */
 export declare function decisionFindingStatus(decision: ModuleDecision): "SELECTED" | "NOT_APPLICABLE" | "NOT_VERIFIED";
 export declare function analyzeChangedScope(rootInput: string, profile: ProjectProfile, requestedBase?: string): Promise<ChangedScope>;
+/**
+ * Resolves a relative module specifier against the analyzed file set.
+ *
+ * Shared with cross-file guard resolution so the audit has exactly one module resolver.
+ */
+export declare function resolveImport(importer: string, request: string, files: Set<string>): string | undefined;

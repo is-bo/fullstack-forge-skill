@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
@@ -84,7 +85,7 @@ test("Forge no-action and plain-language instructions preserve evidence and appr
   assert.doesNotMatch(skill, /default to `--safe`|default to `--allow-run`/iu);
 });
 
-test("Forge Codex metadata and icon are synchronized to every generated platform root", async () => {
+test("Forge Codex metadata and icon reach every host through the canonical layout", async () => {
   const canonicalMetadata = await readFile(forgeMetadataPath);
   const canonicalIcon = await readFile(
     join(projectRoot, "src", "fullstack-forge", "assets", "fullstack-forge-icon.png")
@@ -92,18 +93,43 @@ test("Forge Codex metadata and icon are synchronized to every generated platform
   const routerIcon = await readFile(join(forgeRoot, "assets", "fullstack-forge-icon.png"));
   assert.deepEqual(routerIcon, canonicalIcon);
 
+  // One managed copy backs every host, so the canonical root must carry the real bytes.
+  const canonicalSkillRoot = join(projectRoot, ".fullstack-forge", "skills", "forge");
+  assert.deepEqual(
+    await readFile(join(canonicalSkillRoot, "agents", "openai.yaml")),
+    canonicalMetadata,
+    "canonical"
+  );
+
   for (const platform of platformTargets) {
     const generatedRoot = join(projectRoot, ...platform.path.split("/"), "forge");
-    assert.deepEqual(
-      await readFile(join(generatedRoot, "agents", "openai.yaml")),
-      canonicalMetadata,
-      platform.id
-    );
-    assert.deepEqual(
-      await readFile(join(generatedRoot, "assets", "fullstack-forge-icon.png")),
-      canonicalIcon,
-      platform.id
-    );
+    // Codex reads openai.yaml with ordinary tooling rather than by following a prose pointer, so
+    // `agents/` and `assets/` are the documented verbatim exception. Every other host is adapters
+    // only and must not re-duplicate those bytes.
+    if (platform.id === "agents") {
+      assert.deepEqual(
+        await readFile(join(generatedRoot, "agents", "openai.yaml")),
+        canonicalMetadata,
+        platform.id
+      );
+      assert.deepEqual(
+        await readFile(join(generatedRoot, "assets", "fullstack-forge-icon.png")),
+        canonicalIcon,
+        platform.id
+      );
+    } else {
+      assert.equal(
+        existsSync(join(generatedRoot, "agents", "openai.yaml")),
+        false,
+        `${platform.id} must not duplicate canonical agents/`
+      );
+      assert.equal(
+        existsSync(join(generatedRoot, "assets", "fullstack-forge-icon.png")),
+        false,
+        `${platform.id} must not duplicate canonical assets/`
+      );
+    }
+    // Discovery still depends on a real SKILL.md per skill in every host root.
     for (const compatibleSkill of [
       "fullstack-forge",
       "forge-security",

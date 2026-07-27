@@ -17,6 +17,22 @@ import {
 } from "./dataflow.js";
 import { isTestSourcePath, lineNumber, sha256, toPosix } from "./utils.js";
 import { inventoryRepository, type RepositoryInventory } from "./repository-inventory.js";
+import { analyzeTransactionFile } from "./transactions.js";
+import { createUploadAnalyzer, type UploadAnalyzer } from "./uploads.js";
+import {
+  createGuardResolver,
+  functionDeniesAuthorization,
+  type GuardResolver,
+  type MiddlewareClassification
+} from "./guard-resolution.js";
+import {
+  classifyAdministrativeAuthority,
+  classifyResourcePartition,
+  collectGlobalAdministratorRoles,
+  decideObjectAuthorization,
+  strongerAuthority,
+  type AdministrativeAuthority
+} from "./authorization-policy.js";
 
 const SCRIPT_EXTENSIONS = new Set([".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"]);
 const NON_APPLICATION_SOURCE_CLASSES = new Set([
@@ -278,6 +294,38 @@ const SPECS = {
     ["Re-run the js-ts-authorization analyzer", "Run negative tests with another user's object ID"],
     ["OWASP API Security Top 10 2023 API1", "CWE-639"]
   ),
+  objectAuthAdministrative: spec(
+    "FF-AUTHZ-OBJECT-ADMIN-001",
+    "js-ts-authorization",
+    "authorization",
+    "Object operation relies on a platform-administrator role instead of an object policy",
+    "LOW",
+    "Authority rests entirely on a role grant, so any mis-assigned administrator reaches every object of this resource.",
+    "Record the administrative policy for this resource and add a negative test for a non-administrator principal.",
+    false,
+    false,
+    [
+      "Re-run the js-ts-authorization analyzer",
+      "Exercise the operation as a non-administrator principal"
+    ],
+    ["OWASP API Security Top 10 2023 API5", "CWE-639"]
+  ),
+  objectAuthUnresolved: spec(
+    "FF-AUTHZ-OBJECT-NOT-VERIFIED-001",
+    "js-ts-authorization",
+    "authorization",
+    "Object authorization depends on unresolved administrator scope",
+    "MEDIUM",
+    "An administrative gate was observed, but nothing proves that role reaches every object this operation can select.",
+    "State the role's object scope explicitly, or bind the operation to an ownership or tenancy predicate.",
+    false,
+    false,
+    [
+      "Inspect the administrator role definition",
+      "Run a cross-tenant object test with that administrator role"
+    ],
+    ["OWASP API Security Top 10 2023 API5", "CWE-639"]
+  ),
   authzRoute: spec(
     "FF-AUTHZ-ROUTE-001",
     "js-ts-authorization",
@@ -462,6 +510,32 @@ const SPECS = {
     false,
     ["Re-run the js-ts-uploads analyzer", "Exercise boundary and over-limit cases"],
     ["OWASP File Upload Cheat Sheet", "CWE-400"]
+  ),
+  uploadDirectVerify: spec(
+    "FF-UPLOAD-DIRECT-VERIFY-001",
+    "js-ts-uploads",
+    "uploads",
+    "Direct-to-storage upload is not verified server-side",
+    "HIGH",
+    "The server never observes the bytes a presigned grant wrote, so type, size, and content policy rest on the client.",
+    "Verify the stored object server-side after upload and gate release on that verification.",
+    false,
+    false,
+    ["Re-run the js-ts-uploads analyzer", "Upload a disallowed object through the signed grant"],
+    ["OWASP File Upload Cheat Sheet", "CWE-345"]
+  ),
+  uploadFlowUnresolved: spec(
+    "FF-UPLOAD-FLOW-NOT-VERIFIED-001",
+    "js-ts-uploads",
+    "uploads",
+    "Upload parser is outside the analyzer's supported flow shapes",
+    "MEDIUM",
+    "The acceptance decision runs in a parser this analyzer does not model, so its upload controls are unmeasured.",
+    "Document or adapt the upload flow so its acceptance decision is resolvable, then rerun the analyzer.",
+    false,
+    false,
+    ["Inspect the upload pipeline manually", "Run hostile-file tests against the parser"],
+    ["OWASP File Upload Cheat Sheet"]
   ),
   nPlusOne: spec(
     "FF-QUERY-N1-001",
@@ -792,11 +866,25 @@ export async function runNamedAnalyzer(
 
 function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
   const issues: Issue[] = [];
+  // Built once over the whole corpus so an imported guard is resolved by reading the body it
+  // actually names, rather than by trusting the identifier it was imported under.
+  const guards = createGuardResolver(files);
+  // Same reason, same corpus: an upload validation helper is proven by reading the body it names.
+  const uploads = createUploadAnalyzer(files);
+  // A project may publish its own global-administrator role mapping; that declaration is the only
+  // way an otherwise ambiguous role name becomes proof of platform-wide object scope.
+  const globalAdminRoles = collectGlobalAdministratorRoles(files);
   for (const file of files) {
     const labelIds = collectLabelIds(file.sourceFile);
     const functions = collectFunctionRanges(file.sourceFile);
     const cacheKeys = createCacheKeyResolver(file.sourceFile);
     const taint = buildTaintModel(file.sourceFile);
+    // Built on first use so files with no object sink never pay for route-guard resolution twice.
+    let routeAuthorityIndex: ((node: ts.Node) => AdministrativeAuthority) | undefined;
+    const routeAuthority = (node: ts.Node): AdministrativeAuthority => {
+      routeAuthorityIndex ??= buildRouteAuthorityIndex(file, guards, globalAdminRoles);
+      return routeAuthorityIndex(node);
+    };
     visit(file.sourceFile, [], (node, ancestors) => {
       if (ts.isCallExpression(node)) {
         const name = callName(node.expression);
@@ -883,8 +971,33 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
         // A route registration shares verb names with data access (`delete`, `put`, `patch`);
         // registering a handler is not an object lookup and must never raise object-authorization.
         if (isObjectLookup(name) && requestControlled && !isRouteRegistrationCall(node)) {
-          if (!hasObjectAuthorization(node, file, taint))
-            issues.push(issue(SPECS.objectAuth, file, node, flowSource(flow, argumentText), name));
+          // Role evidence never clears this rule on its own; `authorization-policy.ts` decides what
+          // an administrator gate is worth against the partition the object actually belongs to.
+          const decision = decideObjectAuthorization({
+            boundPredicate: hasObjectAuthorization(node, file, taint),
+            authority: strongerAuthority(
+              routeAuthority(node),
+              dominatingAdministrativeAuthority(node, file, globalAdminRoles)
+            ),
+            partition: classifyResourcePartition(
+              `${enclosingText(node, file, functions)}\n${node.getText(file.sourceFile)}`,
+              tenantKeyPattern("iu")
+            )
+          });
+          if (decision.outcome !== "authorized") {
+            const objectIssue = issue(
+              OBJECT_AUTHORIZATION_SPECS[decision.outcome],
+              file,
+              node,
+              flowSource(flow, argumentText),
+              name
+            );
+            if (decision.outcome === "administrative") objectIssue.status = "WARNING";
+            if (decision.outcome === "unresolved") objectIssue.status = "NOT_VERIFIED";
+            if (decision.outcome !== "missing")
+              objectIssue.evidence += ` Object-authorization policy: ${decision.reason}.`;
+            issues.push(objectIssue);
+          }
         }
         if (isQuerySink(name) && requestSuppliesTenantKey(argumentText)) {
           issues.push(issue(SPECS.tenantInput, file, node, flowSource(flow, argumentText), name));
@@ -1033,11 +1146,12 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
       }
       if (ts.isTaggedTemplateExpression(node)) analyzeTaggedSql(issues, file, node, taint);
     });
-    analyzeAuthorizationRoutes(issues, file);
-    analyzeUploadFile(issues, file);
+    analyzeAuthorizationRoutes(issues, file, guards);
+    analyzeUploadFile(issues, file, uploads);
     analyzeAiFile(issues, file);
     analyzeWebhookFile(issues, file);
     analyzeCsvExport(issues, file);
+    issues.push(...analyzeTransactionFile(file));
   }
   return {
     analyzer_id: "js-ts-boundaries",
@@ -1169,7 +1283,11 @@ function analyzeTaggedSql(
   }
 }
 
-function analyzeAuthorizationRoutes(issues: Issue[], file: SourceRecord): void {
+function analyzeAuthorizationRoutes(
+  issues: Issue[],
+  file: SourceRecord,
+  guards: GuardResolver
+): void {
   const hasUnresolvedGlobalGuard = /\b(?:router|app)\.use\s*\(\s*[A-Za-z_$][\w$]*\s*\)/u.test(
     file.content
   );
@@ -1191,13 +1309,13 @@ function analyzeAuthorizationRoutes(issues: Issue[], file: SourceRecord): void {
 
     // Guard recognition is structural: a middleware argument counts when its resolved body
     // rejects the request before delegating, not because its identifier matched a name list.
-    const guard = classifyRouteGuards(node, file);
-    if (guard === "proven") return;
+    const guard = classifyRouteGuards(node, file, guards);
+    if (guard.verdict === "proven") return;
 
     const inlineHandler = node.arguments
       .slice(1)
       .some((argument) => ts.isArrowFunction(argument) || ts.isFunctionExpression(argument));
-    const unresolved = guard === "unresolved" || !inlineHandler || hasUnresolvedGlobalGuard;
+    const unresolved = guard.verdict === "unresolved" || !inlineHandler || hasUnresolvedGlobalGuard;
     const candidate = issue(
       unresolved ? SPECS.authzUnresolved : SPECS.authzRoute,
       file,
@@ -1208,7 +1326,9 @@ function analyzeAuthorizationRoutes(issues: Issue[], file: SourceRecord): void {
     if (unresolved) {
       candidate.status = "NOT_VERIFIED";
       candidate.evidence +=
-        " Bounded analysis could not resolve the referenced handler or middleware to a route-specific permission predicate.";
+        guard.evidence.length > 0
+          ? ` ${guard.evidence}`
+          : " Bounded analysis could not resolve the referenced handler or middleware to a route-specific permission predicate.";
     }
     issues.push(candidate);
   });
@@ -1246,8 +1366,9 @@ function isRouteRegistrationCall(node: ts.CallExpression): boolean {
  */
 function classifyRouteGuards(
   node: ts.CallExpression,
-  file: SourceRecord
-): "proven" | "absent" | "unresolved" {
+  file: SourceRecord,
+  guards: GuardResolver
+): MiddlewareClassification {
   // A handler that denies the request itself is as much a guard as one mounted beside it, so the
   // final handler is examined before concluding that no control exists.
   const handler = node.arguments.at(-1);
@@ -1256,173 +1377,142 @@ function classifyRouteGuards(
     (ts.isArrowFunction(handler) || ts.isFunctionExpression(handler)) &&
     functionDeniesAuthorization(handler, file)
   )
-    return "proven";
-  const middleware = node.arguments.slice(1, -1);
-  if (middleware.length === 0) return "absent";
-  let unresolved = false;
-  for (const argument of middleware) {
-    const resolved = resolveGuardFunction(argument, file);
-    if (resolved !== undefined && functionDeniesAuthorization(resolved, file)) return "proven";
-    // Structural resolution is the primary mechanism. A conventional authorization name is
-    // accepted as a supplementary signal only when the body is out of file (an import), so a
-    // cross-file guard is not reported as a defect purely because bounded analysis stops here.
-    if (resolved === undefined && isConventionalGuardName(argument)) return "proven";
-    if (resolved === undefined) unresolved = true;
-  }
-  return unresolved ? "unresolved" : "absent";
+    return { verdict: "proven", evidence: "", authority: { resolved: false, text: "" } };
+  // Everything else is decided by the corpus resolver, which reads the body an import actually
+  // names. A conventional identifier such as `requireRole` is no longer evidence of anything: an
+  // import whose body cannot be reached is unresolved, not proven.
+  return guards.classifyMiddlewareList(node.arguments.slice(1, -1), file);
 }
 
-/** True when a middleware argument carries a widely used authorization identifier. */
-function isConventionalGuardName(argument: ts.Expression): boolean {
-  const callee = ts.isCallExpression(argument) ? argument.expression : argument;
-  if (!ts.isIdentifier(callee) && !ts.isPropertyAccessExpression(callee)) return false;
-  return /^(?:require|ensure|assert|check|verify|enforce|guard|can|is|has|only|restrict|protect|authorize|authenticate)/iu.test(
-    callName(callee).split(".").pop() ?? ""
-  );
+/** Spec selected for each non-clean object-authorization outcome. */
+const OBJECT_AUTHORIZATION_SPECS: Record<"administrative" | "unresolved" | "missing", IssueSpec> = {
+  administrative: SPECS.objectAuthAdministrative,
+  unresolved: SPECS.objectAuthUnresolved,
+  missing: SPECS.objectAuth
+};
+
+/**
+ * Maps every route handler in a file to what its guards prove about administrative reach.
+ *
+ * The index is built from the same resolver the route rule uses, so a role name only contributes
+ * when a body was actually read. Router-level `use(...)` middleware applies to the whole file and
+ * is combined with the per-route evidence, because a mounted platform-administrator gate is real
+ * evidence for every handler below it.
+ */
+function buildRouteAuthorityIndex(
+  file: SourceRecord,
+  guards: GuardResolver,
+  globalRoles: ReadonlySet<string>
+): (node: ts.Node) => AdministrativeAuthority {
+  const ranges: Array<{ start: number; end: number; authority: AdministrativeAuthority }> = [];
+  let mounted: AdministrativeAuthority = "none";
+  visit(file.sourceFile, [], (node) => {
+    if (!ts.isCallExpression(node)) return;
+    if (/\.use$/u.test(callName(node.expression))) {
+      const middleware = node.arguments.filter((argument) => !ts.isStringLiteralLike(argument));
+      if (middleware.length === 0) return;
+      mounted = strongerAuthority(
+        mounted,
+        classifyAdministrativeAuthority(
+          guards.classifyMiddlewareList(middleware, file).authority,
+          globalRoles
+        )
+      );
+      return;
+    }
+    if (!isRouteRegistrationCall(node)) return;
+    const authority = classifyAdministrativeAuthority(
+      guards.classifyMiddlewareList(node.arguments.slice(1, -1), file).authority,
+      globalRoles
+    );
+    if (authority === "none") return;
+    for (const handler of node.arguments.slice(1))
+      for (const range of handlerRanges(handler, file)) ranges.push({ ...range, authority });
+  });
+  return (node) => {
+    const start = node.getStart(file.sourceFile);
+    const end = node.getEnd();
+    let authority = mounted;
+    for (const range of ranges)
+      if (range.start <= start && range.end >= end)
+        authority = strongerAuthority(authority, range.authority);
+    return authority;
+  };
 }
 
-/** Resolves a middleware argument to a function body declared in the same file, when possible. */
-function resolveGuardFunction(
-  argument: ts.Expression,
+/** The source range of a route handler argument, whether inline or named in the same file. */
+function handlerRanges(
+  handler: ts.Expression,
   file: SourceRecord
-): ts.FunctionLikeDeclaration | undefined {
-  if (ts.isArrowFunction(argument) || ts.isFunctionExpression(argument)) return argument;
-  // A factory call such as `requireRole("admin")` resolves through its declaration's return.
-  const identifier = ts.isCallExpression(argument)
-    ? ts.isIdentifier(argument.expression)
-      ? argument.expression
-      : undefined
-    : ts.isIdentifier(argument)
-      ? argument
-      : undefined;
-  if (identifier === undefined) return undefined;
-  return findLocalFunction(identifier.text, file.sourceFile);
+): Array<{ start: number; end: number }> {
+  if (ts.isArrowFunction(handler) || ts.isFunctionExpression(handler))
+    return [{ start: handler.getStart(file.sourceFile), end: handler.getEnd() }];
+  if (!ts.isIdentifier(handler)) return [];
+  const name = handler.text;
+  let found: { start: number; end: number } | undefined;
+  visit(file.sourceFile, [], (node) => {
+    if (found !== undefined) return;
+    if (ts.isFunctionDeclaration(node) && node.name?.text === name)
+      found = { start: node.getStart(file.sourceFile), end: node.getEnd() };
+    else if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === name &&
+      node.initializer !== undefined &&
+      ts.isFunctionLike(node.initializer)
+    )
+      found = { start: node.getStart(file.sourceFile), end: node.getEnd() };
+  });
+  return found === undefined ? [] : [found];
 }
 
 /**
- * True when a function body denies a request with an authorization status.
+ * Administrative reach proven by a dominating in-function role check.
  *
- * Recognises `res.status(401|403)`, `res.sendStatus(401|403)`, and thrown errors carrying those
- * codes. A factory function is followed one level into the middleware it returns, so
- * `requireRole("admin")` and a locally declared `requireAdmin` are treated identically.
+ * A service function that rejects before the sink — `if (user.role !== "superadmin") throw …` — is
+ * the same evidence as a mounted guard, and is the only source available when the sink is nowhere
+ * near a route registration.
  */
-function functionDeniesAuthorization(
-  fn: ts.FunctionLikeDeclaration,
+function dominatingAdministrativeAuthority(
+  node: ts.Node,
   file: SourceRecord,
-  depth = 0
-): boolean {
-  const body = fn.body;
-  if (body === undefined) return false;
-  const text = body.getText(file.sourceFile);
-  if (/\b(?:401|403)\b/u.test(text) && /\b(?:status|sendStatus|statusCode|code)\b/u.test(text))
-    return true;
-  if (/\bForbidden|Unauthorized\b/u.test(text) && /\bthrow\b/u.test(text)) return true;
-  if (depth >= 1) return false;
-  // Follow a middleware factory into the handler it returns.
-  let nested = false;
-  const walk = (node: ts.Node): void => {
-    if (nested) return;
-    if (
-      ts.isReturnStatement(node) &&
-      node.expression !== undefined &&
-      (ts.isArrowFunction(node.expression) || ts.isFunctionExpression(node.expression)) &&
-      functionDeniesAuthorization(node.expression, file, depth + 1)
-    )
-      nested = true;
-    else ts.forEachChild(node, walk);
-  };
-  ts.forEachChild(body, walk);
-  return nested;
+  globalRoles: ReadonlySet<string>
+): AdministrativeAuthority {
+  let authority: AdministrativeAuthority = "none";
+  for (const statement of precedingStatements(node)) {
+    if (!ts.isIfStatement(statement) || !abruptlyExits(statement.thenStatement)) continue;
+    authority = strongerAuthority(
+      authority,
+      classifyAdministrativeAuthority(
+        { resolved: true, text: statement.expression.getText(file.sourceFile) },
+        globalRoles
+      )
+    );
+  }
+  return authority;
 }
 
-function analyzeUploadFile(issues: Issue[], file: SourceRecord): void {
-  const content = file.content;
-  if (!/upload\.(?:any|array|fields|single)\s*\(/u.test(content)) return;
-  const extension = /(?:originalname|filename)[^\n;]*\.endsWith\s*\(/u.exec(content);
-  if (extension !== null)
-    issues.push(
-      textIssue(
-        SPECS.uploadExtension,
-        file,
-        extension.index,
-        "original filename extension",
-        "upload acceptance branch"
-      )
-    );
-  const mime = /\b(?:mimetype|contentType|content-type)\b/iu.exec(content);
-  if (mime !== null && !/magic|signature|fileTypeFromBuffer|decode|sniff/iu.test(content))
-    issues.push(
-      textIssue(
-        SPECS.uploadMime,
-        file,
-        mime.index,
-        "client-provided MIME",
-        "upload acceptance branch"
-      )
-    );
-  const publicStorage =
-    /(?:save|put|writeFile|upload)\s*\([^\n;]*(?:public[\\/]|public\/|publicPath)/iu.exec(content);
-  const scan = /\b(?:scanner\.)?scan\s*\(/iu.exec(content);
-  if (publicStorage !== null && (scan === null || publicStorage.index < scan.index))
-    issues.push(
-      textIssue(
-        SPECS.uploadPublic,
-        file,
-        publicStorage.index,
-        "untrusted upload bytes",
-        "public storage before approval"
-      )
-    );
-  if (scan === null)
-    issues.push(
-      textIssue(
-        SPECS.uploadScan,
-        file,
-        content.search(/upload\./u),
-        "upload middleware",
-        "durable/released storage"
-      )
-    );
-  const failOpen = /catch\s*(?:\([^)]*\))?\s*\{\s*(?:\/\/[^\n]*\n\s*)?\}/u.exec(content);
-  if (
-    scan !== null &&
-    failOpen !== null &&
-    /(?:res\.|send|url|release|extract)/u.test(content.slice(failOpen.index + failOpen[0].length))
-  )
-    issues.push(
-      textIssue(
-        SPECS.uploadFailOpen,
-        file,
-        failOpen.index,
-        "scanner error",
-        "continued release path"
-      )
-    );
-  const originalPath = /(?:save|put|writeFile|upload)\s*\([^\n;]*(?:originalname|filename)/iu.exec(
-    content
+/**
+ * Thin delegation to `uploads.ts`, which owns upload-flow discovery and rule evaluation.
+ *
+ * The rule catalogue stays here so every finding identity is declared in one place; the decision
+ * about when each rule fires needs cross-file resolution and structural flow discovery, which is
+ * more than an in-file regex pass can honestly do.
+ */
+function analyzeUploadFile(issues: Issue[], file: SourceRecord, uploads: UploadAnalyzer): void {
+  issues.push(
+    ...uploads(file, {
+      extension: SPECS.uploadExtension,
+      mime: SPECS.uploadMime,
+      publicStorage: SPECS.uploadPublic,
+      scan: SPECS.uploadScan,
+      failOpen: SPECS.uploadFailOpen,
+      filename: SPECS.uploadFilename,
+      limits: SPECS.uploadLimits,
+      directVerify: SPECS.uploadDirectVerify,
+      unsupportedFlow: SPECS.uploadFlowUnresolved
+    })
   );
-  if (originalPath !== null)
-    issues.push(
-      textIssue(
-        SPECS.uploadFilename,
-        file,
-        originalPath.index,
-        "client original filename",
-        "storage object path"
-      )
-    );
-  if (
-    !/\b(?:limits|fileSize|maxFiles|maxBytes|maxEntries|maxDepth|maxRatio|timeout)\b/u.test(content)
-  )
-    issues.push(
-      textIssue(
-        SPECS.uploadLimits,
-        file,
-        content.search(/upload\./u),
-        "multipart/archive input",
-        "parser and storage resources"
-      )
-    );
 }
 
 function analyzeAiFile(issues: Issue[], file: SourceRecord): void {
