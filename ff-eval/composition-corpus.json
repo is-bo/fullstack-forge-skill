@@ -1,0 +1,277 @@
+{
+  "$comment": "Reproducible evaluation corpus for the upstream-powered composition. Each case names a task shape, the repository evidence a Forge discovery pass would produce for it, the modules the task selects, and the expectations that must hold. It measures composition behaviour and context cost deterministically. It does NOT measure agent task outcomes: see ff-eval/COMPOSITION_EVALUATION.md for what is and is not claimed.",
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "id": "01-ambiguous-requirements",
+      "title": "Ambiguous feature requirements",
+      "modules": ["requirements", "architecture"],
+      "evidence": {
+        "flags": { "missingEssentialRequirements": true, "divergentExploration": true }
+      },
+      "expectActive": [
+        "addy-agent-skills/interview-me",
+        "addy-agent-skills/idea-refine",
+        "addy-agent-skills/spec-driven-development"
+      ],
+      "expectSuppressed": []
+    },
+    {
+      "id": "02-api-design",
+      "title": "API design",
+      "modules": ["api", "docs"],
+      "evidence": { "riskSurfaces": ["api"] },
+      "expectActive": [
+        "addy-agent-skills/api-and-interface-design",
+        "wshobson-agents/openapi-spec-generation"
+      ],
+      "expectSuppressed": []
+    },
+    {
+      "id": "03-code-simplification",
+      "title": "Code simplification",
+      "modules": ["code"],
+      "evidence": {},
+      "expectActive": [
+        "addy-agent-skills/incremental-implementation",
+        "addy-agent-skills/code-simplification"
+      ],
+      "expectSuppressed": []
+    },
+    {
+      "id": "04-bug-investigation",
+      "title": "Bug investigation",
+      "modules": ["recovery"],
+      "evidence": {},
+      "expectActive": [
+        "addy-agent-skills/debugging-and-error-recovery",
+        "wshobson-agents/error-handling-patterns"
+      ],
+      "expectSuppressed": ["sentry-agent-skills/sentry-fix-issues"]
+    },
+    {
+      "id": "05-tdd-implementation",
+      "title": "TDD implementation",
+      "modules": ["testing", "code"],
+      "evidence": { "flags": { "testingApplicable": true } },
+      "expectActive": [
+        "addy-agent-skills/test-driven-development",
+        "addy-agent-skills/testing-patterns"
+      ],
+      "expectSuppressed": []
+    },
+    {
+      "id": "06-react-performance",
+      "title": "React performance",
+      "modules": ["performance", "frontend"],
+      "evidence": { "riskSurfaces": ["frontend"], "profile": { "frameworks": ["react", "next"] } },
+      "expectActive": [
+        "addy-agent-skills/performance-optimization",
+        "vercel-agent-skills/react-best-practices"
+      ],
+      "expectSuppressed": ["vercel-agent-skills/react-native-skills", "cloudflare-skills/web-perf"]
+    },
+    {
+      "id": "07-non-react-frontend",
+      "title": "Non-React frontend",
+      "modules": ["frontend"],
+      "evidence": { "riskSurfaces": ["frontend"], "profile": { "frameworks": ["vue"] } },
+      "expectActive": ["addy-agent-skills/frontend-ui-engineering"],
+      "expectSuppressed": [
+        "vercel-agent-skills/react-best-practices",
+        "vercel-agent-skills/react-view-transitions",
+        "vercel-agent-skills/react-native-skills"
+      ]
+    },
+    {
+      "id": "08-ui-redesign-existing-system",
+      "title": "UI redesign inside an existing design system",
+      "modules": ["ui", "ux"],
+      "evidence": { "riskSurfaces": ["frontend"], "profile": { "frameworks": ["react"] } },
+      "expectActive": ["impeccable/impeccable", "vercel-agent-skills/web-design-guidelines"],
+      "expectSuppressed": []
+    },
+    {
+      "id": "09-blank-slate-ui",
+      "title": "Blank-slate UI",
+      "modules": ["ui"],
+      "evidence": { "riskSurfaces": ["frontend"] },
+      "expectActive": ["impeccable/impeccable"],
+      "expectSuppressed": []
+    },
+    {
+      "id": "10-accessibility-audit",
+      "title": "Accessibility audit",
+      "modules": ["accessibility"],
+      "evidence": { "riskSurfaces": ["frontend"] },
+      "expectActive": [
+        "addy-agent-skills/accessibility-checklist",
+        "wshobson-agents/wcag-audit-patterns",
+        "wshobson-agents/screen-reader-testing"
+      ],
+      "expectSuppressed": []
+    },
+    {
+      "id": "11-postgres-optimisation",
+      "title": "PostgreSQL optimisation",
+      "modules": ["queries", "database"],
+      "evidence": { "profile": { "databases": ["postgres"] } },
+      "expectActive": [
+        "supabase-agent-skills/supabase-postgres-best-practices",
+        "wshobson-agents/sql-optimization-patterns"
+      ],
+      "expectSuppressed": ["supabase-agent-skills/supabase"]
+    },
+    {
+      "id": "12-non-postgres-database",
+      "title": "Non-PostgreSQL database",
+      "modules": ["database", "queries"],
+      "evidence": { "profile": { "databases": ["mongodb"] } },
+      "expectActive": [],
+      "expectSuppressed": [
+        "supabase-agent-skills/supabase-postgres-best-practices",
+        "wshobson-agents/postgresql",
+        "supabase-agent-skills/supabase"
+      ]
+    },
+    {
+      "id": "13-supabase-auth-rls",
+      "title": "Supabase auth and row-level security",
+      "modules": ["auth", "authorization", "tenancy"],
+      "evidence": { "profile": { "integrations": ["supabase"], "databases": ["postgres"] } },
+      "expectActive": [
+        "supabase-agent-skills/supabase",
+        "supabase-agent-skills/supabase-postgres-best-practices"
+      ],
+      "expectSuppressed": []
+    },
+    {
+      "id": "14-generic-auth",
+      "title": "Generic auth without Supabase",
+      "modules": ["auth", "authorization"],
+      "evidence": {},
+      "expectActive": ["wshobson-agents/auth-implementation-patterns"],
+      "expectSuppressed": [
+        "supabase-agent-skills/supabase",
+        "supabase-agent-skills/supabase-postgres-best-practices",
+        "google-skills/firebase-basics"
+      ]
+    },
+    {
+      "id": "15-vercel-optimisation",
+      "title": "Vercel optimisation",
+      "modules": ["performance", "cost", "deployment"],
+      "evidence": { "profile": { "hosting": ["Vercel"], "frameworks": ["next"] } },
+      "expectActive": ["vercel-agent-skills/vercel-optimize"],
+      "expectSuppressed": ["cloudflare-skills/wrangler", "google-skills/cloud-run-basics"]
+    },
+    {
+      "id": "16-non-vercel-deployment",
+      "title": "Non-Vercel deployment",
+      "modules": ["deployment"],
+      "evidence": { "profile": { "hosting": ["Railway"] } },
+      "expectActive": ["addy-agent-skills/ci-cd-and-automation"],
+      "expectSuppressed": [
+        "vercel-agent-skills/vercel-optimize",
+        "cloudflare-skills/wrangler",
+        "google-skills/cloud-run-basics",
+        "google-skills/gke-productionize"
+      ]
+    },
+    {
+      "id": "17-cloudflare-worker",
+      "title": "Cloudflare Worker",
+      "modules": ["infrastructure", "jobs", "realtime"],
+      "evidence": { "profile": { "hosting": ["Cloudflare"] } },
+      "expectActive": ["cloudflare-skills/cloudflare", "cloudflare-skills/durable-objects"],
+      "expectSuppressed": ["google-skills/gke-productionize", "vercel-agent-skills/vercel-optimize"]
+    },
+    {
+      "id": "18-google-cloud-service",
+      "title": "Google Cloud service",
+      "modules": ["infrastructure", "reliability", "cost"],
+      "evidence": { "profile": { "hosting": ["Google Cloud"] } },
+      "expectActive": [
+        "google-skills/google-cloud-waf-reliability",
+        "google-skills/google-cloud-waf-cost-optimization"
+      ],
+      "expectSuppressed": ["cloudflare-skills/cloudflare", "vercel-agent-skills/vercel-optimize"]
+    },
+    {
+      "id": "19-sentry-issue",
+      "title": "Sentry issue investigation",
+      "modules": ["observability", "recovery"],
+      "evidence": { "profile": { "observability": ["sentry"] } },
+      "expectActive": ["sentry-agent-skills/sentry-fix-issues"],
+      "expectSuppressed": []
+    },
+    {
+      "id": "20-generic-observability",
+      "title": "Generic observability without Sentry",
+      "modules": ["observability"],
+      "evidence": {},
+      "expectActive": [
+        "addy-agent-skills/observability-and-instrumentation",
+        "addy-agent-skills/observability-checklist"
+      ],
+      "expectSuppressed": [
+        "sentry-agent-skills/sentry-fix-issues",
+        "sentry-agent-skills/sentry-otel-exporter-setup"
+      ]
+    },
+    {
+      "id": "21-stripe-payments",
+      "title": "Stripe payment integration",
+      "modules": ["payments"],
+      "evidence": { "riskSurfaces": ["payments"], "profile": { "paymentProviders": ["stripe"] } },
+      "expectActive": ["wshobson-agents/stripe-integration", "wshobson-agents/pci-compliance"],
+      "expectSuppressed": ["wshobson-agents/paypal-integration"]
+    },
+    {
+      "id": "22-non-stripe-payments",
+      "title": "Non-Stripe payment flow",
+      "modules": ["payments"],
+      "evidence": { "riskSurfaces": ["payments"] },
+      "expectActive": ["wshobson-agents/pci-compliance"],
+      "expectSuppressed": [
+        "wshobson-agents/stripe-integration",
+        "wshobson-agents/paypal-integration"
+      ]
+    },
+    {
+      "id": "23-secure-upload",
+      "title": "Secure upload flow",
+      "modules": ["uploads", "storage", "security"],
+      "evidence": { "riskSurfaces": ["api"] },
+      "expectActive": ["addy-agent-skills/security-and-hardening"],
+      "expectSuppressed": [
+        "supabase-agent-skills/supabase",
+        "cloudflare-skills/cloudflare",
+        "google-skills/google-cloud-storage-basics"
+      ]
+    },
+    {
+      "id": "24-multi-tenant-object-access",
+      "title": "Multi-tenant object access",
+      "modules": ["tenancy", "authorization"],
+      "evidence": {},
+      "expectActive": [],
+      "expectSuppressed": [
+        "supabase-agent-skills/supabase-postgres-best-practices",
+        "google-skills/gke-multitenancy"
+      ]
+    },
+    {
+      "id": "25-release-readiness",
+      "title": "Release-readiness review",
+      "modules": ["ship", "supply-chain", "testing", "docs"],
+      "evidence": { "flags": { "ci": true, "testingApplicable": true } },
+      "expectActive": [
+        "addy-agent-skills/shipping-and-launch",
+        "addy-agent-skills/definition-of-done",
+        "wshobson-agents/secrets-management"
+      ],
+      "expectSuppressed": []
+    }
+  ]
+}
