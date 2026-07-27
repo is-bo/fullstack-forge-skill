@@ -12,7 +12,7 @@
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { renderMarkdown } from "./report.js";
+import { renderMarkdown, withFindingSummary } from "./report.js";
 import { assertNoSymlinkPath, resolveInside, sha256, toPosix, utcNow } from "./utils.js";
 const OWNERSHIP_FILE = ".forge-output.json";
 /**
@@ -51,10 +51,7 @@ export async function planReportOutput(root, output, report, dryRun) {
     const directory = await resolveOutputDirectory(root, output);
     const relativeDirectory = toPosix(output.trim().replace(/[\\/]+$/u, ""));
     const manifest = await readOwnership(directory);
-    const documents = [
-        { name: "report.json", content: `${JSON.stringify(report, null, 2)}\n` },
-        { name: "report.md", content: renderMarkdown(report) }
-    ];
+    const documents = reportDocuments(report);
     const files = [];
     for (const document of documents) {
         const absolute = join(directory, document.name);
@@ -96,10 +93,7 @@ export async function writeReportOutput(root, output, report, dryRun) {
         return { ...plan, written: [] };
     await mkdir(plan.directory, { recursive: true });
     const written = [];
-    const documents = new Map([
-        ["report.json", `${JSON.stringify(report, null, 2)}\n`],
-        ["report.md", renderMarkdown(report)]
-    ]);
+    const documents = new Map(reportDocuments(report).map((document) => [document.name, document.content]));
     const files = {};
     for (const file of plan.files) {
         const name = file.path.split("/").pop();
@@ -114,6 +108,20 @@ export async function writeReportOutput(root, output, report, dryRun) {
     }
     await writeOwnership(root, plan.directory, files);
     return { ...plan, written };
+}
+/**
+ * The exact bytes both documents carry.
+ *
+ * Planning and writing must produce identical content or the ownership digests would never match,
+ * so the two phases share one builder. The status-aware summary is derived here rather than trusted
+ * from the input, which keeps `--output` consistent with what `writeReport` publishes into `.forge`.
+ */
+function reportDocuments(report) {
+    const published = withFindingSummary(report);
+    return [
+        { name: "report.json", content: `${JSON.stringify(published, null, 2)}\n` },
+        { name: "report.md", content: renderMarkdown(published) }
+    ];
 }
 async function readOwnership(directory) {
     const text = await readIfPresent(join(directory, OWNERSHIP_FILE));

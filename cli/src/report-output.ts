@@ -13,7 +13,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { AuditReport } from "./report.js";
-import { renderMarkdown } from "./report.js";
+import { renderMarkdown, withFindingSummary } from "./report.js";
 import { assertNoSymlinkPath, resolveInside, sha256, toPosix, utcNow } from "./utils.js";
 
 const OWNERSHIP_FILE = ".forge-output.json";
@@ -87,10 +87,7 @@ export async function planReportOutput(
   const directory = await resolveOutputDirectory(root, output);
   const relativeDirectory = toPosix(output.trim().replace(/[\\/]+$/u, ""));
   const manifest = await readOwnership(directory);
-  const documents: Array<{ name: string; content: string }> = [
-    { name: "report.json", content: `${JSON.stringify(report, null, 2)}\n` },
-    { name: "report.md", content: renderMarkdown(report) }
-  ];
+  const documents = reportDocuments(report);
 
   const files: OutputFilePlan[] = [];
   for (const document of documents) {
@@ -145,10 +142,9 @@ export async function writeReportOutput(
 
   await mkdir(plan.directory, { recursive: true });
   const written: string[] = [];
-  const documents = new Map<string, string>([
-    ["report.json", `${JSON.stringify(report, null, 2)}\n`],
-    ["report.md", renderMarkdown(report)]
-  ]);
+  const documents = new Map(
+    reportDocuments(report).map((document) => [document.name, document.content] as const)
+  );
   const files: Record<string, string> = {};
   for (const file of plan.files) {
     const name = file.path.split("/").pop() as string;
@@ -162,6 +158,21 @@ export async function writeReportOutput(
   }
   await writeOwnership(root, plan.directory, files);
   return { ...plan, written };
+}
+
+/**
+ * The exact bytes both documents carry.
+ *
+ * Planning and writing must produce identical content or the ownership digests would never match,
+ * so the two phases share one builder. The status-aware summary is derived here rather than trusted
+ * from the input, which keeps `--output` consistent with what `writeReport` publishes into `.forge`.
+ */
+function reportDocuments(report: AuditReport): Array<{ name: string; content: string }> {
+  const published = withFindingSummary(report);
+  return [
+    { name: "report.json", content: `${JSON.stringify(published, null, 2)}\n` },
+    { name: "report.md", content: renderMarkdown(published) }
+  ];
 }
 
 async function readOwnership(directory: string): Promise<OwnershipManifest | undefined> {

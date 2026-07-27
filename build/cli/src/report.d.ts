@@ -1,5 +1,5 @@
 import type { ChangedScopeEvidence } from "./scope.js";
-import { type AnalyzerCoverage, type Finding, type GateEvidence, type ModuleDecision, type PlannedCheck, type ProjectProfile, type RuntimeEvidence, type ToolRecord } from "./types.js";
+import { type AnalyzerCoverage, type Confidence, type Finding, type GateEvidence, type ModuleDecision, type PlannedCheck, type ProjectProfile, type RuntimeEvidence, type Severity, type Status, type ToolRecord } from "./types.js";
 export declare const REPORT_SCHEMA_VERSION = 2;
 export type ExecutionRecord = {
     command: string[];
@@ -40,6 +40,66 @@ export type ReportMigration = {
     absent_ledgers: string[];
     notes: string[];
 };
+/**
+ * Verdict classes. Severity in this schema is *potential impact* (`docs/FINDING_SCHEMA.md`), not a
+ * verdict, so severity alone never says whether anything was proven. Status carries the verdict,
+ * and any count that mixes the two is unreadable: an analyzer may legitimately record CRITICAL
+ * potential impact with LOW confidence and `NOT_VERIFIED` status, and a severity-only rollup then
+ * reports that unproven possibility as a confirmed critical defect.
+ *
+ * These classes keep the two axes separate. Nothing here changes a finding's status, severity, or
+ * confidence, and nothing here relaxes a gate — an unverified critical still blocks release in
+ * `gates.ts`. It only stops presentation from asserting more than the evidence supports.
+ */
+export declare const FINDING_STATUS_CLASSES: readonly ["confirmed", "evidence_gap", "passed", "not_applicable", "superseded"];
+export type FindingStatusClass = (typeof FINDING_STATUS_CLASSES)[number];
+export type SeverityCounts = Record<Severity, number>;
+export type ConfidenceCounts = Record<Confidence, number>;
+export type StatusClassSummary = {
+    total: number;
+    /** The exact statuses folded into this class, with their own counts. */
+    by_status: Partial<Record<Status, number>>;
+    /** Potential impact within this class only. Never comparable across classes. */
+    by_severity: SeverityCounts;
+    by_confidence: ConfidenceCounts;
+};
+export type FindingSummary = {
+    total: number;
+    by_status: Partial<Record<Status, number>>;
+    /**
+     * Severity is only ever reported inside a verdict class. There is deliberately no top-level
+     * `by_severity`: publishing one would reintroduce exactly the number this aggregation exists to
+     * prevent, and any consumer reading it would have no way to tell proven from unproven.
+     */
+    by_class: Record<FindingStatusClass, StatusClassSummary>;
+    /** The count a defect total may quote: demonstrated defects only. */
+    confirmed_defects: number;
+    /** Confirmed critical and high defects. Excludes every NOT_VERIFIED and BLOCKED finding. */
+    confirmed_critical: number;
+    confirmed_high: number;
+    /**
+     * Unproven findings whose *potential* impact is critical or high. These block a release through
+     * the Ship gate exactly as before; they are counted here so a reader sees them without them being
+     * added to the confirmed totals.
+     */
+    unverified_critical_or_high: number;
+};
+/**
+ * Aggregates findings on both axes at once.
+ *
+ * Every number this returns is derived from the findings passed in, so it can be recomputed at any
+ * time and can never drift from the finding list it describes. A status the schema does not know is
+ * counted as an evidence gap rather than silently dropped, because an unrecognised verdict is
+ * precisely the case that must not be read as "clean".
+ */
+export declare function summarizeFindings(findings: readonly Finding[]): FindingSummary;
+/**
+ * Returns the report with its summary recomputed from its own findings.
+ *
+ * Serialization goes through this so the JSON a consumer reads and the Markdown a person reads are
+ * derived from the same finding list in the same call, and neither can carry a stale rollup.
+ */
+export declare function withFindingSummary(report: AuditReport): AuditReport;
 export type ReportLedgers = {
     tools?: ToolRecord[];
     planned_checks?: PlannedCheck[];
@@ -55,6 +115,11 @@ export type AuditReport = {
     scope: string;
     profile: ProjectProfile;
     findings: Finding[];
+    /**
+     * Status-aware rollup of `findings`. Always derived, never authored: a reader that buckets
+     * `findings` by severity alone counts unproven potential impact as confirmed defects.
+     */
+    summary?: FindingSummary;
     execution: ExecutionRecord[];
     assumptions: string[];
     residual_risk: string[];

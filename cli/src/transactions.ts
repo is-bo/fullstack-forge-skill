@@ -163,6 +163,57 @@ const TRANSACTION_METHODS = new Set([
 const DEFERRED_HANDLE_METHODS = new Set(["createQueryRunner", "startSession"]);
 /** Option keys through which a transaction handle is threaded into an otherwise global client. */
 const HANDLE_OPTION_KEYS = new Set(["client", "session", "transaction", "trx", "tx"]);
+/**
+ * Object keys whose values are row payloads or filters. A vendor threads a transaction handle
+ * through an options object, never through the data it writes, so descending into these keys turns
+ * an ordinary column named `session` or `client` into a phantom handle and masks a real defect.
+ */
+const PAYLOAD_KEYS = new Set([
+  "$inc",
+  "$push",
+  "$set",
+  "attributes",
+  "create",
+  "data",
+  "defaults",
+  "fields",
+  "filter",
+  "having",
+  "include",
+  "orderBy",
+  "payload",
+  "record",
+  "returning",
+  "select",
+  "set",
+  "update",
+  "values",
+  "where"
+]);
+/** Keys that select rows rather than mutate them, so an amount named there is not an amount write. */
+const FILTER_KEYS = new Set([
+  "attributes",
+  "filter",
+  "having",
+  "include",
+  "order",
+  "orderBy",
+  "select",
+  "where"
+]);
+/**
+ * Names that carry no meaning other than "transaction handle". A binding with one of these names
+ * whose producer the analyzer cannot classify is an unresolved boundary, not an absent one.
+ * Ordinary client names (`db`, `prisma`, `client`, `repo`) are deliberately excluded: treating them
+ * the same way would convert the most common genuine defect shape into NOT_VERIFIED.
+ */
+const TRANSACTION_HANDLE_NAME = /^(?:queryrunner|transaction|trx|tx|txn|unitofwork|uow)$/iu;
+/**
+ * Ownership and tenancy keys. They scope a row to a principal rather than tying two rows into one
+ * consistency invariant, so two unrelated tables written for the same `userId` are not a pair.
+ */
+const SCOPE_ONLY_KEY =
+  /^(?:actor|author|creator|customer|member|org|organization|owner|principal|tenant|user|workspace)(?:Id|_id|Uuid|Key|Ref)$/u;
 
 const DATA_ACCESS_ROOT =
   /^(?:client|collection|conn|connection|database|datasource|db|drizzle|em|entitymanager|firestore|knex|manager|model|models|mongo|mongoose|orm|pool|prisma|queryrunner|repo|repository|sequelize|session|sql|store|supabase|trx|tx|txn)$/iu;
@@ -191,6 +242,12 @@ type Coverage = {
   /** Identity of the boundary, so two writes in different transactions do not look atomic. */
   boundary: string;
   detail: string;
+  /**
+   * The transaction call that owns a lexical boundary. Two distinct boundaries where one encloses
+   * the other are nested rather than sibling transactions, which vendors implement as savepoints or
+   * as independent connections; the node is kept so that difference can be detected.
+   */
+  scopeNode?: ts.Node;
 };
 
 type WriteOperation = {
@@ -215,7 +272,21 @@ type WriteOperation = {
   viaHelper?: string;
 };
 
-type TransactionMarker = { kind: "begin" | "commit" | "rollback"; start: number };
+/**
+ * A raw transaction statement. The receiver and the declaring node are both recorded because a
+ * `BEGIN` only bounds writes issued on the same connection inside the same workflow: markers are
+ * otherwise file-global, and a `BEGIN`/`COMMIT` pair in an unrelated function would appear to
+ * enclose every write positioned between them.
+ */
+type TransactionMarker = {
+  kind: "begin" | "commit" | "rollback";
+  start: number;
+  root: string;
+  node: ts.CallExpression;
+};
+
+/** A named binding together with the scope it was declared in, so it cannot leak across functions. */
+type HandleBinding = { name: string; scope: ts.Node };
 
 type FileIndex = {
   file: TransactionSourceRecord;
@@ -224,8 +295,10 @@ type FileIndex = {
   functions: Map<string, ts.FunctionLikeDeclaration>;
   /** `const run = prisma.$transaction` style aliases, mapped to the aliased call name. */
   aliases: Map<string, string>;
-  /** Variables bound to a live transaction handle. */
-  handles: Set<string>;
+  /** Variables bound to a live transaction handle, scoped to their declaration. */
+  handles: HandleBinding[];
+  /** Transaction-named bindings whose producer is not a recognized transaction API. */
+  unresolvedHandles: HandleBinding[];
   markers: TransactionMarker[];
 };
 
@@ -238,6 +311,10 @@ type Relationship = { kind: string; description: string };
 export function analyzeTransactionFile(file: TransactionSourceRecord): TransactionIssue[] {
   const index = buildFileIndex(file);
   const scopes = collectWorkflowScopes(index);
+  // A workflow that performs every write through helpers has no direct write of its own, so it
+  // never appeared as a scope and was never analysed. Registering those scopes with an empty direct
+  // list is what makes `record(a); record(b)` visible at all.
+  for (const scope of helperCallScopes(index)) if (!scopes.has(scope)) scopes.set(scope, []);
   const issues: TransactionIssue[] = [];
   for (const [scope, writes] of scopes) {
     const resolved = [...writes, ...helperWrites(index, scope, writes)].sort(
@@ -260,8 +337,9 @@ function buildFileIndex(file: TransactionSourceRecord): FileIndex {
   const sourceFile = file.sourceFile;
   const functions = new Map<string, ts.FunctionLikeDeclaration>();
   const aliases = new Map<string, string>();
-  const deferredHandles = new Map<string, string>();
-  const handles = new Set<string>();
+  const deferredHandles: HandleBinding[] = [];
+  const handles: HandleBinding[] = [];
+  const unresolvedHandles: HandleBinding[] = [];
   const started = new Set<string>();
   const markers: TransactionMarker[] = [];
   walk(sourceFile, (node) => {
@@ -279,9 +357,11 @@ function buildFileIndex(file: TransactionSourceRecord): FileIndex {
         if (alias !== undefined) aliases.set(name, alias);
       }
       if (ts.isCallExpression(value)) {
+        const scope = declarationScope(node);
         const bound = boundHandleKind(value, sourceFile, aliases);
-        if (bound === "immediate") handles.add(name);
-        else if (bound === "deferred") deferredHandles.set(name, name);
+        if (bound === "immediate") handles.push({ name, scope });
+        else if (bound === "deferred") deferredHandles.push({ name, scope });
+        else if (TRANSACTION_HANDLE_NAME.test(name)) unresolvedHandles.push({ name, scope });
       }
     }
     if (ts.isCallExpression(node)) {
@@ -289,14 +369,68 @@ function buildFileIndex(file: TransactionSourceRecord): FileIndex {
       if (chain !== undefined) {
         const tip = chain.segments.at(-1);
         if (tip?.name === "startTransaction") started.add(chain.root);
+        const marker = transactionMarker(node, sourceFile);
+        if (marker !== undefined)
+          markers.push({
+            kind: marker,
+            start: node.getStart(sourceFile),
+            root: chain.root,
+            node
+          });
       }
-      const marker = transactionMarker(node, sourceFile);
-      if (marker !== undefined) markers.push({ kind: marker, start: node.getStart(sourceFile) });
     }
   });
-  for (const [name, root] of deferredHandles) if (started.has(root)) handles.add(name);
+  for (const deferred of deferredHandles)
+    if (started.has(deferred.name)) handles.push(deferred);
+    else unresolvedHandles.push(deferred);
   markers.sort((left, right) => left.start - right.start);
-  return { file, sourceFile, functions, aliases, handles, markers };
+  return { file, sourceFile, functions, aliases, handles, unresolvedHandles, markers };
+}
+
+/** The function (or the file) a declaration belongs to. Bindings never escape their own scope. */
+function declarationScope(node: ts.Node): ts.Node {
+  let current: ts.Node = node;
+  while (!ts.isSourceFile(current)) {
+    if (ts.isFunctionLike(current)) return current;
+    current = current.parent;
+  }
+  return current;
+}
+
+function containsNode(scope: ts.Node, node: ts.Node): boolean {
+  let current: ts.Node = node;
+  for (;;) {
+    if (current === scope) return true;
+    if (ts.isSourceFile(current)) return false;
+    current = current.parent;
+  }
+}
+
+/**
+ * Resolves a name to a live transaction handle visible at `node`.
+ *
+ * A same-named parameter shadows any outer binding: a function that receives `trx` as an argument
+ * decides nothing about atomicity here, even when another function in the same file happens to
+ * open a transaction into a variable of that name.
+ */
+function handleInScope(index: FileIndex, name: string, node: ts.Node): boolean {
+  if (isParameterReceiver(node, name)) return false;
+  return index.handles.some((handle) => handle.name === name && containsNode(handle.scope, node));
+}
+
+function unresolvedHandleInScope(index: FileIndex, name: string, node: ts.Node): boolean {
+  if (isParameterReceiver(node, name)) return false;
+  return index.unresolvedHandles.some(
+    (handle) => handle.name === name && containsNode(handle.scope, node)
+  );
+}
+
+/** Name-only lookup used for write *detection*, where a handle anywhere in the file is a signal. */
+function declaresHandleNamed(index: FileIndex, name: string): boolean {
+  return (
+    index.handles.some((handle) => handle.name === name) ||
+    index.unresolvedHandles.some((handle) => handle.name === name)
+  );
 }
 
 /** `await`, parentheses, and `as` casts never change which value is being bound. */
@@ -366,6 +500,37 @@ function collectWorkflowScopes(index: FileIndex): Map<ts.Node, WriteOperation[]>
   return scopes;
 }
 
+/**
+ * Scopes that write only through locally declared helpers.
+ *
+ * `collectWorkflowScopes` keys on direct writes, so a function whose every write happens inside a
+ * helper it calls produced no scope entry and was skipped entirely — a silent false negative for
+ * exactly the delegation style helper inlining exists to handle.
+ */
+function helperCallScopes(index: FileIndex): ts.Node[] {
+  const found: ts.Node[] = [];
+  const seen = new Set<ts.Node>();
+  walk(index.sourceFile, (node) => {
+    if (!ts.isCallExpression(node) || !ts.isIdentifier(node.expression)) return;
+    const declaration = index.functions.get(node.expression.text);
+    if (declaration?.body === undefined) return;
+    const scope = workflowScope(index, node);
+    if (scope === declaration || seen.has(scope)) return;
+    if (!containsWrite(index, declaration.body)) return;
+    seen.add(scope);
+    found.push(scope);
+  });
+  return found;
+}
+
+function containsWrite(index: FileIndex, node: ts.Node): boolean {
+  const writes: ts.Node[] = [];
+  walk(node, (inner) => {
+    if (ts.isCallExpression(inner) && describeWrite(index, inner) !== undefined) writes.push(inner);
+  });
+  return writes.length > 0;
+}
+
 function workflowScope(index: FileIndex, node: ts.Node): ts.Node {
   let current: ts.Node = node;
   while (!ts.isSourceFile(current)) {
@@ -394,10 +559,19 @@ function describeWrite(index: FileIndex, node: ts.CallExpression): WriteOperatio
   const identifiers = new Map<string, string>();
   const foreignKeys = new Set<string>();
   let mutatesAmount = write.kind === "adjust";
-  for (const argument of node.arguments) {
-    collectSymbols(argument, sourceFile, symbols);
-    collectIdentifierProperties(argument, sourceFile, identifiers, foreignKeys, 0);
-    if (AMOUNT_PROPERTY.test(argument.getText(sourceFile))) mutatesAmount = true;
+  // Every call in the fluent chain contributes, not just the outermost one. `knex("accounts")
+  // .where({ id }).update({ balance })` keys its row in `.where()`, so reading only the last call's
+  // arguments left every Knex-style write with no identifier evidence and no relation to anything.
+  for (const segment of chain.segments) {
+    const call = segment.call;
+    if (call === undefined) continue;
+    for (const argument of call.arguments) {
+      collectSymbols(argument, sourceFile, symbols);
+      collectIdentifierProperties(argument, sourceFile, identifiers, foreignKeys, 0);
+      // A row selector naming a column called `total` selects rows; it does not move money.
+      if (!FILTER_KEYS.has(segment.name) && mutatesAmountValue(argument, sourceFile, 0))
+        mutatesAmount = true;
+    }
   }
   const binding = resultBinding(node);
   const operation: WriteOperation = {
@@ -416,6 +590,39 @@ function describeWrite(index: FileIndex, node: ts.CallExpression): WriteOperatio
   if (binding !== undefined) operation.binding = binding;
   operation.coverage = assessCoverage(index, operation, chain);
   return operation;
+}
+
+/**
+ * True when the write actually mutates a quantity, which is what raises financial severity.
+ *
+ * The previous test matched the whole argument text, so `update({ where: { totalId: x }, data: {
+ * note } })` was scored as an amount write on the strength of a filter column. Only mutation keys
+ * are considered now, and only keys: a value expression that merely mentions `total` is not
+ * evidence that a balance moved.
+ */
+function mutatesAmountValue(
+  node: ts.Expression,
+  sourceFile: ts.SourceFile,
+  depth: number
+): boolean {
+  if (depth > OBJECT_SCAN_DEPTH) return false;
+  if (!ts.isObjectLiteralExpression(node)) return AMOUNT_PROPERTY.test(node.getText(sourceFile));
+  for (const property of node.properties) {
+    if (ts.isShorthandPropertyAssignment(property)) {
+      if (AMOUNT_PROPERTY.test(property.name.text)) return true;
+      continue;
+    }
+    if (!ts.isPropertyAssignment(property)) continue;
+    const key = property.name.getText(sourceFile).replace(/["']/gu, "");
+    if (FILTER_KEYS.has(key)) continue;
+    if (AMOUNT_PROPERTY.test(key)) return true;
+    if (
+      ts.isObjectLiteralExpression(property.initializer) &&
+      mutatesAmountValue(property.initializer, sourceFile, depth + 1)
+    )
+      return true;
+  }
+  return false;
 }
 
 /** True when this call is only a link of a longer fluent chain; the outermost call owns the write. */
@@ -518,7 +725,10 @@ function hasDataAccessReceiver(
       DATA_ACCESS_ROOT.test(candidate) ||
       DATA_ACCESS_SUFFIX.test(candidate) ||
       PASCAL_CASE.test(candidate) ||
-      index.handles.has(candidate) ||
+      // Detection, unlike boundary proof, is name-only on purpose: a name bound to a handle
+      // anywhere in the file is evidence that the receiver is a data-access object, and missing
+      // the write entirely would hide the workflow in both directions.
+      declaresHandleNamed(index, candidate) ||
       isWrapperCallbackParameter(node, candidate)
   );
 }
@@ -570,20 +780,20 @@ function resultBinding(node: ts.CallExpression): string | undefined {
 function assessCoverage(index: FileIndex, write: WriteOperation, chain: CallChain): Coverage {
   const sourceFile = index.sourceFile;
   const handleOption = optionHandle(write.node, sourceFile);
-  if (index.handles.has(chain.root))
+  if (handleInScope(index, chain.root, write.node))
     return {
       state: "PROVEN",
       boundary: `handle:${chain.root}`,
       detail: `the write runs on transaction handle \`${chain.root}\``
     };
   const transacting = transactingArgument(chain);
-  if (transacting !== undefined && index.handles.has(transacting))
+  if (transacting !== undefined && handleInScope(index, transacting, write.node))
     return {
       state: "PROVEN",
       boundary: `handle:${transacting}`,
       detail: `the write is bound to transaction handle \`${transacting}\` via .transacting()`
     };
-  if (handleOption !== undefined && index.handles.has(handleOption))
+  if (handleOption !== undefined && handleInScope(index, handleOption, write.node))
     return {
       state: "PROVEN",
       boundary: `handle:${handleOption}`,
@@ -599,13 +809,19 @@ function assessCoverage(index: FileIndex, write: WriteOperation, chain: CallChai
       detail: `the write threads \`${symbol}\` as a transaction handle, but its origin is not a recognized transaction API`
     };
   }
-  const raw = rawBoundary(index, write.node);
+  const raw = rawBoundary(index, write.node, chain);
   if (raw !== undefined) return raw;
-  if (isParameterReceiver(index, write.node, chain.root))
+  if (isParameterReceiver(write.node, chain.root))
     return {
       state: "UNRESOLVED",
       boundary: `parameter:${chain.root}`,
       detail: `the data-access receiver \`${chain.root}\` is supplied by the caller, so the boundary is decided outside this function`
+    };
+  if (unresolvedHandleInScope(index, chain.root, write.node))
+    return {
+      state: "UNRESOLVED",
+      boundary: `unresolved-origin:${chain.root}`,
+      detail: `the receiver \`${chain.root}\` is named as a transaction handle but is produced by a call this analyzer cannot classify, so the boundary is neither proven nor disproven`
     };
   return { state: "NONE", boundary: "", detail: "no transaction encloses the write" };
 }
@@ -625,7 +841,8 @@ function lexicalBoundary(
         return {
           state: "PROVEN",
           boundary: `scope:${parent.getStart(index.sourceFile)}`,
-          detail: `the write runs inside ${label === undefined ? "a transaction scope" : `\`${chainName(label)}\``}`
+          detail: `the write runs inside ${label === undefined ? "a transaction scope" : `\`${chainName(label)}\``}`,
+          scopeNode: parent
         };
       }
       if (classification === "unknown" && usesCallbackParameter(index, parent, node, chain))
@@ -738,19 +955,40 @@ function isKnownTransactionChain(chain: CallChain, aliases: ReadonlyMap<string, 
   );
 }
 
-/** A `BEGIN` … `COMMIT` pair in raw SQL is an atomic boundary for writes positioned between them. */
-function rawBoundary(index: FileIndex, node: ts.CallExpression): Coverage | undefined {
+/**
+ * A raw `BEGIN` … terminator pair is an atomic boundary for writes positioned between them.
+ *
+ * Three conditions are required beyond position, because position alone proved boundaries that do
+ * not exist. The marker must run on the same receiver as the write, so a `BEGIN` on one connection
+ * cannot bound a write on another. It must belong to the same workflow, so a `BEGIN`/`COMMIT` pair
+ * in a neighbouring function cannot enclose everything written between them. And no terminator may
+ * sit between the `BEGIN` and the write, because a transaction that already committed does not
+ * cover what follows it.
+ *
+ * `ROLLBACK` closes the boundary exactly as `COMMIT` does: a rolled-back transaction still applies
+ * all of the writes or none of them, which is the invariant this rule is about.
+ */
+function rawBoundary(
+  index: FileIndex,
+  node: ts.CallExpression,
+  chain: CallChain
+): Coverage | undefined {
   const start = node.getStart(index.sourceFile);
-  const begin = index.markers
-    .filter((marker) => marker.kind === "begin" && marker.start < start)
-    .at(-1);
+  const scope = workflowScope(index, node);
+  const scoped = index.markers.filter(
+    (marker) => marker.root === chain.root && workflowScope(index, marker.node) === scope
+  );
+  const begin = scoped.filter((marker) => marker.kind === "begin" && marker.start < start).at(-1);
   if (begin === undefined) return undefined;
-  const commit = index.markers.find((marker) => marker.kind === "commit" && marker.start > start);
-  if (commit === undefined) return undefined;
+  const closed = (marker: TransactionMarker): boolean => marker.kind !== "begin";
+  if (scoped.some((marker) => closed(marker) && marker.start > begin.start && marker.start < start))
+    return undefined;
+  const terminator = scoped.find((marker) => closed(marker) && marker.start > start);
+  if (terminator === undefined) return undefined;
   return {
     state: "PROVEN",
     boundary: `raw:${begin.start}`,
-    detail: `the write is between an explicit BEGIN and COMMIT`
+    detail: `the write is between an explicit BEGIN and ${terminator.kind.toUpperCase()} on \`${chain.root}\``
   };
 }
 
@@ -762,6 +1000,17 @@ function optionHandle(node: ts.CallExpression, sourceFile: ts.SourceFile): strin
   return undefined;
 }
 
+/**
+ * Finds the symbol threaded as a transaction handle in an options object.
+ *
+ * A handle reached through a property path (`{ transaction: ctx.tx }`) is still deliberately
+ * threaded, so its full path is returned rather than ignored. Nothing in this file can resolve
+ * `ctx.tx`, and that is the point: naming it produces NOT_VERIFIED instead of the confident "no
+ * transaction encloses the write" that ignoring it produced.
+ *
+ * Row payloads and filters are never descended into, so a column named `session` or `client` cannot
+ * masquerade as a handle and downgrade a genuine defect to an evidence gap.
+ */
 function findOptionHandle(
   node: ts.Expression,
   sourceFile: ts.SourceFile,
@@ -773,8 +1022,12 @@ function findOptionHandle(
       return property.name.text;
     if (!ts.isPropertyAssignment(property)) continue;
     const key = property.name.getText(sourceFile).replace(/["']/gu, "");
-    if (HANDLE_OPTION_KEYS.has(key) && ts.isIdentifier(property.initializer))
-      return property.initializer.text;
+    if (HANDLE_OPTION_KEYS.has(key)) {
+      const named = expressionName(unwrapValue(property.initializer));
+      if (named !== undefined) return named;
+      continue;
+    }
+    if (PAYLOAD_KEYS.has(key)) continue;
     const nested = findOptionHandle(property.initializer, sourceFile, depth + 1);
     if (nested !== undefined) return nested;
   }
@@ -790,7 +1043,7 @@ function transactingArgument(chain: CallChain): string | undefined {
   return undefined;
 }
 
-function isParameterReceiver(index: FileIndex, node: ts.Node, root: string): boolean {
+function isParameterReceiver(node: ts.Node, root: string): boolean {
   let current: ts.Node = node;
   while (!ts.isSourceFile(current)) {
     if (ts.isFunctionLike(current)) {
@@ -799,7 +1052,6 @@ function isParameterReceiver(index: FileIndex, node: ts.Node, root: string): boo
     }
     current = current.parent;
   }
-  void index;
   return false;
 }
 
@@ -810,6 +1062,12 @@ function isParameterReceiver(index: FileIndex, node: ts.Node, root: string): boo
 /**
  * Inlines writes performed by locally declared helpers that the workflow calls directly. Depth is
  * bounded to one level; anything deeper is left out rather than guessed at.
+ *
+ * Inlining is tracked per call site, not per helper body. A shared set of already-visited helper
+ * nodes silently dropped every call after the first, so `record(a); record(b)` — two related rows
+ * written by two calls to one helper, with no boundary around either — produced no finding at all.
+ * Only the workflow's own direct writes are excluded, so a helper that *is* the workflow scope
+ * cannot have its writes counted twice.
  */
 function helperWrites(
   index: FileIndex,
@@ -817,7 +1075,7 @@ function helperWrites(
   direct: readonly WriteOperation[]
 ): WriteOperation[] {
   const inlined: WriteOperation[] = [];
-  const seen = new Set<ts.Node>(direct.map((write) => write.node));
+  const directNodes = new Set<ts.Node>(direct.map((write) => write.node));
   walk(scope, (node) => {
     if (!ts.isCallExpression(node) || !ts.isIdentifier(node.expression)) return;
     if (workflowScope(index, node) !== scope) return;
@@ -831,10 +1089,9 @@ function helperWrites(
       segments: []
     });
     walk(declaration.body, (inner) => {
-      if (!ts.isCallExpression(inner) || seen.has(inner)) return;
+      if (!ts.isCallExpression(inner) || directNodes.has(inner)) return;
       const write = describeWrite(index, inner);
       if (write === undefined) return;
-      seen.add(inner);
       inlined.push(rebindHelperWrite(index, write, node, declaration, parameters, callerCoverage));
     });
   });
@@ -951,12 +1208,17 @@ function relate(first: WriteOperation, second: WriteOperation): Relationship | u
       kind: "same-entity",
       description: `both writes address \`${first.entity}\` rows keyed by \`${shared}\``
     };
-  const domain = pairedDomain(first, second);
-  if (domain !== undefined)
+  const domains = pairedDomains(first, second);
+  if (domains !== undefined) {
+    const [left, right] = domains;
     return {
-      kind: `${domain}-pair`,
-      description: `\`${first.entity}\` and \`${second.entity}\` are ${domain} records keyed by the same identifier \`${shared}\``
+      kind: left === right ? `${left}-pair` : "mixed-domain-pair",
+      description:
+        left === right
+          ? `\`${first.entity}\` and \`${second.entity}\` are ${left} records keyed by the same identifier \`${shared}\``
+          : `\`${first.entity}\` (${left}) and \`${second.entity}\` (${right}) are consistency-critical records keyed by the same identifier \`${shared}\``
     };
+  }
   if (first.kind === "delete" || second.kind === "delete")
     return {
       kind: "destructive-dependency",
@@ -992,18 +1254,46 @@ function foreignKeyRelation(
   };
 }
 
+/**
+ * The identifier two writes share, when that identifier actually ties the two rows together.
+ *
+ * A value carried only under ownership or tenancy keys is rejected: `userId` appearing on a deleted
+ * draft and on a new notification proves that one principal owns both rows, not that the two rows
+ * form one invariant. Accepting it made every pair of writes in a per-user request handler look
+ * related, which is the loudest false-positive shape this rule can produce.
+ */
 function sharedIdentifier(first: WriteOperation, second: WriteOperation): string | undefined {
   const candidates: string[] = [];
-  for (const value of first.identifiers.values())
-    if ([...second.identifiers.values()].includes(value)) candidates.push(value);
+  for (const value of first.identifiers.values()) {
+    if (![...second.identifiers.values()].includes(value)) continue;
+    if (!tiesRowsTogether(first, second, value)) continue;
+    candidates.push(value);
+  }
   return candidates.sort()[0];
 }
 
-function pairedDomain(first: WriteOperation, second: WriteOperation): ImpactDomain | undefined {
+function tiesRowsTogether(first: WriteOperation, second: WriteOperation, value: string): boolean {
+  for (const write of [first, second])
+    for (const [key, candidate] of write.identifiers)
+      if (candidate === value && !SCOPE_ONLY_KEY.test(key)) return true;
+  return false;
+}
+
+/**
+ * The impact domains of a pair of non-ordinary writes, in argument order.
+ *
+ * Mismatched domains previously collapsed to `financial`, which put "are financial records" into
+ * the evidence of a seat/token pair that contains no financial record at all. The pairing is still
+ * reported — both rows are consistency-critical — but each domain is now named as observed.
+ */
+function pairedDomains(
+  first: WriteOperation,
+  second: WriteOperation
+): [ImpactDomain, ImpactDomain] | undefined {
   const left = impactDomain(first.entity);
   const right = impactDomain(second.entity);
   if (left === "ordinary" || right === "ordinary") return undefined;
-  return left === right ? left : "financial";
+  return [left, right];
 }
 
 function impactDomain(entity: string): ImpactDomain {
@@ -1020,10 +1310,12 @@ function impactDomain(entity: string): ImpactDomain {
 function groupIssues(index: FileIndex, group: readonly WriteOperation[]): TransactionIssue[] {
   const states = new Set(group.map((write) => write.coverage.state));
   const boundaries = new Set(group.map((write) => write.coverage.boundary));
-  if (states.size === 1 && states.has("PROVEN") && boundaries.size === 1) return [];
+  const allProven = states.size === 1 && states.has("PROVEN");
+  if (allProven && boundaries.size === 1) return [];
   const anchor = group[0];
   if (anchor === undefined) return [];
-  const unresolved = states.has("UNRESOLVED");
+  const nested = allProven && nestedBoundaries(group);
+  const unresolved = states.has("UNRESOLVED") || nested;
   const template = unresolved ? UNRESOLVED_BOUNDARY : MISSING_BOUNDARY;
   const severity = severityFor(group);
   const confidence = confidenceFor(group, unresolved);
@@ -1035,12 +1327,14 @@ function groupIssues(index: FileIndex, group: readonly WriteOperation[]): Transa
         `${write.name} (${index.file.path}:${write.line}${write.viaHelper === undefined ? "" : ` via ${write.viaHelper}()`})`
     )
     .join(", ");
-  const boundaryText = unresolved
-    ? group
-        .filter((write) => write.coverage.state === "UNRESOLVED")
-        .map((write) => write.coverage.detail)
-        .sort()[0]
-    : boundaryFailure(group);
+  const boundaryText = nested
+    ? "one transaction scope is nested inside the other; whether the inner scope is a savepoint of the outer transaction or an independent one is vendor-specific and not decidable from this file"
+    : unresolved
+      ? group
+          .filter((write) => write.coverage.state === "UNRESOLVED")
+          .map((write) => write.coverage.detail)
+          .sort()[0]
+      : boundaryFailure(group);
   const issue: TransactionIssue = {
     spec: { ...template, severity, confidence },
     file: index.file,
@@ -1054,10 +1348,33 @@ function groupIssues(index: FileIndex, group: readonly WriteOperation[]): Transa
       .map((write) => `\`${write.entity}\``)
       .join(
         " and "
-      )} ${group.length > 2 ? "are" : "is"} missing, so the ${impactDomain(anchor.entity)} invariant is left half-applied.`
+      )} ${group.length > 2 ? "are" : "is"} missing, so the ${dominantDomain(group)} invariant is left half-applied.`
   };
   if (unresolved) issue.status = "NOT_VERIFIED";
   return [issue];
+}
+
+/**
+ * True when every write is inside a proven transaction, but one of those transactions lexically
+ * encloses the others.
+ *
+ * Nesting is not the same defect as two sibling transactions. A vendor may implement an inner
+ * `transaction` call as a savepoint of the outer one — in which case the writes *are* atomic — or as
+ * an independent connection, in which case they are not. Nothing in a single file distinguishes the
+ * two, so the group is reported as unproven rather than as a confident split.
+ */
+function nestedBoundaries(group: readonly WriteOperation[]): boolean {
+  const nodes = group.map((write) => write.coverage.scopeNode);
+  if (nodes.some((node) => node === undefined)) return false;
+  const scopes = nodes as ts.Node[];
+  return scopes.some((candidate) => scopes.every((other) => containsNode(candidate, other)));
+}
+
+/** The most impactful domain present in the group, so the evidence never understates the group. */
+function dominantDomain(group: readonly WriteOperation[]): ImpactDomain {
+  const present = new Set(group.map((write) => impactDomain(write.entity)));
+  const ranked: ImpactDomain[] = ["financial", "access-control", "inventory", "ordinary"];
+  return ranked.find((domain) => present.has(domain)) ?? "ordinary";
 }
 
 function boundaryFailure(group: readonly WriteOperation[]): string {
@@ -1096,15 +1413,23 @@ function severityFor(group: readonly WriteOperation[]): Severity {
   return destructive || group.length > 2 ? "HIGH" : "MEDIUM";
 }
 
+/**
+ * Confidence is raised by the strongest relation anywhere in the group, not by the relation between
+ * its first two members. A three-step workflow whose dataflow runs between the second and third
+ * write is exactly as well evidenced as one whose dataflow runs between the first and second.
+ */
 function confidenceFor(group: readonly WriteOperation[], unresolved: boolean): Confidence {
   if (unresolved) return "LOW";
-  const first = group[0];
-  const second = group[1];
-  if (first === undefined || second === undefined) return "MEDIUM";
-  const relationship = relate(first, second);
-  return relationship?.kind === "dataflow" || relationship?.kind === "parent-child"
-    ? "HIGH"
-    : "MEDIUM";
+  for (let left = 0; left < group.length; left += 1) {
+    for (let right = left + 1; right < group.length; right += 1) {
+      const first = group[left];
+      const second = group[right];
+      if (first === undefined || second === undefined) continue;
+      const kind = relate(first, second)?.kind;
+      if (kind === "dataflow" || kind === "parent-child") return "HIGH";
+    }
+  }
+  return "MEDIUM";
 }
 
 function scopeName(index: FileIndex, node: ts.Node): string {
