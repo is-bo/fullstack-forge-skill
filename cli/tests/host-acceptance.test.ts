@@ -618,7 +618,8 @@ test("host acceptance 11a (simulated): upgrading from the legacy full-copy layou
     // The legacy playbook path is reused by the adapter, so it is updated in place, never orphaned.
     assert.ok(
       actions.some(
-        (action) => action.action === "update" && action.path === ".claude/skills/forge-api/SKILL.md"
+        (action) =>
+          action.action === "update" && action.path === ".claude/skills/forge-api/SKILL.md"
       )
     );
 
@@ -653,7 +654,15 @@ test("host acceptance 11b (simulated): a legacy playbook the user edited blocks 
     // was retired: an aborted upgrade leaves a working previous installation, not a half-migrated one.
     assert.equal(await readFile(join(root, ...userEdited.split("/")), "utf8"), userBytes);
     await stat(
-      join(root, ".cursor", "skills", "fullstack-forge", "references", "shared", "module-contract.md")
+      join(
+        root,
+        ".cursor",
+        "skills",
+        "fullstack-forge",
+        "references",
+        "shared",
+        "module-contract.md"
+      )
     );
 
     // Once the user reverts their edit the upgrade completes and the host resolves.

@@ -378,61 +378,95 @@ test("host acceptance 10 (simulated): modified host adapters are preserved on un
         await assert.rejects(install(root, "claude", { global: false, dryRun: false }), /Refusing to overwrite an unowned file|modified owned file/u);
     });
 });
-test("host acceptance 11 (simulated): upgrading from the legacy full-copy layout is safe and leaves every host resolvable", async () => {
+/**
+ * Writes the previous full-copy layout: a complete playbook in each host root plus the reference
+ * files that layout also duplicated, recorded by a schema-1 manifest with no `kind` field. That is
+ * exactly what a pre-canonical release left on disk.
+ *
+ * Returns the legacy paths that the canonical layout no longer writes, which are the paths
+ * migration has to retire. `<host>/<skill>/SKILL.md` is deliberately not among them: the adapter
+ * occupies that same path, so it is an update, not a retirement.
+ */
+async function seedLegacyLayout(root, hosts) {
+    const legacyFiles = {};
+    const legacySkills = ["fullstack-forge", "forge", "forge-api", "forge-security"];
+    const retirablePaths = [];
+    for (const [hostRoot, platform] of hosts) {
+        for (const skill of legacySkills) {
+            const bytes = await canonicalSource(`${skill}/SKILL.md`);
+            const relative = `${hostRoot}/${skill}/SKILL.md`;
+            const target = join(root, ...relative.split("/"));
+            await mkdir(dirname(target), { recursive: true });
+            await writeFile(target, bytes);
+            legacyFiles[relative] = { hash: sha256(bytes), platform, owned: true };
+        }
+        // The old layout also duplicated shared references into every host root. Nothing in the
+        // canonical layout writes these paths, so migration must retire them.
+        const shared = `${hostRoot}/fullstack-forge/references/shared/module-contract.md`;
+        const sharedBytes = await canonicalSource("fullstack-forge/references/shared/module-contract.md");
+        const sharedTarget = join(root, ...shared.split("/"));
+        await mkdir(dirname(sharedTarget), { recursive: true });
+        await writeFile(sharedTarget, sharedBytes);
+        legacyFiles[shared] = { hash: sha256(sharedBytes), platform, owned: true };
+        retirablePaths.push(shared);
+    }
+    await mkdir(join(root, ".fullstack-forge"), { recursive: true });
+    await writeFile(join(root, ".fullstack-forge", "install-manifest.json"), `${JSON.stringify({
+        schemaVersion: 1,
+        packageVersion: "0.0.1",
+        root,
+        installedAt: new Date().toISOString(),
+        agent_first: true,
+        automatic_activation: false,
+        files: legacyFiles
+    }, null, 2)}\n`, "utf8");
+    return { retirablePaths };
+}
+test("host acceptance 11a (simulated): upgrading from the legacy full-copy layout migrates every host and retires only duplicated content", async () => {
     await withTemporaryProject("host-legacy-upgrade", async (root) => {
-        // Reconstruct the previous layout: full playbook copies inside each host root, recorded by a
-        // schema-1 manifest with no `kind` field, which is exactly what a pre-canonical release wrote.
-        const legacyFiles = {};
-        const legacySkills = ["fullstack-forge", "forge", "forge-api", "forge-security"];
-        for (const [hostRoot, platform] of [
+        const { retirablePaths } = await seedLegacyLayout(root, [
             [".claude/skills", "claude"],
             [".cursor/skills", "cursor"]
-        ]) {
-            for (const skill of legacySkills) {
-                const bytes = await canonicalSource(`${skill}/SKILL.md`);
-                const relative = `${hostRoot}/${skill}/SKILL.md`;
-                const target = join(root, ...relative.split("/"));
-                await mkdir(dirname(target), { recursive: true });
-                await writeFile(target, bytes);
-                legacyFiles[relative] = { hash: sha256(bytes), platform, owned: true };
-            }
-        }
-        // One legacy file the user edited. Migration must never delete it.
-        const userEdited = ".cursor/skills/forge-api/SKILL.md";
-        await writeFile(join(root, ...userEdited.split("/")), "user rewrote this playbook\n", "utf8");
-        await mkdir(join(root, ".fullstack-forge"), { recursive: true });
-        await writeFile(join(root, ".fullstack-forge", "install-manifest.json"), `${JSON.stringify({
-            schemaVersion: 1,
-            packageVersion: "0.0.1",
-            root,
-            installedAt: new Date().toISOString(),
-            agent_first: true,
-            automatic_activation: false,
-            files: legacyFiles
-        }, null, 2)}\n`, "utf8");
+        ]);
         const actions = await install(root, "claude,cursor", { global: false, dryRun: false });
-        // Legacy Claude copies were unmodified, so they are retired in favour of adapters.
-        assert.ok(actions.some((action) => action.kind === "retired" &&
-            action.action === "remove" &&
-            action.path === ".claude/skills/forge-security/SKILL.md"));
-        // The user's edit survives, reported rather than deleted.
-        assert.ok(actions.some((action) => action.action === "preserve-modified" && action.path === userEdited));
-        assert.equal(await readFile(join(root, ...userEdited.split("/")), "utf8"), "user rewrote this playbook\n");
+        // Duplicated reference copies are retired; the canonical tree now holds the single copy.
+        for (const retired of retirablePaths) {
+            assert.ok(actions.some((action) => action.kind === "retired" && action.action === "remove" && action.path === retired), `${retired} should have been retired`);
+            await assert.rejects(stat(join(root, ...retired.split("/"))), { code: "ENOENT" });
+        }
+        // The legacy playbook path is reused by the adapter, so it is updated in place, never orphaned.
+        assert.ok(actions.some((action) => action.action === "update" && action.path === ".claude/skills/forge-api/SKILL.md"));
         const manifest = await readInstallManifest(root);
         assert.ok(manifest);
         assert.equal(manifest.schemaVersion, 2);
         assert.equal(manifest.packageVersion, VERSION);
-        // Both hosts resolve the full skill set through the canonical root after migration. The one
-        // path the user pinned is skipped: it is theirs now, not Forge's.
+        // Both hosts resolve the full skill set through the canonical root after migration.
         for (const host of HOSTS.filter((entry) => entry.id === "claude" || entry.id === "cursor")) {
             const skills = await discoverSkills(root, host);
             assert.equal(skills.length, EXPECTED_SKILLS);
-            for (const skill of skills) {
-                if (`${host.skillsRoot.join("/")}/${skill}/SKILL.md` === userEdited)
-                    continue;
+            for (const skill of skills)
                 await resolveThroughHost(root, host, skill);
-            }
         }
+    });
+});
+test("host acceptance 11b (simulated): a legacy playbook the user edited blocks the upgrade instead of being overwritten", async () => {
+    await withTemporaryProject("host-legacy-modified", async (root) => {
+        await seedLegacyLayout(root, [[".cursor/skills", "cursor"]]);
+        // The adapter would land on this exact path, so the user's edit is directly at risk.
+        const userEdited = ".cursor/skills/forge-api/SKILL.md";
+        const userBytes = "user rewrote this playbook\n";
+        await writeFile(join(root, ...userEdited.split("/")), userBytes, "utf8");
+        await assert.rejects(install(root, "cursor", { global: false, dryRun: false }), /Refusing to overwrite a modified owned file: \.cursor\/skills\/forge-api\/SKILL\.md/u);
+        // The refusal happens during preflight, so the user's bytes are untouched and no legacy file
+        // was retired: an aborted upgrade leaves a working previous installation, not a half-migrated one.
+        assert.equal(await readFile(join(root, ...userEdited.split("/")), "utf8"), userBytes);
+        await stat(join(root, ".cursor", "skills", "fullstack-forge", "references", "shared", "module-contract.md"));
+        // Once the user reverts their edit the upgrade completes and the host resolves.
+        await writeFile(join(root, ...userEdited.split("/")), await canonicalSource("forge-api/SKILL.md"));
+        await install(root, "cursor", { global: false, dryRun: false });
+        const cursor = HOSTS.find((entry) => entry.id === "cursor");
+        for (const skill of await discoverSkills(root, cursor))
+            await resolveThroughHost(root, cursor, skill);
     });
 });
 test("host acceptance 12 (simulated): an interrupted installation resumes to a fully resolvable layout", async () => {
