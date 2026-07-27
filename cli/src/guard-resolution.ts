@@ -1,5 +1,14 @@
 import ts from "typescript";
 import { resolveImport } from "./scope.js";
+import {
+  commonJsExport,
+  exportedAs,
+  hasModifier,
+  importedBinding,
+  localDeclaration,
+  namespaceRequest,
+  unwrapExpression as unwrap
+} from "./module-resolution.js";
 
 /**
  * Bounded cross-file resolution of route authorization middleware.
@@ -36,8 +45,6 @@ export const MAX_GUARD_FILES = 12;
 export const MAX_BARREL_BRANCHES = 8;
 /** Maximum times a factory's return value is followed to the middleware it produces. */
 export const MAX_FACTORY_DEPTH = 2;
-/** Maximum expression wrappers (parentheses, casts, non-null assertions) peeled from a value. */
-const MAX_UNWRAP_STEPS = 8;
 
 /**
  * A parsed source file addressed by its repository-relative POSIX path.
@@ -811,154 +818,6 @@ function returnedExpression(fn: ts.FunctionLikeDeclaration): ts.Expression | und
   };
   ts.forEachChild(body, walk);
   return result;
-}
-
-/** The module specifier and exported name an imported local binding refers to. */
-function importedBinding(
-  sourceFile: ts.SourceFile,
-  name: string
-): { request: string; exportName: string } | undefined {
-  for (const statement of sourceFile.statements) {
-    if (ts.isImportDeclaration(statement)) {
-      const specifier = statement.moduleSpecifier;
-      if (!ts.isStringLiteralLike(specifier)) continue;
-      const clause = statement.importClause;
-      if (clause === undefined) continue;
-      if (clause.name !== undefined && clause.name.text === name)
-        return { request: specifier.text, exportName: "default" };
-      const bindings = clause.namedBindings;
-      if (bindings === undefined || !ts.isNamedImports(bindings)) continue;
-      for (const element of bindings.elements)
-        if (element.name.text === name)
-          return {
-            request: specifier.text,
-            exportName: (element.propertyName ?? element.name).text
-          };
-    }
-    if (ts.isVariableStatement(statement))
-      for (const declaration of statement.declarationList.declarations) {
-        const request = requireRequest(declaration.initializer);
-        if (request === undefined) continue;
-        if (!ts.isObjectBindingPattern(declaration.name)) continue;
-        for (const element of declaration.name.elements) {
-          if (!ts.isIdentifier(element.name) || element.name.text !== name) continue;
-          const property = element.propertyName;
-          const exportName =
-            property !== undefined && ts.isIdentifier(property) ? property.text : name;
-          return { request, exportName };
-        }
-      }
-  }
-  return undefined;
-}
-
-/** The module specifier a namespace binding refers to (`import * as ns` or `const ns = require`). */
-function namespaceRequest(sourceFile: ts.SourceFile, name: string): string | undefined {
-  for (const statement of sourceFile.statements) {
-    if (ts.isImportDeclaration(statement)) {
-      const specifier = statement.moduleSpecifier;
-      const bindings = statement.importClause?.namedBindings;
-      if (
-        ts.isStringLiteralLike(specifier) &&
-        bindings !== undefined &&
-        ts.isNamespaceImport(bindings) &&
-        bindings.name.text === name
-      )
-        return specifier.text;
-    }
-    if (ts.isVariableStatement(statement))
-      for (const declaration of statement.declarationList.declarations) {
-        if (!ts.isIdentifier(declaration.name) || declaration.name.text !== name) continue;
-        const request = requireRequest(declaration.initializer);
-        if (request !== undefined) return request;
-      }
-  }
-  return undefined;
-}
-
-/** The specifier of a `require("...")` call, when the initializer is exactly that. */
-function requireRequest(initializer: ts.Expression | undefined): string | undefined {
-  if (initializer === undefined) return undefined;
-  const value = unwrap(initializer);
-  if (!ts.isCallExpression(value)) return undefined;
-  if (!ts.isIdentifier(value.expression) || value.expression.text !== "require") return undefined;
-  const argument = value.arguments[0];
-  if (argument === undefined || !ts.isStringLiteralLike(argument)) return undefined;
-  return argument.text;
-}
-
-/** The value assigned by a CommonJS export of `exportName`, when the statement is one. */
-function commonJsExport(statement: ts.Statement, exportName: string): ts.Expression | undefined {
-  if (!ts.isExpressionStatement(statement)) return undefined;
-  const assignment = statement.expression;
-  if (
-    !ts.isBinaryExpression(assignment) ||
-    assignment.operatorToken.kind !== ts.SyntaxKind.EqualsToken
-  )
-    return undefined;
-  const target = assignment.left;
-  if (!ts.isPropertyAccessExpression(target) || !ts.isIdentifier(target.expression))
-    return undefined;
-  if (target.expression.text === "exports" && target.name.text === exportName)
-    return assignment.right;
-  if (target.expression.text !== "module" || target.name.text !== "exports") return undefined;
-  const value = unwrap(assignment.right);
-  if (!ts.isObjectLiteralExpression(value))
-    return exportName === "default" ? assignment.right : undefined;
-  for (const property of value.properties) {
-    if (property.name === undefined || !ts.isIdentifier(property.name)) continue;
-    if (property.name.text !== exportName) continue;
-    if (ts.isPropertyAssignment(property)) return property.initializer;
-    if (ts.isShorthandPropertyAssignment(property)) return property.name;
-  }
-  return undefined;
-}
-
-/** The declaration of a module-scope or nested name, mirroring the in-file analyzer's tolerance. */
-function localDeclaration(
-  sourceFile: ts.SourceFile,
-  name: string
-): ts.FunctionDeclaration | ts.VariableDeclaration | undefined {
-  let found: ts.FunctionDeclaration | ts.VariableDeclaration | undefined;
-  const walk = (node: ts.Node): void => {
-    if (found !== undefined) return;
-    if (ts.isFunctionDeclaration(node) && node.name?.text === name) {
-      found = node;
-      return;
-    }
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === name) {
-      found = node;
-      return;
-    }
-    ts.forEachChild(node, walk);
-  };
-  ts.forEachChild(sourceFile, walk);
-  return found;
-}
-
-function exportedAs(declaration: ts.FunctionDeclaration, exportName: string): boolean {
-  if (!hasModifier(declaration, ts.SyntaxKind.ExportKeyword)) return false;
-  if (hasModifier(declaration, ts.SyntaxKind.DefaultKeyword)) return exportName === "default";
-  return declaration.name?.text === exportName;
-}
-
-function hasModifier(node: ts.Node, kind: ts.SyntaxKind): boolean {
-  if (!ts.canHaveModifiers(node)) return false;
-  return (ts.getModifiers(node) ?? []).some((modifier) => modifier.kind === kind);
-}
-
-/** Peels parentheses, casts, and non-null assertions off a value expression. */
-function unwrap(expression: ts.Expression): ts.Expression {
-  let current = expression;
-  for (let step = 0; step < MAX_UNWRAP_STEPS; step += 1) {
-    if (ts.isParenthesizedExpression(current)) current = current.expression;
-    else if (ts.isAsExpression(current)) current = current.expression;
-    else if (ts.isSatisfiesExpression(current)) current = current.expression;
-    else if (ts.isNonNullExpression(current)) current = current.expression;
-    else if (ts.isTypeAssertionExpression(current)) current = current.expression;
-    else return current;
-  }
-  return current;
 }
 
 function unresolved(reason: string): Lookup {

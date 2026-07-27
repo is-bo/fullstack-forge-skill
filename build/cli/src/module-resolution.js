@@ -284,7 +284,7 @@ export function requireRequest(initializer) {
     return argument.text;
 }
 /** The value assigned by a CommonJS export of `exportName`, when the statement is one. */
-function commonJsExport(statement, exportName) {
+export function commonJsExport(statement, exportName) {
     if (!ts.isExpressionStatement(statement))
         return undefined;
     const assignment = statement.expression;
@@ -332,7 +332,7 @@ export function localDeclaration(sourceFile, name) {
     ts.forEachChild(sourceFile, walk);
     return found;
 }
-function exportedAs(declaration, exportName) {
+export function exportedAs(declaration, exportName) {
     if (!hasModifier(declaration, ts.SyntaxKind.ExportKeyword))
         return false;
     if (hasModifier(declaration, ts.SyntaxKind.DefaultKeyword))

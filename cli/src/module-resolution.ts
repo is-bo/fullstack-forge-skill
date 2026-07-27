@@ -395,7 +395,10 @@ export function requireRequest(initializer: ts.Expression | undefined): string |
 }
 
 /** The value assigned by a CommonJS export of `exportName`, when the statement is one. */
-function commonJsExport(statement: ts.Statement, exportName: string): ts.Expression | undefined {
+export function commonJsExport(
+  statement: ts.Statement,
+  exportName: string
+): ts.Expression | undefined {
   if (!ts.isExpressionStatement(statement)) return undefined;
   const assignment = statement.expression;
   if (
@@ -443,7 +446,7 @@ export function localDeclaration(
   return found;
 }
 
-function exportedAs(declaration: ts.FunctionDeclaration, exportName: string): boolean {
+export function exportedAs(declaration: ts.FunctionDeclaration, exportName: string): boolean {
   if (!hasModifier(declaration, ts.SyntaxKind.ExportKeyword)) return false;
   if (hasModifier(declaration, ts.SyntaxKind.DefaultKeyword)) return exportName === "default";
   return declaration.name?.text === exportName;

@@ -85,8 +85,11 @@ export declare function importedBinding(sourceFile: ts.SourceFile, name: string)
 export declare function namespaceRequest(sourceFile: ts.SourceFile, name: string): string | undefined;
 /** The specifier of a `require("...")` call, when the initializer is exactly that. */
 export declare function requireRequest(initializer: ts.Expression | undefined): string | undefined;
+/** The value assigned by a CommonJS export of `exportName`, when the statement is one. */
+export declare function commonJsExport(statement: ts.Statement, exportName: string): ts.Expression | undefined;
 /** The declaration of a module-scope or nested name, mirroring the analyzer's tolerance. */
 export declare function localDeclaration(sourceFile: ts.SourceFile, name: string): ts.FunctionDeclaration | ts.VariableDeclaration | undefined;
+export declare function exportedAs(declaration: ts.FunctionDeclaration, exportName: string): boolean;
 export declare function hasModifier(node: ts.Node, kind: ts.SyntaxKind): boolean;
 /** Peels parentheses, casts, and non-null assertions off a value expression. */
 export declare function unwrapExpression(expression: ts.Expression): ts.Expression;
