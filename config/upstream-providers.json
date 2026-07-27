@@ -24,6 +24,8 @@
         ".claude/skills/impeccable/scripts/lib/impeccable-config.mjs"
       ],
       "excludedPaths": [
+        ".claude/skills/impeccable/reference/doctor.md",
+        ".claude/skills/impeccable/reference/hooks.md",
         ".claude/skills/impeccable/scripts/detector/browser/",
         ".claude/skills/impeccable/scripts/detector/detect-antipatterns-browser.js",
         ".claude/skills/impeccable/scripts/detector/detect-antipatterns.mjs"
@@ -48,7 +50,7 @@
         ".claude/skills/impeccable/scripts/detector/shared/page.mjs",
         ".claude/skills/impeccable/scripts/lib/impeccable-config.mjs"
       ],
-      "notes": "The detector import closure is vendored whole so the module graph resolves offline; the 350 KiB pre-bundled browser detector and the browser-injection payload are excluded because Forge only ever runs the detector against local files. `forge ui live` ships guidance only: the interactive live server, hook system, and screenshot runtime are deliberately not imported."
+      "notes": "The detector import closure is vendored whole so the module graph resolves offline; the 350 KiB pre-bundled browser detector and the browser-injection payload are excluded because Forge only ever runs the detector against local files. `forge ui live` ships guidance only: the interactive live server, hook system, and screenshot runtime are deliberately not imported. The hook and doctor reference documents are excluded with the subsystems they describe: Forge does not vendor the hook system, and `forge doctor` owns installation health, so shipping guidance for either would advertise a workflow that does not exist."
     },
     {
       "id": "addy-agent-skills",
@@ -227,7 +229,7 @@
       ],
       "excludedPaths": [],
       "runtimeExecutables": [],
-      "notes": "The repository has no LICENSE file at the pinned commit; Apache-2.0 is declared in README.md, recorded verbatim in SOURCE.md. `sentry-setup-metrics` does not exist upstream at this commit — metrics guidance ships only as per-SDK `references/metrics.md`, which is imported with the Go, Python, and Ruby bundles. `sentry-cocoa-sdk` is excluded (no Forge Swift/Objective-C support) as are `sentry-sdk-skill-creator` and `sentry-create-alert`.",
+      "notes": "The repository has no LICENSE file at the pinned commit; Apache-2.0 is declared in README.md, recorded verbatim in SOURCE.md. `sentry-setup-metrics` does not exist upstream at this commit \u2014 metrics guidance ships only as per-SDK `references/metrics.md`, which is imported with the Go, Python, and Ruby bundles. `sentry-cocoa-sdk` is excluded (no Forge Swift/Objective-C support) as are `sentry-sdk-skill-creator` and `sentry-create-alert`.",
       "requiresLicenseEvidenceReview": true
     },
     {

@@ -2572,8 +2572,8 @@
     },
     {
       "module": "recovery",
-      "mode": "upstream-powered",
-      "designation": "UPSTREAM_POWERED HYBRID",
+      "mode": "hybrid",
+      "designation": "UPSTREAM_POWERED HYBRID (incident work only; Forge owns backup and restore)",
       "forgeContract": "references/build/recovery.md",
       "primary": [
         {
@@ -2581,16 +2581,18 @@
           "skill": "debugging-and-error-recovery",
           "path": "skills/debugging-and-error-recovery/SKILL.md",
           "when": {
-            "always": true
-          }
+            "incidentInvestigation": true
+          },
+          "role": "incident-and-debugging"
         },
         {
           "provider": "addy-agent-skills",
           "skill": "doubt-driven-development",
           "path": "skills/doubt-driven-development/SKILL.md",
           "when": {
-            "always": true
-          }
+            "incidentInvestigation": true
+          },
+          "role": "incident-and-debugging"
         }
       ],
       "overlays": [
@@ -2633,7 +2635,12 @@
           }
         }
       ],
-      "conflicts": [],
+      "conflicts": [
+        {
+          "with": "debugging-and-error-recovery",
+          "rule": "The upstream debugging workflow covers live incident investigation only. It never leads backup, restore, RPO/RTO, or regional-failover work: the Forge recovery contract owns those, and an untested backup remains NOT_VERIFIED recovery capability regardless of any upstream procedure."
+        }
+      ],
       "dependsOn": [
         "observability",
         "reliability",
@@ -2646,9 +2653,11 @@
         "maxSupplemental": 2
       },
       "forgeAuthority": [
+        "backup and restore capability",
+        "recovery point and recovery time objectives",
+        "tested restore evidence",
         "rollback",
         "production safety",
-        "evidence",
         "incident boundaries",
         "root-cause verification"
       ],

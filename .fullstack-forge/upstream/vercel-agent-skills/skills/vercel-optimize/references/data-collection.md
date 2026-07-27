@@ -60,7 +60,7 @@ The merged `signals.json` has this top-level shape:
 }
 ```
 
-All metric queries use the same `timeWindow` constant (`14d`) — defined as `TIME_WINDOW` in [lib/queries.mjs](../lib/queries.mjs) and covered by the repo test suite. Mixing windows silently produces incompatible rollups; never pin a per-query `since`.
+All metric queries use the same `timeWindow` constant (`14d`) — defined as `TIME_WINDOW` in lib/queries.mjs _(not vendored by Fullstack Forge)_ and covered by the repo test suite. Mixing windows silently produces incompatible rollups; never pin a per-query `since`.
 
 All Vercel CLI commands that accept scope must use `commandScope.cliScope` (`--scope <team-slug-or-username>`). Linked project files often contain raw `team_...` or `usr_...` IDs, but several CLI subcommands silently fall back to the current team when `--scope` receives a raw account ID. `collect-signals.mjs` resolves raw team IDs to slugs and raw user IDs to usernames before running `vercel metrics`, `vercel usage`, or `vercel contract`; `deep-dive.mjs` reuses the same scope for follow-up metric queries. If the project link lacks an owner account or the CLI-safe scope cannot be resolved, stop and ask the user which Vercel project and team/personal scope they want audited. Do not infer scope from the current `vercel whoami` team.
 

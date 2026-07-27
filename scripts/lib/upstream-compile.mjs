@@ -35,6 +35,17 @@ const TRANSFORMS = Object.freeze([
     apply: (text, context) => neutralizeFrontmatter(text, context)
   },
   {
+    id: "forge-owned-procedure",
+    reason:
+      "Declared replacements that hand a step back to Forge where the upstream procedure assumes " +
+      "its own installation, its own project state, or a runtime component Forge does not vendor. " +
+      "Runs before command routing and path rewriting so an overlay is always written against the " +
+      "pristine upstream text, and its exact-match guard stays meaningful.",
+    appliesTo: (path, context) =>
+      context.contentReplacements.some((entry) => path.endsWith(entry.appliesTo)),
+    apply: (text, context) => applyReplacements(text, context)
+  },
+  {
     id: "forge-command-routes",
     reason:
       "Upstream command names are rewritten to Forge command routes so users never need to learn " +
@@ -65,21 +76,30 @@ const TRANSFORMS = Object.freeze([
     apply: (text, context) => disableTelemetry(text, context)
   },
   {
-    id: "forge-owned-procedure",
-    reason:
-      "Declared replacements that hand a step back to Forge where the upstream procedure assumes " +
-      "its own installation, its own project state, or a runtime component Forge does not vendor.",
-    appliesTo: (path, context) =>
-      context.contentReplacements.some((entry) => path.endsWith(entry.appliesTo)),
-    apply: (text, context) => applyReplacements(text, context)
-  },
-  {
     id: "managed-paths",
     reason:
       "Upstream state directories are redirected to Forge-managed locations so no separately " +
       "managed upstream installation is created inside a user's repository.",
     appliesTo: (path) => /\.(?:mdc?|mjs)$/u.test(path),
     apply: (text, context) => rewriteManagedPaths(text, context)
+  },
+  {
+    id: "renamed-skill-references",
+    reason:
+      "Upstream skill files are renamed to PLAYBOOK.md so no host can discover them. Any " +
+      "cross-reference that resolves inside the vendored tree is rewritten to match, so the rename " +
+      "does not leave the agent following a path that no longer exists.",
+    appliesTo: (path, context) => context.runtimePaths.size > 0 && /\.mdc?$/u.test(path),
+    apply: (text, context) => rewriteRenamedSkillReferences(text, context)
+  },
+  {
+    id: "unavailable-runtime-reference",
+    reason:
+      "Forge imports a reviewed subset of each provider. Guidance that tells the agent to run a " +
+      "script or read a file Forge deliberately did not vendor is replaced with an explicit " +
+      "unavailability note, so the agent never follows an instruction into content that is absent.",
+    appliesTo: (path, context) => context.runtimePaths.size > 0 && /\.mdc?$/u.test(path),
+    apply: (text, context) => markUnavailableReferences(text, context)
   }
 ]);
 
@@ -87,10 +107,12 @@ const TRANSFORMS = Object.freeze([
  * Compiles one vendored file. Returns the runtime path, the runtime bytes, and the list of
  * transforms that actually changed something.
  */
-export function compileFile({ providerId, path, text, overlay }) {
+export function compileFile({ providerId, path, text, overlay, runtimePaths }) {
   const context = {
     providerId,
     path,
+    runtimePaths: runtimePaths ?? new Set(),
+    stripPathPrefix: overlay?.stripPathPrefix,
     commandRoutes: new Map(Object.entries(overlay?.commandRoutes ?? {})),
     // Longest-first so a specific mapping is never pre-empted by a shorter prefix of itself.
     managedPaths: new Map(
@@ -233,6 +255,92 @@ const FORGE_RUNTIME_GUARD = `// fullstack-forge: vendored runtime module.
 // contains an update or reporting path, it is unreachable in Forge: the detector adapter invokes
 // only the documented offline entry point, and normal Forge use makes no network request.
 `;
+
+/**
+ * Rewrites `SKILL.md` cross-references that resolve inside this provider's vendored tree. External
+ * links (an upstream GitHub URL, for example) keep their original target, because they point at the
+ * upstream project rather than at Forge's compiled copy.
+ */
+function rewriteRenamedSkillReferences(text, context) {
+  return text.replaceAll(/(?<![\w:/.-])((?:\.{1,2}\/|[\w.-]+\/)*)SKILL\.md/gu, (match, prefix) => {
+    if (/^https?:/u.test(match)) return match;
+    const resolved = resolvePosix(runtimeDirectoryOf(context), `${prefix}SKILL.md`);
+    if (resolved === undefined) return match;
+    const candidate = `${resolved.slice(0, -"SKILL.md".length)}${RUNTIME_SKILL_FILENAME}`;
+    return context.runtimePaths.has(candidate) ? `${prefix}${RUNTIME_SKILL_FILENAME}` : match;
+  });
+}
+
+/**
+ * Replaces a line that points at vendored content Forge did not import. The line is kept in place,
+ * marked plainly, so the surrounding procedure still reads coherently and the omission is visible
+ * rather than silently broken.
+ */
+function markUnavailableReferences(text, context) {
+  return markUnavailableLinks(markUnavailableManagedPaths(text, context), context);
+}
+
+/**
+ * Neutralises a relative Markdown link whose target resolves inside this provider's tree but was
+ * not imported. Subsetting a provider legitimately leaves references to sibling skills Forge chose
+ * not to vendor; left as links they invite the agent to follow a path that does not exist. External
+ * URLs and targets that do resolve are untouched.
+ */
+function markUnavailableLinks(text, context) {
+  return text.replaceAll(/\[([^\]]*)\]\(([^)\s]+)\)/gu, (match, label, target) => {
+    if (/^(?:https?:|mailto:|#|\/)/u.test(target)) return match;
+    const [pathPart] = target.split("#");
+    if (pathPart === undefined || pathPart.length === 0) return match;
+    if (!/\.(?:mdc?|txt|json|ya?ml|mjs|js)$/iu.test(pathPart)) return match;
+    const resolved = resolvePosix(runtimeDirectoryOf(context), pathPart);
+    if (resolved === undefined || context.runtimePaths.has(resolved)) return match;
+    return `${label} _(not vendored by Fullstack Forge)_`;
+  });
+}
+
+function markUnavailableManagedPaths(text, context) {
+  const managedRoot = `.fullstack-forge/upstream/${context.providerId}/`;
+  const pattern = new RegExp(`${escapeRegExp(managedRoot)}([\\w./-]+)`, "gu");
+  return text
+    .split("\n")
+    .map((line) => {
+      const missing = [];
+      for (const match of line.matchAll(pattern)) {
+        const target = match[1]?.replace(/[.,;:)\]]+$/u, "") ?? "";
+        if (target.length === 0) continue;
+        if (!context.runtimePaths.has(target)) missing.push(target);
+      }
+      if (missing.length === 0) return line;
+      return (
+        `> **Not available in Fullstack Forge.** This step relies on upstream content Forge ` +
+        `deliberately does not vendor (${missing.join(", ")}). Skip it and continue with the ` +
+        `surrounding procedure; Forge's own workflow does not depend on it.`
+      );
+    })
+    .join("\n");
+}
+
+function runtimeDirectoryOf(context) {
+  const runtime = runtimePathFor(context.path, { stripPathPrefix: context.stripPathPrefix });
+  const parts = runtime.split("/");
+  parts.pop();
+  return parts.join("/");
+}
+
+/** Resolves a POSIX-relative reference against a directory, refusing to escape the tree. */
+function resolvePosix(directory, reference) {
+  const parts = directory.length === 0 ? [] : directory.split("/");
+  for (const segment of reference.split("/")) {
+    if (segment === "." || segment === "") continue;
+    if (segment === "..") {
+      if (parts.length === 0) return undefined;
+      parts.pop();
+      continue;
+    }
+    parts.push(segment);
+  }
+  return parts.join("/");
+}
 
 function rewriteManagedPaths(text, context) {
   let output = text;

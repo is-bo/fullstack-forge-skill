@@ -24,7 +24,7 @@ When a sub-agent tool is available and permitted, run these independently; other
 2. **Mechanical scan:** run:
 
 ```bash
-node .fullstack-forge/upstream/impeccable/scripts/detect.mjs --json --scope type [target files or dirs]
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/detect.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
 ```
 
 Also inspect dynamic or arbitrary font values the detector cannot interpret. Synthesize both assessments before editing, noting what each caught alone. A clean scan is a floor, not proof of good typography.

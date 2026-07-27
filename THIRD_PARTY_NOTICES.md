@@ -9,9 +9,19 @@ checksummed, and reviewed. Nothing is fetched at runtime and nothing updates aut
 `npm run upstream:status` to inspect exactly what is installed.
 
 The upstream maintainers do not endorse Fullstack Forge, and this project is not affiliated with
-them. Upstream copyright notices and licence terms are preserved verbatim in
-`third_party/agent-skills/<provider>/` and are installed alongside the content they cover as
-`UPSTREAM-LICENSE`, `UPSTREAM-NOTICE`, and `UPSTREAM-SOURCE.md`.
+them.
+
+Upstream licence terms are preserved verbatim in this repository under
+`third_party/agent-skills/<provider>/`, and travel with the distributed package as
+`UPSTREAM-LICENSE`, `UPSTREAM-NOTICE`, and `UPSTREAM-SOURCE.md` beside the content they
+cover. Two providers — Vercel and Sentry — publish no LICENSE file at the pinned commit and declare
+their licence only in `README.md`. For those, the verbatim upstream declaration is recorded
+**and** the canonical permission notice for the declared licence is supplied by Fullstack Forge and
+attributed to the upstream copyright holder, so the notice the licence requires travels with every
+copy. What upstream published and what Forge supplied are marked separately in each file.
+
+`UPSTREAM-NOTICE` is a Forge-generated provenance summary. Where a provider publishes its own
+NOTICE file, that file is imported as ordinary content and preserved unchanged.
 
 ## Vendored sources
 
@@ -22,8 +32,8 @@ them. Upstream copyright notices and licence terms are preserved verbatim in
 - Copyright: Copyright the Impeccable authors
 - Imported release: `skill-v4.0.2`
 - Imported commit: `fc2e694afca1ac0cc384b4fe56bab3335fea7912`
-- Files vendored: 56
-- Content checksum: `9ac0804b64121bcdd9c1c14811d7232c57fb3272f07162732d0f07ed8ddd15c9`
+- Files vendored: 54
+- Content checksum: `11c6df11f95d2e8f2749560979129df5a4c0847602668191bb3ef0c0f737e237`
 - Update policy: reviewed-only
 
 Selected paths:
@@ -38,13 +48,15 @@ Selected paths:
 
 Excluded paths:
 
+- `.claude/skills/impeccable/reference/doctor.md`
+- `.claude/skills/impeccable/reference/hooks.md`
 - `.claude/skills/impeccable/scripts/detector/browser/`
 - `.claude/skills/impeccable/scripts/detector/detect-antipatterns-browser.js`
 - `.claude/skills/impeccable/scripts/detector/detect-antipatterns.mjs`
 
 Declared runtime executables: 18. These run only through Forge's detector adapter, against local files, and never because a module was loaded.
 
-Import notes: The detector import closure is vendored whole so the module graph resolves offline; the 350 KiB pre-bundled browser detector and the browser-injection payload are excluded because Forge only ever runs the detector against local files. `forge ui live` ships guidance only: the interactive live server, hook system, and screenshot runtime are deliberately not imported.
+Import notes: The detector import closure is vendored whole so the module graph resolves offline; the 350 KiB pre-bundled browser detector and the browser-injection payload are excluded because Forge only ever runs the detector against local files. `forge ui live` ships guidance only: the interactive live server, hook system, and screenshot runtime are deliberately not imported. The hook and doctor reference documents are excluded with the subsystems they describe: Forge does not vendor the hook system, and `forge doctor` owns installation health, so shipping guidance for either would advertise a workflow that does not exist.
 
 Local modifications: the pristine copy under `third_party/agent-skills/` is unmodified. The copy Forge ships under `.fullstack-forge/upstream/` is generated from it by declared transforms recorded in `.fullstack-forge/manifests/upstream-transforms.json`: upstream skill files are renamed and their activation frontmatter is made inert, upstream command names are rewritten to Forge routes, upstream installation instructions are removed, and update checks and telemetry paths are guarded. Upstream copyright notices are unchanged.
 

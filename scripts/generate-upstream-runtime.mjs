@@ -55,6 +55,9 @@ for (const provider of config.providers) {
     throw new Error(`config/upstream-overlays.json has no overlay for ${provider.id}`);
 
   const files = await listContentFiles(provider.id);
+  // The full runtime file set is resolved before any file is compiled, so a transform can tell the
+  // difference between a reference Forge imported and one it deliberately left out.
+  const runtimePaths = new Set(files.map((path) => runtimePathFor(path, overlay)));
   const runtimeFiles = [];
   for (const path of files) {
     const source = join(providerDirectory(provider.id), CONTENT_DIRNAME, path);
@@ -68,7 +71,8 @@ for (const provider of config.providers) {
         providerId: provider.id,
         path,
         text: bytes.toString("utf8"),
-        overlay
+        overlay,
+        runtimePaths
       });
       runtimePath = compiled.runtimePath;
       output = Buffer.from(compiled.text, "utf8");

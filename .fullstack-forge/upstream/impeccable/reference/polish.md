@@ -29,7 +29,7 @@ Use the feature yourself at representative desktop and mobile sizes. Determine:
 If a prior critique exists, use it as one input:
 
 ```bash
-node .fullstack-forge/upstream/impeccable/scripts/critique-storage.mjs latest "<resolved target>"
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/critique-storage.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
 ```
 
 Exit 0 returns the latest snapshot; incorporate relevant P0/P1 findings and name the snapshot read. Exit 2 means none exists. Perform an independent pass either way.

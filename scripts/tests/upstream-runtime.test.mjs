@@ -290,3 +290,77 @@ function safeStat(path) {
     return undefined;
   }
 }
+
+test("no compiled guidance points at upstream content Forge did not import", () => {
+  // Regression guard: the managed-path rewrite used to turn instructions referencing unimported
+  // upstream scripts into paths that looked installed and valid.
+  const provider = "impeccable";
+  const root = join(upstreamRoot, provider);
+  const present = new Set(walk(root).map((file) => relative(root, file).split(sep).join("/")));
+  const pattern = new RegExp(`\\.fullstack-forge/upstream/${provider}/([\\w./-]+)`, "gu");
+  const dangling = [];
+  for (const path of runtimeRelative.filter((entry) => entry.startsWith(`${provider}/`))) {
+    if (!/\.mdc?$/u.test(path)) continue;
+    const text = readFileSync(join(upstreamRoot, path), "utf8");
+    for (const match of text.matchAll(pattern)) {
+      const target = match[1].replace(/[.,;:)\]]+$/u, "");
+      if (target.length > 0 && !present.has(target)) dangling.push(`${path} -> ${target}`);
+    }
+  }
+  assert.deepEqual(dangling, [], "compiled guidance references unimported upstream content");
+});
+
+test("the SKILL.md rename does not leave dangling intra-tree cross-references", () => {
+  const dangling = [];
+  for (const path of runtimeRelative) {
+    if (!/\.mdc?$/u.test(path)) continue;
+    const text = readFileSync(join(upstreamRoot, path), "utf8");
+    for (const match of text.matchAll(/\]\((\.{1,2}\/[\w./-]*SKILL\.md)\)/gu)) {
+      dangling.push(`${path} -> ${match[1]}`);
+    }
+  }
+  assert.deepEqual(dangling, [], "a relative link still points at the pre-rename SKILL.md");
+});
+
+test("no compiled guidance advertises a Forge UI command that is not declared", () => {
+  const declared = new Set(uiCommands.commands.map((command) => command.name));
+  const undeclared = new Set();
+  for (const path of runtimeRelative) {
+    if (!/\.mdc?$/u.test(path)) continue;
+    const text = readFileSync(join(upstreamRoot, path), "utf8");
+    for (const match of text.matchAll(/\$forge ui ([a-z][a-z-]*)/gu)) {
+      if (!declared.has(match[1])) undeclared.add(`${path}: ${match[1]}`);
+    }
+  }
+  assert.deepEqual(
+    [...undeclared],
+    [],
+    "the command-route rewrite manufactured a Forge UI command that does not exist"
+  );
+});
+
+test("a provider whose licence is declared only in a README ships the permission notice", () => {
+  const providers = JSON.parse(
+    readFileSync(join(projectRoot, "config", "upstream-providers.json"), "utf8")
+  ).providers;
+  for (const provider of providers) {
+    if (!provider.licenseEvidence.includes("#")) continue;
+    const licence = readFileSync(join(upstreamRoot, provider.id, "UPSTREAM-LICENSE"), "utf8");
+    assert.ok(licence.includes("publishes no LICENSE file"), `${provider.id} states the gap`);
+    assert.ok(
+      licence.includes("PERMISSION NOTICE (supplied by Fullstack Forge)"),
+      `${provider.id} must ship the permission notice its licence requires`
+    );
+    assert.ok(
+      licence.includes(provider.copyright),
+      `${provider.id} attributes the copyright holder`
+    );
+    if (provider.license === "MIT") {
+      assert.ok(
+        licence.includes("Permission is hereby granted, free of charge"),
+        `${provider.id} must reproduce the MIT permission text`
+      );
+      assert.ok(licence.includes("shall be included in all copies"));
+    }
+  }
+});

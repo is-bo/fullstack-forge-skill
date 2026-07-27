@@ -9,6 +9,18 @@
           "appliesTo": ".claude/skills/impeccable/SKILL.md",
           "find": "1. Run `node .claude/skills/impeccable/scripts/context.mjs` once per session (if the runtime shows this skill's loaded base directory, run `node <skill-base-dir>/scripts/context.mjs`; keep cwd at the user's project). Pass a named source file or route as `--target <path>`. It loads PRODUCT.md, DESIGN.md, the matching surface brief, and native-platform guidance when applicable; follow its directives and do not rerun it.",
           "replace": "1. Use Forge's own discovery instead of an upstream context script: load `fullstack-forge/references/build/discover.md`, then read the project's `PRODUCT.md` and `DESIGN.md` when they exist and any surface brief under `.fullstack-forge/ui/`. Forge owns repository profiling, applicability, and project state; there is no separate upstream installation to initialise."
+        },
+        {
+          "reason": "The upstream hook subsystem is deliberately not vendored (see config/upstream-providers.json selectedPaths). Left unmodified, the command-route rewrite turns the upstream `/impeccable hooks` line into a `$forge ui hooks` command that does not exist and is not declared in config/ui-commands.json.",
+          "appliesTo": ".claude/skills/impeccable/SKILL.md",
+          "find": "**Hooks:** `/impeccable hooks <on|off|status|ignore-rule|ignore-file|ignore-value|reset>` manages the design detector hook for this project (auto-runs the detector after UI file edits and surfaces findings). Load [reference/hooks.md](reference/hooks.md) when the user invokes it with any argument.",
+          "replace": "**Hooks:** Not available in Fullstack Forge. The upstream design-detector hook subsystem is deliberately not vendored, so there is no hook to enable, disable, or configure. Forge runs the deterministic detector through its own UI audit instead: use `$forge ui audit`."
+        },
+        {
+          "reason": "The upstream doctor script is not vendored. Forge owns installation health through `forge doctor`, so the rewritten `$forge ui doctor` command would name a workflow that does not exist.",
+          "appliesTo": ".claude/skills/impeccable/SKILL.md",
+          "find": "**Doctor:** `/impeccable doctor` reports and repairs drift between this project's Impeccable artifacts (PRODUCT.md, DESIGN.md and its sidecar, config, surface briefs, the hook) and what this version reads. Load [reference/doctor.md](reference/doctor.md) when the user invokes it, or when they ask what is out of date, stale, or needs refreshing. A `CONTEXT_STALE` directive in Setup's output is the cheap subset of the same report; act on it there per its own instructions rather than running doctor unasked.",
+          "replace": "**Doctor:** Not available as a UI sub-command in Fullstack Forge. Forge owns installation and drift reporting for its own managed content: run `forge doctor`, and `forge update all` to repair. Project design state lives in `PRODUCT.md`, `DESIGN.md`, and `.fullstack-forge/ui/`."
         }
       ],
       "commandRoutes": {
@@ -44,12 +56,33 @@
         "<skill-base-dir>": ".fullstack-forge/upstream/impeccable"
       }
     },
-    "addy-agent-skills": { "commandRoutes": {}, "managedPaths": {} },
-    "vercel-agent-skills": { "commandRoutes": {}, "managedPaths": {} },
-    "supabase-agent-skills": { "commandRoutes": {}, "managedPaths": {} },
-    "google-skills": { "commandRoutes": {}, "managedPaths": {} },
-    "cloudflare-skills": { "commandRoutes": {}, "managedPaths": {} },
-    "sentry-agent-skills": { "commandRoutes": {}, "managedPaths": {} },
-    "wshobson-agents": { "commandRoutes": {}, "managedPaths": {} }
+    "addy-agent-skills": {
+      "commandRoutes": {},
+      "managedPaths": {}
+    },
+    "vercel-agent-skills": {
+      "commandRoutes": {},
+      "managedPaths": {}
+    },
+    "supabase-agent-skills": {
+      "commandRoutes": {},
+      "managedPaths": {}
+    },
+    "google-skills": {
+      "commandRoutes": {},
+      "managedPaths": {}
+    },
+    "cloudflare-skills": {
+      "commandRoutes": {},
+      "managedPaths": {}
+    },
+    "sentry-agent-skills": {
+      "commandRoutes": {},
+      "managedPaths": {}
+    },
+    "wshobson-agents": {
+      "commandRoutes": {},
+      "managedPaths": {}
+    }
   }
 }

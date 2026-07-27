@@ -42,6 +42,7 @@ export type ActivationCondition = {
   testingApplicable?: boolean;
   missingEssentialRequirements?: boolean;
   divergentExploration?: boolean;
+  incidentInvestigation?: boolean;
 };
 
 export type CompositionSource = {
@@ -130,7 +131,8 @@ export type CompositionEvidence = {
       | "gdprRelevant"
       | "testingApplicable"
       | "missingEssentialRequirements"
-      | "divergentExploration",
+      | "divergentExploration"
+      | "incidentInvestigation",
       boolean
     >
   >;
@@ -156,7 +158,8 @@ const BOOLEAN_FLAGS = [
   "gdprRelevant",
   "testingApplicable",
   "missingEssentialRequirements",
-  "divergentExploration"
+  "divergentExploration",
+  "incidentInvestigation"
 ] as const;
 
 /**

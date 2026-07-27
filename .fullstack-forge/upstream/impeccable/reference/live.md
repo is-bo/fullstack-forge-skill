@@ -8,7 +8,7 @@ A running dev server with hot module replacement (Vite, Next.js, Bun, etc.), OR 
 
 Execute in order. No step skipped, no step reordered.
 
-1. `live.mjs`: boot. If the request names or implies a file, route, or app inside a monorepo, infer the concrete path and run `node .fullstack-forge/upstream/impeccable/scripts/live.mjs --target <path>` instead; then run the rest of this live session from the returned `projectRoot`.
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/live.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
 2. Open the app URL that serves `pageFile` (infer from `package.json`, docs, terminal output, or an open tab). Never use `serverPort`; it's the helper, not the app. **Cursor:** `browser_navigate` to that URL before polling; do not skip. **Other harnesses:** use the available browser tool; if the URL is uncertain, ask the user once.
 3. Poll loop with the default long timeout (600000 ms). Run `live-poll.mjs` again immediately after every event or `--reply`; Codex runs this one-shot poll in the foreground. Never pass a short `--timeout=`.
 
@@ -33,7 +33,7 @@ Chat is overhead. No recap, no tutorial output, no pasting PRODUCT / DESIGN bodi
 ## Start
 
 ```bash
-node .fullstack-forge/upstream/impeccable/scripts/live.mjs
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/live.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
 ```
 
 Output JSON: `{ ok, serverPort, serverToken, pageFiles, hasProduct, product, productPath, hasDesign, design, designPath }`. `pageFiles` is the list of HTML entries the live script was injected into. Keep PRODUCT.md, DESIGN.md, and any surface brief already loaded by Setup in mind for variant generation: **DESIGN.md wins on visual decisions; PRODUCT.md wins on durable product and voice decisions; the surface brief wins on this surface's strategy.** When DESIGN.md is missing, identity is **not** absent; extract it from CSS variables, computed styles, and sibling components on the page (see Step 4 Phase A). Identity preservation is the default; departure requires the user's explicit redesign/replacement intent.
@@ -48,7 +48,7 @@ If output is `{ ok: false, error: "config_missing" | "config_invalid", path }`, 
 
 ```
 LOOP:
-  node .fullstack-forge/upstream/impeccable/scripts/live-poll.mjs   # default long timeout; no --timeout=
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/live-poll.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
   Read JSON; dispatch on "type"
 
   "generate"  → Handle Generate; reply done; LOOP
@@ -64,7 +64,7 @@ LOOP:
 **Stream mode (experimental, not for Cursor):**
 
 ```
-node .fullstack-forge/upstream/impeccable/scripts/live-poll.mjs --stream   # stays running; one JSON line per event
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/live-poll.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
   Handle event; run --reply in a separate command
   Repeat until "exit" line → Cleanup
 ```
@@ -78,9 +78,9 @@ The live helper persists an append-only journal under `.fullstack-forge/ui/live/
 Use these commands when the chat was interrupted, polling was missed, the helper restarted, or the browser reloaded:
 
 ```bash
-node .fullstack-forge/upstream/impeccable/scripts/live-status.mjs
-node .fullstack-forge/upstream/impeccable/scripts/live-resume.mjs --id SESSION_ID
-node .fullstack-forge/upstream/impeccable/scripts/live-complete.mjs --id SESSION_ID
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/live-status.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/live-resume.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/live-complete.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
 ```
 
 - `live-status.mjs` prints connected helper state, active durable sessions, and queued pending events. It works even when the helper is down by reading the journal directly.
@@ -105,7 +105,7 @@ When `event.mode === "insert"`:
 2. If `event.scaffold` is present, use it as the insert-helper result and do **not** run the helper again. Otherwise run the insert helper instead of wrap:
 
 ```bash
-node .fullstack-forge/upstream/impeccable/scripts/live-insert.mjs --id EVENT_ID --count EVENT_COUNT --position after \
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/live-insert.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
   --element-id "ANCHOR_ID" --classes "class1,class2" --tag "section" --text "ANCHOR_TEXT"
 ```
 
@@ -142,7 +142,7 @@ When `event.scaffold` is present, the local helper already found the source and 
 **On source-preview targets `event.scaffold` carries `sourceWritten: false`.** The helper did NOT write the wrapper into source; it hands you the wrapper as `scaffold.wrapperBlock` plus the picked element's source range (`scaffold.replaceStartLine`, `scaffold.replaceEndLine`, 1-indexed). Write the wrapper **and** all variants in ONE edit: splice your variants into `wrapperBlock` at the "Variants: insert below this line" marker, then replace source lines `[replaceStartLine, replaceEndLine]` with the result. A separate scaffold write reloads the framework before your variant write lands, and a browser caught mid-reload misses the `done` and sits at 0/N; the single edit avoids it. (`replaceEndLine < replaceStartLine` means insert mode: insert `wrapperBlock`, remove nothing.) The `svelte-component` path never sets `sourceWritten`; it follows the component-preview flow below unchanged.
 
 ```bash
-node .fullstack-forge/upstream/impeccable/scripts/live-wrap.mjs --id EVENT_ID --count EVENT_COUNT --element-id "ELEMENT_ID" --classes "class1,class2" --tag "div" --text "TEXT_SNIPPET"
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/live-wrap.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
 ```
 
 Flag mapping. Keep them separate, don't collapse into `--query`:
@@ -404,7 +404,7 @@ The carbonize cleanup step (see below) reads that comment and bakes the chosen v
 ### 8. Signal done
 
 ```bash
-node .fullstack-forge/upstream/impeccable/scripts/live-poll.mjs --reply EVENT_ID done --file RELATIVE_PATH
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/live-poll.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
 ```
 
 `RELATIVE_PATH` is relative to project root (`public/index.html`, `src/App.tsx`, etc.); the browser fetches source directly if the dev server lacks HMR.
@@ -416,7 +416,7 @@ Then run `live-poll.mjs` again immediately.
 If wrap or generation fails after the browser has flipped to GENERATING (e.g. wrap landed on the wrong source branch and you've already reverted it, or generation hit an unrecoverable error), tell the **browser** so its bar resets to PICKING:
 
 ```bash
-node .fullstack-forge/upstream/impeccable/scripts/live-poll.mjs --reply EVENT_ID error "Short reason"
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/live-poll.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
 ```
 
 Don't run `live-accept --discard` for this; that's a pure file mutator, the browser doesn't see it, and the bar gets stuck on the GENERATING dots forever (the user has to refresh). `--discard` is only correct when the **browser** initiated the discard (user clicked ✕ during CYCLING) and the agent is just running source-side cleanup the browser already triggered.
@@ -505,13 +505,13 @@ This is lighter than `generate`: no screenshot, no element context, no variant c
 When finished:
 
 ```bash
-node .fullstack-forge/upstream/impeccable/scripts/live-poll.mjs --reply EVENT_ID steer_done ["Optional short note for a browser toast"]
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/live-poll.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
 ```
 
 On failure:
 
 ```bash
-node .fullstack-forge/upstream/impeccable/scripts/live-poll.mjs --reply EVENT_ID error "Short reason"
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/live-poll.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
 ```
 
 Then poll again immediately. Do not send a separate "picked up" reply. The Steer bar stays locked until `steer_done` or `error` arrives over SSE.
@@ -539,7 +539,7 @@ When native subagents are available, delegate source edits to `impeccable_manual
 
 If `repair` is present, the previous Apply changed source but final validation failed. Fix the current source and return the same canonical JSON result; do not roll files back yourself. The browser will ask the user before any rollback.
 
-After source edits finish, reply exactly once with `node .fullstack-forge/upstream/impeccable/scripts/live-poll.mjs --reply EVENT_ID done --data '{"status":"done","appliedEntryIds":["8hexid"],"failed":[],"files":["src/page.html"],"notes":[]}'`. Use `status:"partial"` or `status:"error"` with `failed[]` when not every entry applied. Then poll again. Never reply without the event id; `--reply done --file ...` is invalid for manual Apply.
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/live-poll.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
 
 ## Exit
 
@@ -553,7 +553,7 @@ When the poll returns `exit`, proceed to cleanup. If the poll is still running a
 ## Cleanup
 
 ```bash
-node .fullstack-forge/upstream/impeccable/scripts/live-server.mjs stop
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/live-server.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
 ```
 
 Stops the HTTP server and runs `live-inject.mjs --remove` to strip `localhost:…/live.js` from the HTML entry. To stop the server but keep the inject tag (for a quick restart), use `stop --keep-inject`. `.fullstack-forge/ui/live/config.json` persists as project config for future sessions.
@@ -643,7 +643,7 @@ If `config.cspChecked === true`, skip this entire section. You already asked thi
 Otherwise, run the detection helper:
 
 ```bash
-node .fullstack-forge/upstream/impeccable/scripts/detect-csp.mjs
+> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/detect-csp.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
 ```
 
 Output: `{ shape, signals }` where `shape` is one of `append-arrays`, `append-string`, `middleware`, `meta-tag`, or `null`. The shape is named by *patch mechanism*, so one template covers many frameworks.

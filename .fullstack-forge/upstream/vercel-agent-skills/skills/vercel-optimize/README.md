@@ -14,7 +14,7 @@ Install just this skill:
 npx skills add vercel-labs/agent-skills --skill vercel-optimize
 ```
 
-Manual install: copy `skills/vercel-optimize` into `.agents/skills/vercel-optimize` and reference `SKILL.md` from your project `AGENTS.md`.
+Manual install: copy `skills/vercel-optimize` into `.agents/skills/vercel-optimize` and reference `PLAYBOOK.md` from your project `AGENTS.md`.
 
 ## Requirements
 

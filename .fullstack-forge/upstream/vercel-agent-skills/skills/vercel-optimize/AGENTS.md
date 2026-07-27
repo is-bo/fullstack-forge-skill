@@ -1,6 +1,6 @@
 # vercel-optimize
 
-Cross-agent entry point for the Vercel Optimize skill. The full procedure is in [SKILL.md](./SKILL.md).
+Cross-agent entry point for the Vercel Optimize skill. The full procedure is in [PLAYBOOK.md](./PLAYBOOK.md).
 
 Use this skill when the user asks to optimize a Vercel project, reduce a Vercel bill, investigate slow or expensive routes, find caching opportunities, reduce function invocations, or produce a Vercel cost/performance report.
 
@@ -16,7 +16,7 @@ Do not use it for projects that are not deployed on Vercel, greenfield projects 
 
 ## Procedure
 
-1. Read [SKILL.md](./SKILL.md).
+1. Read [PLAYBOOK.md](./PLAYBOOK.md).
 2. Collect Vercel signals before reading source files.
 3. Gate candidates with deterministic scripts.
 4. Investigate only files named by launched candidates.

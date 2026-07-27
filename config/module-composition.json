@@ -1,7 +1,11 @@
 {
   "$comment": "Canonical composition registry. For each of Forge's 42 public modules it declares the Forge contract that always loads first, the primary upstream workflow (if any), conditional provider overlays with the repository evidence that activates them, supplemental references with no routing authority, incompatibilities, dependent Forge modules, output classification, and the per-module context budget. `npm run generate` compiles this into `.fullstack-forge/manifests/module-composition.json`. Forge contracts are never overridden: precedence is fixed in src/fullstack-forge/references/shared/composition-precedence.md.",
   "schemaVersion": 1,
-  "defaultContextBudget": { "maxPrimarySkills": 1, "maxOverlays": 2, "maxSupplemental": 3 },
+  "defaultContextBudget": {
+    "maxPrimarySkills": 1,
+    "maxOverlays": 2,
+    "maxSupplemental": 3
+  },
   "modes": {
     "forge-native": "No upstream primary. Forge owns the whole workflow; any upstream entry is a conditional supplemental reference.",
     "hybrid": "Forge contract drives; one upstream primary supplies specialist procedure, with evidence-gated overlays.",
@@ -21,7 +25,9 @@
           "skill": "source-driven-development",
           "path": "skills/source-driven-development/SKILL.md",
           "role": "methodology",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "conflicts": [],
@@ -45,28 +51,36 @@
           "skill": "interview-me",
           "path": "skills/interview-me/SKILL.md",
           "sequence": 1,
-          "when": { "missingEssentialRequirements": true }
+          "when": {
+            "missingEssentialRequirements": true
+          }
         },
         {
           "provider": "addy-agent-skills",
           "skill": "idea-refine",
           "path": "skills/idea-refine/SKILL.md",
           "sequence": 2,
-          "when": { "divergentExploration": true }
+          "when": {
+            "divergentExploration": true
+          }
         },
         {
           "provider": "addy-agent-skills",
           "skill": "spec-driven-development",
           "path": "skills/spec-driven-development/SKILL.md",
           "sequence": 3,
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         },
         {
           "provider": "addy-agent-skills",
           "skill": "planning-and-task-breakdown",
           "path": "skills/planning-and-task-breakdown/SKILL.md",
           "sequence": 4,
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "overlays": [],
@@ -74,7 +88,11 @@
       "conflicts": [],
       "dependsOn": ["discover"],
       "outputClassification": "specification",
-      "contextBudget": { "maxPrimarySkills": 4, "maxOverlays": 0, "maxSupplemental": 1 },
+      "contextBudget": {
+        "maxPrimarySkills": 4,
+        "maxOverlays": 0,
+        "maxSupplemental": 1
+      },
       "forgeAuthority": [
         "risk discovery",
         "repository constraints",
@@ -93,7 +111,9 @@
           "provider": "addy-agent-skills",
           "skill": "spec-driven-development",
           "path": "skills/spec-driven-development/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "overlays": [
@@ -101,7 +121,10 @@
           "provider": "google-skills",
           "skill": "google-cloud-solution-architecture",
           "path": "skills/cloud/google-cloud-solution-architecture/SKILL.md",
-          "when": { "hosting": ["google cloud", "gcp"], "requested": ["google-cloud"] }
+          "when": {
+            "hosting": ["google cloud", "gcp"],
+            "requested": ["google-cloud"]
+          }
         }
       ],
       "supplemental": [
@@ -109,19 +132,25 @@
           "provider": "addy-agent-skills",
           "skill": "planning-and-task-breakdown",
           "path": "skills/planning-and-task-breakdown/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         },
         {
           "provider": "addy-agent-skills",
           "skill": "deprecation-and-migration",
           "path": "skills/deprecation-and-migration/SKILL.md",
-          "when": { "migration": true }
+          "when": {
+            "migration": true
+          }
         },
         {
           "provider": "addy-agent-skills",
           "skill": "documentation-and-adrs",
           "path": "skills/documentation-and-adrs/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "conflicts": [],
@@ -144,7 +173,9 @@
           "provider": "addy-agent-skills",
           "skill": "incremental-implementation",
           "path": "skills/incremental-implementation/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "overlays": [],
@@ -153,19 +184,25 @@
           "provider": "addy-agent-skills",
           "skill": "code-review-and-quality",
           "path": "skills/code-review-and-quality/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         },
         {
           "provider": "addy-agent-skills",
           "skill": "code-simplification",
           "path": "skills/code-simplification/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         },
         {
           "provider": "addy-agent-skills",
           "skill": "git-workflow-and-versioning",
           "path": "skills/git-workflow-and-versioning/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "conflicts": [],
@@ -188,7 +225,9 @@
           "provider": "impeccable",
           "skill": "impeccable",
           "path": ".claude/skills/impeccable/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "overlays": [
@@ -197,7 +236,9 @@
           "skill": "web-design-guidelines",
           "path": "skills/web-design-guidelines/SKILL.md",
           "role": "technical-audit",
-          "when": { "riskSurfaces": ["frontend"] }
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
         }
       ],
       "supplemental": [],
@@ -230,7 +271,9 @@
           "skill": "impeccable",
           "path": ".claude/skills/impeccable/SKILL.md",
           "commands": ["shape", "critique", "harden", "onboard", "clarify", "adapt", "polish"],
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "overlays": [
@@ -239,7 +282,9 @@
           "skill": "web-design-guidelines",
           "path": "skills/web-design-guidelines/SKILL.md",
           "role": "technical-overlay",
-          "when": { "riskSurfaces": ["frontend"] }
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
         }
       ],
       "supplemental": [],
@@ -265,7 +310,9 @@
           "provider": "addy-agent-skills",
           "skill": "accessibility-checklist",
           "path": "references/accessibility-checklist.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "overlays": [
@@ -273,7 +320,9 @@
           "provider": "vercel-agent-skills",
           "skill": "web-design-guidelines",
           "path": "skills/web-design-guidelines/SKILL.md",
-          "when": { "riskSurfaces": ["frontend"] }
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
         }
       ],
       "supplemental": [
@@ -281,13 +330,17 @@
           "provider": "wshobson-agents",
           "skill": "wcag-audit-patterns",
           "path": "plugins/accessibility-compliance/skills/wcag-audit-patterns/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "screen-reader-testing",
           "path": "plugins/accessibility-compliance/skills/screen-reader-testing/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "conflicts": [],
@@ -314,25 +367,33 @@
           "skill": "web-design-guidelines",
           "path": "skills/web-design-guidelines/SKILL.md",
           "role": "locale-rules",
-          "when": { "riskSurfaces": ["frontend"] }
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
         },
         {
           "provider": "impeccable",
           "skill": "harden",
           "path": ".claude/skills/impeccable/reference/harden.md",
-          "when": { "riskSurfaces": ["frontend"] }
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
         },
         {
           "provider": "impeccable",
           "skill": "clarify",
           "path": ".claude/skills/impeccable/reference/clarify.md",
-          "when": { "riskSurfaces": ["frontend"] }
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
         },
         {
           "provider": "impeccable",
           "skill": "adapt",
           "path": ".claude/skills/impeccable/reference/adapt.md",
-          "when": { "riskSurfaces": ["frontend"] }
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
         }
       ],
       "conflicts": [],
@@ -382,7 +443,9 @@
           "provider": "addy-agent-skills",
           "skill": "frontend-ui-engineering",
           "path": "skills/frontend-ui-engineering/SKILL.md",
-          "when": { "riskSurfaces": ["frontend"] }
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
         }
       ],
       "overlays": [
@@ -390,19 +453,25 @@
           "provider": "vercel-agent-skills",
           "skill": "react-best-practices",
           "path": "skills/react-best-practices/SKILL.md",
-          "when": { "frameworks": ["react", "next", "nextjs"] }
+          "when": {
+            "frameworks": ["react", "next", "nextjs"]
+          }
         },
         {
           "provider": "vercel-agent-skills",
           "skill": "react-native-skills",
           "path": "skills/react-native-skills/SKILL.md",
-          "when": { "frameworks": ["react-native", "expo"] }
+          "when": {
+            "frameworks": ["react-native", "expo"]
+          }
         },
         {
           "provider": "vercel-agent-skills",
           "skill": "react-view-transitions",
           "path": "skills/react-view-transitions/SKILL.md",
-          "when": { "frameworks": ["react", "next", "nextjs"] }
+          "when": {
+            "frameworks": ["react", "next", "nextjs"]
+          }
         }
       ],
       "supplemental": [],
@@ -431,7 +500,9 @@
           "provider": "addy-agent-skills",
           "skill": "api-and-interface-design",
           "path": "skills/api-and-interface-design/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "overlays": [],
@@ -440,7 +511,9 @@
           "provider": "wshobson-agents",
           "skill": "openapi-spec-generation",
           "path": "plugins/documentation-generation/skills/openapi-spec-generation/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "conflicts": [],
@@ -467,19 +540,28 @@
           "skill": "supabase",
           "path": "skills/supabase/SKILL.md",
           "sections": ["queues", "cron"],
-          "when": { "integrations": ["supabase"], "requested": ["supabase"] }
+          "when": {
+            "integrations": ["supabase"],
+            "requested": ["supabase"]
+          }
         },
         {
           "provider": "cloudflare-skills",
           "skill": "durable-objects",
           "path": "skills/durable-objects/SKILL.md",
-          "when": { "hosting": ["cloudflare"], "requested": ["cloudflare"] }
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
         },
         {
           "provider": "cloudflare-skills",
           "skill": "wrangler",
           "path": "skills/wrangler/SKILL.md",
-          "when": { "hosting": ["cloudflare"], "requested": ["cloudflare"] }
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
         }
       ],
       "supplemental": [],
@@ -510,13 +592,17 @@
           "provider": "addy-agent-skills",
           "skill": "source-driven-development",
           "path": "skills/source-driven-development/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         },
         {
           "provider": "addy-agent-skills",
           "skill": "api-and-interface-design",
           "path": "skills/api-and-interface-design/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "conflicts": [],
@@ -543,7 +629,9 @@
           "skill": "auth-implementation-patterns",
           "path": "plugins/developer-essentials/skills/auth-implementation-patterns/SKILL.md",
           "role": "supplemental-primary",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "overlays": [
@@ -552,14 +640,20 @@
           "skill": "supabase",
           "path": "skills/supabase/SKILL.md",
           "sections": ["auth"],
-          "when": { "integrations": ["supabase"], "requested": ["supabase"] }
+          "when": {
+            "integrations": ["supabase"],
+            "requested": ["supabase"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "firebase-basics",
           "path": "skills/cloud/firebase-basics/SKILL.md",
           "sections": ["auth"],
-          "when": { "integrations": ["firebase"], "requested": ["firebase"] }
+          "when": {
+            "integrations": ["firebase"],
+            "requested": ["firebase"]
+          }
         }
       ],
       "supplemental": [],
@@ -589,13 +683,19 @@
           "skill": "supabase-postgres-best-practices",
           "path": "skills/supabase-postgres-best-practices/SKILL.md",
           "sections": ["row-level-security"],
-          "when": { "integrations": ["supabase"], "requested": ["supabase"] }
+          "when": {
+            "integrations": ["supabase"],
+            "requested": ["supabase"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "gke-multitenancy",
           "path": "skills/cloud/gke-multitenancy/SKILL.md",
-          "when": { "hosting": ["gke", "kubernetes"], "requested": ["gke"] }
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
         }
       ],
       "supplemental": [],
@@ -624,7 +724,9 @@
           "provider": "addy-agent-skills",
           "skill": "security-and-hardening",
           "path": "skills/security-and-hardening/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "overlays": [
@@ -632,7 +734,10 @@
           "provider": "google-skills",
           "skill": "google-cloud-waf-security",
           "path": "skills/cloud/google-cloud-waf-security/SKILL.md",
-          "when": { "hosting": ["google cloud", "gcp", "gke"], "requested": ["google-cloud"] }
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
         }
       ],
       "supplemental": [
@@ -640,37 +745,49 @@
           "provider": "addy-agent-skills",
           "skill": "security-checklist",
           "path": "references/security-checklist.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "stride-analysis-patterns",
           "path": "plugins/security-scanning/skills/stride-analysis-patterns/SKILL.md",
-          "when": { "threatModelling": true }
+          "when": {
+            "threatModelling": true
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "attack-tree-construction",
           "path": "plugins/security-scanning/skills/attack-tree-construction/SKILL.md",
-          "when": { "threatModelling": true }
+          "when": {
+            "threatModelling": true
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "security-requirement-extraction",
           "path": "plugins/security-scanning/skills/security-requirement-extraction/SKILL.md",
-          "when": { "threatModelling": true }
+          "when": {
+            "threatModelling": true
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "threat-mitigation-mapping",
           "path": "plugins/security-scanning/skills/threat-mitigation-mapping/SKILL.md",
-          "when": { "threatModelling": true }
+          "when": {
+            "threatModelling": true
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "sast-configuration",
           "path": "plugins/security-scanning/skills/sast-configuration/SKILL.md",
-          "when": { "ci": true }
+          "when": {
+            "ci": true
+          }
         }
       ],
       "conflicts": [
@@ -681,7 +798,11 @@
       ],
       "dependsOn": ["authorization", "auth", "privacy", "supply-chain"],
       "outputClassification": "finding",
-      "contextBudget": { "maxPrimarySkills": 1, "maxOverlays": 2, "maxSupplemental": 4 },
+      "contextBudget": {
+        "maxPrimarySkills": 1,
+        "maxOverlays": 2,
+        "maxSupplemental": 4
+      },
       "forgeAuthority": [
         "deterministic security analyzers",
         "trust boundaries",
@@ -701,7 +822,9 @@
           "provider": "wshobson-agents",
           "skill": "gdpr-data-handling",
           "path": "plugins/hr-legal-compliance/skills/gdpr-data-handling/SKILL.md",
-          "when": { "gdprRelevant": true }
+          "when": {
+            "gdprRelevant": true
+          }
         }
       ],
       "conflicts": [
@@ -736,13 +859,19 @@
           "skill": "supabase-postgres-best-practices",
           "path": "skills/supabase-postgres-best-practices/SKILL.md",
           "sections": ["row-level-security"],
-          "when": { "integrations": ["supabase"], "requested": ["supabase"] }
+          "when": {
+            "integrations": ["supabase"],
+            "requested": ["supabase"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "gke-multitenancy",
           "path": "skills/cloud/gke-multitenancy/SKILL.md",
-          "when": { "hosting": ["gke", "kubernetes"], "requested": ["gke"] }
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
         }
       ],
       "supplemental": [],
@@ -774,20 +903,29 @@
           "skill": "supabase",
           "path": "skills/supabase/SKILL.md",
           "sections": ["storage"],
-          "when": { "integrations": ["supabase"], "requested": ["supabase"] }
+          "when": {
+            "integrations": ["supabase"],
+            "requested": ["supabase"]
+          }
         },
         {
           "provider": "cloudflare-skills",
           "skill": "cloudflare",
           "path": "skills/cloudflare/SKILL.md",
           "sections": ["r2"],
-          "when": { "hosting": ["cloudflare"], "requested": ["cloudflare"] }
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "google-cloud-storage-basics",
           "path": "skills/cloud/google-cloud-storage-basics/SKILL.md",
-          "when": { "hosting": ["google cloud", "gcp"], "requested": ["google-cloud"] }
+          "when": {
+            "hosting": ["google cloud", "gcp"],
+            "requested": ["google-cloud"]
+          }
         }
       ],
       "supplemental": [],
@@ -822,13 +960,17 @@
           "provider": "supabase-agent-skills",
           "skill": "supabase-postgres-best-practices",
           "path": "skills/supabase-postgres-best-practices/SKILL.md",
-          "when": { "databases": ["postgres", "postgresql"] }
+          "when": {
+            "databases": ["postgres", "postgresql"]
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "postgresql",
           "path": "plugins/database-design/skills/postgresql/SKILL.md",
-          "when": { "databases": ["postgres", "postgresql"] }
+          "when": {
+            "databases": ["postgres", "postgresql"]
+          }
         }
       ],
       "overlays": [
@@ -836,13 +978,19 @@
           "provider": "supabase-agent-skills",
           "skill": "supabase",
           "path": "skills/supabase/SKILL.md",
-          "when": { "integrations": ["supabase"], "requested": ["supabase"] }
+          "when": {
+            "integrations": ["supabase"],
+            "requested": ["supabase"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "cloud-sql-basics",
           "path": "skills/cloud/cloud-sql-basics/SKILL.md",
-          "when": { "hosting": ["google cloud", "gcp"], "requested": ["google-cloud"] }
+          "when": {
+            "hosting": ["google cloud", "gcp"],
+            "requested": ["google-cloud"]
+          }
         }
       ],
       "supplemental": [],
@@ -854,7 +1002,11 @@
       ],
       "dependsOn": ["queries", "tenancy", "recovery"],
       "outputClassification": "finding",
-      "contextBudget": { "maxPrimarySkills": 2, "maxOverlays": 2, "maxSupplemental": 2 },
+      "contextBudget": {
+        "maxPrimarySkills": 2,
+        "maxOverlays": 2,
+        "maxSupplemental": 2
+      },
       "forgeAuthority": [
         "generic database design for non-PostgreSQL systems",
         "migrations",
@@ -874,13 +1026,17 @@
           "provider": "supabase-agent-skills",
           "skill": "supabase-postgres-best-practices",
           "path": "skills/supabase-postgres-best-practices/SKILL.md",
-          "when": { "databases": ["postgres", "postgresql"] }
+          "when": {
+            "databases": ["postgres", "postgresql"]
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "sql-optimization-patterns",
           "path": "plugins/developer-essentials/skills/sql-optimization-patterns/SKILL.md",
-          "when": { "databases": ["postgres", "postgresql", "mysql", "sqlite", "mariadb"] }
+          "when": {
+            "databases": ["postgres", "postgresql", "mysql", "sqlite", "mariadb"]
+          }
         }
       ],
       "overlays": [],
@@ -888,7 +1044,11 @@
       "conflicts": [],
       "dependsOn": ["database", "tenancy", "security"],
       "outputClassification": "finding",
-      "contextBudget": { "maxPrimarySkills": 2, "maxOverlays": 1, "maxSupplemental": 2 },
+      "contextBudget": {
+        "maxPrimarySkills": 2,
+        "maxOverlays": 1,
+        "maxSupplemental": 2
+      },
       "forgeAuthority": [
         "SQL injection analysis",
         "ORM boundaries",
@@ -910,20 +1070,28 @@
           "provider": "vercel-agent-skills",
           "skill": "react-best-practices",
           "path": "skills/react-best-practices/SKILL.md",
-          "when": { "frameworks": ["react", "next", "nextjs"] }
+          "when": {
+            "frameworks": ["react", "next", "nextjs"]
+          }
         },
         {
           "provider": "vercel-agent-skills",
           "skill": "vercel-optimize",
           "path": "skills/vercel-optimize/SKILL.md",
-          "when": { "hosting": ["vercel"], "requested": ["vercel"] }
+          "when": {
+            "hosting": ["vercel"],
+            "requested": ["vercel"]
+          }
         },
         {
           "provider": "cloudflare-skills",
           "skill": "cloudflare",
           "path": "skills/cloudflare/SKILL.md",
           "sections": ["cache"],
-          "when": { "hosting": ["cloudflare"], "requested": ["cloudflare"] }
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
         }
       ],
       "supplemental": [],
@@ -956,20 +1124,29 @@
           "skill": "supabase",
           "path": "skills/supabase/SKILL.md",
           "sections": ["storage"],
-          "when": { "integrations": ["supabase"], "requested": ["supabase"] }
+          "when": {
+            "integrations": ["supabase"],
+            "requested": ["supabase"]
+          }
         },
         {
           "provider": "cloudflare-skills",
           "skill": "cloudflare",
           "path": "skills/cloudflare/SKILL.md",
           "sections": ["r2"],
-          "when": { "hosting": ["cloudflare"], "requested": ["cloudflare"] }
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "google-cloud-storage-basics",
           "path": "skills/cloud/google-cloud-storage-basics/SKILL.md",
-          "when": { "hosting": ["google cloud", "gcp"], "requested": ["google-cloud"] }
+          "when": {
+            "hosting": ["google cloud", "gcp"],
+            "requested": ["google-cloud"]
+          }
         }
       ],
       "supplemental": [],
@@ -997,7 +1174,9 @@
           "provider": "addy-agent-skills",
           "skill": "test-driven-development",
           "path": "skills/test-driven-development/SKILL.md",
-          "when": { "testingApplicable": true }
+          "when": {
+            "testingApplicable": true
+          }
         }
       ],
       "overlays": [
@@ -1005,7 +1184,9 @@
           "provider": "addy-agent-skills",
           "skill": "browser-testing-with-devtools",
           "path": "skills/browser-testing-with-devtools/SKILL.md",
-          "when": { "riskSurfaces": ["frontend"] }
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
         }
       ],
       "supplemental": [
@@ -1013,13 +1194,17 @@
           "provider": "addy-agent-skills",
           "skill": "testing-patterns",
           "path": "references/testing-patterns.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "e2e-testing-patterns",
           "path": "plugins/developer-essentials/skills/e2e-testing-patterns/SKILL.md",
-          "when": { "riskSurfaces": ["frontend"] }
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
         }
       ],
       "conflicts": [
@@ -1048,7 +1233,9 @@
           "provider": "addy-agent-skills",
           "skill": "performance-optimization",
           "path": "skills/performance-optimization/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "overlays": [
@@ -1056,25 +1243,36 @@
           "provider": "vercel-agent-skills",
           "skill": "react-best-practices",
           "path": "skills/react-best-practices/SKILL.md",
-          "when": { "frameworks": ["react", "next", "nextjs"] }
+          "when": {
+            "frameworks": ["react", "next", "nextjs"]
+          }
         },
         {
           "provider": "vercel-agent-skills",
           "skill": "vercel-optimize",
           "path": "skills/vercel-optimize/SKILL.md",
-          "when": { "hosting": ["vercel"], "requested": ["vercel"] }
+          "when": {
+            "hosting": ["vercel"],
+            "requested": ["vercel"]
+          }
         },
         {
           "provider": "cloudflare-skills",
           "skill": "web-perf",
           "path": "skills/web-perf/SKILL.md",
-          "when": { "hosting": ["cloudflare"], "requested": ["cloudflare"] }
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "google-cloud-waf-performance-optimization",
           "path": "skills/cloud/google-cloud-waf-performance-optimization/SKILL.md",
-          "when": { "hosting": ["google cloud", "gcp", "gke"], "requested": ["google-cloud"] }
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
         }
       ],
       "supplemental": [
@@ -1082,7 +1280,9 @@
           "provider": "addy-agent-skills",
           "skill": "performance-checklist",
           "path": "references/performance-checklist.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "conflicts": [],
@@ -1106,13 +1306,19 @@
           "provider": "google-skills",
           "skill": "google-cloud-waf-performance-optimization",
           "path": "skills/cloud/google-cloud-waf-performance-optimization/SKILL.md",
-          "when": { "hosting": ["google cloud", "gcp", "gke"], "requested": ["google-cloud"] }
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "google-cloud-waf-reliability",
           "path": "skills/cloud/google-cloud-waf-reliability/SKILL.md",
-          "when": { "hosting": ["google cloud", "gcp", "gke"], "requested": ["google-cloud"] }
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
         }
       ],
       "overlays": [
@@ -1120,26 +1326,39 @@
           "provider": "google-skills",
           "skill": "gke-workload-scaling",
           "path": "skills/cloud/gke-workload-scaling/SKILL.md",
-          "when": { "hosting": ["gke", "kubernetes"], "requested": ["gke"] }
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
         },
         {
           "provider": "cloudflare-skills",
           "skill": "durable-objects",
           "path": "skills/durable-objects/SKILL.md",
-          "when": { "hosting": ["cloudflare"], "requested": ["cloudflare"] }
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
         },
         {
           "provider": "vercel-agent-skills",
           "skill": "vercel-optimize",
           "path": "skills/vercel-optimize/SKILL.md",
-          "when": { "hosting": ["vercel"], "requested": ["vercel"] }
+          "when": {
+            "hosting": ["vercel"],
+            "requested": ["vercel"]
+          }
         }
       ],
       "supplemental": [],
       "conflicts": [],
       "dependsOn": ["performance", "reliability", "cost", "database"],
       "outputClassification": "finding",
-      "contextBudget": { "maxPrimarySkills": 2, "maxOverlays": 2, "maxSupplemental": 2 },
+      "contextBudget": {
+        "maxPrimarySkills": 2,
+        "maxOverlays": 2,
+        "maxSupplemental": 2
+      },
       "forgeAuthority": [
         "provider-neutral capacity",
         "bottleneck analysis",
@@ -1159,7 +1378,9 @@
           "provider": "addy-agent-skills",
           "skill": "observability-and-instrumentation",
           "path": "skills/observability-and-instrumentation/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "overlays": [
@@ -1167,31 +1388,46 @@
           "provider": "sentry-agent-skills",
           "skill": "sentry-fix-issues",
           "path": "skills/sentry-fix-issues/SKILL.md",
-          "when": { "observability": ["sentry"], "requested": ["sentry"] }
+          "when": {
+            "observability": ["sentry"],
+            "requested": ["sentry"]
+          }
         },
         {
           "provider": "sentry-agent-skills",
           "skill": "sentry-otel-exporter-setup",
           "path": "skills/sentry-otel-exporter-setup/SKILL.md",
-          "when": { "observability": ["sentry"], "requested": ["sentry"] }
+          "when": {
+            "observability": ["sentry"],
+            "requested": ["sentry"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "google-cloud-waf-operational-excellence",
           "path": "skills/cloud/google-cloud-waf-operational-excellence/SKILL.md",
-          "when": { "hosting": ["google cloud", "gcp", "gke"], "requested": ["google-cloud"] }
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "gke-observability",
           "path": "skills/cloud/gke-observability/SKILL.md",
-          "when": { "hosting": ["gke", "kubernetes"], "requested": ["gke"] }
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "google-cloud-networking-observability",
           "path": "skills/cloud/google-cloud-networking-observability/SKILL.md",
-          "when": { "hosting": ["google cloud", "gcp"], "requested": ["google-cloud"] }
+          "when": {
+            "hosting": ["google cloud", "gcp"],
+            "requested": ["google-cloud"]
+          }
         }
       ],
       "supplemental": [
@@ -1199,19 +1435,25 @@
           "provider": "addy-agent-skills",
           "skill": "observability-checklist",
           "path": "references/observability-checklist.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "slo-implementation",
           "path": "plugins/observability-monitoring/skills/slo-implementation/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "distributed-tracing",
           "path": "plugins/observability-monitoring/skills/distributed-tracing/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "conflicts": [
@@ -1234,13 +1476,18 @@
           "provider": "google-skills",
           "skill": "google-cloud-waf-reliability",
           "path": "skills/cloud/google-cloud-waf-reliability/SKILL.md",
-          "when": { "hosting": ["google cloud", "gcp", "gke"], "requested": ["google-cloud"] }
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
         },
         {
           "provider": "addy-agent-skills",
           "skill": "observability-and-instrumentation",
           "path": "skills/observability-and-instrumentation/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "overlays": [
@@ -1248,19 +1495,28 @@
           "provider": "google-skills",
           "skill": "google-cloud-waf-operational-excellence",
           "path": "skills/cloud/google-cloud-waf-operational-excellence/SKILL.md",
-          "when": { "hosting": ["google cloud", "gcp", "gke"], "requested": ["google-cloud"] }
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
         },
         {
           "provider": "sentry-agent-skills",
           "skill": "sentry-fix-issues",
           "path": "skills/sentry-fix-issues/SKILL.md",
-          "when": { "observability": ["sentry"], "requested": ["sentry"] }
+          "when": {
+            "observability": ["sentry"],
+            "requested": ["sentry"]
+          }
         },
         {
           "provider": "cloudflare-skills",
           "skill": "cloudflare",
           "path": "skills/cloudflare/SKILL.md",
-          "when": { "hosting": ["cloudflare"], "requested": ["cloudflare"] }
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
         }
       ],
       "supplemental": [
@@ -1268,32 +1524,44 @@
           "provider": "addy-agent-skills",
           "skill": "shipping-and-launch",
           "path": "skills/shipping-and-launch/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "conflicts": [],
       "dependsOn": ["observability", "recovery", "scale"],
       "outputClassification": "finding",
-      "contextBudget": { "maxPrimarySkills": 2, "maxOverlays": 2, "maxSupplemental": 2 },
+      "contextBudget": {
+        "maxPrimarySkills": 2,
+        "maxOverlays": 2,
+        "maxSupplemental": 2
+      },
       "forgeAuthority": ["provider-neutral failure-domain analysis"]
     },
     {
       "module": "recovery",
-      "mode": "upstream-powered",
-      "designation": "UPSTREAM_POWERED HYBRID",
+      "mode": "hybrid",
+      "designation": "UPSTREAM_POWERED HYBRID (incident work only; Forge owns backup and restore)",
       "forgeContract": "references/build/recovery.md",
       "primary": [
         {
           "provider": "addy-agent-skills",
           "skill": "debugging-and-error-recovery",
           "path": "skills/debugging-and-error-recovery/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "incidentInvestigation": true
+          },
+          "role": "incident-and-debugging"
         },
         {
           "provider": "addy-agent-skills",
           "skill": "doubt-driven-development",
           "path": "skills/doubt-driven-development/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "incidentInvestigation": true
+          },
+          "role": "incident-and-debugging"
         }
       ],
       "overlays": [
@@ -1301,13 +1569,19 @@
           "provider": "sentry-agent-skills",
           "skill": "sentry-fix-issues",
           "path": "skills/sentry-fix-issues/SKILL.md",
-          "when": { "observability": ["sentry"], "requested": ["sentry"] }
+          "when": {
+            "observability": ["sentry"],
+            "requested": ["sentry"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "google-cloud-waf-reliability",
           "path": "skills/cloud/google-cloud-waf-reliability/SKILL.md",
-          "when": { "hosting": ["google cloud", "gcp", "gke"], "requested": ["google-cloud"] }
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
         }
       ],
       "supplemental": [
@@ -1315,17 +1589,30 @@
           "provider": "wshobson-agents",
           "skill": "error-handling-patterns",
           "path": "plugins/developer-essentials/skills/error-handling-patterns/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
-      "conflicts": [],
+      "conflicts": [
+        {
+          "with": "debugging-and-error-recovery",
+          "rule": "The upstream debugging workflow covers live incident investigation only. It never leads backup, restore, RPO/RTO, or regional-failover work: the Forge recovery contract owns those, and an untested backup remains NOT_VERIFIED recovery capability regardless of any upstream procedure."
+        }
+      ],
       "dependsOn": ["observability", "reliability", "database"],
       "outputClassification": "finding",
-      "contextBudget": { "maxPrimarySkills": 2, "maxOverlays": 2, "maxSupplemental": 2 },
+      "contextBudget": {
+        "maxPrimarySkills": 2,
+        "maxOverlays": 2,
+        "maxSupplemental": 2
+      },
       "forgeAuthority": [
+        "backup and restore capability",
+        "recovery point and recovery time objectives",
+        "tested restore evidence",
         "rollback",
         "production safety",
-        "evidence",
         "incident boundaries",
         "root-cause verification"
       ]
@@ -1340,7 +1627,9 @@
           "provider": "addy-agent-skills",
           "skill": "ci-cd-and-automation",
           "path": "skills/ci-cd-and-automation/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "overlays": [
@@ -1348,25 +1637,37 @@
           "provider": "cloudflare-skills",
           "skill": "wrangler",
           "path": "skills/wrangler/SKILL.md",
-          "when": { "hosting": ["cloudflare"], "requested": ["cloudflare"] }
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "cloud-run-basics",
           "path": "skills/cloud/cloud-run-basics/SKILL.md",
-          "when": { "hosting": ["google cloud", "gcp"], "requested": ["google-cloud"] }
+          "when": {
+            "hosting": ["google cloud", "gcp"],
+            "requested": ["google-cloud"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "gke-productionize",
           "path": "skills/cloud/gke-productionize/SKILL.md",
-          "when": { "hosting": ["gke", "kubernetes"], "requested": ["gke"] }
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
         },
         {
           "provider": "vercel-agent-skills",
           "skill": "vercel-optimize",
           "path": "skills/vercel-optimize/SKILL.md",
-          "when": { "hosting": ["vercel"], "requested": ["vercel"] }
+          "when": {
+            "hosting": ["vercel"],
+            "requested": ["vercel"]
+          }
         }
       ],
       "supplemental": [
@@ -1374,13 +1675,17 @@
           "provider": "addy-agent-skills",
           "skill": "shipping-and-launch",
           "path": "skills/shipping-and-launch/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         },
         {
           "provider": "addy-agent-skills",
           "skill": "git-workflow-and-versioning",
           "path": "skills/git-workflow-and-versioning/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "conflicts": [
@@ -1409,37 +1714,55 @@
           "provider": "google-skills",
           "skill": "gke-productionize",
           "path": "skills/cloud/gke-productionize/SKILL.md",
-          "when": { "hosting": ["gke", "kubernetes"], "requested": ["gke"] }
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "gke-platform-security",
           "path": "skills/cloud/gke-platform-security/SKILL.md",
-          "when": { "hosting": ["gke", "kubernetes"], "requested": ["gke"] }
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "gke-storage",
           "path": "skills/cloud/gke-storage/SKILL.md",
-          "when": { "hosting": ["gke", "kubernetes"], "requested": ["gke"] }
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "gke-workload-security",
           "path": "skills/cloud/gke-workload-security/SKILL.md",
-          "when": { "hosting": ["gke", "kubernetes"], "requested": ["gke"] }
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
         },
         {
           "provider": "cloudflare-skills",
           "skill": "cloudflare",
           "path": "skills/cloudflare/SKILL.md",
-          "when": { "hosting": ["cloudflare"], "requested": ["cloudflare"] }
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
         },
         {
           "provider": "cloudflare-skills",
           "skill": "wrangler",
           "path": "skills/wrangler/SKILL.md",
-          "when": { "hosting": ["cloudflare"], "requested": ["cloudflare"] }
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
         }
       ],
       "supplemental": [],
@@ -1463,7 +1786,9 @@
           "provider": "addy-agent-skills",
           "skill": "ci-cd-and-automation",
           "path": "skills/ci-cd-and-automation/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "overlays": [],
@@ -1472,31 +1797,43 @@
           "provider": "addy-agent-skills",
           "skill": "security-and-hardening",
           "path": "skills/security-and-hardening/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "deployment-pipeline-design",
           "path": "plugins/cicd-automation/skills/deployment-pipeline-design/SKILL.md",
-          "when": { "ci": true }
+          "when": {
+            "ci": true
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "github-actions-templates",
           "path": "plugins/cicd-automation/skills/github-actions-templates/SKILL.md",
-          "when": { "ci": true }
+          "when": {
+            "ci": true
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "secrets-management",
           "path": "plugins/cicd-automation/skills/secrets-management/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "conflicts": [],
       "dependsOn": ["security", "deployment", "ship"],
       "outputClassification": "finding",
-      "contextBudget": { "maxPrimarySkills": 1, "maxOverlays": 2, "maxSupplemental": 4 },
+      "contextBudget": {
+        "maxPrimarySkills": 1,
+        "maxOverlays": 2,
+        "maxSupplemental": 4
+      },
       "forgeAuthority": [
         "dependency provenance",
         "lockfiles",
@@ -1517,7 +1854,10 @@
           "provider": "google-skills",
           "skill": "google-cloud-waf-cost-optimization",
           "path": "skills/cloud/google-cloud-waf-cost-optimization/SKILL.md",
-          "when": { "hosting": ["google cloud", "gcp", "gke"], "requested": ["google-cloud"] }
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
         }
       ],
       "overlays": [
@@ -1525,13 +1865,19 @@
           "provider": "vercel-agent-skills",
           "skill": "vercel-optimize",
           "path": "skills/vercel-optimize/SKILL.md",
-          "when": { "hosting": ["vercel"], "requested": ["vercel"] }
+          "when": {
+            "hosting": ["vercel"],
+            "requested": ["vercel"]
+          }
         },
         {
           "provider": "cloudflare-skills",
           "skill": "cloudflare",
           "path": "skills/cloudflare/SKILL.md",
-          "when": { "hosting": ["cloudflare"], "requested": ["cloudflare"] }
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
         }
       ],
       "supplemental": [],
@@ -1553,7 +1899,9 @@
           "provider": "addy-agent-skills",
           "skill": "documentation-and-adrs",
           "path": "skills/documentation-and-adrs/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "overlays": [],
@@ -1562,7 +1910,9 @@
           "provider": "wshobson-agents",
           "skill": "openapi-spec-generation",
           "path": "plugins/documentation-generation/skills/openapi-spec-generation/SKILL.md",
-          "when": { "riskSurfaces": ["api"] }
+          "when": {
+            "riskSurfaces": ["api"]
+          }
         }
       ],
       "conflicts": [
@@ -1590,13 +1940,19 @@
           "provider": "google-skills",
           "skill": "google-analytics-admin-api-basics",
           "path": "skills/analytics/google-analytics-admin-api-basics/SKILL.md",
-          "when": { "integrations": ["google analytics"], "requested": ["google-analytics"] }
+          "when": {
+            "integrations": ["google analytics"],
+            "requested": ["google-analytics"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "google-analytics-data-api-basics",
           "path": "skills/analytics/google-analytics-data-api-basics/SKILL.md",
-          "when": { "integrations": ["google analytics"], "requested": ["google-analytics"] }
+          "when": {
+            "integrations": ["google analytics"],
+            "requested": ["google-analytics"]
+          }
         }
       ],
       "supplemental": [
@@ -1604,13 +1960,17 @@
           "provider": "wshobson-agents",
           "skill": "kpi-dashboard-design",
           "path": "plugins/business-analytics/skills/kpi-dashboard-design/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "data-storytelling",
           "path": "plugins/business-analytics/skills/data-storytelling/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "conflicts": [],
@@ -1661,7 +2021,9 @@
           "provider": "wshobson-agents",
           "skill": "prompt-engineering-patterns",
           "path": "plugins/llm-application-dev/skills/prompt-engineering-patterns/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "overlays": [
@@ -1669,25 +2031,37 @@
           "provider": "google-skills",
           "skill": "gemini-api",
           "path": "skills/cloud/gemini-api/SKILL.md",
-          "when": { "aiProviders": ["google", "gemini"], "requested": ["gemini"] }
+          "when": {
+            "aiProviders": ["google", "gemini"],
+            "requested": ["gemini"]
+          }
         },
         {
           "provider": "google-skills",
           "skill": "agent-platform-inference",
           "path": "skills/cloud/agent-platform-inference/SKILL.md",
-          "when": { "hosting": ["google cloud", "gcp"], "requested": ["google-cloud"] }
+          "when": {
+            "hosting": ["google cloud", "gcp"],
+            "requested": ["google-cloud"]
+          }
         },
         {
           "provider": "cloudflare-skills",
           "skill": "agents-sdk",
           "path": "skills/agents-sdk/SKILL.md",
-          "when": { "hosting": ["cloudflare"], "requested": ["cloudflare"] }
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
         },
         {
           "provider": "sentry-agent-skills",
           "skill": "sentry-setup-ai-monitoring",
           "path": "skills/sentry-setup-ai-monitoring/SKILL.md",
-          "when": { "observability": ["sentry"], "requested": ["sentry"] }
+          "when": {
+            "observability": ["sentry"],
+            "requested": ["sentry"]
+          }
         }
       ],
       "supplemental": [
@@ -1695,31 +2069,43 @@
           "provider": "wshobson-agents",
           "skill": "rag-implementation",
           "path": "plugins/llm-application-dev/skills/rag-implementation/SKILL.md",
-          "when": { "retrieval": true }
+          "when": {
+            "retrieval": true
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "llm-evaluation",
           "path": "plugins/llm-application-dev/skills/llm-evaluation/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "embedding-strategies",
           "path": "plugins/llm-application-dev/skills/embedding-strategies/SKILL.md",
-          "when": { "retrieval": true }
+          "when": {
+            "retrieval": true
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "hybrid-search-implementation",
           "path": "plugins/llm-application-dev/skills/hybrid-search-implementation/SKILL.md",
-          "when": { "retrieval": true }
+          "when": {
+            "retrieval": true
+          }
         }
       ],
       "conflicts": [],
       "dependsOn": ["security", "privacy", "cost", "observability"],
       "outputClassification": "finding",
-      "contextBudget": { "maxPrimarySkills": 1, "maxOverlays": 2, "maxSupplemental": 4 },
+      "contextBudget": {
+        "maxPrimarySkills": 1,
+        "maxOverlays": 2,
+        "maxSupplemental": 4
+      },
       "forgeAuthority": [
         "prompt-injection boundaries",
         "tool permissions",
@@ -1743,13 +2129,19 @@
           "provider": "wshobson-agents",
           "skill": "stripe-integration",
           "path": "plugins/payment-processing/skills/stripe-integration/SKILL.md",
-          "when": { "paymentProviders": ["stripe"], "requested": ["stripe"] }
+          "when": {
+            "paymentProviders": ["stripe"],
+            "requested": ["stripe"]
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "paypal-integration",
           "path": "plugins/payment-processing/skills/paypal-integration/SKILL.md",
-          "when": { "paymentProviders": ["paypal", "braintree"], "requested": ["paypal"] }
+          "when": {
+            "paymentProviders": ["paypal", "braintree"],
+            "requested": ["paypal"]
+          }
         }
       ],
       "supplemental": [
@@ -1757,13 +2149,17 @@
           "provider": "wshobson-agents",
           "skill": "pci-compliance",
           "path": "plugins/payment-processing/skills/pci-compliance/SKILL.md",
-          "when": { "riskSurfaces": ["payments"] }
+          "when": {
+            "riskSurfaces": ["payments"]
+          }
         },
         {
           "provider": "wshobson-agents",
           "skill": "billing-automation",
           "path": "plugins/payment-processing/skills/billing-automation/SKILL.md",
-          "when": { "riskSurfaces": ["payments"] }
+          "when": {
+            "riskSurfaces": ["payments"]
+          }
         }
       ],
       "conflicts": [
@@ -1800,19 +2196,28 @@
           "skill": "supabase",
           "path": "skills/supabase/SKILL.md",
           "sections": ["realtime"],
-          "when": { "integrations": ["supabase"], "requested": ["supabase"] }
+          "when": {
+            "integrations": ["supabase"],
+            "requested": ["supabase"]
+          }
         },
         {
           "provider": "cloudflare-skills",
           "skill": "durable-objects",
           "path": "skills/durable-objects/SKILL.md",
-          "when": { "hosting": ["cloudflare"], "requested": ["cloudflare"] }
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
         },
         {
           "provider": "sentry-agent-skills",
           "skill": "sentry-fix-issues",
           "path": "skills/sentry-fix-issues/SKILL.md",
-          "when": { "observability": ["sentry"], "requested": ["sentry"] }
+          "when": {
+            "observability": ["sentry"],
+            "requested": ["sentry"]
+          }
         }
       ],
       "supplemental": [],
@@ -1843,19 +2248,25 @@
           "provider": "impeccable",
           "skill": "harden",
           "path": ".claude/skills/impeccable/reference/harden.md",
-          "when": { "riskSurfaces": ["frontend"] }
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
         },
         {
           "provider": "impeccable",
           "skill": "onboard",
           "path": ".claude/skills/impeccable/reference/onboard.md",
-          "when": { "riskSurfaces": ["frontend"] }
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
         },
         {
           "provider": "impeccable",
           "skill": "adapt",
           "path": ".claude/skills/impeccable/reference/adapt.md",
-          "when": { "riskSurfaces": ["frontend"] }
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
         }
       ],
       "conflicts": [],
@@ -1908,25 +2319,33 @@
           "provider": "addy-agent-skills",
           "skill": "shipping-and-launch",
           "path": "skills/shipping-and-launch/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         },
         {
           "provider": "addy-agent-skills",
           "skill": "ci-cd-and-automation",
           "path": "skills/ci-cd-and-automation/SKILL.md",
-          "when": { "ci": true }
+          "when": {
+            "ci": true
+          }
         },
         {
           "provider": "addy-agent-skills",
           "skill": "git-workflow-and-versioning",
           "path": "skills/git-workflow-and-versioning/SKILL.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         },
         {
           "provider": "addy-agent-skills",
           "skill": "definition-of-done",
           "path": "references/definition-of-done.md",
-          "when": { "always": true }
+          "when": {
+            "always": true
+          }
         }
       ],
       "conflicts": [
@@ -1937,7 +2356,11 @@
       ],
       "dependsOn": ["supply-chain", "testing", "docs", "deployment"],
       "outputClassification": "gate",
-      "contextBudget": { "maxPrimarySkills": 0, "maxOverlays": 1, "maxSupplemental": 4 },
+      "contextBudget": {
+        "maxPrimarySkills": 0,
+        "maxOverlays": 1,
+        "maxSupplemental": 4
+      },
       "forgeAuthority": [
         "release gate",
         "project checks",

@@ -1,7 +1,7 @@
 # Advanced Deployment Strategies Reference
 
 Extended configurations, platform-specific patterns, and advanced rollback strategies.
-Core patterns and decision tables live in [`../SKILL.md`](../SKILL.md).
+Core patterns and decision tables live in [`../PLAYBOOK.md`](../PLAYBOOK.md).
 
 ---
 

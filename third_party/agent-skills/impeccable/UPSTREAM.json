@@ -7,7 +7,7 @@
   "license": "Apache-2.0",
   "licenseEvidence": "LICENSE",
   "copyright": "Copyright the Impeccable authors",
-  "importedAt": "2026-07-27T17:03:04.647Z",
+  "importedAt": "2026-07-27T21:17:36.539Z",
   "selectedPaths": [
     ".claude/skills/impeccable/SKILL.md",
     ".claude/skills/impeccable/reference/",
@@ -18,12 +18,14 @@
     "NOTICE.md"
   ],
   "excludedPaths": [
+    ".claude/skills/impeccable/reference/doctor.md",
+    ".claude/skills/impeccable/reference/hooks.md",
     ".claude/skills/impeccable/scripts/detector/browser/",
     ".claude/skills/impeccable/scripts/detector/detect-antipatterns-browser.js",
     ".claude/skills/impeccable/scripts/detector/detect-antipatterns.mjs"
   ],
-  "contentChecksum": "9ac0804b64121bcdd9c1c14811d7232c57fb3272f07162732d0f07ed8ddd15c9",
-  "fileCount": 56,
+  "contentChecksum": "11c6df11f95d2e8f2749560979129df5a4c0847602668191bb3ef0c0f737e237",
+  "fileCount": 54,
   "localPatches": [],
   "runtimeExecutables": [
     ".claude/skills/impeccable/scripts/detector/cli/main.mjs",

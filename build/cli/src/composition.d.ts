@@ -37,6 +37,7 @@ export type ActivationCondition = {
     testingApplicable?: boolean;
     missingEssentialRequirements?: boolean;
     divergentExploration?: boolean;
+    incidentInvestigation?: boolean;
 };
 export type CompositionSource = {
     provider: string;
@@ -113,7 +114,7 @@ export type CompositionEvidence = {
     /** Risk surfaces Forge proved for this task, e.g. `frontend`, `api`, `payments`. */
     riskSurfaces?: string[];
     /** Task-shaped facts that are not repository detections. */
-    flags?: Partial<Record<"ci" | "retrieval" | "migration" | "threatModelling" | "gdprRelevant" | "testingApplicable" | "missingEssentialRequirements" | "divergentExploration", boolean>>;
+    flags?: Partial<Record<"ci" | "retrieval" | "migration" | "threatModelling" | "gdprRelevant" | "testingApplicable" | "missingEssentialRequirements" | "divergentExploration" | "incidentInvestigation", boolean>>;
 };
 /**
  * Evaluates one activation condition. Returns the reason it matched, or `undefined` when the

@@ -11,8 +11,8 @@ adaptations are applied by the composition compiler from declared overlays and t
 | Upstream tag | `skill-v4.0.2` |
 | Licence | Apache-2.0 |
 | Licence evidence | `LICENSE` |
-| Files imported | 56 |
-| Content checksum | `9ac0804b64121bcdd9c1c14811d7232c57fb3272f07162732d0f07ed8ddd15c9` |
+| Files imported | 54 |
+| Content checksum | `11c6df11f95d2e8f2749560979129df5a4c0847602668191bb3ef0c0f737e237` |
 | Update policy | reviewed-only |
 
 ## Selected paths
@@ -27,6 +27,8 @@ adaptations are applied by the composition compiler from declared overlays and t
 
 ## Excluded paths
 
+- `.claude/skills/impeccable/reference/doctor.md`
+- `.claude/skills/impeccable/reference/hooks.md`
 - `.claude/skills/impeccable/scripts/detector/browser/`
 - `.claude/skills/impeccable/scripts/detector/detect-antipatterns-browser.js`
 - `.claude/skills/impeccable/scripts/detector/detect-antipatterns.mjs`
@@ -57,7 +59,7 @@ an explicit adapter with an explicit approval boundary — never because a modul
 
 ## Import notes
 
-The detector import closure is vendored whole so the module graph resolves offline; the 350 KiB pre-bundled browser detector and the browser-injection payload are excluded because Forge only ever runs the detector against local files. `forge ui live` ships guidance only: the interactive live server, hook system, and screenshot runtime are deliberately not imported.
+The detector import closure is vendored whole so the module graph resolves offline; the 350 KiB pre-bundled browser detector and the browser-injection payload are excluded because Forge only ever runs the detector against local files. `forge ui live` ships guidance only: the interactive live server, hook system, and screenshot runtime are deliberately not imported. The hook and doctor reference documents are excluded with the subsystems they describe: Forge does not vendor the hook system, and `forge doctor` owns installation health, so shipping guidance for either would advertise a workflow that does not exist.
 
 ## Instruction review
 

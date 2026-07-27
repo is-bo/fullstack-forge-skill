@@ -1,9 +1,34 @@
-Vercel Agent Skills — licence evidence
+Vercel Agent Skills — licence evidence and permission notice
 
-The upstream repository vercel-labs/agent-skills has no LICENSE file at commit 7c180d9044c9ae2b442b567aad4e42a28dd5ed62. The grant below is quoted verbatim from README.md.
+The upstream repository vercel-labs/agent-skills publishes no LICENSE file at commit 7c180d9044c9ae2b442b567aad4e42a28dd5ed62. It declares its licence in README.md, quoted verbatim below.
 
------ BEGIN README.md LICENCE SECTION -----
+----- BEGIN README.md LICENCE SECTION (verbatim, upstream) -----
 ## License
 
 MIT
 ----- END README.md LICENCE SECTION -----
+
+----- BEGIN MIT PERMISSION NOTICE (supplied by Fullstack Forge) -----
+The declaration above names MIT without reproducing its terms. The
+canonical text of that licence is reproduced here so it travels with the copy of this
+project's content that Fullstack Forge redistributes. Fullstack Forge is not the copyright
+holder and claims no rights in that content.
+
+Copyright (c) Vercel, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this
+software and associated documentation files (the "Software"), to deal in the Software
+without restriction, including without limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons
+to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or
+substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+----- END MIT PERMISSION NOTICE -----

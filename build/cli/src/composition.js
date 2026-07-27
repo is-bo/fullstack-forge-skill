@@ -27,7 +27,8 @@ const BOOLEAN_FLAGS = [
     "gdprRelevant",
     "testingApplicable",
     "missingEssentialRequirements",
-    "divergentExploration"
+    "divergentExploration",
+    "incidentInvestigation"
 ];
 /**
  * Evaluates one activation condition. Returns the reason it matched, or `undefined` when the

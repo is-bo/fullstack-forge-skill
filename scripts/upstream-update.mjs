@@ -245,15 +245,73 @@ function readLicenceEvidence(workspace, commit, provider) {
     if (match === null) throw new Error(`No licence section found in ${file} for ${provider.id}`);
     if (!match[1].includes(provider.license))
       throw new Error(`${file} does not declare ${provider.license} for ${provider.id}`);
+    // A README-declared grant names a licence but does not reproduce its terms. Both MIT and
+    // Apache-2.0 require the permission notice to travel with every copy, so the canonical text is
+    // supplied here alongside the verbatim upstream declaration, attributed to the upstream
+    // copyright holder. What upstream published and what Forge added are kept explicitly separate
+    // so the record cannot be mistaken for an upstream-authored file.
     return (
-      `${provider.displayName} — licence evidence\n\n` +
-      `The upstream repository ${provider.repository} has no LICENSE file at commit ` +
-      `${provider.upstreamCommit}. The grant below is quoted verbatim from ${file}.\n\n` +
-      `----- BEGIN ${file} LICENCE SECTION -----\n## License\n${match[1].trimEnd()}\n` +
-      `----- END ${file} LICENCE SECTION -----\n`
+      `${provider.displayName} — licence evidence and permission notice\n\n` +
+      `The upstream repository ${provider.repository} publishes no LICENSE file at commit ` +
+      `${provider.upstreamCommit}. It declares its licence in ${file}, quoted verbatim below.\n\n` +
+      `----- BEGIN ${file} LICENCE SECTION (verbatim, upstream) -----\n## License\n` +
+      `${match[1].trimEnd()}\n----- END ${file} LICENCE SECTION -----\n\n` +
+      `----- BEGIN ${provider.license} PERMISSION NOTICE (supplied by Fullstack Forge) -----\n` +
+      `The declaration above names ${provider.license} without reproducing its terms. The\n` +
+      `canonical text of that licence is reproduced here so it travels with the copy of this\n` +
+      `project's content that Fullstack Forge redistributes. Fullstack Forge is not the copyright\n` +
+      `holder and claims no rights in that content.\n\n` +
+      `${permissionNotice(provider)}\n` +
+      `----- END ${provider.license} PERMISSION NOTICE -----\n`
     );
   }
   return text;
+}
+
+/**
+ * Canonical permission notice for a provider whose upstream repository declares a licence without
+ * reproducing it. MIT is reproduced in full because nothing else in the distribution carries that
+ * copyright holder's MIT grant. Apache-2.0 is referenced rather than duplicated per provider: the
+ * complete text already ships as this package's root LICENSE, which is what Apache-2.0 section 4(a)
+ * requires recipients to receive.
+ */
+function permissionNotice(provider) {
+  const holder = provider.copyright ?? provider.displayName;
+  if (provider.license === "MIT") {
+    return [
+      holder,
+      "",
+      "Permission is hereby granted, free of charge, to any person obtaining a copy of this",
+      'software and associated documentation files (the "Software"), to deal in the Software',
+      "without restriction, including without limitation the rights to use, copy, modify, merge,",
+      "publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons",
+      "to whom the Software is furnished to do so, subject to the following conditions:",
+      "",
+      "The above copyright notice and this permission notice shall be included in all copies or",
+      "substantial portions of the Software.",
+      "",
+      'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,',
+      "INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR",
+      "PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE",
+      "FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR",
+      "OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER",
+      "DEALINGS IN THE SOFTWARE."
+    ].join("\n");
+  }
+  return [
+    holder,
+    "",
+    'Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file',
+    "except in compliance with the License. You may obtain a copy of the License from the LICENSE",
+    "file distributed at the root of this package, or at:",
+    "",
+    "    http://www.apache.org/licenses/LICENSE-2.0",
+    "",
+    "Unless required by applicable law or agreed to in writing, software distributed under the",
+    'License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,',
+    "either express or implied. See the License for the specific language governing permissions",
+    "and limitations under the License."
+  ].join("\n");
 }
 
 function renderSource(provider, record, advisories) {

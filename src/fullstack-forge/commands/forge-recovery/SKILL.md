@@ -5,7 +5,7 @@ description: Verify recoverability of data and service against explicit RPO, RTO
 
 # forge-recovery: Backup and recovery
 
-Engine: Upstream-powered — Addy Osmani Agent Skills
+Engine: Hybrid — Forge + Addy Osmani Agent Skills, Sentry, Google
 
 ## Purpose
 

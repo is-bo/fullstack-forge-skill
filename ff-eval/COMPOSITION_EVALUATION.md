@@ -45,7 +45,7 @@ specified and shows what it costs.
 
 ## Results
 
-All 25 cases pass their activation and suppression expectations. Across the corpus, 77 provider
+All 25 cases pass their activation and suppression expectations. Across the corpus, 79 provider
 sources were correctly suppressed for lack of evidence, and 2 cases (a non-PostgreSQL database and
 multi-tenant object access) correctly loaded **no** provider content at all.
 
@@ -53,12 +53,15 @@ multi-tenant object access) correctly loaded **no** provider content at all.
 | ---------------------------------- | ------ |
 | Cases                              | 25     |
 | Activation and suppression correct | 25     |
-| Sources correctly suppressed       | 77     |
+| Sources correctly suppressed       | 79     |
 | Cases loading no provider content  | 2      |
-| Median eager context increase      | +137%  |
-| Maximum eager context increase     | +494%  |
-| Median available context increase  | +287%  |
-| Maximum available context increase | +1073% |
+| Median eager context increase      | +110%  |
+| Maximum eager context increase     | +522%  |
+| Median available context increase  | +304%  |
+| Maximum available context increase | +1137% |
+
+These figures are asserted against the live harness by `scripts/tests/composition-corpus.test.mjs`,
+so the table cannot drift away from what `npm run eval:composition` actually reports.
 
 Provider gating held in every direction that was tested: React guidance stayed out of a Vue
 repository; React Native guidance required React Native rather than merely React; Vercel,
@@ -70,7 +73,8 @@ loaded; and Stripe and PayPal each activated only for their own provider.
 
 The stated target was no more than a 15% increase in loaded instruction tokens for a normal focused
 task. **This build does not meet that target**, by a wide margin: the median focused task loads
-roughly 2.4× the instruction text of the Forge-only baseline before any reference is opened.
+roughly 2.1× the instruction text of the Forge-only baseline before any reference is opened, and
+about 4× once every reference the manifest makes available is counted.
 
 This is inherent to the architecture, not an implementation defect that was overlooked. A module
 whose engine is an upstream workflow has to read that workflow; upstream specialist skills are
@@ -80,7 +84,7 @@ requirements.
 
 What was done to keep the cost as low as honesty allows:
 
-- Provider content is suppressed unless evidence activates it — 77 suppressions across 25 cases.
+- Provider content is suppressed unless evidence activates it — 79 suppressions across 25 cases.
 - Each module admits at most one primary workflow, and normally at most two overlays; every drop is
   reported rather than hidden.
 - Only overlays and supplemental references are progressive; the eager figure above already excludes

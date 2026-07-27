@@ -13,11 +13,11 @@
       "license": "Apache-2.0",
       "licenseEvidence": "LICENSE",
       "copyright": "Copyright the Impeccable authors",
-      "contentChecksum": "9ac0804b64121bcdd9c1c14811d7232c57fb3272f07162732d0f07ed8ddd15c9",
+      "contentChecksum": "11c6df11f95d2e8f2749560979129df5a4c0847602668191bb3ef0c0f737e237",
       "updatePolicy": "reviewed-only",
       "runtimeRoot": ".fullstack-forge/upstream/impeccable",
       "runtimeSkillFilename": "PLAYBOOK.md",
-      "fileCount": 59,
+      "fileCount": 57,
       "runtimeExecutables": [
         ".claude/skills/impeccable/scripts/detector/cli/main.mjs",
         ".claude/skills/impeccable/scripts/detector/design-system.mjs",

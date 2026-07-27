@@ -168,8 +168,17 @@ function build(raw, provenance, options) {
     };
 }
 /**
- * Guard used by the Ship gate. Upstream visual craft advice is never a release blocker, however
- * severe the upstream rule claims to be.
+ * Classifies whether an adapted result would ever be a release blocker.
+ *
+ * This is a predicate, not the enforcement point — nothing in the Ship gate calls it today, and the
+ * "advisories cannot block Ship" property does not depend on it. That property holds structurally:
+ * `adaptDetectorRun` builds every subjective craft result with `status: "WARNING"`, and the Ship
+ * gate blocks only on `FAIL` and `BLOCKED` records. This helper exists so that claim is asserted
+ * directly by tests, and so a future caller that wants to filter adapted results has one honest
+ * definition to use rather than inventing its own.
+ *
+ * It returns `true` for every non-upstream finding, so wiring it in could only ever add blocking,
+ * never remove it from Forge's own findings.
  */
 export function blocksShip(finding) {
     if (finding.analyzer_id?.startsWith("upstream-detector:") !== true)

@@ -17,7 +17,7 @@ An agent skill for implementing smooth, native-feeling animations using React's 
 
 ```
 react-view-transitions/
-├── SKILL.md                      # Core skill (always loaded)
+├── PLAYBOOK.md                      # Core skill (always loaded)
 ├── AGENTS.md                     # Full compiled document (all references expanded)
 └── references/
     ├── implementation.md         # Step-by-step implementation workflow

@@ -145,7 +145,7 @@ For every shared visual element identified in Step 1, add matching named `<ViewT
 
 The `share="morph"` class uses the [Shared Element Morph](css-recipes.md#shared-element-morph) recipe (controlled duration + motion blur). For a simpler cross-fade, use `share="auto"` (browser default).
 
-When list items contain shared elements, compose both patterns with two nested `<ViewTransition>` layers — see [Composing Shared Elements with List Identity](../SKILL.md#composing-shared-elements-with-list-identity).
+When list items contain shared elements, compose both patterns with two nested `<ViewTransition>` layers — see [Composing Shared Elements with List Identity](../PLAYBOOK.md#composing-shared-elements-with-list-identity).
 
 **Rules:**
 - Names must be globally unique — use prefixes like `photo-${id}`.

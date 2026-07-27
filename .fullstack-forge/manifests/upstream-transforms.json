@@ -7,6 +7,10 @@
       "reason": "An upstream SKILL.md inside an installed project could be discovered and triggered by the agent host independently of Forge. The file is renamed and its activation frontmatter is moved into an inert provenance block so only Forge's composition engine can select it."
     },
     {
+      "id": "forge-owned-procedure",
+      "reason": "Declared replacements that hand a step back to Forge where the upstream procedure assumes its own installation, its own project state, or a runtime component Forge does not vendor. Runs before command routing and path rewriting so an overlay is always written against the pristine upstream text, and its exact-match guard stays meaningful."
+    },
+    {
       "id": "forge-command-routes",
       "reason": "Upstream command names are rewritten to Forge command routes so users never need to learn or invoke an upstream product's commands."
     },
@@ -23,12 +27,16 @@
       "reason": "No vendored code may report usage anywhere. Forge ships no telemetry."
     },
     {
-      "id": "forge-owned-procedure",
-      "reason": "Declared replacements that hand a step back to Forge where the upstream procedure assumes its own installation, its own project state, or a runtime component Forge does not vendor."
-    },
-    {
       "id": "managed-paths",
       "reason": "Upstream state directories are redirected to Forge-managed locations so no separately managed upstream installation is created inside a user's repository."
+    },
+    {
+      "id": "renamed-skill-references",
+      "reason": "Upstream skill files are renamed to PLAYBOOK.md so no host can discover them. Any cross-reference that resolves inside the vendored tree is rewritten to match, so the rename does not leave the agent following a path that no longer exists."
+    },
+    {
+      "id": "unavailable-runtime-reference",
+      "reason": "Forge imports a reviewed subset of each provider. Guidance that tells the agent to run a script or read a file Forge deliberately did not vendor is replaced with an explicit unavailability note, so the agent never follows an instruction into content that is absent."
     }
   ],
   "applied": [
@@ -214,6 +222,14 @@
       "runtimePath": "skills/agents-sdk/PLAYBOOK.md",
       "applied": [
         "non-discoverable"
+      ]
+    },
+    {
+      "provider": "cloudflare-skills",
+      "source": "skills/cloudflare/references/durable-objects/README.md",
+      "runtimePath": "skills/cloudflare/references/durable-objects/README.md",
+      "applied": [
+        "unavailable-runtime-reference"
       ]
     },
     {
@@ -534,7 +550,8 @@
       "runtimePath": "reference/critique.md",
       "applied": [
         "forge-command-routes",
-        "managed-paths"
+        "managed-paths",
+        "unavailable-runtime-reference"
       ]
     },
     {
@@ -551,15 +568,6 @@
       "runtimePath": "reference/distill.md",
       "applied": [
         "forge-command-routes"
-      ]
-    },
-    {
-      "provider": "impeccable",
-      "source": ".claude/skills/impeccable/reference/doctor.md",
-      "runtimePath": "reference/doctor.md",
-      "applied": [
-        "no-upstream-installation",
-        "managed-paths"
       ]
     },
     {
@@ -581,16 +589,6 @@
     },
     {
       "provider": "impeccable",
-      "source": ".claude/skills/impeccable/reference/hooks.md",
-      "runtimePath": "reference/hooks.md",
-      "applied": [
-        "forge-command-routes",
-        "no-upstream-installation",
-        "managed-paths"
-      ]
-    },
-    {
-      "provider": "impeccable",
       "source": ".claude/skills/impeccable/reference/init.md",
       "runtimePath": "reference/init.md",
       "applied": [
@@ -604,7 +602,8 @@
       "runtimePath": "reference/layout.md",
       "applied": [
         "forge-command-routes",
-        "managed-paths"
+        "managed-paths",
+        "unavailable-runtime-reference"
       ]
     },
     {
@@ -612,7 +611,8 @@
       "source": ".claude/skills/impeccable/reference/live.md",
       "runtimePath": "reference/live.md",
       "applied": [
-        "managed-paths"
+        "managed-paths",
+        "unavailable-runtime-reference"
       ]
     },
     {
@@ -620,7 +620,8 @@
       "source": ".claude/skills/impeccable/reference/new-work.md",
       "runtimePath": "reference/new-work.md",
       "applied": [
-        "managed-paths"
+        "managed-paths",
+        "unavailable-runtime-reference"
       ]
     },
     {
@@ -644,7 +645,8 @@
       "source": ".claude/skills/impeccable/reference/polish.md",
       "runtimePath": "reference/polish.md",
       "applied": [
-        "managed-paths"
+        "managed-paths",
+        "unavailable-runtime-reference"
       ]
     },
     {
@@ -661,7 +663,8 @@
       "runtimePath": "reference/routing.md",
       "applied": [
         "forge-command-routes",
-        "managed-paths"
+        "managed-paths",
+        "unavailable-runtime-reference"
       ]
     },
     {
@@ -670,7 +673,8 @@
       "runtimePath": "reference/typeset.md",
       "applied": [
         "forge-command-routes",
-        "managed-paths"
+        "managed-paths",
+        "unavailable-runtime-reference"
       ]
     },
     {
@@ -704,9 +708,17 @@
       "runtimePath": "PLAYBOOK.md",
       "applied": [
         "non-discoverable",
-        "forge-command-routes",
         "forge-owned-procedure",
-        "managed-paths"
+        "managed-paths",
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "sentry-agent-skills",
+      "source": "README.md",
+      "runtimePath": "README.md",
+      "applied": [
+        "unavailable-runtime-reference"
       ]
     },
     {
@@ -823,6 +835,14 @@
     },
     {
       "provider": "vercel-agent-skills",
+      "source": "skills/react-best-practices/AGENTS.md",
+      "runtimePath": "skills/react-best-practices/AGENTS.md",
+      "applied": [
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
       "source": "skills/react-best-practices/SKILL.md",
       "runtimePath": "skills/react-best-practices/PLAYBOOK.md",
       "applied": [
@@ -839,6 +859,30 @@
     },
     {
       "provider": "vercel-agent-skills",
+      "source": "skills/react-view-transitions/README.md",
+      "runtimePath": "skills/react-view-transitions/README.md",
+      "applied": [
+        "renamed-skill-references"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "source": "skills/react-view-transitions/references/implementation.md",
+      "runtimePath": "skills/react-view-transitions/references/implementation.md",
+      "applied": [
+        "renamed-skill-references"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "source": "skills/react-view-transitions/references/nextjs.md",
+      "runtimePath": "skills/react-view-transitions/references/nextjs.md",
+      "applied": [
+        "renamed-skill-references"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
       "source": "skills/react-view-transitions/SKILL.md",
       "runtimePath": "skills/react-view-transitions/PLAYBOOK.md",
       "applied": [
@@ -847,10 +891,35 @@
     },
     {
       "provider": "vercel-agent-skills",
+      "source": "skills/vercel-optimize/AGENTS.md",
+      "runtimePath": "skills/vercel-optimize/AGENTS.md",
+      "applied": [
+        "renamed-skill-references"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "source": "skills/vercel-optimize/README.md",
+      "runtimePath": "skills/vercel-optimize/README.md",
+      "applied": [
+        "renamed-skill-references"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "source": "skills/vercel-optimize/references/data-collection.md",
+      "runtimePath": "skills/vercel-optimize/references/data-collection.md",
+      "applied": [
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
       "source": "skills/vercel-optimize/SKILL.md",
       "runtimePath": "skills/vercel-optimize/PLAYBOOK.md",
       "applied": [
-        "non-discoverable"
+        "non-discoverable",
+        "unavailable-runtime-reference"
       ]
     },
     {
@@ -891,6 +960,22 @@
       "runtimePath": "plugins/business-analytics/skills/kpi-dashboard-design/PLAYBOOK.md",
       "applied": [
         "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/cicd-automation/skills/deployment-pipeline-design/references/advanced-strategies.md",
+      "runtimePath": "plugins/cicd-automation/skills/deployment-pipeline-design/references/advanced-strategies.md",
+      "applied": [
+        "renamed-skill-references"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/cicd-automation/skills/deployment-pipeline-design/references/details.md",
+      "runtimePath": "plugins/cicd-automation/skills/deployment-pipeline-design/references/details.md",
+      "applied": [
+        "unavailable-runtime-reference"
       ]
     },
     {
@@ -955,6 +1040,14 @@
       "runtimePath": "plugins/developer-essentials/skills/sql-optimization-patterns/PLAYBOOK.md",
       "applied": [
         "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/documentation-generation/skills/openapi-spec-generation/references/details.md",
+      "runtimePath": "plugins/documentation-generation/skills/openapi-spec-generation/references/details.md",
+      "applied": [
+        "unavailable-runtime-reference"
       ]
     },
     {
@@ -1074,7 +1167,8 @@
       "source": "plugins/security-scanning/skills/sast-configuration/SKILL.md",
       "runtimePath": "plugins/security-scanning/skills/sast-configuration/PLAYBOOK.md",
       "applied": [
-        "non-discoverable"
+        "non-discoverable",
+        "unavailable-runtime-reference"
       ]
     },
     {

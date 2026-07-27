@@ -71,9 +71,19 @@ checksummed, and reviewed. Nothing is fetched at runtime and nothing updates aut
 \`npm run upstream:status\` to inspect exactly what is installed.
 
 The upstream maintainers do not endorse Fullstack Forge, and this project is not affiliated with
-them. Upstream copyright notices and licence terms are preserved verbatim in
-\`third_party/agent-skills/<provider>/\` and are installed alongside the content they cover as
-\`UPSTREAM-LICENSE\`, \`UPSTREAM-NOTICE\`, and \`UPSTREAM-SOURCE.md\`.
+them.
+
+Upstream licence terms are preserved verbatim in this repository under
+\`third_party/agent-skills/<provider>/\`, and travel with the distributed package as
+\`UPSTREAM-LICENSE\`, \`UPSTREAM-NOTICE\`, and \`UPSTREAM-SOURCE.md\` beside the content they
+cover. Two providers — Vercel and Sentry — publish no LICENSE file at the pinned commit and declare
+their licence only in \`README.md\`. For those, the verbatim upstream declaration is recorded
+**and** the canonical permission notice for the declared licence is supplied by Fullstack Forge and
+attributed to the upstream copyright holder, so the notice the licence requires travels with every
+copy. What upstream published and what Forge supplied are marked separately in each file.
+
+\`UPSTREAM-NOTICE\` is a Forge-generated provenance summary. Where a provider publishes its own
+NOTICE file, that file is imported as ordinary content and preserved unchanged.
 
 ## Vendored sources
 

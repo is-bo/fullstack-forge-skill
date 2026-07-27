@@ -296,8 +296,12 @@ test("licence evidence read from a README is flagged for explicit review", () =>
       join(projectRoot, "third_party", "agent-skills", provider.id, "LICENSE"),
       "utf8"
     );
-    assert.ok(licence.includes("has no LICENSE file"));
+    assert.ok(licence.includes("publishes no LICENSE file"));
     assert.ok(licence.includes(provider.license));
+    // The declaration alone is not the notice the licence requires; the canonical permission text
+    // must travel with the redistributed content.
+    assert.ok(licence.includes("PERMISSION NOTICE (supplied by Fullstack Forge)"));
+    assert.ok(licence.includes(provider.copyright));
   }
 });
 
@@ -306,4 +310,25 @@ test("document classification does not treat scripts as inert guidance", () => {
   assert.ok(isDocumentPath("LICENSE", documentFileExtensions));
   assert.ok(!isDocumentPath("a/b.mjs", documentFileExtensions));
   assert.ok(!isDocumentPath("a/b.py", documentFileExtensions));
+});
+
+test("a README-declared licence must be explicitly marked for review", () => {
+  assert.throws(
+    () =>
+      validateProviderSelection(
+        valid({ licenseEvidence: "README.md#license", requiresLicenseEvidenceReview: undefined })
+      ),
+    /requiresLicenseEvidenceReview/u
+  );
+  assert.doesNotThrow(() =>
+    validateProviderSelection(
+      valid({ licenseEvidence: "README.md#license", requiresLicenseEvidenceReview: true })
+    )
+  );
+});
+
+test("every occurrence of a dangerous instruction is reported, not only the first", () => {
+  const text = "git push --force origin main\nlater: git push --force origin release\n";
+  const findings = scanDangerousInstructions("a.md", text).filter((f) => f.rule === "force-push");
+  assert.equal(findings.length, 2, "a second occurrence must not become a blind spot");
 });

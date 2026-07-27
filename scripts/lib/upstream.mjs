@@ -69,6 +69,14 @@ export function validateProviderSelection(provider) {
     throw new Error(`Provider ${id} declares an unsupported license: ${provider.license}`);
   if (typeof provider.licenseEvidence !== "string" || provider.licenseEvidence.length === 0)
     throw new Error(`Provider ${id} must record where its licence grant was read from`);
+  // A grant read from a README rather than a LICENSE file is weaker evidence, so it must be
+  // acknowledged explicitly. This is a gate, not a comment: an import cannot quietly rely on a
+  // two-word licence declaration without someone marking that they looked at it.
+  if (provider.licenseEvidence.includes("#") && provider.requiresLicenseEvidenceReview !== true)
+    throw new Error(
+      `Provider ${id} reads its licence from ${provider.licenseEvidence} rather than a LICENSE ` +
+        "file, so it must set requiresLicenseEvidenceReview: true"
+    );
   if (provider.updatePolicy !== "reviewed-only")
     throw new Error(`Provider ${id} must use updatePolicy "reviewed-only"`);
   for (const field of ["selectedPaths", "excludedPaths", "runtimeExecutables"]) {
@@ -211,14 +219,17 @@ export const DANGEROUS_INSTRUCTION_RULES = Object.freeze([
 export function scanDangerousInstructions(path, text) {
   const findings = [];
   for (const rule of DANGEROUS_INSTRUCTION_RULES) {
-    const match = rule.pattern.exec(text);
-    if (match === null) continue;
-    findings.push({
-      path,
-      rule: rule.id,
-      hardDeny: rule.hardDeny,
-      evidence: excerpt(text, match.index)
-    });
+    // Every occurrence, not only the first: a file that legitimately trips a rule once must not
+    // become a blind spot for a second, different occurrence of the same rule.
+    const pattern = new RegExp(rule.pattern.source, `${rule.pattern.flags.replace(/g/gu, "")}g`);
+    for (const match of text.matchAll(pattern)) {
+      findings.push({
+        path,
+        rule: rule.id,
+        hardDeny: rule.hardDeny,
+        evidence: excerpt(text, match.index)
+      });
+    }
   }
   return findings;
 }
