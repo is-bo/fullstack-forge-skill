@@ -1,0 +1,55 @@
+{
+  "$comment": "Forge-side adaptations applied when compiling pristine vendored content into the managed runtime tree. Upstream content is never edited in place; every difference between what upstream published and what Forge ships is produced by a declared overlay plus a reproducible transform, and recorded in .fullstack-forge/manifests/upstream-transforms.json.",
+  "overlays": {
+    "impeccable": {
+      "stripPathPrefix": ".claude/skills/impeccable/",
+      "contentReplacements": [
+        {
+          "reason": "Forge owns repository discovery and project state. The upstream setup step runs a context script that Forge deliberately does not vendor (it is part of the interactive runtime, not the detector), so it is replaced by the Forge-owned equivalent.",
+          "appliesTo": ".claude/skills/impeccable/SKILL.md",
+          "find": "1. Run `node .claude/skills/impeccable/scripts/context.mjs` once per session (if the runtime shows this skill's loaded base directory, run `node <skill-base-dir>/scripts/context.mjs`; keep cwd at the user's project). Pass a named source file or route as `--target <path>`. It loads PRODUCT.md, DESIGN.md, the matching surface brief, and native-platform guidance when applicable; follow its directives and do not rerun it.",
+          "replace": "1. Use Forge's own discovery instead of an upstream context script: load `fullstack-forge/references/build/discover.md`, then read the project's `PRODUCT.md` and `DESIGN.md` when they exist and any surface brief under `.fullstack-forge/ui/`. Forge owns repository profiling, applicability, and project state; there is no separate upstream installation to initialise."
+        }
+      ],
+      "commandRoutes": {
+        "/impeccable": "$forge ui",
+        "/impeccable:init": "$forge ui init",
+        "/impeccable:craft": "$forge ui craft",
+        "/impeccable:document": "$forge ui document",
+        "/impeccable:extract": "$forge ui extract",
+        "/impeccable:shape": "$forge ui shape",
+        "/impeccable:critique": "$forge ui critique",
+        "/impeccable:audit": "$forge ui audit",
+        "/impeccable:polish": "$forge ui polish",
+        "/impeccable:bolder": "$forge ui bolder",
+        "/impeccable:quieter": "$forge ui quieter",
+        "/impeccable:distill": "$forge ui distill",
+        "/impeccable:harden": "$forge ui harden",
+        "/impeccable:onboard": "$forge ui onboard",
+        "/impeccable:animate": "$forge ui animate",
+        "/impeccable:colorize": "$forge ui colorize",
+        "/impeccable:typeset": "$forge ui typeset",
+        "/impeccable:layout": "$forge ui layout",
+        "/impeccable:delight": "$forge ui delight",
+        "/impeccable:overdrive": "$forge ui overdrive",
+        "/impeccable:clarify": "$forge ui clarify",
+        "/impeccable:adapt": "$forge ui adapt",
+        "/impeccable:optimize": "$forge ui optimize",
+        "/impeccable:live": "$forge ui live"
+      },
+      "managedPaths": {
+        ".impeccable/critiques": ".fullstack-forge/ui/critique",
+        ".impeccable/": ".fullstack-forge/ui/",
+        ".claude/skills/impeccable/": ".fullstack-forge/upstream/impeccable/",
+        "<skill-base-dir>": ".fullstack-forge/upstream/impeccable"
+      }
+    },
+    "addy-agent-skills": { "commandRoutes": {}, "managedPaths": {} },
+    "vercel-agent-skills": { "commandRoutes": {}, "managedPaths": {} },
+    "supabase-agent-skills": { "commandRoutes": {}, "managedPaths": {} },
+    "google-skills": { "commandRoutes": {}, "managedPaths": {} },
+    "cloudflare-skills": { "commandRoutes": {}, "managedPaths": {} },
+    "sentry-agent-skills": { "commandRoutes": {}, "managedPaths": {} },
+    "wshobson-agents": { "commandRoutes": {}, "managedPaths": {} }
+  }
+}

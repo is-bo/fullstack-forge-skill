@@ -1,6 +1,6 @@
 {
   "name": "fullstack-forge-skill",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Agent-first production engineering workflows for full-stack application changes.",
   "type": "module",
   "license": "Apache-2.0",
@@ -58,7 +58,7 @@
   "scripts": {
     "build": "npm run generate && tsc -p tsconfig.json",
     "audit:dependencies": "npm audit --ignore-scripts",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run validate && npm run check:frontend-system && npm run check:platforms && npm run check:repository-identity && npm run check:links && npm run check:archives && npm run check:licenses && npm run check:fixtures && npm run check:workflows && npm run check:release-docs && npm run check:install-docs && npm run check:traceability && npm run check:branding && npm run scan:secrets",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run upstream:verify && npm run test && npm run validate && npm run check:frontend-system && npm run check:platforms && npm run check:repository-identity && npm run check:links && npm run check:archives && npm run check:licenses && npm run check:fixtures && npm run check:workflows && npm run check:release-docs && npm run check:install-docs && npm run check:traceability && npm run check:branding && npm run scan:secrets",
     "check:archives": "node scripts/package-platforms.mjs && node scripts/validate-dist.mjs",
     "check:branding": "node scripts/check-branding.mjs",
     "check:licenses": "node scripts/check-licenses.mjs",
@@ -75,7 +75,7 @@
     "evidence:candidate": "node scripts/verification-evidence.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "generate": "node scripts/generate-modules.mjs && node scripts/generate-build.mjs && node scripts/sync-platform-assets.mjs",
+    "generate": "node scripts/generate-modules.mjs && node scripts/generate-upstream-runtime.mjs && node scripts/generate-third-party-notices.mjs && node scripts/generate-build.mjs && node scripts/sync-platform-assets.mjs",
     "lint": "eslint .",
     "package:platforms": "npm run build && node scripts/package-platforms.mjs && node scripts/validate-dist.mjs",
     "scan:secrets": "node scripts/secret-scan.mjs",
@@ -86,6 +86,11 @@
     "test:evals:v030": "npm run build && node --test build/cli/tests/v030-build-mode-evals.test.js build/cli/tests/v030-prevention-evals.test.js",
     "test:coverage": "npm run build && node scripts/run-coverage.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "upstream:status": "node scripts/upstream-status.mjs",
+    "upstream:check": "node scripts/upstream-check.mjs",
+    "upstream:verify": "node scripts/upstream-verify.mjs",
+    "upstream:update": "node scripts/upstream-update.mjs",
+    "upstream:diff": "node scripts/upstream-diff.mjs",
     "validate": "node scripts/validate-skill.mjs",
     "validate:dist": "node scripts/validate-dist.mjs"
   },

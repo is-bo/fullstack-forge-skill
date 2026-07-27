@@ -22,7 +22,7 @@ import { analyzeChangedScope, decideModules, decisionFindingStatus } from "./sco
 import { coverageForProfile } from "./support.js";
 import { isForgePackageRoot, runTool } from "./tools.js";
 import { parseInspectionBudget } from "./repository-inventory.js";
-import { assertNoSymlinkPath, canonicalDirectory, resolveInside, runFile, workingTreeRevision } from "./utils.js";
+import { assertNoSymlinkPath, canonicalDirectory, countManagedSkills, resolveInside, runFile, workingTreeRevision } from "./utils.js";
 import { verifyFindings } from "./verification.js";
 import { checkUpdateAvailability } from "./update-check.js";
 import { normalizeFrontendWorkflow, routeFrontendRequest } from "./frontend-routing.js";
@@ -942,15 +942,7 @@ async function simpleRoot(flags) {
     return canonicalDirectory(resolve(root));
 }
 function countInstalledSkills(files) {
-    const skills = new Set();
-    for (const path of Object.keys(files)) {
-        const parts = path.split(/[\\/]+/u);
-        const index = parts.lastIndexOf("skills");
-        const name = index === -1 ? undefined : parts[index + 1];
-        if (name !== undefined)
-            skills.add(name);
-    }
-    return skills.size;
+    return countManagedSkills(Object.keys(files));
 }
 function hasValueFlag(flags, name) {
     return flags.some((flag) => flag === name || flag.startsWith(`${name}=`));

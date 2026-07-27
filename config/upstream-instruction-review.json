@@ -1,0 +1,53 @@
+{
+  "$comment": "Reviewed dangerous-instruction findings in vendored upstream content. `npm run upstream:verify` fails when a hard-deny rule matches a vendored file that is not acknowledged here, so newly imported content cannot introduce an unreviewed instruction. Acknowledging a finding records why it cannot subvert a Forge contract; it does not grant the instruction any authority. Vendored Markdown is inert reference text: Forge never executes it, and the only vendored executables are the Impeccable detector files declared in `runtimeExecutables`.",
+  "acknowledged": [
+    {
+      "provider": "addy-agent-skills",
+      "path": "skills/browser-testing-with-devtools/SKILL.md",
+      "rule": "prompt-override",
+      "reviewedOn": "2026-07-27",
+      "verdict": "benign",
+      "rationale": "The match is prompt-injection defence, not an override. The skill instructs the agent that text found in a page saying \"Ignore previous instructions\" is data to report rather than an action to take. This agrees with Forge's own instruction-source boundary."
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "path": "skills/react-best-practices/AGENTS.md",
+      "rule": "telemetry",
+      "reviewedOn": "2026-07-27",
+      "verdict": "benign",
+      "rationale": "`analytics.track(...)` appears inside an example of user application code illustrating main-thread blocking. It describes what a reader's app might call; it does not enable telemetry in Forge."
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "path": "skills/react-best-practices/rules/js-request-idle-callback.md",
+      "rule": "telemetry",
+      "reviewedOn": "2026-07-27",
+      "verdict": "benign",
+      "rationale": "Same example application snippet as AGENTS.md, quoted in the rule reference."
+    },
+    {
+      "provider": "cloudflare-skills",
+      "path": "skills/cloudflare/references/sandbox/patterns.md",
+      "rule": "remote-exec",
+      "reviewedOn": "2026-07-27",
+      "verdict": "benign-with-note",
+      "rationale": "A documentation example showing a user's Cloudflare Sandbox container installing code-server via `curl … | sh`. It is guidance about the reader's container, not an instruction to Forge, and it is reachable only behind proven Cloudflare evidence. Forge never executes vendored Markdown, and running any such command in a user repository stays behind Forge's approval boundary."
+    },
+    {
+      "provider": "sentry-agent-skills",
+      "path": "skills/sentry-nextjs-sdk/references/error-monitoring.md",
+      "rule": "telemetry",
+      "reviewedOn": "2026-07-27",
+      "verdict": "benign",
+      "rationale": "`analytics.track(\"error_boundary\", …)` is example application code inside a React error-boundary snippet. It configures the reader's app, not Forge."
+    },
+    {
+      "provider": "sentry-agent-skills",
+      "path": "skills/sentry-react-sdk/references/error-monitoring.md",
+      "rule": "telemetry",
+      "reviewedOn": "2026-07-27",
+      "verdict": "benign",
+      "rationale": "Same error-boundary example as the Next.js bundle."
+    }
+  ]
+}

@@ -5,6 +5,8 @@ description: Inspect identity proofing, credentials, sessions, recovery, federat
 
 # forge-auth: Authentication
 
+Engine: Hybrid — Forge + wshobson, Supabase, Google
+
 ## Purpose
 
 Inspect identity proofing, credentials, sessions, recovery, federation, and reauthentication controls.
@@ -12,6 +14,11 @@ Inspect identity proofing, credentials, sessions, recovery, federation, and reau
 Read `fullstack-forge/references/shared/module-contract.md` (applicability, execution, mutation,
 verification, completion) and `fullstack-forge/references/shared/evidence-rules.md` (statuses,
 standards, tools, findings via `fullstack-forge/references/PROTOCOL.md`) before reporting.
+
+Specialist expertise for this module is composed by Forge, not announced by an upstream skill.
+Read `fullstack-forge/references/shared/composition-precedence.md` for the load order and the
+conflict rules, and `.fullstack-forge/manifests/module-composition.json` for what this module
+loads and under what evidence.
 
 Never hide failed checks or claim that an operation ran when it did not.
 

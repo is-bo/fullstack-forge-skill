@@ -34,6 +34,7 @@ for (const relative of listed) {
     for (const match of content.matchAll(pattern)) {
       const value = match[1] ?? match[0];
       if (isExplicitlySynthetic(value, relative)) continue;
+      if (kind === "assigned-secret" && isVendoredUpstream(relative)) continue;
       findings.push({ file: relative, line: lineOf(content, match.index ?? 0), kind });
     }
   }
@@ -43,6 +44,18 @@ if (findings.length > 0) {
   process.exitCode = 1;
 } else {
   console.log(JSON.stringify({ valid: true, scanned_files: scanned, findings: 0 }, null, 2));
+}
+
+/**
+ * Vendored upstream guidance is documentation: it is full of lines like `self.client_secret =
+ * client_secret` and `token = secrets.token_urlsafe(32)`, which the loose `assigned-secret`
+ * heuristic reads as credentials. Every high-signal pattern above — private keys, GitHub, AWS,
+ * OpenAI, and Slack tokens — still applies to vendored content, so a real credential is still
+ * caught; only the name-based heuristic is scoped out. `npm run upstream:verify` additionally
+ * screens this content on every import and on every run of `npm run check`.
+ */
+function isVendoredUpstream(relative) {
+  return relative.startsWith("third_party/") || relative.startsWith(".fullstack-forge/upstream/");
 }
 
 function isExplicitlySynthetic(value, relative) {

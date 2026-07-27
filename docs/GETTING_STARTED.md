@@ -9,7 +9,7 @@
 ## Install in a project
 
 ```bash
-npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.1.0"
+npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.2.0"
 npx forge init
 npx forge doctor
 ```
@@ -62,7 +62,7 @@ supported; slash, mention, and skill-manager forms vary by host. The executable 
 ## Update or uninstall
 
 ```bash
-npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.1.0"
+npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.2.0"
 npx forge update all
 npx forge doctor
 npx forge uninstall all

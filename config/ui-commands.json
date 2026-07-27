@@ -1,0 +1,130 @@
+{
+  "$comment": "Public Forge UI workflow commands. Users invoke Forge, never an upstream product: each route below is a Forge command that loads the compiled upstream playbook selected by the composition engine. `aliases` preserves the pre-existing Forge UI commands so nothing that worked before stops working.",
+  "route": "$forge ui",
+  "upstreamProvider": "impeccable",
+  "aliases": {
+    "build": "craft",
+    "review": "audit",
+    "improve": "polish",
+    "fix": "polish",
+    "verify": "audit"
+  },
+  "commands": [
+    {
+      "name": "init",
+      "summary": "Establish product and design direction for a surface, writing PRODUCT.md and DESIGN.md.",
+      "reference": "reference/init.md"
+    },
+    {
+      "name": "craft",
+      "summary": "Build a new interface or replace a visual world at the craft floor.",
+      "reference": "reference/craft.md"
+    },
+    {
+      "name": "document",
+      "summary": "Document the existing design system, tokens, and component inventory.",
+      "reference": "reference/document.md"
+    },
+    {
+      "name": "extract",
+      "summary": "Extract design tokens and visual truth from the existing implementation.",
+      "reference": "reference/extract.md"
+    },
+    {
+      "name": "shape",
+      "summary": "Shape information architecture, flow, and hierarchy before visual work.",
+      "reference": "reference/shape.md"
+    },
+    {
+      "name": "critique",
+      "summary": "Critique an interface against craft, hierarchy, and usability criteria.",
+      "reference": "reference/critique.md"
+    },
+    {
+      "name": "audit",
+      "summary": "Run the deterministic design detector and report evidence-backed findings.",
+      "reference": "reference/audit.md"
+    },
+    {
+      "name": "polish",
+      "summary": "Apply bounded, reversible refinement to an existing interface.",
+      "reference": "reference/polish.md"
+    },
+    {
+      "name": "bolder",
+      "summary": "Increase visual confidence and contrast where a design reads timid.",
+      "reference": "reference/bolder.md"
+    },
+    {
+      "name": "quieter",
+      "summary": "Reduce visual noise where a design reads loud.",
+      "reference": "reference/quieter.md"
+    },
+    {
+      "name": "distill",
+      "summary": "Remove redundancy and reduce an interface to its essential elements.",
+      "reference": "reference/distill.md"
+    },
+    {
+      "name": "harden",
+      "summary": "Cover loading, empty, error, permission, and edge-case states.",
+      "reference": "reference/harden.md"
+    },
+    {
+      "name": "onboard",
+      "summary": "Design first-run, empty-state, and onboarding experience.",
+      "reference": "reference/onboard.md"
+    },
+    {
+      "name": "animate",
+      "summary": "Add motion and micro-interactions, subject to reduced-motion requirements.",
+      "reference": "reference/animate.md"
+    },
+    {
+      "name": "colorize",
+      "summary": "Establish or revise the colour system, subject to contrast requirements.",
+      "reference": "reference/colorize.md"
+    },
+    {
+      "name": "typeset",
+      "summary": "Establish or revise typography, scale, and rhythm.",
+      "reference": "reference/typeset.md"
+    },
+    {
+      "name": "layout",
+      "summary": "Revise spatial composition, grid, alignment, and density.",
+      "reference": "reference/layout.md"
+    },
+    {
+      "name": "delight",
+      "summary": "Add considered moments of delight without harming usability.",
+      "reference": "reference/delight.md"
+    },
+    {
+      "name": "overdrive",
+      "summary": "Push an ambitious visual effect to a technically extraordinary result.",
+      "reference": "reference/overdrive.md"
+    },
+    {
+      "name": "clarify",
+      "summary": "Improve interface copy, labels, and comprehension.",
+      "reference": "reference/clarify.md"
+    },
+    {
+      "name": "adapt",
+      "summary": "Adapt an interface across breakpoints, platforms, and locales.",
+      "reference": "reference/adapt.md"
+    },
+    {
+      "name": "optimize",
+      "summary": "Improve measured frontend performance of an interface.",
+      "reference": "reference/optimize.md"
+    },
+    {
+      "name": "live",
+      "summary": "Guidance for iterating on an interface in a live browser session.",
+      "reference": "reference/live.md",
+      "limitation": "Forge ships the workflow guidance for this command. The upstream interactive live server, its browser bundle, and its hook system are deliberately not vendored, so there is no bundled live-editing runtime. Use the guidance with your own browser tooling."
+    }
+  ]
+}

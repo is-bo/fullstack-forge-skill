@@ -1,0 +1,32 @@
+{
+  "id": "sentry-agent-skills",
+  "displayName": "Sentry Agent Skills",
+  "repository": "getsentry/sentry-agent-skills",
+  "upstreamCommit": "9f54eb021916a7cff2c04a9f4e4c1f9439f3202c",
+  "upstreamTag": null,
+  "license": "Apache-2.0",
+  "licenseEvidence": "README.md#license",
+  "copyright": "Copyright Functional Software, Inc. dba Sentry",
+  "importedAt": "2026-07-27T17:03:50.882Z",
+  "selectedPaths": [
+    "README.md",
+    "skills/sentry-dotnet-sdk/",
+    "skills/sentry-fix-issues/",
+    "skills/sentry-go-sdk/",
+    "skills/sentry-nextjs-sdk/",
+    "skills/sentry-otel-exporter-setup/",
+    "skills/sentry-pr-code-review/",
+    "skills/sentry-python-sdk/",
+    "skills/sentry-react-native-sdk/",
+    "skills/sentry-react-sdk/",
+    "skills/sentry-ruby-sdk/",
+    "skills/sentry-setup-ai-monitoring/",
+    "skills/sentry-svelte-sdk/"
+  ],
+  "excludedPaths": [],
+  "contentChecksum": "18067aa3313135f9a31506ca55a185f53f703d23df7a1722241febf17fe47a26",
+  "fileCount": 61,
+  "localPatches": [],
+  "runtimeExecutables": [],
+  "updatePolicy": "reviewed-only"
+}

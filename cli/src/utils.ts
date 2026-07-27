@@ -269,3 +269,23 @@ function gitStatusPaths(output: string): Array<{ code: string; path: string }> {
       : left.path.localeCompare(right.path)
   );
 }
+
+/**
+ * Counts distinct installed Fullstack Forge skills from managed file paths.
+ *
+ * Vendored upstream providers keep their own `skills/` directories inside the managed support tree
+ * at `.fullstack-forge/upstream/`. Those are references composed by Forge, not installed skills, so
+ * a naive "last `skills` segment" scan would report them as if the user had installed 125 skills.
+ * Only `.fullstack-forge/skills/` and the per-host skills roots hold real Forge skills.
+ */
+export function countManagedSkills(paths: Iterable<string>): number {
+  const names = new Set<string>();
+  for (const path of paths) {
+    const parts = path.split(/[\\/]+/u);
+    if (parts[0] === ".fullstack-forge" && parts[1] !== "skills") continue;
+    const index = parts.lastIndexOf("skills");
+    const name = index === -1 ? undefined : parts[index + 1];
+    if (name !== undefined) names.add(name);
+  }
+  return names.size;
+}

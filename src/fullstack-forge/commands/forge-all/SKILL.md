@@ -5,6 +5,8 @@ description: Discover the project, select applicable modules, run safe independe
 
 # forge-all: Orchestrated audit
 
+Engine: Forge native
+
 ## Purpose
 
 Discover the project, select applicable modules, run safe independent checks, merge evidence, and prioritize remediation.
@@ -12,6 +14,11 @@ Discover the project, select applicable modules, run safe independent checks, me
 Read `fullstack-forge/references/shared/module-contract.md` (applicability, execution, mutation,
 verification, completion) and `fullstack-forge/references/shared/evidence-rules.md` (statuses,
 standards, tools, findings via `fullstack-forge/references/PROTOCOL.md`) before reporting.
+
+Specialist expertise for this module is composed by Forge, not announced by an upstream skill.
+Read `fullstack-forge/references/shared/composition-precedence.md` for the load order and the
+conflict rules, and `.fullstack-forge/manifests/module-composition.json` for what this module
+loads and under what evidence.
 
 Never hide failed checks or claim that an operation ran when it did not.
 

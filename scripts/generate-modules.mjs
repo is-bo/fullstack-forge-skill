@@ -19,6 +19,13 @@ const proceduresBySlug = JSON.parse(
 const frontendSystem = JSON.parse(
   await readFile(join(projectRoot, "config", "frontend-system.json"), "utf8")
 );
+const uiCommands = JSON.parse(
+  await readFile(join(projectRoot, "config", "ui-commands.json"), "utf8")
+);
+const composition = JSON.parse(
+  await readFile(join(projectRoot, "config", "module-composition.json"), "utf8")
+);
+validateUiCommands(uiCommands);
 const actualSlugs = catalog.map((module) => module.slug);
 if (JSON.stringify(actualSlugs) !== JSON.stringify(expectedSlugs)) {
   throw new Error("config/modules.json must contain the authoritative module set in order");
@@ -115,6 +122,85 @@ function validateProcedures(procedures) {
       throw new Error(`Invalid, duplicate, or too-short inspection procedure for ${slug}`);
     }
   }
+}
+
+function validateUiCommands(config) {
+  if (!Array.isArray(config?.commands) || config.commands.length !== 23)
+    throw new Error("config/ui-commands.json must declare exactly the 23 public Forge UI commands");
+  const names = config.commands.map((entry) => entry.name);
+  if (new Set(names).size !== names.length) throw new Error("Duplicate Forge UI command name");
+  for (const entry of config.commands) {
+    if (!/^[a-z][a-z-]*$/u.test(entry.name ?? ""))
+      throw new Error(`Invalid Forge UI command name: ${entry.name}`);
+    if (typeof entry.summary !== "string" || entry.summary.trim().length === 0)
+      throw new Error(`Forge UI command ${entry.name} needs a summary`);
+    if (typeof entry.reference !== "string" || !entry.reference.startsWith("reference/"))
+      throw new Error(`Forge UI command ${entry.name} needs an upstream reference path`);
+  }
+  for (const [alias, target] of Object.entries(config.aliases ?? {})) {
+    if (!names.includes(target))
+      throw new Error(`Forge UI alias ${alias} points at unknown command ${target}`);
+  }
+}
+
+/**
+ * The engine badge makes the source of a module's expertise visible in the module itself, so a
+ * reader never has to guess whether guidance is Forge-authored or vendored.
+ */
+function renderEngineBadge(slug) {
+  const entry = composition.modules.find((module) => module.module === slug);
+  if (entry === undefined) return "";
+  const providers = [...new Set([...entry.primary, ...entry.overlays].map((s) => s.provider))];
+  const names = {
+    impeccable: "Impeccable",
+    "addy-agent-skills": "Addy Osmani Agent Skills",
+    "vercel-agent-skills": "Vercel",
+    "supabase-agent-skills": "Supabase",
+    "google-skills": "Google",
+    "cloudflare-skills": "Cloudflare",
+    "sentry-agent-skills": "Sentry",
+    "wshobson-agents": "wshobson"
+  };
+  const labelled = providers.map((id) => names[id] ?? id);
+  if (entry.mode === "forge-native" || labelled.length === 0) return "Engine: Forge native";
+  if (entry.mode === "upstream-powered") return `Engine: Upstream-powered — ${labelled[0]}`;
+  return `Engine: Hybrid — Forge + ${labelled.join(", ")}`;
+}
+
+function renderUiCommands(slug) {
+  if (slug !== "ui") return "";
+  const rows = uiCommands.commands
+    .map(
+      (entry) =>
+        `| \`${uiCommands.route} ${entry.name}\` | ${entry.summary}${entry.limitation ? " _(guidance only; see limitations)_" : ""} |`
+    )
+    .join("\n");
+  const aliases = Object.entries(uiCommands.aliases)
+    .map(
+      ([alias, target]) => `\`${uiCommands.route} ${alias}\` → \`${uiCommands.route} ${target}\``
+    )
+    .join(", ");
+  return `
+## Forge UI workflow commands
+
+These are Fullstack Forge commands. There is nothing else to install and no upstream product to
+invoke: each route loads the compiled playbook the composition engine selected for it, under
+Forge's contracts.
+
+| Command | Purpose |
+| --- | --- |
+${rows}
+
+Compatibility aliases are preserved: ${aliases}.
+
+Forge-managed project state lives in \`PRODUCT.md\`, \`DESIGN.md\`, and \`.fullstack-forge/ui/\`;
+critique snapshots are written to \`.fullstack-forge/ui/critique/\`. No separately managed upstream
+installation is created or required.
+
+Subjective visual-craft results are advisories: they are reported for judgement and never block
+Verify or Ship. Accessibility, layout, and measured-performance defects with concrete evidence are
+findings owned by \`forge-accessibility\`, \`forge-frontend\`, and \`forge-performance\`.
+`;
 }
 
 function validateFrontendSystem(system) {
@@ -286,6 +372,8 @@ description: ${module.purpose} Activate automatically for ${module.applies[0].to
 
 # ${name}: ${module.title}
 
+${renderEngineBadge(module.slug)}
+
 ## Purpose
 
 ${module.purpose}
@@ -293,6 +381,11 @@ ${module.purpose}
 Read \`fullstack-forge/references/shared/module-contract.md\` (applicability, execution, mutation,
 verification, completion) and \`fullstack-forge/references/shared/evidence-rules.md\` (statuses,
 standards, tools, findings via \`fullstack-forge/references/PROTOCOL.md\`) before reporting.
+
+Specialist expertise for this module is composed by Forge, not announced by an upstream skill.
+Read \`fullstack-forge/references/shared/composition-precedence.md\` for the load order and the
+conflict rules, and \`.fullstack-forge/manifests/module-composition.json\` for what this module
+loads and under what evidence.
 
 Never hide failed checks or claim that an operation ran when it did not.
 
@@ -315,7 +408,7 @@ ${list(module.inputs)}
 
 Deterministic support, bounded evidence only:
 
-${renderToolHints(module.slug)}${renderFrontendSystem(module.slug)}
+${renderToolHints(module.slug)}${renderUiCommands(module.slug)}${renderFrontendSystem(module.slug)}
 
 ## Agent inspection procedure
 

@@ -5,9 +5,9 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = fileURLToPath(new URL("../..", import.meta.url));
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 
-test("supported public version is consistently reset to 0.1.0", async () => {
+test("supported public version is consistently 0.2.0", async () => {
   const packageJson = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8"));
   const packageLock = JSON.parse(await readFile(join(projectRoot, "package-lock.json"), "utf8"));
   const skill = JSON.parse(await readFile(join(projectRoot, "skill.json"), "utf8"));
@@ -18,12 +18,12 @@ test("supported public version is consistently reset to 0.1.0", async () => {
   assert.equal(packageLock.version, VERSION);
   assert.equal(packageLock.packages[""].version, VERSION);
   assert.equal(skill.version, VERSION);
-  assert.match(constants, /VERSION = "0\.1\.0"/u);
+  assert.match(constants, /VERSION = "0\.2\.0"/u);
   assert.match(
     readme,
-    /npm install --save-dev "git\+https:\/\/github\.com\/is-bo\/fullstack-forge-skill\.git#v0\.1\.0"/u
+    /npm install --save-dev "git\+https:\/\/github\.com\/is-bo\/fullstack-forge-skill\.git#v0\.2\.0"/u
   );
-  assert.match(readme, /first intentionally supported public release/u);
+  assert.match(readme, /upstream-powered/iu);
 });
 
 test("active release documents contain only the supported version", async () => {
@@ -34,7 +34,7 @@ test("active release documents contain only the supported version", async () => 
     )
   );
   assert.deepEqual(versionedReleaseDocuments.sort(), [
-    "RELEASE_NOTES_v0.1.0.md",
-    "RELEASE_VERIFICATION_v0.1.0.md"
+    "RELEASE_NOTES_v0.2.0.md",
+    "RELEASE_VERIFICATION_v0.2.0.md"
   ]);
 });

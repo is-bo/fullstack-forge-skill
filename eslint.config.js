@@ -11,7 +11,10 @@ export default tseslint.config(
       "platforms/**",
       ".tmp/**",
       ".audit-work/**",
-      ".claude/**"
+      ".claude/**",
+      // Vendored upstream content stays pristine; Forge never lints or edits it in place.
+      "third_party/**",
+      ".fullstack-forge/**"
     ]
   },
   eslint.configs.recommended,
@@ -43,7 +46,9 @@ export default tseslint.config(
       globals: {
         console: "readonly",
         process: "readonly",
-        URL: "readonly"
+        URL: "readonly",
+        fetch: "readonly",
+        AbortSignal: "readonly"
       }
     }
   }

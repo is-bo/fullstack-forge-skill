@@ -5,6 +5,8 @@ description: Use automatically for visual-interface creation and improvement, in
 
 # forge-ui: User interface
 
+Engine: Upstream-powered — Impeccable
+
 ## Purpose
 
 Use automatically for visual-interface creation and improvement, including direction, typography, color, spacing, layout, systems, states, consistency, motion, and polish while preserving usability, accessibility, and established brand conventions.
@@ -12,6 +14,11 @@ Use automatically for visual-interface creation and improvement, including direc
 Read `fullstack-forge/references/shared/module-contract.md` (applicability, execution, mutation,
 verification, completion) and `fullstack-forge/references/shared/evidence-rules.md` (statuses,
 standards, tools, findings via `fullstack-forge/references/PROTOCOL.md`) before reporting.
+
+Specialist expertise for this module is composed by Forge, not announced by an upstream skill.
+Read `fullstack-forge/references/shared/composition-precedence.md` for the load order and the
+conflict rules, and `.fullstack-forge/manifests/module-composition.json` for what this module
+loads and under what evidence.
 
 Never hide failed checks or claim that an operation ran when it did not.
 
@@ -39,6 +46,48 @@ Relevant discovery inputs are:
 Deterministic support, bounded evidence only:
 
 - `inspect-rendered-ui`
+## Forge UI workflow commands
+
+These are Fullstack Forge commands. There is nothing else to install and no upstream product to
+invoke: each route loads the compiled playbook the composition engine selected for it, under
+Forge's contracts.
+
+| Command | Purpose |
+| --- | --- |
+| `$forge ui init` | Establish product and design direction for a surface, writing PRODUCT.md and DESIGN.md. |
+| `$forge ui craft` | Build a new interface or replace a visual world at the craft floor. |
+| `$forge ui document` | Document the existing design system, tokens, and component inventory. |
+| `$forge ui extract` | Extract design tokens and visual truth from the existing implementation. |
+| `$forge ui shape` | Shape information architecture, flow, and hierarchy before visual work. |
+| `$forge ui critique` | Critique an interface against craft, hierarchy, and usability criteria. |
+| `$forge ui audit` | Run the deterministic design detector and report evidence-backed findings. |
+| `$forge ui polish` | Apply bounded, reversible refinement to an existing interface. |
+| `$forge ui bolder` | Increase visual confidence and contrast where a design reads timid. |
+| `$forge ui quieter` | Reduce visual noise where a design reads loud. |
+| `$forge ui distill` | Remove redundancy and reduce an interface to its essential elements. |
+| `$forge ui harden` | Cover loading, empty, error, permission, and edge-case states. |
+| `$forge ui onboard` | Design first-run, empty-state, and onboarding experience. |
+| `$forge ui animate` | Add motion and micro-interactions, subject to reduced-motion requirements. |
+| `$forge ui colorize` | Establish or revise the colour system, subject to contrast requirements. |
+| `$forge ui typeset` | Establish or revise typography, scale, and rhythm. |
+| `$forge ui layout` | Revise spatial composition, grid, alignment, and density. |
+| `$forge ui delight` | Add considered moments of delight without harming usability. |
+| `$forge ui overdrive` | Push an ambitious visual effect to a technically extraordinary result. |
+| `$forge ui clarify` | Improve interface copy, labels, and comprehension. |
+| `$forge ui adapt` | Adapt an interface across breakpoints, platforms, and locales. |
+| `$forge ui optimize` | Improve measured frontend performance of an interface. |
+| `$forge ui live` | Guidance for iterating on an interface in a live browser session. _(guidance only; see limitations)_ |
+
+Compatibility aliases are preserved: `$forge ui build` → `$forge ui craft`, `$forge ui review` → `$forge ui audit`, `$forge ui improve` → `$forge ui polish`, `$forge ui fix` → `$forge ui polish`, `$forge ui verify` → `$forge ui audit`.
+
+Forge-managed project state lives in `PRODUCT.md`, `DESIGN.md`, and `.fullstack-forge/ui/`;
+critique snapshots are written to `.fullstack-forge/ui/critique/`. No separately managed upstream
+installation is created or required.
+
+Subjective visual-craft results are advisories: they are reported for judgement and never block
+Verify or Ship. Accessibility, layout, and measured-performance defects with concrete evidence are
+findings owned by `forge-accessibility`, `forge-frontend`, and `forge-performance`.
+
 ## Experience workflow and progressive references
 
 Automatic activation signals include:

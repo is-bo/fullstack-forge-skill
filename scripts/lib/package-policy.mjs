@@ -72,6 +72,7 @@ export function packageCommonPaths(version) {
     "docs/FIX_AND_VERIFY.md",
     "docs/GETTING_STARTED.md",
     "docs/IMAGE_GENERATION_BRIEF.md",
+    `docs/MIGRATION_v${version}.md`,
     "docs/PLATFORM_SUPPORT.md",
     "docs/NONTECHNICAL_GUIDE.md",
     `docs/RELEASE_NOTES_v${version}.md`,

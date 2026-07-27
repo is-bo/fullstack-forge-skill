@@ -1,0 +1,9 @@
+Vercel Agent Skills
+vercel-labs/agent-skills @ 7c180d9044c9ae2b442b567aad4e42a28dd5ed62
+Copyright (c) Vercel, Inc.
+Licensed under MIT.
+
+This product includes software developed by the above project. The original copyright
+notices and licence terms are preserved in this directory. Modifications, where any are
+applied, are made by Fullstack Forge's composition compiler at build time and are recorded
+in the provider's SOURCE.md and in THIRD_PARTY_NOTICES.md.

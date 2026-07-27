@@ -5,6 +5,8 @@ description: First decide whether caching is justified, then audit keys, invalid
 
 # forge-cache: Caching
 
+Engine: Hybrid — Forge + Vercel, Cloudflare
+
 ## Purpose
 
 First decide whether caching is justified, then audit keys, invalidation, consistency, privacy, and failure behavior.
@@ -12,6 +14,11 @@ First decide whether caching is justified, then audit keys, invalidation, consis
 Read `fullstack-forge/references/shared/module-contract.md` (applicability, execution, mutation,
 verification, completion) and `fullstack-forge/references/shared/evidence-rules.md` (statuses,
 standards, tools, findings via `fullstack-forge/references/PROTOCOL.md`) before reporting.
+
+Specialist expertise for this module is composed by Forge, not announced by an upstream skill.
+Read `fullstack-forge/references/shared/composition-precedence.md` for the load order and the
+conflict rules, and `.fullstack-forge/manifests/module-composition.json` for what this module
+loads and under what evidence.
 
 Never hide failed checks or claim that an operation ran when it did not.
 
