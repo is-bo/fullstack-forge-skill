@@ -4,6 +4,7 @@ import { buildTaintModel } from "./dataflow.js";
 import { isTestSourcePath, lineNumber, sha256, toPosix } from "./utils.js";
 import { inventoryRepository } from "./repository-inventory.js";
 import { analyzeTransactionFile } from "./transactions.js";
+import { createGuardResolver, functionDeniesAuthorization } from "./guard-resolution.js";
 const SCRIPT_EXTENSIONS = new Set([".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"]);
 const NON_APPLICATION_SOURCE_CLASSES = new Set([
     "documentation",
@@ -120,6 +121,9 @@ export async function runNamedAnalyzer(analyzerId, root, scope) {
 }
 function analyzeScripts(files) {
     const issues = [];
+    // Built once over the whole corpus so an imported guard is resolved by reading the body it
+    // actually names, rather than by trusting the identifier it was imported under.
+    const guards = createGuardResolver(files);
     for (const file of files) {
         const labelIds = collectLabelIds(file.sourceFile);
         const functions = collectFunctionRanges(file.sourceFile);
@@ -285,7 +289,7 @@ function analyzeScripts(files) {
             if (ts.isTaggedTemplateExpression(node))
                 analyzeTaggedSql(issues, file, node, taint);
         });
-        analyzeAuthorizationRoutes(issues, file);
+        analyzeAuthorizationRoutes(issues, file, guards);
         analyzeUploadFile(issues, file);
         analyzeAiFile(issues, file);
         analyzeWebhookFile(issues, file);
@@ -413,7 +417,7 @@ function analyzeTaggedSql(issues, file, node, taint) {
         issues.push(unresolved);
     }
 }
-function analyzeAuthorizationRoutes(issues, file) {
+function analyzeAuthorizationRoutes(issues, file, guards) {
     const hasUnresolvedGlobalGuard = /\b(?:router|app)\.use\s*\(\s*[A-Za-z_$][\w$]*\s*\)/u.test(file.content);
     visit(file.sourceFile, [], (node) => {
         if (!ts.isCallExpression(node))
@@ -436,18 +440,20 @@ function analyzeAuthorizationRoutes(issues, file) {
             return;
         // Guard recognition is structural: a middleware argument counts when its resolved body
         // rejects the request before delegating, not because its identifier matched a name list.
-        const guard = classifyRouteGuards(node, file);
-        if (guard === "proven")
+        const guard = classifyRouteGuards(node, file, guards);
+        if (guard.verdict === "proven")
             return;
         const inlineHandler = node.arguments
             .slice(1)
             .some((argument) => ts.isArrowFunction(argument) || ts.isFunctionExpression(argument));
-        const unresolved = guard === "unresolved" || !inlineHandler || hasUnresolvedGlobalGuard;
+        const unresolved = guard.verdict === "unresolved" || !inlineHandler || hasUnresolvedGlobalGuard;
         const candidate = issue(unresolved ? SPECS.authzUnresolved : SPECS.authzRoute, file, node, `${method.toUpperCase()} ${routePath}`, name);
         if (unresolved) {
             candidate.status = "NOT_VERIFIED";
             candidate.evidence +=
-                " Bounded analysis could not resolve the referenced handler or middleware to a route-specific permission predicate.";
+                guard.evidence.length > 0
+                    ? ` ${guard.evidence}`
+                    : " Bounded analysis could not resolve the referenced handler or middleware to a route-specific permission predicate.";
         }
         issues.push(candidate);
     });
@@ -479,88 +485,18 @@ function isRouteRegistrationCall(node) {
  * body could not be reached (imported, dynamically produced, or computed), which must degrade to
  * NOT_VERIFIED rather than a confident failure. `absent` means no middleware was supplied at all.
  */
-function classifyRouteGuards(node, file) {
+function classifyRouteGuards(node, file, guards) {
     // A handler that denies the request itself is as much a guard as one mounted beside it, so the
     // final handler is examined before concluding that no control exists.
     const handler = node.arguments.at(-1);
     if (handler !== undefined &&
         (ts.isArrowFunction(handler) || ts.isFunctionExpression(handler)) &&
         functionDeniesAuthorization(handler, file))
-        return "proven";
-    const middleware = node.arguments.slice(1, -1);
-    if (middleware.length === 0)
-        return "absent";
-    let unresolved = false;
-    for (const argument of middleware) {
-        const resolved = resolveGuardFunction(argument, file);
-        if (resolved !== undefined && functionDeniesAuthorization(resolved, file))
-            return "proven";
-        // Structural resolution is the primary mechanism. A conventional authorization name is
-        // accepted as a supplementary signal only when the body is out of file (an import), so a
-        // cross-file guard is not reported as a defect purely because bounded analysis stops here.
-        if (resolved === undefined && isConventionalGuardName(argument))
-            return "proven";
-        if (resolved === undefined)
-            unresolved = true;
-    }
-    return unresolved ? "unresolved" : "absent";
-}
-/** True when a middleware argument carries a widely used authorization identifier. */
-function isConventionalGuardName(argument) {
-    const callee = ts.isCallExpression(argument) ? argument.expression : argument;
-    if (!ts.isIdentifier(callee) && !ts.isPropertyAccessExpression(callee))
-        return false;
-    return /^(?:require|ensure|assert|check|verify|enforce|guard|can|is|has|only|restrict|protect|authorize|authenticate)/iu.test(callName(callee).split(".").pop() ?? "");
-}
-/** Resolves a middleware argument to a function body declared in the same file, when possible. */
-function resolveGuardFunction(argument, file) {
-    if (ts.isArrowFunction(argument) || ts.isFunctionExpression(argument))
-        return argument;
-    // A factory call such as `requireRole("admin")` resolves through its declaration's return.
-    const identifier = ts.isCallExpression(argument)
-        ? ts.isIdentifier(argument.expression)
-            ? argument.expression
-            : undefined
-        : ts.isIdentifier(argument)
-            ? argument
-            : undefined;
-    if (identifier === undefined)
-        return undefined;
-    return findLocalFunction(identifier.text, file.sourceFile);
-}
-/**
- * True when a function body denies a request with an authorization status.
- *
- * Recognises `res.status(401|403)`, `res.sendStatus(401|403)`, and thrown errors carrying those
- * codes. A factory function is followed one level into the middleware it returns, so
- * `requireRole("admin")` and a locally declared `requireAdmin` are treated identically.
- */
-function functionDeniesAuthorization(fn, file, depth = 0) {
-    const body = fn.body;
-    if (body === undefined)
-        return false;
-    const text = body.getText(file.sourceFile);
-    if (/\b(?:401|403)\b/u.test(text) && /\b(?:status|sendStatus|statusCode|code)\b/u.test(text))
-        return true;
-    if (/\bForbidden|Unauthorized\b/u.test(text) && /\bthrow\b/u.test(text))
-        return true;
-    if (depth >= 1)
-        return false;
-    // Follow a middleware factory into the handler it returns.
-    let nested = false;
-    const walk = (node) => {
-        if (nested)
-            return;
-        if (ts.isReturnStatement(node) &&
-            node.expression !== undefined &&
-            (ts.isArrowFunction(node.expression) || ts.isFunctionExpression(node.expression)) &&
-            functionDeniesAuthorization(node.expression, file, depth + 1))
-            nested = true;
-        else
-            ts.forEachChild(node, walk);
-    };
-    ts.forEachChild(body, walk);
-    return nested;
+        return { verdict: "proven", evidence: "" };
+    // Everything else is decided by the corpus resolver, which reads the body an import actually
+    // names. A conventional identifier such as `requireRole` is no longer evidence of anything: an
+    // import whose body cannot be reached is unresolved, not proven.
+    return guards.classifyMiddlewareList(node.arguments.slice(1, -1), file);
 }
 function analyzeUploadFile(issues, file) {
     const content = file.content;
