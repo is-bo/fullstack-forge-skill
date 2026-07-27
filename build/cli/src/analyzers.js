@@ -5,6 +5,7 @@ import { isTestSourcePath, lineNumber, sha256, toPosix } from "./utils.js";
 import { inventoryRepository } from "./repository-inventory.js";
 import { analyzeTransactionFile } from "./transactions.js";
 import { createGuardResolver, functionDeniesAuthorization } from "./guard-resolution.js";
+import { classifyAdministrativeAuthority, classifyResourcePartition, collectGlobalAdministratorRoles, decideObjectAuthorization, strongerAuthority } from "./authorization-policy.js";
 const SCRIPT_EXTENSIONS = new Set([".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"]);
 const NON_APPLICATION_SOURCE_CLASSES = new Set([
     "documentation",
@@ -41,6 +42,14 @@ const SPECS = {
     authCookie: spec("FF-AUTH-COOKIE-001", "js-ts-auth", "auth", "Session cookie is issued with weakened security attributes", "HIGH", "Disabling HttpOnly or Secure exposes the session credential to script access or cleartext transport.", "Set httpOnly and secure on session cookies and choose a SameSite value that fits the login flow.", false, false, ["Re-run the js-ts-auth analyzer", "Inspect Set-Cookie attributes in a real login response"], ["OWASP Session Management Cheat Sheet", "CWE-614", "CWE-1004"]),
     authSessionValue: spec("FF-AUTH-SESSION-001", "js-ts-auth", "auth", "Session identifier is derived from request-controlled input", "CRITICAL", "A caller can forge or predict another user's session credential and bypass authentication.", "Issue an opaque high-entropy server-generated session identifier bound to server-side state.", false, false, ["Re-run the js-ts-auth analyzer", "Prove a forged cookie value cannot authenticate"], ["OWASP Session Management Cheat Sheet", "CWE-384", "CWE-330"]),
     objectAuth: spec("FF-AUTHZ-OBJECT-001", "js-ts-authorization", "authorization", "Object lookup lacks a demonstrated subject/object authorization predicate", "HIGH", "An authenticated caller may read or modify another subject's object by changing its identifier.", "Bind the final lookup to the authenticated subject or enforce a per-object policy before release.", false, false, ["Re-run the js-ts-authorization analyzer", "Run negative tests with another user's object ID"], ["OWASP API Security Top 10 2023 API1", "CWE-639"]),
+    objectAuthAdministrative: spec("FF-AUTHZ-OBJECT-ADMIN-001", "js-ts-authorization", "authorization", "Object operation relies on a platform-administrator role instead of an object policy", "LOW", "Authority rests entirely on a role grant, so any mis-assigned administrator reaches every object of this resource.", "Record the administrative policy for this resource and add a negative test for a non-administrator principal.", false, false, [
+        "Re-run the js-ts-authorization analyzer",
+        "Exercise the operation as a non-administrator principal"
+    ], ["OWASP API Security Top 10 2023 API5", "CWE-639"]),
+    objectAuthUnresolved: spec("FF-AUTHZ-OBJECT-NOT-VERIFIED-001", "js-ts-authorization", "authorization", "Object authorization depends on unresolved administrator scope", "MEDIUM", "An administrative gate was observed, but nothing proves that role reaches every object this operation can select.", "State the role's object scope explicitly, or bind the operation to an ownership or tenancy predicate.", false, false, [
+        "Inspect the administrator role definition",
+        "Run a cross-tenant object test with that administrator role"
+    ], ["OWASP API Security Top 10 2023 API5", "CWE-639"]),
     authzRoute: spec("FF-AUTHZ-ROUTE-001", "js-ts-authorization", "authorization", "Sensitive route has no demonstrated authorization predicate", "HIGH", "A caller may reach an administrative, destructive, or protected mutation without the required permission.", "Enforce a resolvable authorization predicate on the route and add an unauthorized request regression test.", false, false, [
         "Re-run the js-ts-authorization analyzer",
         "Exercise the route with a minimally privileged principal"
@@ -124,11 +133,20 @@ function analyzeScripts(files) {
     // Built once over the whole corpus so an imported guard is resolved by reading the body it
     // actually names, rather than by trusting the identifier it was imported under.
     const guards = createGuardResolver(files);
+    // A project may publish its own global-administrator role mapping; that declaration is the only
+    // way an otherwise ambiguous role name becomes proof of platform-wide object scope.
+    const globalAdminRoles = collectGlobalAdministratorRoles(files);
     for (const file of files) {
         const labelIds = collectLabelIds(file.sourceFile);
         const functions = collectFunctionRanges(file.sourceFile);
         const cacheKeys = createCacheKeyResolver(file.sourceFile);
         const taint = buildTaintModel(file.sourceFile);
+        // Built on first use so files with no object sink never pay for route-guard resolution twice.
+        let routeAuthorityIndex;
+        const routeAuthority = (node) => {
+            routeAuthorityIndex ??= buildRouteAuthorityIndex(file, guards, globalAdminRoles);
+            return routeAuthorityIndex(node);
+        };
         visit(file.sourceFile, [], (node, ancestors) => {
             if (ts.isCallExpression(node)) {
                 const name = callName(node.expression);
@@ -200,8 +218,23 @@ function analyzeScripts(files) {
                 // A route registration shares verb names with data access (`delete`, `put`, `patch`);
                 // registering a handler is not an object lookup and must never raise object-authorization.
                 if (isObjectLookup(name) && requestControlled && !isRouteRegistrationCall(node)) {
-                    if (!hasObjectAuthorization(node, file, taint))
-                        issues.push(issue(SPECS.objectAuth, file, node, flowSource(flow, argumentText), name));
+                    // Role evidence never clears this rule on its own; `authorization-policy.ts` decides what
+                    // an administrator gate is worth against the partition the object actually belongs to.
+                    const decision = decideObjectAuthorization({
+                        boundPredicate: hasObjectAuthorization(node, file, taint),
+                        authority: strongerAuthority(routeAuthority(node), dominatingAdministrativeAuthority(node, file, globalAdminRoles)),
+                        partition: classifyResourcePartition(`${enclosingText(node, file, functions)}\n${node.getText(file.sourceFile)}`, tenantKeyPattern("iu"))
+                    });
+                    if (decision.outcome !== "authorized") {
+                        const objectIssue = issue(OBJECT_AUTHORIZATION_SPECS[decision.outcome], file, node, flowSource(flow, argumentText), name);
+                        if (decision.outcome === "administrative")
+                            objectIssue.status = "WARNING";
+                        if (decision.outcome === "unresolved")
+                            objectIssue.status = "NOT_VERIFIED";
+                        if (decision.outcome !== "missing")
+                            objectIssue.evidence += ` Object-authorization policy: ${decision.reason}.`;
+                        issues.push(objectIssue);
+                    }
                 }
                 if (isQuerySink(name) && requestSuppliesTenantKey(argumentText)) {
                     issues.push(issue(SPECS.tenantInput, file, node, flowSource(flow, argumentText), name));
@@ -492,11 +525,95 @@ function classifyRouteGuards(node, file, guards) {
     if (handler !== undefined &&
         (ts.isArrowFunction(handler) || ts.isFunctionExpression(handler)) &&
         functionDeniesAuthorization(handler, file))
-        return { verdict: "proven", evidence: "" };
+        return { verdict: "proven", evidence: "", authority: { resolved: false, text: "" } };
     // Everything else is decided by the corpus resolver, which reads the body an import actually
     // names. A conventional identifier such as `requireRole` is no longer evidence of anything: an
     // import whose body cannot be reached is unresolved, not proven.
     return guards.classifyMiddlewareList(node.arguments.slice(1, -1), file);
+}
+/** Spec selected for each non-clean object-authorization outcome. */
+const OBJECT_AUTHORIZATION_SPECS = {
+    administrative: SPECS.objectAuthAdministrative,
+    unresolved: SPECS.objectAuthUnresolved,
+    missing: SPECS.objectAuth
+};
+/**
+ * Maps every route handler in a file to what its guards prove about administrative reach.
+ *
+ * The index is built from the same resolver the route rule uses, so a role name only contributes
+ * when a body was actually read. Router-level `use(...)` middleware applies to the whole file and
+ * is combined with the per-route evidence, because a mounted platform-administrator gate is real
+ * evidence for every handler below it.
+ */
+function buildRouteAuthorityIndex(file, guards, globalRoles) {
+    const ranges = [];
+    let mounted = "none";
+    visit(file.sourceFile, [], (node) => {
+        if (!ts.isCallExpression(node))
+            return;
+        if (/\.use$/u.test(callName(node.expression))) {
+            const middleware = node.arguments.filter((argument) => !ts.isStringLiteralLike(argument));
+            if (middleware.length === 0)
+                return;
+            mounted = strongerAuthority(mounted, classifyAdministrativeAuthority(guards.classifyMiddlewareList(middleware, file).authority, globalRoles));
+            return;
+        }
+        if (!isRouteRegistrationCall(node))
+            return;
+        const authority = classifyAdministrativeAuthority(guards.classifyMiddlewareList(node.arguments.slice(1, -1), file).authority, globalRoles);
+        if (authority === "none")
+            return;
+        for (const handler of node.arguments.slice(1))
+            for (const range of handlerRanges(handler, file))
+                ranges.push({ ...range, authority });
+    });
+    return (node) => {
+        const start = node.getStart(file.sourceFile);
+        const end = node.getEnd();
+        let authority = mounted;
+        for (const range of ranges)
+            if (range.start <= start && range.end >= end)
+                authority = strongerAuthority(authority, range.authority);
+        return authority;
+    };
+}
+/** The source range of a route handler argument, whether inline or named in the same file. */
+function handlerRanges(handler, file) {
+    if (ts.isArrowFunction(handler) || ts.isFunctionExpression(handler))
+        return [{ start: handler.getStart(file.sourceFile), end: handler.getEnd() }];
+    if (!ts.isIdentifier(handler))
+        return [];
+    const name = handler.text;
+    let found;
+    visit(file.sourceFile, [], (node) => {
+        if (found !== undefined)
+            return;
+        if (ts.isFunctionDeclaration(node) && node.name?.text === name)
+            found = { start: node.getStart(file.sourceFile), end: node.getEnd() };
+        else if (ts.isVariableDeclaration(node) &&
+            ts.isIdentifier(node.name) &&
+            node.name.text === name &&
+            node.initializer !== undefined &&
+            ts.isFunctionLike(node.initializer))
+            found = { start: node.getStart(file.sourceFile), end: node.getEnd() };
+    });
+    return found === undefined ? [] : [found];
+}
+/**
+ * Administrative reach proven by a dominating in-function role check.
+ *
+ * A service function that rejects before the sink — `if (user.role !== "superadmin") throw …` — is
+ * the same evidence as a mounted guard, and is the only source available when the sink is nowhere
+ * near a route registration.
+ */
+function dominatingAdministrativeAuthority(node, file, globalRoles) {
+    let authority = "none";
+    for (const statement of precedingStatements(node)) {
+        if (!ts.isIfStatement(statement) || !abruptlyExits(statement.thenStatement))
+            continue;
+        authority = strongerAuthority(authority, classifyAdministrativeAuthority({ resolved: true, text: statement.expression.getText(file.sourceFile) }, globalRoles));
+    }
+    return authority;
 }
 /**
  * Names an imported function that the upload payload is passed to, when there is one.

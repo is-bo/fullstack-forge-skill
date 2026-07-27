@@ -52,13 +52,27 @@ export type GuardResolution = {
     trace: string[];
     /** Why this verdict was reached. */
     reason: string;
+    /** Source text of every body this argument resolved to, in source order. */
+    bodies: string[];
 };
 /** Verdict shape expected by the analyzer's route classification. */
 export type RouteGuardVerdict = "proven" | "absent" | "unresolved";
+/**
+ * Role vocabulary observed on a route's middleware.
+ *
+ * `text` joins the middleware expressions with the bodies they resolved to, and `resolved` records
+ * whether any body was actually read. Object authorization reads this to tell a proven platform
+ * administrator from an unread name; it is never used to prove that a guard exists.
+ */
+export type MiddlewareAuthority = {
+    resolved: boolean;
+    text: string;
+};
 export type MiddlewareClassification = {
     verdict: RouteGuardVerdict;
     /** Deterministic evidence sentence, or an empty string when there is nothing to add. */
     evidence: string;
+    authority: MiddlewareAuthority;
 };
 export type GuardResolver = {
     /** Classifies one middleware argument by the body it resolves to. */
@@ -68,11 +82,35 @@ export type GuardResolver = {
 };
 export declare function createGuardResolver(files: readonly GuardSourceFile[]): GuardResolver;
 /**
+ * Resolves a value expression to the function it denotes, for delegated authorization helpers.
+ *
+ * Supplied by `createGuardResolver`; absent when the caller has no corpus (the analyzer's in-file
+ * handler check), in which case delegation is simply not followed.
+ */
+export type AuthorizationDelegate = (expression: ts.Expression, file: GuardSourceFile) => {
+    fn: ts.FunctionLikeDeclaration;
+    file: GuardSourceFile;
+} | undefined;
+/**
  * True when a function body denies a request on an authorization ground.
  *
- * The first two rules are the in-file analyzer's rules, kept identical so no previously proven
- * guard regresses. The third adds the structural case the first two miss: a branch that inspects
- * the caller's identity, role, permission, ownership, or tenancy and then ends the request
- * instead of delegating.
+ * The previous rule accepted any body whose text contained `401` or `403` next to a status-like
+ * token. Every middleware that rejects for an unrelated reason — CSRF, quota, rate limit, MIME
+ * policy, geography, maintenance, feature flags, request-shape validation — satisfied that, so a
+ * route protected by none of them was reported clean. A status code is a symptom, not a proof.
+ *
+ * The replacement is a structural connection. Each request-denying site in the body is located, the
+ * conditions that actually control it are walked out of the AST (enclosing `if`/ternary/logical
+ * branches, `switch` subjects, and preceding early-exit dominators in the same block), and the
+ * guard is proven only when one of those controlling conditions asks an authorization question:
+ * subject presence, identity, role, permission, scope or claim, ownership, tenancy, or a policy
+ * verdict. A predicate that names an unrelated concern is rejected outright, so a status code alone
+ * can no longer clear a route.
+ *
+ * A `throw` counts on the same terms — it must be controlled by an authorization predicate — which
+ * is what removes the old "the word `Forbidden` appears somewhere in this file" acceptance. When a
+ * resolver is available, an unconditional call to a helper whose own body denies on an
+ * authorization ground also counts, so `assertAdmin(req.user)` is recognised without trusting the
+ * helper's name.
  */
-export declare function functionDeniesAuthorization(fn: ts.FunctionLikeDeclaration, file: GuardSourceFile): boolean;
+export declare function functionDeniesAuthorization(fn: ts.FunctionLikeDeclaration, file: GuardSourceFile, delegate?: AuthorizationDelegate, depth?: number): boolean;
