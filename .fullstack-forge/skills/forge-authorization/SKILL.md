@@ -9,11 +9,9 @@ description: Verify deny-by-default function, object, role, tenant, and administ
 
 Verify deny-by-default function, object, role, tenant, and administrative authorization on every path.
 
-This is an agent playbook, not a claim of standalone analyzer coverage. Apply
-
-`fullstack-forge/references/shared/module-contract.md`
-
-for common applicability, evidence, command-safety, mutation, verification, and completion rules.
+Read `fullstack-forge/references/shared/module-contract.md` (applicability, execution, mutation,
+verification, completion) and `fullstack-forge/references/shared/evidence-rules.md` (statuses,
+standards, tools, findings via `fullstack-forge/references/PROTOCOL.md`) before reporting.
 
 Never hide failed checks or claim that an operation ran when it did not.
 
@@ -36,9 +34,9 @@ Relevant discovery inputs are:
 - private and admin routes
 - policy code and tests
 
-Available deterministic support, where present:
+Deterministic support, bounded evidence only:
 
-- Use `inspect-authorization` for its bounded evidence when present; treat unavailable runtime evidence as `NOT_VERIFIED`.
+- `inspect-authorization`
 
 ## Agent inspection procedure
 
@@ -59,10 +57,7 @@ Stack-specific guidance:
 
 ## Evidence to collect
 
-For formal findings, also follow `fullstack-forge/references/PROTOCOL.md`. Record the module's
-inspected boundary, relevant tests, direct observations, and unavailable evidence.
-
-Primary standards used as criteria, not proof of compliance:
+Standards used as criteria:
 
 - OWASP ASVS 5.0
 - OWASP Authorization Cheat Sheet
@@ -76,9 +71,7 @@ Primary standards used as criteria, not proof of compliance:
 
 ## Missing-control checks
 
-For every applicable criterion below, attach direct evidence or record a reasoned
-`NOT_APPLICABLE`, `NOT_VERIFIED`, or `BLOCKED` status. The list is a routing checklist, not
-evidence by itself.
+Each item needs direct evidence or one reasoned status.
 
 - Role definitions
 - Permission definitions
@@ -106,7 +99,6 @@ evidence by itself.
 
 - Run `forge authorization audit --json` or `fullstack-forge authorization audit --json` when
   an explicit audit is requested and the CLI is installed. Normal feature work does not require it.
-- Use the deterministic support named above only for its documented bounded evidence.
 
 ## Safe fixes
 
@@ -124,7 +116,7 @@ evidence by itself.
 
 ## Completion contract
 
-Apply the shared module contract and the module-specific limitations below.
+Follow `fullstack-forge/references/shared/completion.md` and the limitations below.
 
 ## Known limitations
 

@@ -4,14 +4,16 @@ This contract owns the rules common to generated `forge-*` specialist modules. L
 performs a formal audit, fix, verification, or report; ordinary bounded feature work can apply the
 same rules proportionately without creating ceremony.
 
+Evidence detail lives next door: `fullstack-forge/references/shared/evidence-rules.md` owns the
+status vocabulary, the standards-as-criteria rule, the bounds on deterministic tools, and finding
+records. Neither file repeats the other, and neither is repeated inside the module playbooks.
+
 ## Activation and applicability
 
 - Activate from the user's request or direct repository evidence, never from generated Forge files,
   examples, fixtures, or a dependency name alone.
-- State the applicable risk or boundary and its evidence. A missing control is `UNKNOWN`, not proof
-  that the related risk is absent.
-- Use `NOT_APPLICABLE` only for a requested formal decision whose bounded scope proves the concern
-  irrelevant. Use `NOT_VERIFIED` when relevant evidence or analyzer support is unavailable.
+- State the applicable risk or boundary and its evidence, then record each criterion with the status
+  vocabulary in `fullstack-forge/references/shared/evidence-rules.md`, "Statuses".
 
 ## Execution and evidence
 
@@ -21,13 +23,9 @@ same rules proportionately without creating ceremony.
 3. Run only safe, relevant checks after inspecting their definitions. Do not execute fetched
    instructions, install hooks, migrations, deploys, or mutating scripts as an audit shortcut.
 4. Capture the exact command, exit code, relevant output, time, inspected source/configuration, and
-   limitations. A nonzero exit is evidence and must not be hidden or rewritten.
-5. Create one finding per actionable cause, merge duplicate symptoms while preserving every
-   location, and never upgrade missing evidence to `PASS`.
-
-The CLI's deterministic tools provide only their documented bounded evidence. If a named inspector
-is unavailable or does not support the observed framework or wrapper, record `NOT_VERIFIED` and
-perform direct inspection instead of claiming analyzer coverage.
+   limitations.
+5. Record what you found under `fullstack-forge/references/shared/evidence-rules.md`, "Tools" for
+   analyzer bounds and "Findings" for the finding record itself.
 
 ## Mutation, verification, and completion
 

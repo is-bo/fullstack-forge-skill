@@ -55,14 +55,46 @@ test("specialists share evidence, safe-fix, verification, and completion owners"
     const content = await readFile(join(commandRoot, name, "SKILL.md"), "utf8");
     assert.match(content, /fullstack-forge\/references\/PROTOCOL\.md/u);
     assert.match(content, /fullstack-forge\/references\/shared\/module-contract\.md/u);
+    assert.match(content, /fullstack-forge\/references\/shared\/evidence-rules\.md/u);
+    assert.match(content, /fullstack-forge\/references\/shared\/completion\.md/u);
     assert.doesNotMatch(content, /Authentication and authorization are verified\./u);
     assert.doesNotMatch(content, /Database behavior is reviewed\./u);
+    // Policy that now lives in the shared references must not be re-inlined per module.
+    assert.doesNotMatch(content, /not proof of compliance/u, name);
+    assert.doesNotMatch(content, /routing checklist, not\s+evidence by itself/u, name);
+    assert.doesNotMatch(content, /treat unavailable runtime evidence as/u, name);
   }
+});
+
+test("relocated shared policy is stated exactly once, in its owning reference", async () => {
+  const evidence = await readFile(
+    join(canonicalRoot, "references", "shared", "evidence-rules.md"),
+    "utf8"
+  );
+  for (const owned of [
+    "## Statuses",
+    "## Standards",
+    "## Tools",
+    "## Findings",
+    "NOT_APPLICABLE",
+    "NOT_VERIFIED",
+    "BLOCKED",
+    "not a claim of compliance",
+    "fullstack-forge/references/PROTOCOL.md"
+  ])
+    assert.ok(evidence.includes(owned), `evidence-rules.md is missing '${owned}'`);
+
+  const contract = await readFile(
+    join(canonicalRoot, "references", "shared", "module-contract.md"),
+    "utf8"
+  );
+  assert.match(contract, /fullstack-forge\/references\/shared\/evidence-rules\.md/u);
 });
 
 test("required progressive references are reachable from every generated platform bundle", async () => {
   const required = [
     "references/shared/module-contract.md",
+    "references/shared/evidence-rules.md",
     "references/shared/completion.md",
     "references/workflows/audit.md",
     "references/workflows/fix.md",
