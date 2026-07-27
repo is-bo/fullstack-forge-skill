@@ -67,6 +67,7 @@ import {
 import {
   assertNoSymlinkPath,
   canonicalDirectory,
+  countManagedSkills,
   resolveInside,
   runFile,
   workingTreeRevision
@@ -1177,14 +1178,7 @@ async function simpleRoot(flags: string[]): Promise<string> {
 }
 
 function countInstalledSkills(files: Record<string, unknown>): number {
-  const skills = new Set<string>();
-  for (const path of Object.keys(files)) {
-    const parts = path.split(/[\\/]+/u);
-    const index = parts.lastIndexOf("skills");
-    const name = index === -1 ? undefined : parts[index + 1];
-    if (name !== undefined) skills.add(name);
-  }
-  return skills.size;
+  return countManagedSkills(Object.keys(files));
 }
 
 function hasValueFlag(flags: string[], name: string): boolean {

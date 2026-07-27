@@ -5,6 +5,8 @@ description: Assess growth limits, contention, partitioning, quotas, backpressur
 
 # forge-scale: Scalability
 
+Engine: Hybrid — Forge + Google, Cloudflare, Vercel
+
 ## Purpose
 
 Assess growth limits, contention, partitioning, quotas, backpressure, and cost against explicit demand scenarios.

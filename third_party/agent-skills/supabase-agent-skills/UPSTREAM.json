@@ -1,0 +1,22 @@
+{
+  "id": "supabase-agent-skills",
+  "displayName": "Supabase Agent Skills",
+  "repository": "supabase/agent-skills",
+  "upstreamCommit": "1ad9aaeb49caafd9e95c0a91116f71890eebbc53",
+  "upstreamTag": "v0.1.6",
+  "license": "MIT",
+  "licenseEvidence": "LICENSE",
+  "copyright": "Copyright (c) Supabase, Inc.",
+  "importedAt": "2026-07-27T17:03:24.324Z",
+  "selectedPaths": [
+    "LICENSE",
+    "skills/supabase-postgres-best-practices/",
+    "skills/supabase/"
+  ],
+  "excludedPaths": [],
+  "contentChecksum": "9f0d34ce17b71a69237735448a0f333501d28480a3685c4b7ef92ae362633571",
+  "fileCount": 41,
+  "localPatches": [],
+  "runtimeExecutables": [],
+  "updatePolicy": "reviewed-only"
+}

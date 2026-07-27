@@ -5,6 +5,8 @@ description: Build an evidence-backed application profile and architecture map b
 
 # forge-discover: Project discovery
 
+Engine: Forge native
+
 ## Purpose
 
 Build an evidence-backed application profile and architecture map before any specialized audit begins.

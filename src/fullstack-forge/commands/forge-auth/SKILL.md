@@ -5,6 +5,8 @@ description: Inspect identity proofing, credentials, sessions, recovery, federat
 
 # forge-auth: Authentication
 
+Engine: Hybrid — Forge + wshobson, Supabase, Google
+
 ## Purpose
 
 Inspect identity proofing, credentials, sessions, recovery, federation, and reauthentication controls.

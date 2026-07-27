@@ -5,6 +5,8 @@ description: Verify recoverability of data and service against explicit RPO, RTO
 
 # forge-recovery: Backup and recovery
 
+Engine: Hybrid — Forge + Addy Osmani Agent Skills, Sentry, Google
+
 ## Purpose
 
 Verify recoverability of data and service against explicit RPO, RTO, corruption, deletion, and regional scenarios.

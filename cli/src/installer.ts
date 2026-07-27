@@ -45,6 +45,17 @@ const MANIFEST_SCHEMA_VERSION = 2;
 const CANONICAL_SOURCE_ROOT = join(PACKAGE_ROOT, ...CANONICAL_ROOT_SEGMENTS);
 
 /**
+ * Managed content that is installed once alongside the canonical skills but is deliberately not
+ * host-discoverable: the compiled upstream expertise and the manifests the composition engine
+ * reads. These live under `.fullstack-forge/` and outside every host skills root, so no agent host
+ * can find or trigger an upstream skill independently of Forge.
+ */
+const MANAGED_SUPPORT_ROOTS = Object.freeze([
+  { source: "upstream", segments: [".fullstack-forge", "upstream"] },
+  { source: "manifests", segments: [".fullstack-forge", "manifests"] }
+]);
+
+/**
  * Hosts whose skills root must also receive verbatim copies of the Codex agent metadata and its
  * icon. Codex reads `agents/openai.yaml` with ordinary tooling rather than with an agent that can
  * follow a prose pointer, and that file names `./assets/fullstack-forge-icon.png` relative to
@@ -122,6 +133,30 @@ async function readCanonicalSource(): Promise<Map<string, Buffer>> {
   return new Map([...map.entries()].sort(([a], [b]) => a.localeCompare(b)));
 }
 
+/**
+ * Reads one bundled managed-support tree. Missing content is a damaged package rather than an
+ * optional extra: without the compiled upstream tree and the manifests, every hybrid and
+ * upstream-powered module would resolve to a missing source at runtime.
+ */
+async function readManagedSupportSource(sourceRoot: string): Promise<Map<string, Buffer>> {
+  const files = await walkFiles(sourceRoot, {
+    maxFiles: 20_000,
+    maxTotalBytes: 256 * 1024 * 1024,
+    maxDepth: 64
+  });
+  const map = new Map<string, Buffer>();
+  for (const path of files) {
+    const rel = toPosix(relative(sourceRoot, path));
+    assertSafeRelative(rel);
+    // Refuse to install anything a host could discover as a skill.
+    if (rel.split("/").pop() === "SKILL.md")
+      throw new Error(`Refusing to install a host-discoverable upstream skill file: ${rel}`);
+    map.set(rel, await readFile(path));
+  }
+  if (map.size === 0) throw new Error(`Bundled managed content is missing at ${sourceRoot}`);
+  return new Map([...map.entries()].sort(([a], [b]) => a.localeCompare(b)));
+}
+
 function skillNamesOf(canonical: Map<string, Buffer>): string[] {
   const names = new Set<string>();
   for (const rel of canonical.keys()) {
@@ -179,6 +214,35 @@ export async function install(
     });
     planned.push(write);
     plannedPaths.add(manifestRelative);
+  }
+
+  // 1b. Compiled upstream expertise and composition manifests. Installed once, never duplicated
+  //     per host, and never inside a host skills root.
+  for (const support of MANAGED_SUPPORT_ROOTS) {
+    const sourceRoot = join(PACKAGE_ROOT, ".fullstack-forge", support.source);
+    const files = await readManagedSupportSource(sourceRoot);
+    const destinationRoot = resolve(root, ...support.segments);
+    if (!isInside(root, destinationRoot))
+      throw new Error(`Managed destination escapes install root: ${destinationRoot}`);
+    await assertNoSymlinkPath(root, destinationRoot);
+    for (const [rel, bytes] of files) {
+      const target = resolveInside(destinationRoot, rel);
+      await assertNoSymlinkPath(root, target);
+      const manifestRelative = toPosix(relative(root, target));
+      assertSafeRelative(manifestRelative);
+      const write = await planFileWrite({
+        root,
+        manifestRelative,
+        target,
+        bytes,
+        previous,
+        platform: platforms[0] as Platform,
+        kind: "canonical",
+        platforms
+      });
+      planned.push(write);
+      plannedPaths.add(manifestRelative);
+    }
   }
 
   // 2. Thin per-host adapters plus the documented verbatim exception.

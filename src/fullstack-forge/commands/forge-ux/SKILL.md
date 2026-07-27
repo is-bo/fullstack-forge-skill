@@ -5,6 +5,8 @@ description: Use automatically for user-flow and usability work, including infor
 
 # forge-ux: User experience
 
+Engine: Upstream-powered — Impeccable
+
 ## Purpose
 
 Use automatically for user-flow and usability work, including information architecture, navigation, forms, onboarding, feedback, errors, recovery, empty states, decision complexity, and task completion.

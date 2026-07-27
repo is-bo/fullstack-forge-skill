@@ -5,6 +5,8 @@ description: Discover the project, select applicable modules, run safe independe
 
 # forge-all: Orchestrated audit
 
+Engine: Forge native
+
 ## Purpose
 
 Discover the project, select applicable modules, run safe independent checks, merge evidence, and prioritize remediation.

@@ -1,0 +1,9 @@
+Google Skills
+google/skills @ d1c9be2009ba0b9243f4ace63533684cabe0dc05
+Copyright Google LLC
+Licensed under Apache-2.0.
+
+This product includes software developed by the above project. The original copyright
+notices and licence terms are preserved in this directory. Modifications, where any are
+applied, are made by Fullstack Forge's composition compiler at build time and are recorded
+in the provider's SOURCE.md and in THIRD_PARTY_NOTICES.md.

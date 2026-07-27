@@ -5,6 +5,8 @@ description: Audit money movement, pricing, entitlements, provider events, recon
 
 # forge-payments: Payments
 
+Engine: Hybrid — Forge + wshobson
+
 ## Purpose
 
 Audit money movement, pricing, entitlements, provider events, reconciliation, idempotency, and sensitive data boundaries.

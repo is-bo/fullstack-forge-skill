@@ -5,6 +5,8 @@ description: Audit event semantics, consent, data quality, identity, privacy, de
 
 # forge-analytics: Analytics
 
+Engine: Hybrid — Forge + Google
+
 ## Purpose
 
 Audit event semantics, consent, data quality, identity, privacy, delivery, and decision usefulness.

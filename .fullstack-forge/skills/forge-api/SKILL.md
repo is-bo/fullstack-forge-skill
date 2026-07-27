@@ -5,6 +5,8 @@ description: Audit API contracts, boundary validation, authorization, consistenc
 
 # forge-api: API design and implementation
 
+Engine: Upstream-powered — Addy Osmani Agent Skills
+
 ## Purpose
 
 Audit API contracts, boundary validation, authorization, consistency, pagination, errors, and idempotency.

@@ -5,6 +5,8 @@ description: Inspect dependencies, build integrity, provenance, releases, licens
 
 # forge-supply-chain: Software supply chain
 
+Engine: Hybrid — Forge + Addy Osmani Agent Skills
+
 ## Purpose
 
 Inspect dependencies, build integrity, provenance, releases, licenses, actions, and secret exposure across the delivery chain.

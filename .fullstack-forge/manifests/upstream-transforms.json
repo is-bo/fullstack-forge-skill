@@ -1,0 +1,1199 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "scripts/generate-upstream-runtime.mjs",
+  "catalog": [
+    {
+      "id": "non-discoverable",
+      "reason": "An upstream SKILL.md inside an installed project could be discovered and triggered by the agent host independently of Forge. The file is renamed and its activation frontmatter is moved into an inert provenance block so only Forge's composition engine can select it."
+    },
+    {
+      "id": "forge-owned-procedure",
+      "reason": "Declared replacements that hand a step back to Forge where the upstream procedure assumes its own installation, its own project state, or a runtime component Forge does not vendor. Runs before command routing and path rewriting so an overlay is always written against the pristine upstream text, and its exact-match guard stays meaningful."
+    },
+    {
+      "id": "forge-command-routes",
+      "reason": "Upstream command names are rewritten to Forge command routes so users never need to learn or invoke an upstream product's commands."
+    },
+    {
+      "id": "no-upstream-installation",
+      "reason": "Runtime guidance must not tell a user to install, update, or manage a separate upstream product. Forge is one installable product and owns its own installation."
+    },
+    {
+      "id": "no-update-checks",
+      "reason": "Upstream automatic update checks are disabled: Forge controls updates, and normal runtime use performs no network access."
+    },
+    {
+      "id": "no-telemetry",
+      "reason": "No vendored code may report usage anywhere. Forge ships no telemetry."
+    },
+    {
+      "id": "managed-paths",
+      "reason": "Upstream state directories are redirected to Forge-managed locations so no separately managed upstream installation is created inside a user's repository."
+    },
+    {
+      "id": "renamed-skill-references",
+      "reason": "Upstream skill files are renamed to PLAYBOOK.md so no host can discover them. Any cross-reference that resolves inside the vendored tree is rewritten to match, so the rename does not leave the agent following a path that no longer exists."
+    },
+    {
+      "id": "unavailable-runtime-reference",
+      "reason": "Forge imports a reviewed subset of each provider. Guidance that tells the agent to run a script or read a file Forge deliberately did not vendor is replaced with an explicit unavailability note, so the agent never follows an instruction into content that is absent."
+    }
+  ],
+  "applied": [
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/api-and-interface-design/SKILL.md",
+      "runtimePath": "skills/api-and-interface-design/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/browser-testing-with-devtools/SKILL.md",
+      "runtimePath": "skills/browser-testing-with-devtools/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/ci-cd-and-automation/SKILL.md",
+      "runtimePath": "skills/ci-cd-and-automation/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/code-review-and-quality/SKILL.md",
+      "runtimePath": "skills/code-review-and-quality/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/code-simplification/SKILL.md",
+      "runtimePath": "skills/code-simplification/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/debugging-and-error-recovery/SKILL.md",
+      "runtimePath": "skills/debugging-and-error-recovery/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/deprecation-and-migration/SKILL.md",
+      "runtimePath": "skills/deprecation-and-migration/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/documentation-and-adrs/SKILL.md",
+      "runtimePath": "skills/documentation-and-adrs/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/doubt-driven-development/SKILL.md",
+      "runtimePath": "skills/doubt-driven-development/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/frontend-ui-engineering/SKILL.md",
+      "runtimePath": "skills/frontend-ui-engineering/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/git-workflow-and-versioning/SKILL.md",
+      "runtimePath": "skills/git-workflow-and-versioning/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/idea-refine/SKILL.md",
+      "runtimePath": "skills/idea-refine/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/incremental-implementation/SKILL.md",
+      "runtimePath": "skills/incremental-implementation/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/interview-me/SKILL.md",
+      "runtimePath": "skills/interview-me/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/observability-and-instrumentation/SKILL.md",
+      "runtimePath": "skills/observability-and-instrumentation/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/performance-optimization/SKILL.md",
+      "runtimePath": "skills/performance-optimization/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/planning-and-task-breakdown/SKILL.md",
+      "runtimePath": "skills/planning-and-task-breakdown/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/security-and-hardening/SKILL.md",
+      "runtimePath": "skills/security-and-hardening/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/shipping-and-launch/SKILL.md",
+      "runtimePath": "skills/shipping-and-launch/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/source-driven-development/SKILL.md",
+      "runtimePath": "skills/source-driven-development/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/spec-driven-development/SKILL.md",
+      "runtimePath": "skills/spec-driven-development/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "addy-agent-skills",
+      "source": "skills/test-driven-development/SKILL.md",
+      "runtimePath": "skills/test-driven-development/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "cloudflare-skills",
+      "source": "skills/agents-sdk/SKILL.md",
+      "runtimePath": "skills/agents-sdk/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "cloudflare-skills",
+      "source": "skills/cloudflare/references/durable-objects/README.md",
+      "runtimePath": "skills/cloudflare/references/durable-objects/README.md",
+      "applied": [
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "cloudflare-skills",
+      "source": "skills/cloudflare/SKILL.md",
+      "runtimePath": "skills/cloudflare/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "cloudflare-skills",
+      "source": "skills/durable-objects/SKILL.md",
+      "runtimePath": "skills/durable-objects/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "cloudflare-skills",
+      "source": "skills/sandbox-sdk/SKILL.md",
+      "runtimePath": "skills/sandbox-sdk/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "cloudflare-skills",
+      "source": "skills/web-perf/SKILL.md",
+      "runtimePath": "skills/web-perf/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "cloudflare-skills",
+      "source": "skills/wrangler/SKILL.md",
+      "runtimePath": "skills/wrangler/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/analytics/google-analytics-admin-api-basics/SKILL.md",
+      "runtimePath": "skills/analytics/google-analytics-admin-api-basics/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/analytics/google-analytics-data-api-basics/SKILL.md",
+      "runtimePath": "skills/analytics/google-analytics-data-api-basics/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/agent-platform-deploy/SKILL.md",
+      "runtimePath": "skills/cloud/agent-platform-deploy/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/agent-platform-eval-flywheel/SKILL.md",
+      "runtimePath": "skills/cloud/agent-platform-eval-flywheel/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/agent-platform-inference/SKILL.md",
+      "runtimePath": "skills/cloud/agent-platform-inference/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/cloud-run-basics/SKILL.md",
+      "runtimePath": "skills/cloud/cloud-run-basics/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/cloud-sql-basics/SKILL.md",
+      "runtimePath": "skills/cloud/cloud-sql-basics/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/firebase-basics/SKILL.md",
+      "runtimePath": "skills/cloud/firebase-basics/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/gemini-agents-api/SKILL.md",
+      "runtimePath": "skills/cloud/gemini-agents-api/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/gemini-api/SKILL.md",
+      "runtimePath": "skills/cloud/gemini-api/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/gke-multitenancy/SKILL.md",
+      "runtimePath": "skills/cloud/gke-multitenancy/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/gke-observability/SKILL.md",
+      "runtimePath": "skills/cloud/gke-observability/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/gke-platform-security/SKILL.md",
+      "runtimePath": "skills/cloud/gke-platform-security/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/gke-productionize/SKILL.md",
+      "runtimePath": "skills/cloud/gke-productionize/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/gke-reliability/SKILL.md",
+      "runtimePath": "skills/cloud/gke-reliability/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/gke-storage/SKILL.md",
+      "runtimePath": "skills/cloud/gke-storage/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/gke-workload-scaling/SKILL.md",
+      "runtimePath": "skills/cloud/gke-workload-scaling/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/gke-workload-security/SKILL.md",
+      "runtimePath": "skills/cloud/gke-workload-security/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/google-cloud-networking-observability/SKILL.md",
+      "runtimePath": "skills/cloud/google-cloud-networking-observability/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/google-cloud-solution-architecture/SKILL.md",
+      "runtimePath": "skills/cloud/google-cloud-solution-architecture/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/google-cloud-storage-basics/SKILL.md",
+      "runtimePath": "skills/cloud/google-cloud-storage-basics/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/google-cloud-waf-cost-optimization/SKILL.md",
+      "runtimePath": "skills/cloud/google-cloud-waf-cost-optimization/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/google-cloud-waf-operational-excellence/SKILL.md",
+      "runtimePath": "skills/cloud/google-cloud-waf-operational-excellence/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/google-cloud-waf-performance-optimization/SKILL.md",
+      "runtimePath": "skills/cloud/google-cloud-waf-performance-optimization/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/google-cloud-waf-reliability/SKILL.md",
+      "runtimePath": "skills/cloud/google-cloud-waf-reliability/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "google-skills",
+      "source": "skills/cloud/google-cloud-waf-security/SKILL.md",
+      "runtimePath": "skills/cloud/google-cloud-waf-security/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/adapt.md",
+      "runtimePath": "reference/adapt.md",
+      "applied": [
+        "forge-command-routes"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/adapt.native.md",
+      "runtimePath": "reference/adapt.native.md",
+      "applied": [
+        "forge-command-routes"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/animate.md",
+      "runtimePath": "reference/animate.md",
+      "applied": [
+        "forge-command-routes"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/audit.md",
+      "runtimePath": "reference/audit.md",
+      "applied": [
+        "forge-command-routes"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/audit.native.md",
+      "runtimePath": "reference/audit.native.md",
+      "applied": [
+        "forge-command-routes"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/bolder.md",
+      "runtimePath": "reference/bolder.md",
+      "applied": [
+        "forge-command-routes"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/clarify.md",
+      "runtimePath": "reference/clarify.md",
+      "applied": [
+        "forge-command-routes"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/colorize.md",
+      "runtimePath": "reference/colorize.md",
+      "applied": [
+        "forge-command-routes"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/critique.md",
+      "runtimePath": "reference/critique.md",
+      "applied": [
+        "forge-command-routes",
+        "managed-paths",
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/delight.md",
+      "runtimePath": "reference/delight.md",
+      "applied": [
+        "forge-command-routes"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/distill.md",
+      "runtimePath": "reference/distill.md",
+      "applied": [
+        "forge-command-routes"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/document.md",
+      "runtimePath": "reference/document.md",
+      "applied": [
+        "forge-command-routes",
+        "managed-paths"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/harden.md",
+      "runtimePath": "reference/harden.md",
+      "applied": [
+        "forge-command-routes"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/init.md",
+      "runtimePath": "reference/init.md",
+      "applied": [
+        "forge-command-routes",
+        "managed-paths"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/layout.md",
+      "runtimePath": "reference/layout.md",
+      "applied": [
+        "forge-command-routes",
+        "managed-paths",
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/live.md",
+      "runtimePath": "reference/live.md",
+      "applied": [
+        "managed-paths",
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/new-work.md",
+      "runtimePath": "reference/new-work.md",
+      "applied": [
+        "managed-paths",
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/onboard.md",
+      "runtimePath": "reference/onboard.md",
+      "applied": [
+        "forge-command-routes"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/optimize.md",
+      "runtimePath": "reference/optimize.md",
+      "applied": [
+        "forge-command-routes"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/polish.md",
+      "runtimePath": "reference/polish.md",
+      "applied": [
+        "managed-paths",
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/quieter.md",
+      "runtimePath": "reference/quieter.md",
+      "applied": [
+        "forge-command-routes"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/routing.md",
+      "runtimePath": "reference/routing.md",
+      "applied": [
+        "forge-command-routes",
+        "managed-paths",
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/reference/typeset.md",
+      "runtimePath": "reference/typeset.md",
+      "applied": [
+        "forge-command-routes",
+        "managed-paths",
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/scripts/detector/cli/main.mjs",
+      "runtimePath": "scripts/detector/cli/main.mjs",
+      "applied": [
+        "managed-paths"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/scripts/detector/shared/inline-ignores.mjs",
+      "runtimePath": "scripts/detector/shared/inline-ignores.mjs",
+      "applied": [
+        "managed-paths"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/scripts/lib/impeccable-config.mjs",
+      "runtimePath": "scripts/lib/impeccable-config.mjs",
+      "applied": [
+        "no-update-checks",
+        "managed-paths"
+      ]
+    },
+    {
+      "provider": "impeccable",
+      "source": ".claude/skills/impeccable/SKILL.md",
+      "runtimePath": "PLAYBOOK.md",
+      "applied": [
+        "non-discoverable",
+        "forge-owned-procedure",
+        "managed-paths",
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "sentry-agent-skills",
+      "source": "README.md",
+      "runtimePath": "README.md",
+      "applied": [
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "sentry-agent-skills",
+      "source": "skills/sentry-dotnet-sdk/SKILL.md",
+      "runtimePath": "skills/sentry-dotnet-sdk/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "sentry-agent-skills",
+      "source": "skills/sentry-fix-issues/SKILL.md",
+      "runtimePath": "skills/sentry-fix-issues/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "sentry-agent-skills",
+      "source": "skills/sentry-go-sdk/SKILL.md",
+      "runtimePath": "skills/sentry-go-sdk/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "sentry-agent-skills",
+      "source": "skills/sentry-nextjs-sdk/SKILL.md",
+      "runtimePath": "skills/sentry-nextjs-sdk/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "sentry-agent-skills",
+      "source": "skills/sentry-otel-exporter-setup/SKILL.md",
+      "runtimePath": "skills/sentry-otel-exporter-setup/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "sentry-agent-skills",
+      "source": "skills/sentry-pr-code-review/SKILL.md",
+      "runtimePath": "skills/sentry-pr-code-review/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "sentry-agent-skills",
+      "source": "skills/sentry-python-sdk/SKILL.md",
+      "runtimePath": "skills/sentry-python-sdk/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "sentry-agent-skills",
+      "source": "skills/sentry-react-native-sdk/SKILL.md",
+      "runtimePath": "skills/sentry-react-native-sdk/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "sentry-agent-skills",
+      "source": "skills/sentry-react-sdk/SKILL.md",
+      "runtimePath": "skills/sentry-react-sdk/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "sentry-agent-skills",
+      "source": "skills/sentry-ruby-sdk/SKILL.md",
+      "runtimePath": "skills/sentry-ruby-sdk/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "sentry-agent-skills",
+      "source": "skills/sentry-setup-ai-monitoring/SKILL.md",
+      "runtimePath": "skills/sentry-setup-ai-monitoring/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "sentry-agent-skills",
+      "source": "skills/sentry-svelte-sdk/SKILL.md",
+      "runtimePath": "skills/sentry-svelte-sdk/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "supabase-agent-skills",
+      "source": "skills/supabase-postgres-best-practices/SKILL.md",
+      "runtimePath": "skills/supabase-postgres-best-practices/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "supabase-agent-skills",
+      "source": "skills/supabase/SKILL.md",
+      "runtimePath": "skills/supabase/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "source": "skills/react-best-practices/AGENTS.md",
+      "runtimePath": "skills/react-best-practices/AGENTS.md",
+      "applied": [
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "source": "skills/react-best-practices/SKILL.md",
+      "runtimePath": "skills/react-best-practices/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "source": "skills/react-native-skills/SKILL.md",
+      "runtimePath": "skills/react-native-skills/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "source": "skills/react-view-transitions/README.md",
+      "runtimePath": "skills/react-view-transitions/README.md",
+      "applied": [
+        "renamed-skill-references"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "source": "skills/react-view-transitions/references/implementation.md",
+      "runtimePath": "skills/react-view-transitions/references/implementation.md",
+      "applied": [
+        "renamed-skill-references"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "source": "skills/react-view-transitions/references/nextjs.md",
+      "runtimePath": "skills/react-view-transitions/references/nextjs.md",
+      "applied": [
+        "renamed-skill-references"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "source": "skills/react-view-transitions/SKILL.md",
+      "runtimePath": "skills/react-view-transitions/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "source": "skills/vercel-optimize/AGENTS.md",
+      "runtimePath": "skills/vercel-optimize/AGENTS.md",
+      "applied": [
+        "renamed-skill-references"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "source": "skills/vercel-optimize/README.md",
+      "runtimePath": "skills/vercel-optimize/README.md",
+      "applied": [
+        "renamed-skill-references"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "source": "skills/vercel-optimize/references/data-collection.md",
+      "runtimePath": "skills/vercel-optimize/references/data-collection.md",
+      "applied": [
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "source": "skills/vercel-optimize/SKILL.md",
+      "runtimePath": "skills/vercel-optimize/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable",
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "vercel-agent-skills",
+      "source": "skills/web-design-guidelines/SKILL.md",
+      "runtimePath": "skills/web-design-guidelines/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/accessibility-compliance/skills/screen-reader-testing/SKILL.md",
+      "runtimePath": "plugins/accessibility-compliance/skills/screen-reader-testing/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/accessibility-compliance/skills/wcag-audit-patterns/SKILL.md",
+      "runtimePath": "plugins/accessibility-compliance/skills/wcag-audit-patterns/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/business-analytics/skills/data-storytelling/SKILL.md",
+      "runtimePath": "plugins/business-analytics/skills/data-storytelling/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/business-analytics/skills/kpi-dashboard-design/SKILL.md",
+      "runtimePath": "plugins/business-analytics/skills/kpi-dashboard-design/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/cicd-automation/skills/deployment-pipeline-design/references/advanced-strategies.md",
+      "runtimePath": "plugins/cicd-automation/skills/deployment-pipeline-design/references/advanced-strategies.md",
+      "applied": [
+        "renamed-skill-references"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/cicd-automation/skills/deployment-pipeline-design/references/details.md",
+      "runtimePath": "plugins/cicd-automation/skills/deployment-pipeline-design/references/details.md",
+      "applied": [
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/cicd-automation/skills/deployment-pipeline-design/SKILL.md",
+      "runtimePath": "plugins/cicd-automation/skills/deployment-pipeline-design/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/cicd-automation/skills/github-actions-templates/SKILL.md",
+      "runtimePath": "plugins/cicd-automation/skills/github-actions-templates/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/cicd-automation/skills/secrets-management/SKILL.md",
+      "runtimePath": "plugins/cicd-automation/skills/secrets-management/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/database-design/skills/postgresql/SKILL.md",
+      "runtimePath": "plugins/database-design/skills/postgresql/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/developer-essentials/skills/auth-implementation-patterns/SKILL.md",
+      "runtimePath": "plugins/developer-essentials/skills/auth-implementation-patterns/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/developer-essentials/skills/e2e-testing-patterns/SKILL.md",
+      "runtimePath": "plugins/developer-essentials/skills/e2e-testing-patterns/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/developer-essentials/skills/error-handling-patterns/SKILL.md",
+      "runtimePath": "plugins/developer-essentials/skills/error-handling-patterns/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/developer-essentials/skills/sql-optimization-patterns/SKILL.md",
+      "runtimePath": "plugins/developer-essentials/skills/sql-optimization-patterns/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/documentation-generation/skills/openapi-spec-generation/references/details.md",
+      "runtimePath": "plugins/documentation-generation/skills/openapi-spec-generation/references/details.md",
+      "applied": [
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/documentation-generation/skills/openapi-spec-generation/SKILL.md",
+      "runtimePath": "plugins/documentation-generation/skills/openapi-spec-generation/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/hr-legal-compliance/skills/gdpr-data-handling/SKILL.md",
+      "runtimePath": "plugins/hr-legal-compliance/skills/gdpr-data-handling/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/llm-application-dev/skills/embedding-strategies/SKILL.md",
+      "runtimePath": "plugins/llm-application-dev/skills/embedding-strategies/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/llm-application-dev/skills/hybrid-search-implementation/SKILL.md",
+      "runtimePath": "plugins/llm-application-dev/skills/hybrid-search-implementation/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/llm-application-dev/skills/llm-evaluation/SKILL.md",
+      "runtimePath": "plugins/llm-application-dev/skills/llm-evaluation/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/llm-application-dev/skills/prompt-engineering-patterns/SKILL.md",
+      "runtimePath": "plugins/llm-application-dev/skills/prompt-engineering-patterns/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/llm-application-dev/skills/rag-implementation/SKILL.md",
+      "runtimePath": "plugins/llm-application-dev/skills/rag-implementation/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/observability-monitoring/skills/distributed-tracing/SKILL.md",
+      "runtimePath": "plugins/observability-monitoring/skills/distributed-tracing/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/observability-monitoring/skills/slo-implementation/SKILL.md",
+      "runtimePath": "plugins/observability-monitoring/skills/slo-implementation/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/payment-processing/skills/billing-automation/SKILL.md",
+      "runtimePath": "plugins/payment-processing/skills/billing-automation/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/payment-processing/skills/paypal-integration/SKILL.md",
+      "runtimePath": "plugins/payment-processing/skills/paypal-integration/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/payment-processing/skills/pci-compliance/SKILL.md",
+      "runtimePath": "plugins/payment-processing/skills/pci-compliance/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/payment-processing/skills/stripe-integration/SKILL.md",
+      "runtimePath": "plugins/payment-processing/skills/stripe-integration/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/security-scanning/skills/attack-tree-construction/SKILL.md",
+      "runtimePath": "plugins/security-scanning/skills/attack-tree-construction/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/security-scanning/skills/sast-configuration/SKILL.md",
+      "runtimePath": "plugins/security-scanning/skills/sast-configuration/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable",
+        "unavailable-runtime-reference"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/security-scanning/skills/security-requirement-extraction/SKILL.md",
+      "runtimePath": "plugins/security-scanning/skills/security-requirement-extraction/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/security-scanning/skills/stride-analysis-patterns/SKILL.md",
+      "runtimePath": "plugins/security-scanning/skills/stride-analysis-patterns/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    },
+    {
+      "provider": "wshobson-agents",
+      "source": "plugins/security-scanning/skills/threat-mitigation-mapping/SKILL.md",
+      "runtimePath": "plugins/security-scanning/skills/threat-mitigation-mapping/PLAYBOOK.md",
+      "applied": [
+        "non-discoverable"
+      ]
+    }
+  ]
+}

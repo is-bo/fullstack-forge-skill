@@ -5,6 +5,8 @@ description: Inspect build promotion, configuration, migrations, rollout, rollba
 
 # forge-deployment: Deployment
 
+Engine: Hybrid — Forge + Addy Osmani Agent Skills, Cloudflare, Google, Vercel
+
 ## Purpose
 
 Inspect build promotion, configuration, migrations, rollout, rollback, health, and environment parity.

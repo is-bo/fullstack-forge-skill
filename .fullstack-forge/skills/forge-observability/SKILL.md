@@ -5,6 +5,8 @@ description: Verify that logs, metrics, traces, events, alerts, and dashboards a
 
 # forge-observability: Observability
 
+Engine: Hybrid — Forge + Addy Osmani Agent Skills, Sentry, Google
+
 ## Purpose
 
 Verify that logs, metrics, traces, events, alerts, and dashboards answer concrete operational questions safely.

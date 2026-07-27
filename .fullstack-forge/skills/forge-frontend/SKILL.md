@@ -5,6 +5,8 @@ description: Use automatically for frontend implementation and review, including
 
 # forge-frontend: Frontend engineering
 
+Engine: Hybrid — Forge + Addy Osmani Agent Skills, Vercel
+
 ## Purpose
 
 Use automatically for frontend implementation and review, including components, pages, layouts, responsive behavior, React, Next.js, browser state, rendering, hydration, network behavior, and measured frontend performance.

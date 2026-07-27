@@ -5,6 +5,8 @@ description: Conditionally inspect public web content for crawlability, canonica
 
 # forge-seo: Search discoverability
 
+Engine: Forge native
+
 ## Purpose
 
 Conditionally inspect public web content for crawlability, canonicalization, metadata, structured data, and rendering.

@@ -5,6 +5,8 @@ description: Audit local persistence, queued actions, synchronization, conflicts
 
 # forge-offline: Offline behavior
 
+Engine: Forge native
+
 ## Purpose
 
 Audit local persistence, queued actions, synchronization, conflicts, revocation, privacy, and recovery under intermittent connectivity.

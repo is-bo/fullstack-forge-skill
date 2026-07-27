@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { assertValidSlug } from "./build-state.js";
 import { MODULE_SLUGS, VERSION } from "./constants.js";
 import { redactToString } from "./redaction.js";
+import { countManagedSkills } from "./utils.js";
 export const SIMPLE_COMMANDS = [
     "build",
     "continue",
@@ -367,14 +368,7 @@ export function renderInstallResult(operation, selector, global, dryRun, actions
     for (const action of actions)
         counts.set(action.action, (counts.get(action.action) ?? 0) + 1);
     const platforms = [...new Set(actions.map((action) => action.platform))].sort();
-    const skills = new Set();
-    for (const action of actions) {
-        const parts = action.path.split(/[\\/]+/u);
-        const index = parts.lastIndexOf("skills");
-        const name = index === -1 ? undefined : parts[index + 1];
-        if (name !== undefined)
-            skills.add(name);
-    }
+    const skillCount = countManagedSkills(actions.map((action) => action.path));
     const actionSummary = [...counts.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([name, count]) => `${name} ${count}`)
@@ -388,7 +382,7 @@ export function renderInstallResult(operation, selector, global, dryRun, actions
         `Scope: ${global ? "user/global" : "this project"}`,
         `Selector: ${selector}`,
         `Agents: ${platforms.join(", ") || "none"}`,
-        `Skills: ${skills.size}`,
+        `Skills: ${skillCount}`,
         `Files: ${actions.length}${actionSummary.length === 0 ? "" : ` (${actionSummary})`}`
     ];
     if (recommendations !== undefined) {

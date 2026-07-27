@@ -5,6 +5,8 @@ description: Evaluate system boundaries, dependency direction, failure domains, 
 
 # forge-architecture: Architecture
 
+Engine: Hybrid — Forge + Addy Osmani Agent Skills, Google
+
 ## Purpose
 
 Evaluate system boundaries, dependency direction, failure domains, and the fitness of the current topology.

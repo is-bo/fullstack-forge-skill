@@ -5,6 +5,8 @@ description: First decide whether caching is justified, then audit keys, invalid
 
 # forge-cache: Caching
 
+Engine: Hybrid — Forge + Vercel, Cloudflare
+
 ## Purpose
 
 First decide whether caching is justified, then audit keys, invalidation, consistency, privacy, and failure behavior.

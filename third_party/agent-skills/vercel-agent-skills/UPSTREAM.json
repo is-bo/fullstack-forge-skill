@@ -1,0 +1,29 @@
+{
+  "id": "vercel-agent-skills",
+  "displayName": "Vercel Agent Skills",
+  "repository": "vercel-labs/agent-skills",
+  "upstreamCommit": "7c180d9044c9ae2b442b567aad4e42a28dd5ed62",
+  "upstreamTag": null,
+  "license": "MIT",
+  "licenseEvidence": "README.md#license",
+  "copyright": "Copyright (c) Vercel, Inc.",
+  "importedAt": "2026-07-27T21:13:56.047Z",
+  "selectedPaths": [
+    "README.md",
+    "skills/react-best-practices/",
+    "skills/react-native-skills/",
+    "skills/react-view-transitions/",
+    "skills/vercel-optimize/",
+    "skills/web-design-guidelines/"
+  ],
+  "excludedPaths": [
+    "**/lib/",
+    "**/scripts/",
+    "**/tests/"
+  ],
+  "contentChecksum": "3c3b2a3fbfb3510e2d64a7e412c6b94421b3193a8ebae6e882f17a6fd82764c6",
+  "fileCount": 194,
+  "localPatches": [],
+  "runtimeExecutables": [],
+  "updatePolicy": "reviewed-only"
+}

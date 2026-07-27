@@ -40,3 +40,17 @@ records. Neither file repeats the other, and neither is repeated inside the modu
 
 Never claim that an operation ran when it did not. These playbooks guide agent reasoning and cannot
 by themselves prove production, provider, human-policy, or unsupported framework behavior.
+
+## Composed specialist expertise
+
+Specialist procedure for a module is composed by Forge, never announced by an upstream skill. The
+Forge module contract always loads first; a primary upstream workflow and any evidence-gated
+provider overlay load after it and never override it.
+
+- `fullstack-forge/references/shared/composition-precedence.md` — the load order, the nine-level
+  conflict precedence, and what vendored content may never do.
+- `.fullstack-forge/manifests/module-composition.json` — what this module composes, and the
+  repository evidence each source requires.
+
+If a source the manifest declares is missing from the installation, that is a damaged installation:
+report `NOT_VERIFIED` and say so, rather than continuing as though the guidance had been read.

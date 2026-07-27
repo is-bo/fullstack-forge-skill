@@ -5,6 +5,8 @@ description: Inspect object naming, access control, encryption, lifecycle, consi
 
 # forge-storage: Object and file storage
 
+Engine: Hybrid — Forge + Supabase, Cloudflare, Google
+
 ## Purpose
 
 Inspect object naming, access control, encryption, lifecycle, consistency, integrity, and recovery.

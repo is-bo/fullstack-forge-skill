@@ -5,6 +5,8 @@ description: Audit outbound and inbound integrations for authentication, validat
 
 # forge-integrations: External integrations
 
+Engine: Forge native
+
 ## Purpose
 
 Audit outbound and inbound integrations for authentication, validation, failure isolation, drift, and replay safety.

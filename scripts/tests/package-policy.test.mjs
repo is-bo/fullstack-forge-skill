@@ -33,7 +33,7 @@ test("package policy accepts only declared common files and managed platform roo
 });
 
 test("package policy includes the packaged user-documentation link closure", () => {
-  const paths = new Set(packageCommonPaths("0.1.0"));
+  const paths = new Set(packageCommonPaths("0.2.0"));
   for (const path of [
     "docs/BUILD_MODE.md",
     "docs/CLI_REFERENCE.md",
@@ -45,7 +45,7 @@ test("package policy includes the packaged user-documentation link closure", () 
     "research/SOURCES.md"
   ]) {
     assert.equal(paths.has(path), true, path);
-    assert.doesNotThrow(() => assertPublishableArchivePath(path, "0.1.0"), path);
+    assert.doesNotThrow(() => assertPublishableArchivePath(path, "0.2.0"), path);
   }
 });
 

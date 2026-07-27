@@ -5,6 +5,8 @@ description: Verify tenant context propagation and isolation across data, cache,
 
 # forge-tenancy: Multi-tenancy
 
+Engine: Forge native
+
 ## Purpose
 
 Verify tenant context propagation and isolation across data, cache, files, jobs, search, analytics, and administration.

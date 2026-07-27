@@ -5,6 +5,8 @@ description: Verify that user, contributor, architecture, operations, security, 
 
 # forge-docs: Documentation
 
+Engine: Upstream-powered — Addy Osmani Agent Skills
+
 ## Purpose
 
 Verify that user, contributor, architecture, operations, security, and release documentation is accurate and executable.

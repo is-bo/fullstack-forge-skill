@@ -1,0 +1,2375 @@
+{
+  "$comment": "Canonical composition registry. For each of Forge's 42 public modules it declares the Forge contract that always loads first, the primary upstream workflow (if any), conditional provider overlays with the repository evidence that activates them, supplemental references with no routing authority, incompatibilities, dependent Forge modules, output classification, and the per-module context budget. `npm run generate` compiles this into `.fullstack-forge/manifests/module-composition.json`. Forge contracts are never overridden: precedence is fixed in src/fullstack-forge/references/shared/composition-precedence.md.",
+  "schemaVersion": 1,
+  "defaultContextBudget": {
+    "maxPrimarySkills": 1,
+    "maxOverlays": 2,
+    "maxSupplemental": 3
+  },
+  "modes": {
+    "forge-native": "No upstream primary. Forge owns the whole workflow; any upstream entry is a conditional supplemental reference.",
+    "hybrid": "Forge contract drives; one upstream primary supplies specialist procedure, with evidence-gated overlays.",
+    "upstream-powered": "An established upstream workflow is the primary procedure for this module's core activity, inside Forge's contracts."
+  },
+  "modules": [
+    {
+      "module": "discover",
+      "mode": "forge-native",
+      "designation": "KEEP_FORGE",
+      "forgeContract": "references/build/discover.md",
+      "primary": [],
+      "overlays": [],
+      "supplemental": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "source-driven-development",
+          "path": "skills/source-driven-development/SKILL.md",
+          "role": "methodology",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "conflicts": [],
+      "dependsOn": [],
+      "outputClassification": "profile",
+      "forgeAuthority": [
+        "repository profiling",
+        "applicability",
+        "module selection",
+        "evidence classification"
+      ]
+    },
+    {
+      "module": "requirements",
+      "mode": "upstream-powered",
+      "designation": "UPSTREAM_POWERED",
+      "forgeContract": "references/build/requirements.md",
+      "primary": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "interview-me",
+          "path": "skills/interview-me/SKILL.md",
+          "sequence": 1,
+          "when": {
+            "missingEssentialRequirements": true
+          }
+        },
+        {
+          "provider": "addy-agent-skills",
+          "skill": "idea-refine",
+          "path": "skills/idea-refine/SKILL.md",
+          "sequence": 2,
+          "when": {
+            "divergentExploration": true
+          }
+        },
+        {
+          "provider": "addy-agent-skills",
+          "skill": "spec-driven-development",
+          "path": "skills/spec-driven-development/SKILL.md",
+          "sequence": 3,
+          "when": {
+            "always": true
+          }
+        },
+        {
+          "provider": "addy-agent-skills",
+          "skill": "planning-and-task-breakdown",
+          "path": "skills/planning-and-task-breakdown/SKILL.md",
+          "sequence": 4,
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "overlays": [],
+      "supplemental": [],
+      "conflicts": [],
+      "dependsOn": ["discover"],
+      "outputClassification": "specification",
+      "contextBudget": {
+        "maxPrimarySkills": 4,
+        "maxOverlays": 0,
+        "maxSupplemental": 1
+      },
+      "forgeAuthority": [
+        "risk discovery",
+        "repository constraints",
+        "approval boundaries",
+        "module selection",
+        "evidence requirements"
+      ]
+    },
+    {
+      "module": "architecture",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/architecture.md",
+      "primary": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "spec-driven-development",
+          "path": "skills/spec-driven-development/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "provider": "google-skills",
+          "skill": "google-cloud-solution-architecture",
+          "path": "skills/cloud/google-cloud-solution-architecture/SKILL.md",
+          "when": {
+            "hosting": ["google cloud", "gcp"],
+            "requested": ["google-cloud"]
+          }
+        }
+      ],
+      "supplemental": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "planning-and-task-breakdown",
+          "path": "skills/planning-and-task-breakdown/SKILL.md",
+          "when": {
+            "always": true
+          }
+        },
+        {
+          "provider": "addy-agent-skills",
+          "skill": "deprecation-and-migration",
+          "path": "skills/deprecation-and-migration/SKILL.md",
+          "when": {
+            "migration": true
+          }
+        },
+        {
+          "provider": "addy-agent-skills",
+          "skill": "documentation-and-adrs",
+          "path": "skills/documentation-and-adrs/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "conflicts": [],
+      "dependsOn": ["discover"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "repository discovery",
+        "architecture map",
+        "decision ownership",
+        "cross-module coordination"
+      ]
+    },
+    {
+      "module": "code",
+      "mode": "upstream-powered",
+      "designation": "UPSTREAM_POWERED",
+      "forgeContract": "references/build/code.md",
+      "primary": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "incremental-implementation",
+          "path": "skills/incremental-implementation/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "overlays": [],
+      "supplemental": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "code-review-and-quality",
+          "path": "skills/code-review-and-quality/SKILL.md",
+          "when": {
+            "always": true
+          }
+        },
+        {
+          "provider": "addy-agent-skills",
+          "skill": "code-simplification",
+          "path": "skills/code-simplification/SKILL.md",
+          "when": {
+            "always": true
+          }
+        },
+        {
+          "provider": "addy-agent-skills",
+          "skill": "git-workflow-and-versioning",
+          "path": "skills/git-workflow-and-versioning/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "conflicts": [],
+      "dependsOn": ["testing"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "safe-fix policy",
+        "repository conventions",
+        "evidence",
+        "approval boundaries"
+      ]
+    },
+    {
+      "module": "ui",
+      "mode": "upstream-powered",
+      "designation": "UPSTREAM_POWERED",
+      "forgeContract": "references/build/ui.md",
+      "primary": [
+        {
+          "provider": "impeccable",
+          "skill": "impeccable",
+          "path": ".claude/skills/impeccable/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "provider": "vercel-agent-skills",
+          "skill": "web-design-guidelines",
+          "path": "skills/web-design-guidelines/SKILL.md",
+          "role": "technical-audit",
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
+        }
+      ],
+      "supplemental": [],
+      "conflicts": [
+        {
+          "with": "accessibility",
+          "rule": "Impeccable motion, contrast, and density guidance yields to a proven accessibility requirement."
+        }
+      ],
+      "dependsOn": ["ux", "accessibility", "frontend", "testing", "performance"],
+      "outputClassification": "finding-or-advisory",
+      "forgeAuthority": [
+        "activation",
+        "repository discovery",
+        "design-system preservation",
+        "module boundaries",
+        "evidence",
+        "finding classification",
+        "Verify and Ship impact"
+      ]
+    },
+    {
+      "module": "ux",
+      "mode": "upstream-powered",
+      "designation": "UPSTREAM_POWERED HYBRID",
+      "forgeContract": "references/build/ux.md",
+      "primary": [
+        {
+          "provider": "impeccable",
+          "skill": "impeccable",
+          "path": ".claude/skills/impeccable/SKILL.md",
+          "commands": ["shape", "critique", "harden", "onboard", "clarify", "adapt", "polish"],
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "provider": "vercel-agent-skills",
+          "skill": "web-design-guidelines",
+          "path": "skills/web-design-guidelines/SKILL.md",
+          "role": "technical-overlay",
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
+        }
+      ],
+      "supplemental": [],
+      "conflicts": [],
+      "dependsOn": ["ui", "accessibility", "i18n", "offline"],
+      "outputClassification": "finding-or-advisory",
+      "forgeAuthority": [
+        "end-to-end business journeys",
+        "permission states",
+        "loading, empty, failure, interruption and recovery states",
+        "offline behaviour",
+        "destructive confirmation",
+        "cross-module constraints"
+      ]
+    },
+    {
+      "module": "accessibility",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/accessibility.md",
+      "primary": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "accessibility-checklist",
+          "path": "references/accessibility-checklist.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "provider": "vercel-agent-skills",
+          "skill": "web-design-guidelines",
+          "path": "skills/web-design-guidelines/SKILL.md",
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
+        }
+      ],
+      "supplemental": [
+        {
+          "provider": "wshobson-agents",
+          "skill": "wcag-audit-patterns",
+          "path": "plugins/accessibility-compliance/skills/wcag-audit-patterns/SKILL.md",
+          "when": {
+            "always": true
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "screen-reader-testing",
+          "path": "plugins/accessibility-compliance/skills/screen-reader-testing/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "conflicts": [],
+      "dependsOn": ["ui", "ux", "frontend", "testing"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "deterministic accessibility analyzer",
+        "applicability",
+        "evidence",
+        "severity",
+        "keyboard, semantic, contrast, focus and assistive-technology verification"
+      ]
+    },
+    {
+      "module": "i18n",
+      "mode": "forge-native",
+      "designation": "KEEP_FORGE",
+      "forgeContract": "references/build/i18n.md",
+      "primary": [],
+      "overlays": [],
+      "supplemental": [
+        {
+          "provider": "vercel-agent-skills",
+          "skill": "web-design-guidelines",
+          "path": "skills/web-design-guidelines/SKILL.md",
+          "role": "locale-rules",
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
+        },
+        {
+          "provider": "impeccable",
+          "skill": "harden",
+          "path": ".claude/skills/impeccable/reference/harden.md",
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
+        },
+        {
+          "provider": "impeccable",
+          "skill": "clarify",
+          "path": ".claude/skills/impeccable/reference/clarify.md",
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
+        },
+        {
+          "provider": "impeccable",
+          "skill": "adapt",
+          "path": ".claude/skills/impeccable/reference/adapt.md",
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
+        }
+      ],
+      "conflicts": [],
+      "dependsOn": ["ui", "ux", "frontend"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "locale architecture",
+        "translation keys",
+        "pluralisation",
+        "formatting",
+        "right-to-left layout",
+        "content expansion",
+        "fallback",
+        "routing",
+        "testing"
+      ]
+    },
+    {
+      "module": "seo",
+      "mode": "forge-native",
+      "designation": "KEEP_FORGE",
+      "forgeContract": "references/build/seo.md",
+      "primary": [],
+      "overlays": [],
+      "supplemental": [],
+      "conflicts": [],
+      "dependsOn": ["frontend", "performance", "i18n"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "crawlability",
+        "metadata",
+        "canonicalisation",
+        "structured data",
+        "rendering",
+        "performance",
+        "internationalisation",
+        "verification"
+      ]
+    },
+    {
+      "module": "frontend",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/frontend.md",
+      "primary": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "frontend-ui-engineering",
+          "path": "skills/frontend-ui-engineering/SKILL.md",
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "provider": "vercel-agent-skills",
+          "skill": "react-best-practices",
+          "path": "skills/react-best-practices/SKILL.md",
+          "when": {
+            "frameworks": ["react", "next", "nextjs"]
+          }
+        },
+        {
+          "provider": "vercel-agent-skills",
+          "skill": "react-native-skills",
+          "path": "skills/react-native-skills/SKILL.md",
+          "when": {
+            "frameworks": ["react-native", "expo"]
+          }
+        },
+        {
+          "provider": "vercel-agent-skills",
+          "skill": "react-view-transitions",
+          "path": "skills/react-view-transitions/SKILL.md",
+          "when": {
+            "frameworks": ["react", "next", "nextjs"]
+          }
+        }
+      ],
+      "supplemental": [],
+      "conflicts": [
+        {
+          "with": "frameworks",
+          "rule": "React guidance must not be loaded for Vue, Svelte, Angular, or server-rendered template stacks."
+        }
+      ],
+      "dependsOn": ["ui", "ux", "accessibility", "performance", "testing"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "non-React support",
+        "state and data-flow reasoning",
+        "repository architecture",
+        "cross-module coordination"
+      ]
+    },
+    {
+      "module": "api",
+      "mode": "upstream-powered",
+      "designation": "UPSTREAM_POWERED",
+      "forgeContract": "references/build/api.md",
+      "primary": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "api-and-interface-design",
+          "path": "skills/api-and-interface-design/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "overlays": [],
+      "supplemental": [
+        {
+          "provider": "wshobson-agents",
+          "skill": "openapi-spec-generation",
+          "path": "plugins/documentation-generation/skills/openapi-spec-generation/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "conflicts": [],
+      "dependsOn": ["authorization", "security", "docs"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "security",
+        "authorization",
+        "compatibility",
+        "error evidence",
+        "repository conventions",
+        "deterministic API inspection"
+      ]
+    },
+    {
+      "module": "jobs",
+      "mode": "forge-native",
+      "designation": "KEEP_FORGE",
+      "forgeContract": "references/build/jobs.md",
+      "primary": [],
+      "overlays": [
+        {
+          "provider": "supabase-agent-skills",
+          "skill": "supabase",
+          "path": "skills/supabase/SKILL.md",
+          "sections": ["queues", "cron"],
+          "when": {
+            "integrations": ["supabase"],
+            "requested": ["supabase"]
+          }
+        },
+        {
+          "provider": "cloudflare-skills",
+          "skill": "durable-objects",
+          "path": "skills/durable-objects/SKILL.md",
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
+        },
+        {
+          "provider": "cloudflare-skills",
+          "skill": "wrangler",
+          "path": "skills/wrangler/SKILL.md",
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
+        }
+      ],
+      "supplemental": [],
+      "conflicts": [],
+      "dependsOn": ["observability", "reliability"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "idempotency",
+        "retries",
+        "concurrency",
+        "scheduling",
+        "ordering",
+        "poison messages",
+        "deduplication",
+        "transactional enqueue",
+        "observability"
+      ]
+    },
+    {
+      "module": "integrations",
+      "mode": "forge-native",
+      "designation": "KEEP_FORGE",
+      "forgeContract": "references/build/integrations.md",
+      "primary": [],
+      "overlays": [],
+      "supplemental": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "source-driven-development",
+          "path": "skills/source-driven-development/SKILL.md",
+          "when": {
+            "always": true
+          }
+        },
+        {
+          "provider": "addy-agent-skills",
+          "skill": "api-and-interface-design",
+          "path": "skills/api-and-interface-design/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "conflicts": [],
+      "dependsOn": ["security", "reliability"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "external-boundary validation",
+        "credentials",
+        "retries",
+        "idempotency",
+        "rate limits",
+        "provider failure",
+        "webhook security"
+      ]
+    },
+    {
+      "module": "auth",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/auth.md",
+      "primary": [
+        {
+          "provider": "wshobson-agents",
+          "skill": "auth-implementation-patterns",
+          "path": "plugins/developer-essentials/skills/auth-implementation-patterns/SKILL.md",
+          "role": "supplemental-primary",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "provider": "supabase-agent-skills",
+          "skill": "supabase",
+          "path": "skills/supabase/SKILL.md",
+          "sections": ["auth"],
+          "when": {
+            "integrations": ["supabase"],
+            "requested": ["supabase"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "firebase-basics",
+          "path": "skills/cloud/firebase-basics/SKILL.md",
+          "sections": ["auth"],
+          "when": {
+            "integrations": ["firebase"],
+            "requested": ["firebase"]
+          }
+        }
+      ],
+      "supplemental": [],
+      "conflicts": [],
+      "dependsOn": ["authorization", "security", "privacy"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "sessions",
+        "cookies",
+        "passwords",
+        "token storage",
+        "rotation",
+        "revocation",
+        "identity proof",
+        "deterministic checks"
+      ]
+    },
+    {
+      "module": "authorization",
+      "mode": "forge-native",
+      "designation": "KEEP_FORGE",
+      "forgeContract": "references/build/authorization.md",
+      "primary": [],
+      "overlays": [
+        {
+          "provider": "supabase-agent-skills",
+          "skill": "supabase-postgres-best-practices",
+          "path": "skills/supabase-postgres-best-practices/SKILL.md",
+          "sections": ["row-level-security"],
+          "when": {
+            "integrations": ["supabase"],
+            "requested": ["supabase"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "gke-multitenancy",
+          "path": "skills/cloud/gke-multitenancy/SKILL.md",
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
+        }
+      ],
+      "supplemental": [],
+      "conflicts": [
+        {
+          "with": "*",
+          "rule": "No upstream skill may suppress or downgrade a Forge authorization finding."
+        }
+      ],
+      "dependsOn": ["tenancy", "auth", "api"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "subject, role, permission, scope, ownership, tenancy and policy model",
+        "object-level authorization",
+        "deny-by-default proof",
+        "deterministic authorization analyzer"
+      ]
+    },
+    {
+      "module": "security",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/security.md",
+      "primary": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "security-and-hardening",
+          "path": "skills/security-and-hardening/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "provider": "google-skills",
+          "skill": "google-cloud-waf-security",
+          "path": "skills/cloud/google-cloud-waf-security/SKILL.md",
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
+        }
+      ],
+      "supplemental": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "security-checklist",
+          "path": "references/security-checklist.md",
+          "when": {
+            "always": true
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "stride-analysis-patterns",
+          "path": "plugins/security-scanning/skills/stride-analysis-patterns/SKILL.md",
+          "when": {
+            "threatModelling": true
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "attack-tree-construction",
+          "path": "plugins/security-scanning/skills/attack-tree-construction/SKILL.md",
+          "when": {
+            "threatModelling": true
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "security-requirement-extraction",
+          "path": "plugins/security-scanning/skills/security-requirement-extraction/SKILL.md",
+          "when": {
+            "threatModelling": true
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "threat-mitigation-mapping",
+          "path": "plugins/security-scanning/skills/threat-mitigation-mapping/SKILL.md",
+          "when": {
+            "threatModelling": true
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "sast-configuration",
+          "path": "plugins/security-scanning/skills/sast-configuration/SKILL.md",
+          "when": {
+            "ci": true
+          }
+        }
+      ],
+      "conflicts": [
+        {
+          "with": "*",
+          "rule": "Forge deterministic security analyzers and evidence contracts remain authoritative over any upstream recommendation."
+        }
+      ],
+      "dependsOn": ["authorization", "auth", "privacy", "supply-chain"],
+      "outputClassification": "finding",
+      "contextBudget": {
+        "maxPrimarySkills": 1,
+        "maxOverlays": 2,
+        "maxSupplemental": 4
+      },
+      "forgeAuthority": [
+        "deterministic security analyzers",
+        "trust boundaries",
+        "evidence contracts",
+        "severity"
+      ]
+    },
+    {
+      "module": "privacy",
+      "mode": "forge-native",
+      "designation": "KEEP_FORGE HYBRID",
+      "forgeContract": "references/build/privacy.md",
+      "primary": [],
+      "overlays": [],
+      "supplemental": [
+        {
+          "provider": "wshobson-agents",
+          "skill": "gdpr-data-handling",
+          "path": "plugins/hr-legal-compliance/skills/gdpr-data-handling/SKILL.md",
+          "when": {
+            "gdprRelevant": true
+          }
+        }
+      ],
+      "conflicts": [
+        {
+          "with": "gdpr-data-handling",
+          "rule": "GDPR is a jurisdictional regime, not universal law. It loads only when the repository or the task proves relevance, and never replaces Forge's jurisdiction-neutral analysis."
+        }
+      ],
+      "dependsOn": ["security", "analytics", "observability"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "jurisdiction-neutral data minimisation",
+        "purpose limitation",
+        "retention",
+        "consent",
+        "deletion",
+        "access",
+        "logging",
+        "secrets",
+        "sensitive-data boundaries"
+      ]
+    },
+    {
+      "module": "tenancy",
+      "mode": "forge-native",
+      "designation": "KEEP_FORGE HYBRID",
+      "forgeContract": "references/build/tenancy.md",
+      "primary": [],
+      "overlays": [
+        {
+          "provider": "supabase-agent-skills",
+          "skill": "supabase-postgres-best-practices",
+          "path": "skills/supabase-postgres-best-practices/SKILL.md",
+          "sections": ["row-level-security"],
+          "when": {
+            "integrations": ["supabase"],
+            "requested": ["supabase"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "gke-multitenancy",
+          "path": "skills/cloud/gke-multitenancy/SKILL.md",
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
+        }
+      ],
+      "supplemental": [],
+      "conflicts": [
+        {
+          "with": "*",
+          "rule": "Forge tenant inference, scope proof, ownership and object-access analysis remain authoritative."
+        }
+      ],
+      "dependsOn": ["authorization", "database", "cache", "storage"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "tenant inference",
+        "scope proof",
+        "ownership",
+        "object access",
+        "deterministic tenancy analyzer"
+      ]
+    },
+    {
+      "module": "uploads",
+      "mode": "forge-native",
+      "designation": "KEEP_FORGE",
+      "forgeContract": "references/build/uploads.md",
+      "primary": [],
+      "overlays": [
+        {
+          "provider": "supabase-agent-skills",
+          "skill": "supabase",
+          "path": "skills/supabase/SKILL.md",
+          "sections": ["storage"],
+          "when": {
+            "integrations": ["supabase"],
+            "requested": ["supabase"]
+          }
+        },
+        {
+          "provider": "cloudflare-skills",
+          "skill": "cloudflare",
+          "path": "skills/cloudflare/SKILL.md",
+          "sections": ["r2"],
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "google-cloud-storage-basics",
+          "path": "skills/cloud/google-cloud-storage-basics/SKILL.md",
+          "when": {
+            "hosting": ["google cloud", "gcp"],
+            "requested": ["google-cloud"]
+          }
+        }
+      ],
+      "supplemental": [],
+      "conflicts": [
+        {
+          "with": "*",
+          "rule": "Provider upload convenience guidance never relaxes Forge's content validation, authorization, or storage-ordering requirements."
+        }
+      ],
+      "dependsOn": ["storage", "authorization", "tenancy", "privacy", "security"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "upload boundary analyzer",
+        "content validation",
+        "filename handling",
+        "limits",
+        "scanning",
+        "storage ordering",
+        "public release",
+        "authorization",
+        "tenancy",
+        "privacy"
+      ]
+    },
+    {
+      "module": "database",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/database.md",
+      "primary": [
+        {
+          "provider": "supabase-agent-skills",
+          "skill": "supabase-postgres-best-practices",
+          "path": "skills/supabase-postgres-best-practices/SKILL.md",
+          "when": {
+            "databases": ["postgres", "postgresql"]
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "postgresql",
+          "path": "plugins/database-design/skills/postgresql/SKILL.md",
+          "when": {
+            "databases": ["postgres", "postgresql"]
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "provider": "supabase-agent-skills",
+          "skill": "supabase",
+          "path": "skills/supabase/SKILL.md",
+          "when": {
+            "integrations": ["supabase"],
+            "requested": ["supabase"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "cloud-sql-basics",
+          "path": "skills/cloud/cloud-sql-basics/SKILL.md",
+          "when": {
+            "hosting": ["google cloud", "gcp"],
+            "requested": ["google-cloud"]
+          }
+        }
+      ],
+      "supplemental": [],
+      "conflicts": [
+        {
+          "with": "supabase-postgres-best-practices",
+          "rule": "Provider-specific Supabase sections stay suppressed on plain PostgreSQL; only provider-neutral PostgreSQL guidance applies."
+        }
+      ],
+      "dependsOn": ["queries", "tenancy", "recovery"],
+      "outputClassification": "finding",
+      "contextBudget": {
+        "maxPrimarySkills": 2,
+        "maxOverlays": 2,
+        "maxSupplemental": 2
+      },
+      "forgeAuthority": [
+        "generic database design for non-PostgreSQL systems",
+        "migrations",
+        "consistency",
+        "transaction analysis",
+        "tenancy",
+        "backup and recovery"
+      ]
+    },
+    {
+      "module": "queries",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/queries.md",
+      "primary": [
+        {
+          "provider": "supabase-agent-skills",
+          "skill": "supabase-postgres-best-practices",
+          "path": "skills/supabase-postgres-best-practices/SKILL.md",
+          "when": {
+            "databases": ["postgres", "postgresql"]
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "sql-optimization-patterns",
+          "path": "plugins/developer-essentials/skills/sql-optimization-patterns/SKILL.md",
+          "when": {
+            "databases": ["postgres", "postgresql", "mysql", "sqlite", "mariadb"]
+          }
+        }
+      ],
+      "overlays": [],
+      "supplemental": [],
+      "conflicts": [],
+      "dependsOn": ["database", "tenancy", "security"],
+      "outputClassification": "finding",
+      "contextBudget": {
+        "maxPrimarySkills": 2,
+        "maxOverlays": 1,
+        "maxSupplemental": 2
+      },
+      "forgeAuthority": [
+        "SQL injection analysis",
+        "ORM boundaries",
+        "parameterisation",
+        "tenancy proof",
+        "N+1 detection",
+        "query correctness",
+        "evidence"
+      ]
+    },
+    {
+      "module": "cache",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/cache.md",
+      "primary": [],
+      "overlays": [
+        {
+          "provider": "vercel-agent-skills",
+          "skill": "react-best-practices",
+          "path": "skills/react-best-practices/SKILL.md",
+          "when": {
+            "frameworks": ["react", "next", "nextjs"]
+          }
+        },
+        {
+          "provider": "vercel-agent-skills",
+          "skill": "vercel-optimize",
+          "path": "skills/vercel-optimize/SKILL.md",
+          "when": {
+            "hosting": ["vercel"],
+            "requested": ["vercel"]
+          }
+        },
+        {
+          "provider": "cloudflare-skills",
+          "skill": "cloudflare",
+          "path": "skills/cloudflare/SKILL.md",
+          "sections": ["cache"],
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
+        }
+      ],
+      "supplemental": [],
+      "conflicts": [
+        {
+          "with": "*",
+          "rule": "Provider caching guidance yields to Forge privacy and tenancy requirements: no per-user or per-tenant data may be cached under a shared key."
+        }
+      ],
+      "dependsOn": ["privacy", "tenancy", "performance"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "deterministic cache analyzer",
+        "key-scope proof",
+        "invalidation",
+        "consistency",
+        "privacy",
+        "tenant separation"
+      ]
+    },
+    {
+      "module": "storage",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/storage.md",
+      "primary": [],
+      "overlays": [
+        {
+          "provider": "supabase-agent-skills",
+          "skill": "supabase",
+          "path": "skills/supabase/SKILL.md",
+          "sections": ["storage"],
+          "when": {
+            "integrations": ["supabase"],
+            "requested": ["supabase"]
+          }
+        },
+        {
+          "provider": "cloudflare-skills",
+          "skill": "cloudflare",
+          "path": "skills/cloudflare/SKILL.md",
+          "sections": ["r2"],
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "google-cloud-storage-basics",
+          "path": "skills/cloud/google-cloud-storage-basics/SKILL.md",
+          "when": {
+            "hosting": ["google cloud", "gcp"],
+            "requested": ["google-cloud"]
+          }
+        }
+      ],
+      "supplemental": [],
+      "conflicts": [],
+      "dependsOn": ["uploads", "privacy", "tenancy", "recovery"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "provider-neutral ownership",
+        "public access",
+        "retention",
+        "lifecycle",
+        "consistency",
+        "deletion",
+        "privacy",
+        "upload coordination"
+      ]
+    },
+    {
+      "module": "testing",
+      "mode": "upstream-powered",
+      "designation": "UPSTREAM_POWERED",
+      "forgeContract": "references/build/testing.md",
+      "primary": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "test-driven-development",
+          "path": "skills/test-driven-development/SKILL.md",
+          "when": {
+            "testingApplicable": true
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "browser-testing-with-devtools",
+          "path": "skills/browser-testing-with-devtools/SKILL.md",
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
+        }
+      ],
+      "supplemental": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "testing-patterns",
+          "path": "references/testing-patterns.md",
+          "when": {
+            "always": true
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "e2e-testing-patterns",
+          "path": "plugins/developer-essentials/skills/e2e-testing-patterns/SKILL.md",
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
+        }
+      ],
+      "conflicts": [
+        {
+          "with": "test-driven-development",
+          "rule": "TDD must not demand tests for generated files, documentation-only changes, or repositories that cannot support them. Forge's reasoned applicability model decides; an upstream workflow cannot force a meaningless test."
+        }
+      ],
+      "dependsOn": ["code", "requirements"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "test applicability",
+        "repository commands",
+        "evidence",
+        "risk-based depth",
+        "release-gate coordination"
+      ]
+    },
+    {
+      "module": "performance",
+      "mode": "upstream-powered",
+      "designation": "UPSTREAM_POWERED HYBRID",
+      "forgeContract": "references/build/performance.md",
+      "primary": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "performance-optimization",
+          "path": "skills/performance-optimization/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "provider": "vercel-agent-skills",
+          "skill": "react-best-practices",
+          "path": "skills/react-best-practices/SKILL.md",
+          "when": {
+            "frameworks": ["react", "next", "nextjs"]
+          }
+        },
+        {
+          "provider": "vercel-agent-skills",
+          "skill": "vercel-optimize",
+          "path": "skills/vercel-optimize/SKILL.md",
+          "when": {
+            "hosting": ["vercel"],
+            "requested": ["vercel"]
+          }
+        },
+        {
+          "provider": "cloudflare-skills",
+          "skill": "web-perf",
+          "path": "skills/web-perf/SKILL.md",
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "google-cloud-waf-performance-optimization",
+          "path": "skills/cloud/google-cloud-waf-performance-optimization/SKILL.md",
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
+        }
+      ],
+      "supplemental": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "performance-checklist",
+          "path": "references/performance-checklist.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "conflicts": [],
+      "dependsOn": ["frontend", "database", "queries", "cache", "scale"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "measurement honesty",
+        "backend performance",
+        "database coordination",
+        "regression evidence",
+        "production gates"
+      ]
+    },
+    {
+      "module": "scale",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/scale.md",
+      "primary": [
+        {
+          "provider": "google-skills",
+          "skill": "google-cloud-waf-performance-optimization",
+          "path": "skills/cloud/google-cloud-waf-performance-optimization/SKILL.md",
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "google-cloud-waf-reliability",
+          "path": "skills/cloud/google-cloud-waf-reliability/SKILL.md",
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "provider": "google-skills",
+          "skill": "gke-workload-scaling",
+          "path": "skills/cloud/gke-workload-scaling/SKILL.md",
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
+        },
+        {
+          "provider": "cloudflare-skills",
+          "skill": "durable-objects",
+          "path": "skills/durable-objects/SKILL.md",
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
+        },
+        {
+          "provider": "vercel-agent-skills",
+          "skill": "vercel-optimize",
+          "path": "skills/vercel-optimize/SKILL.md",
+          "when": {
+            "hosting": ["vercel"],
+            "requested": ["vercel"]
+          }
+        }
+      ],
+      "supplemental": [],
+      "conflicts": [],
+      "dependsOn": ["performance", "reliability", "cost", "database"],
+      "outputClassification": "finding",
+      "contextBudget": {
+        "maxPrimarySkills": 2,
+        "maxOverlays": 2,
+        "maxSupplemental": 2
+      },
+      "forgeAuthority": [
+        "provider-neutral capacity",
+        "bottleneck analysis",
+        "data growth",
+        "queue depth",
+        "cache behaviour",
+        "tenancy"
+      ]
+    },
+    {
+      "module": "observability",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/observability.md",
+      "primary": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "observability-and-instrumentation",
+          "path": "skills/observability-and-instrumentation/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-fix-issues",
+          "path": "skills/sentry-fix-issues/SKILL.md",
+          "when": {
+            "observability": ["sentry"],
+            "requested": ["sentry"]
+          }
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-otel-exporter-setup",
+          "path": "skills/sentry-otel-exporter-setup/SKILL.md",
+          "when": {
+            "observability": ["sentry"],
+            "requested": ["sentry"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "google-cloud-waf-operational-excellence",
+          "path": "skills/cloud/google-cloud-waf-operational-excellence/SKILL.md",
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "gke-observability",
+          "path": "skills/cloud/gke-observability/SKILL.md",
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "google-cloud-networking-observability",
+          "path": "skills/cloud/google-cloud-networking-observability/SKILL.md",
+          "when": {
+            "hosting": ["google cloud", "gcp"],
+            "requested": ["google-cloud"]
+          }
+        }
+      ],
+      "supplemental": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "observability-checklist",
+          "path": "references/observability-checklist.md",
+          "when": {
+            "always": true
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "slo-implementation",
+          "path": "plugins/observability-monitoring/skills/slo-implementation/SKILL.md",
+          "when": {
+            "always": true
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "distributed-tracing",
+          "path": "plugins/observability-monitoring/skills/distributed-tracing/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "conflicts": [
+        {
+          "with": "*",
+          "rule": "Sentry is never required for generic Forge observability. Provider-neutral evidence requirements and redaction rules stay Forge-owned."
+        }
+      ],
+      "dependsOn": ["reliability", "privacy"],
+      "outputClassification": "finding",
+      "forgeAuthority": ["provider-neutral evidence requirements", "redaction"]
+    },
+    {
+      "module": "reliability",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/reliability.md",
+      "primary": [
+        {
+          "provider": "google-skills",
+          "skill": "google-cloud-waf-reliability",
+          "path": "skills/cloud/google-cloud-waf-reliability/SKILL.md",
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
+        },
+        {
+          "provider": "addy-agent-skills",
+          "skill": "observability-and-instrumentation",
+          "path": "skills/observability-and-instrumentation/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "provider": "google-skills",
+          "skill": "google-cloud-waf-operational-excellence",
+          "path": "skills/cloud/google-cloud-waf-operational-excellence/SKILL.md",
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-fix-issues",
+          "path": "skills/sentry-fix-issues/SKILL.md",
+          "when": {
+            "observability": ["sentry"],
+            "requested": ["sentry"]
+          }
+        },
+        {
+          "provider": "cloudflare-skills",
+          "skill": "cloudflare",
+          "path": "skills/cloudflare/SKILL.md",
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
+        }
+      ],
+      "supplemental": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "shipping-and-launch",
+          "path": "skills/shipping-and-launch/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "conflicts": [],
+      "dependsOn": ["observability", "recovery", "scale"],
+      "outputClassification": "finding",
+      "contextBudget": {
+        "maxPrimarySkills": 2,
+        "maxOverlays": 2,
+        "maxSupplemental": 2
+      },
+      "forgeAuthority": ["provider-neutral failure-domain analysis"]
+    },
+    {
+      "module": "recovery",
+      "mode": "hybrid",
+      "designation": "UPSTREAM_POWERED HYBRID (incident work only; Forge owns backup and restore)",
+      "forgeContract": "references/build/recovery.md",
+      "primary": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "debugging-and-error-recovery",
+          "path": "skills/debugging-and-error-recovery/SKILL.md",
+          "when": {
+            "incidentInvestigation": true
+          },
+          "role": "incident-and-debugging"
+        },
+        {
+          "provider": "addy-agent-skills",
+          "skill": "doubt-driven-development",
+          "path": "skills/doubt-driven-development/SKILL.md",
+          "when": {
+            "incidentInvestigation": true
+          },
+          "role": "incident-and-debugging"
+        }
+      ],
+      "overlays": [
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-fix-issues",
+          "path": "skills/sentry-fix-issues/SKILL.md",
+          "when": {
+            "observability": ["sentry"],
+            "requested": ["sentry"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "google-cloud-waf-reliability",
+          "path": "skills/cloud/google-cloud-waf-reliability/SKILL.md",
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
+        }
+      ],
+      "supplemental": [
+        {
+          "provider": "wshobson-agents",
+          "skill": "error-handling-patterns",
+          "path": "plugins/developer-essentials/skills/error-handling-patterns/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "conflicts": [
+        {
+          "with": "debugging-and-error-recovery",
+          "rule": "The upstream debugging workflow covers live incident investigation only. It never leads backup, restore, RPO/RTO, or regional-failover work: the Forge recovery contract owns those, and an untested backup remains NOT_VERIFIED recovery capability regardless of any upstream procedure."
+        }
+      ],
+      "dependsOn": ["observability", "reliability", "database"],
+      "outputClassification": "finding",
+      "contextBudget": {
+        "maxPrimarySkills": 2,
+        "maxOverlays": 2,
+        "maxSupplemental": 2
+      },
+      "forgeAuthority": [
+        "backup and restore capability",
+        "recovery point and recovery time objectives",
+        "tested restore evidence",
+        "rollback",
+        "production safety",
+        "incident boundaries",
+        "root-cause verification"
+      ]
+    },
+    {
+      "module": "deployment",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/deployment.md",
+      "primary": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "ci-cd-and-automation",
+          "path": "skills/ci-cd-and-automation/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "provider": "cloudflare-skills",
+          "skill": "wrangler",
+          "path": "skills/wrangler/SKILL.md",
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "cloud-run-basics",
+          "path": "skills/cloud/cloud-run-basics/SKILL.md",
+          "when": {
+            "hosting": ["google cloud", "gcp"],
+            "requested": ["google-cloud"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "gke-productionize",
+          "path": "skills/cloud/gke-productionize/SKILL.md",
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
+        },
+        {
+          "provider": "vercel-agent-skills",
+          "skill": "vercel-optimize",
+          "path": "skills/vercel-optimize/SKILL.md",
+          "when": {
+            "hosting": ["vercel"],
+            "requested": ["vercel"]
+          }
+        }
+      ],
+      "supplemental": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "shipping-and-launch",
+          "path": "skills/shipping-and-launch/SKILL.md",
+          "when": {
+            "always": true
+          }
+        },
+        {
+          "provider": "addy-agent-skills",
+          "skill": "git-workflow-and-versioning",
+          "path": "skills/git-workflow-and-versioning/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "conflicts": [
+        {
+          "with": "*",
+          "rule": "No external deployment happens without explicit user approval. Provider deployment guidance describes a procedure; it never authorises running it."
+        }
+      ],
+      "dependsOn": ["supply-chain", "infrastructure", "ship"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "approval boundary for external side effects",
+        "build promotion",
+        "rollout and rollback evidence",
+        "environment parity"
+      ]
+    },
+    {
+      "module": "infrastructure",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/infrastructure.md",
+      "primary": [],
+      "overlays": [
+        {
+          "provider": "google-skills",
+          "skill": "gke-productionize",
+          "path": "skills/cloud/gke-productionize/SKILL.md",
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "gke-platform-security",
+          "path": "skills/cloud/gke-platform-security/SKILL.md",
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "gke-storage",
+          "path": "skills/cloud/gke-storage/SKILL.md",
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "gke-workload-security",
+          "path": "skills/cloud/gke-workload-security/SKILL.md",
+          "when": {
+            "hosting": ["gke", "kubernetes"],
+            "requested": ["gke"]
+          }
+        },
+        {
+          "provider": "cloudflare-skills",
+          "skill": "cloudflare",
+          "path": "skills/cloudflare/SKILL.md",
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
+        },
+        {
+          "provider": "cloudflare-skills",
+          "skill": "wrangler",
+          "path": "skills/wrangler/SKILL.md",
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
+        }
+      ],
+      "supplemental": [],
+      "conflicts": [
+        {
+          "with": "*",
+          "rule": "Google Cloud guidance must not be applied to AWS, Railway, Fly, or on-premises targets, and Cloudflare guidance must not be applied to non-Cloudflare hosting."
+        }
+      ],
+      "dependsOn": ["deployment", "security", "cost"],
+      "outputClassification": "finding",
+      "forgeAuthority": ["provider-neutral infrastructure reasoning"]
+    },
+    {
+      "module": "supply-chain",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/supply-chain.md",
+      "primary": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "ci-cd-and-automation",
+          "path": "skills/ci-cd-and-automation/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "overlays": [],
+      "supplemental": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "security-and-hardening",
+          "path": "skills/security-and-hardening/SKILL.md",
+          "when": {
+            "always": true
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "deployment-pipeline-design",
+          "path": "plugins/cicd-automation/skills/deployment-pipeline-design/SKILL.md",
+          "when": {
+            "ci": true
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "github-actions-templates",
+          "path": "plugins/cicd-automation/skills/github-actions-templates/SKILL.md",
+          "when": {
+            "ci": true
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "secrets-management",
+          "path": "plugins/cicd-automation/skills/secrets-management/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "conflicts": [],
+      "dependsOn": ["security", "deployment", "ship"],
+      "outputClassification": "finding",
+      "contextBudget": {
+        "maxPrimarySkills": 1,
+        "maxOverlays": 2,
+        "maxSupplemental": 4
+      },
+      "forgeAuthority": [
+        "dependency provenance",
+        "lockfiles",
+        "package contents",
+        "build reproducibility",
+        "generated assets",
+        "credentials",
+        "release checks"
+      ]
+    },
+    {
+      "module": "cost",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/cost.md",
+      "primary": [
+        {
+          "provider": "google-skills",
+          "skill": "google-cloud-waf-cost-optimization",
+          "path": "skills/cloud/google-cloud-waf-cost-optimization/SKILL.md",
+          "when": {
+            "hosting": ["google cloud", "gcp", "gke"],
+            "requested": ["google-cloud"]
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "provider": "vercel-agent-skills",
+          "skill": "vercel-optimize",
+          "path": "skills/vercel-optimize/SKILL.md",
+          "when": {
+            "hosting": ["vercel"],
+            "requested": ["vercel"]
+          }
+        },
+        {
+          "provider": "cloudflare-skills",
+          "skill": "cloudflare",
+          "path": "skills/cloudflare/SKILL.md",
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
+        }
+      ],
+      "supplemental": [],
+      "conflicts": [],
+      "dependsOn": ["scale", "infrastructure", "ai"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "provider-neutral cost modelling",
+        "the distinction between measured and estimated cost"
+      ]
+    },
+    {
+      "module": "docs",
+      "mode": "upstream-powered",
+      "designation": "UPSTREAM_POWERED",
+      "forgeContract": "references/build/docs.md",
+      "primary": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "documentation-and-adrs",
+          "path": "skills/documentation-and-adrs/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "overlays": [],
+      "supplemental": [
+        {
+          "provider": "wshobson-agents",
+          "skill": "openapi-spec-generation",
+          "path": "plugins/documentation-generation/skills/openapi-spec-generation/SKILL.md",
+          "when": {
+            "riskSurfaces": ["api"]
+          }
+        }
+      ],
+      "conflicts": [
+        {
+          "with": "writing-guidelines",
+          "rule": "No provider house writing style is imposed on Forge users; Vercel's writing-guidelines skill is deliberately not imported."
+        }
+      ],
+      "dependsOn": ["architecture", "api"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "documentation accuracy",
+        "executability of documented commands",
+        "release documentation"
+      ]
+    },
+    {
+      "module": "analytics",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/analytics.md",
+      "primary": [],
+      "overlays": [
+        {
+          "provider": "google-skills",
+          "skill": "google-analytics-admin-api-basics",
+          "path": "skills/analytics/google-analytics-admin-api-basics/SKILL.md",
+          "when": {
+            "integrations": ["google analytics"],
+            "requested": ["google-analytics"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "google-analytics-data-api-basics",
+          "path": "skills/analytics/google-analytics-data-api-basics/SKILL.md",
+          "when": {
+            "integrations": ["google analytics"],
+            "requested": ["google-analytics"]
+          }
+        }
+      ],
+      "supplemental": [
+        {
+          "provider": "wshobson-agents",
+          "skill": "kpi-dashboard-design",
+          "path": "plugins/business-analytics/skills/kpi-dashboard-design/SKILL.md",
+          "when": {
+            "always": true
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "data-storytelling",
+          "path": "plugins/business-analytics/skills/data-storytelling/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "conflicts": [],
+      "dependsOn": ["privacy", "observability"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "event taxonomy",
+        "product metrics",
+        "consent",
+        "identity",
+        "data quality",
+        "instrumentation verification",
+        "privacy",
+        "decision usefulness"
+      ]
+    },
+    {
+      "module": "notifications",
+      "mode": "forge-native",
+      "designation": "KEEP_FORGE",
+      "forgeContract": "references/build/notifications.md",
+      "primary": [],
+      "overlays": [],
+      "supplemental": [],
+      "conflicts": [],
+      "dependsOn": ["privacy", "jobs", "observability"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "delivery semantics",
+        "preference management",
+        "consent",
+        "retries",
+        "templates",
+        "channels",
+        "deduplication",
+        "scheduling",
+        "privacy",
+        "observability"
+      ]
+    },
+    {
+      "module": "ai",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/ai.md",
+      "primary": [
+        {
+          "provider": "wshobson-agents",
+          "skill": "prompt-engineering-patterns",
+          "path": "plugins/llm-application-dev/skills/prompt-engineering-patterns/SKILL.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "overlays": [
+        {
+          "provider": "google-skills",
+          "skill": "gemini-api",
+          "path": "skills/cloud/gemini-api/SKILL.md",
+          "when": {
+            "aiProviders": ["google", "gemini"],
+            "requested": ["gemini"]
+          }
+        },
+        {
+          "provider": "google-skills",
+          "skill": "agent-platform-inference",
+          "path": "skills/cloud/agent-platform-inference/SKILL.md",
+          "when": {
+            "hosting": ["google cloud", "gcp"],
+            "requested": ["google-cloud"]
+          }
+        },
+        {
+          "provider": "cloudflare-skills",
+          "skill": "agents-sdk",
+          "path": "skills/agents-sdk/SKILL.md",
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-setup-ai-monitoring",
+          "path": "skills/sentry-setup-ai-monitoring/SKILL.md",
+          "when": {
+            "observability": ["sentry"],
+            "requested": ["sentry"]
+          }
+        }
+      ],
+      "supplemental": [
+        {
+          "provider": "wshobson-agents",
+          "skill": "rag-implementation",
+          "path": "plugins/llm-application-dev/skills/rag-implementation/SKILL.md",
+          "when": {
+            "retrieval": true
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "llm-evaluation",
+          "path": "plugins/llm-application-dev/skills/llm-evaluation/SKILL.md",
+          "when": {
+            "always": true
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "embedding-strategies",
+          "path": "plugins/llm-application-dev/skills/embedding-strategies/SKILL.md",
+          "when": {
+            "retrieval": true
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "hybrid-search-implementation",
+          "path": "plugins/llm-application-dev/skills/hybrid-search-implementation/SKILL.md",
+          "when": {
+            "retrieval": true
+          }
+        }
+      ],
+      "conflicts": [],
+      "dependsOn": ["security", "privacy", "cost", "observability"],
+      "outputClassification": "finding",
+      "contextBudget": {
+        "maxPrimarySkills": 1,
+        "maxOverlays": 2,
+        "maxSupplemental": 4
+      },
+      "forgeAuthority": [
+        "prompt-injection boundaries",
+        "tool permissions",
+        "model failure handling",
+        "privacy",
+        "evaluation requirements",
+        "cost",
+        "fallback",
+        "human approval",
+        "data retention"
+      ]
+    },
+    {
+      "module": "payments",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/payments.md",
+      "primary": [],
+      "overlays": [
+        {
+          "provider": "wshobson-agents",
+          "skill": "stripe-integration",
+          "path": "plugins/payment-processing/skills/stripe-integration/SKILL.md",
+          "when": {
+            "paymentProviders": ["stripe"],
+            "requested": ["stripe"]
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "paypal-integration",
+          "path": "plugins/payment-processing/skills/paypal-integration/SKILL.md",
+          "when": {
+            "paymentProviders": ["paypal", "braintree"],
+            "requested": ["paypal"]
+          }
+        }
+      ],
+      "supplemental": [
+        {
+          "provider": "wshobson-agents",
+          "skill": "pci-compliance",
+          "path": "plugins/payment-processing/skills/pci-compliance/SKILL.md",
+          "when": {
+            "riskSurfaces": ["payments"]
+          }
+        },
+        {
+          "provider": "wshobson-agents",
+          "skill": "billing-automation",
+          "path": "plugins/payment-processing/skills/billing-automation/SKILL.md",
+          "when": {
+            "riskSurfaces": ["payments"]
+          }
+        }
+      ],
+      "conflicts": [
+        {
+          "with": "*",
+          "rule": "A provider skill activates only when that provider is detected or explicitly requested; it never supplies the generic payment model."
+        }
+      ],
+      "dependsOn": ["database", "authorization", "privacy", "integrations"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "generic payment states",
+        "idempotency",
+        "webhooks",
+        "reconciliation",
+        "ledger integrity",
+        "refunds",
+        "disputes",
+        "currency handling",
+        "authorisation",
+        "privacy",
+        "transaction analysis"
+      ]
+    },
+    {
+      "module": "realtime",
+      "mode": "hybrid",
+      "designation": "HYBRID",
+      "forgeContract": "references/build/realtime.md",
+      "primary": [],
+      "overlays": [
+        {
+          "provider": "supabase-agent-skills",
+          "skill": "supabase",
+          "path": "skills/supabase/SKILL.md",
+          "sections": ["realtime"],
+          "when": {
+            "integrations": ["supabase"],
+            "requested": ["supabase"]
+          }
+        },
+        {
+          "provider": "cloudflare-skills",
+          "skill": "durable-objects",
+          "path": "skills/durable-objects/SKILL.md",
+          "when": {
+            "hosting": ["cloudflare"],
+            "requested": ["cloudflare"]
+          }
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-fix-issues",
+          "path": "skills/sentry-fix-issues/SKILL.md",
+          "when": {
+            "observability": ["sentry"],
+            "requested": ["sentry"]
+          }
+        }
+      ],
+      "supplemental": [],
+      "conflicts": [],
+      "dependsOn": ["authorization", "scale", "observability"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "connection authorization",
+        "lifecycle",
+        "presence",
+        "ordering",
+        "replay",
+        "backpressure",
+        "reconnects",
+        "scaling",
+        "privacy"
+      ]
+    },
+    {
+      "module": "offline",
+      "mode": "forge-native",
+      "designation": "KEEP_FORGE",
+      "forgeContract": "references/build/offline.md",
+      "primary": [],
+      "overlays": [],
+      "supplemental": [
+        {
+          "provider": "impeccable",
+          "skill": "harden",
+          "path": ".claude/skills/impeccable/reference/harden.md",
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
+        },
+        {
+          "provider": "impeccable",
+          "skill": "onboard",
+          "path": ".claude/skills/impeccable/reference/onboard.md",
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
+        },
+        {
+          "provider": "impeccable",
+          "skill": "adapt",
+          "path": ".claude/skills/impeccable/reference/adapt.md",
+          "when": {
+            "riskSurfaces": ["frontend"]
+          }
+        }
+      ],
+      "conflicts": [],
+      "dependsOn": ["ux", "storage", "realtime"],
+      "outputClassification": "finding",
+      "forgeAuthority": [
+        "sync",
+        "conflict resolution",
+        "persistence",
+        "stale data",
+        "migration",
+        "queueing",
+        "reconnection",
+        "offline testing"
+      ]
+    },
+    {
+      "module": "all",
+      "mode": "forge-native",
+      "designation": "KEEP_FORGE",
+      "forgeContract": "references/build/all.md",
+      "primary": [],
+      "overlays": [],
+      "supplemental": [],
+      "conflicts": [
+        {
+          "with": "*",
+          "rule": "forge-all orchestrates the Forge module graph. It must never delegate routing to an upstream provider's router, bootstrap, or command set."
+        }
+      ],
+      "dependsOn": [],
+      "outputClassification": "report",
+      "forgeAuthority": [
+        "module selection",
+        "cross-domain coordination",
+        "conflict resolution",
+        "evidence merge",
+        "remediation priority"
+      ]
+    },
+    {
+      "module": "ship",
+      "mode": "forge-native",
+      "designation": "KEEP_FORGE WITH UPSTREAM PROCEDURE",
+      "forgeContract": "references/build/ship.md",
+      "primary": [],
+      "overlays": [],
+      "supplemental": [
+        {
+          "provider": "addy-agent-skills",
+          "skill": "shipping-and-launch",
+          "path": "skills/shipping-and-launch/SKILL.md",
+          "when": {
+            "always": true
+          }
+        },
+        {
+          "provider": "addy-agent-skills",
+          "skill": "ci-cd-and-automation",
+          "path": "skills/ci-cd-and-automation/SKILL.md",
+          "when": {
+            "ci": true
+          }
+        },
+        {
+          "provider": "addy-agent-skills",
+          "skill": "git-workflow-and-versioning",
+          "path": "skills/git-workflow-and-versioning/SKILL.md",
+          "when": {
+            "always": true
+          }
+        },
+        {
+          "provider": "addy-agent-skills",
+          "skill": "definition-of-done",
+          "path": "references/definition-of-done.md",
+          "when": {
+            "always": true
+          }
+        }
+      ],
+      "conflicts": [
+        {
+          "with": "*",
+          "rule": "Forge's independent, fail-closed Ship gate is authoritative. No upstream completion checklist, command router, or branch-completion workflow may declare a release ready, and subjective UI advisories never block Ship."
+        }
+      ],
+      "dependsOn": ["supply-chain", "testing", "docs", "deployment"],
+      "outputClassification": "gate",
+      "contextBudget": {
+        "maxPrimarySkills": 0,
+        "maxOverlays": 1,
+        "maxSupplemental": 4
+      },
+      "forgeAuthority": [
+        "release gate",
+        "project checks",
+        "findings",
+        "generated assets",
+        "packages",
+        "licences",
+        "installation"
+      ]
+    }
+  ]
+}

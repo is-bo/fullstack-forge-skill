@@ -5,6 +5,8 @@ description: Find correctness, injection, overfetching, N+1, pagination, locking
 
 # forge-queries: Query behavior
 
+Engine: Hybrid — Forge + Supabase, wshobson
+
 ## Purpose
 
 Find correctness, injection, overfetching, N+1, pagination, locking, and index-use risks in data access.

@@ -5,6 +5,8 @@ description: Inspect email, SMS, push, and in-app notifications for authorizatio
 
 # forge-notifications: Notifications
 
+Engine: Forge native
+
 ## Purpose
 
 Inspect email, SMS, push, and in-app notifications for authorization, preferences, retries, privacy, and deliverability.

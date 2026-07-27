@@ -6,6 +6,65 @@ All notable supported changes are documented here.
 
 - No supported-release changes yet.
 
+## [0.2.0] - 2026-07-27
+
+### Upstream-powered architecture
+
+- Repositioned Fullstack Forge as a production-engineering orchestration and verification system
+  that packages selected open-source specialist expertise behind one consistent workflow. Users
+  still install and use one product.
+- Vendored eight upstream Agent Skills projects — Impeccable, Addy Osmani Agent Skills, Vercel,
+  Supabase, Google, Cloudflare, Sentry, and an approved wshobson subset — each pinned to an
+  immutable commit, restricted to an explicit path allowlist, checksummed, licence-recorded, and
+  screened for instructions that could bypass Forge contracts.
+- Added a canonical composition registry covering all 42 public modules: the Forge contract that
+  always loads first, the primary upstream workflow, evidence-gated provider overlays, supplemental
+  references, incompatibilities, dependent modules, output classification, and a context budget.
+- Added a typed composition engine that resolves what loads from proven repository evidence or an
+  explicit request, enforces the context budget, reports every suppression, and reports missing
+  upstream content as a damaged installation rather than a clean result.
+- Implemented the fixed nine-level conflict precedence, with Forge evidence and Ship contracts above
+  every upstream workflow and provider overlay.
+- Added an engine badge to every module: Forge native, upstream-powered, or hybrid.
+
+### Forge UI
+
+- Made Impeccable the engine for the UI and UX modules, exposed entirely as 23 `$forge ui` commands.
+  Previous Forge UI commands remain available as aliases and no upstream command is ever typed.
+- Integrated Impeccable's deterministic design detector through a Forge adapter: accessibility,
+  layout, and measured-performance defects with concrete evidence become findings owned by the
+  matching module, subjective craft results become advisories that can never block Ship, unresolved
+  rules become `NOT_VERIFIED`, and approved deviations become `SUPERSEDED`. Every result carries the
+  upstream rule id and pinned version.
+- Mapped project state to `PRODUCT.md`, `DESIGN.md`, and `.fullstack-forge/ui/`, with critique
+  snapshots under `.fullstack-forge/ui/critique/`. No separately managed upstream installation is
+  created or required.
+
+### Safety and distribution
+
+- Guaranteed single-product behaviour: upstream content installs outside every agent-host
+  skill-discovery root and every upstream `SKILL.md` is compiled to `PLAYBOOK.md` with its
+  activation frontmatter made inert, so no upstream skill can be discovered or triggered
+  independently of Forge.
+- Removed upstream installation instructions, guarded update-check and telemetry paths, and rewrote
+  upstream host paths to Forge-managed locations. Every transform is declared, tested, and recorded
+  in `.fullstack-forge/manifests/upstream-transforms.json`.
+- Restricted vendored executables to the reviewed Impeccable detector import closure, declared in an
+  allowlist. Normal use makes no network request.
+- Extended installation to deliver the compiled upstream tree and manifests once per project,
+  removed on uninstall, with no symlink and no per-host duplication.
+- Added review-only maintenance commands: `upstream:status`, `upstream:check`, `upstream:verify`,
+  `upstream:diff`, and `upstream:update`. Nothing updates automatically and no command commits,
+  merges, tags, or publishes.
+- Generated `THIRD_PARTY_NOTICES.md` from the provider records so attribution cannot drift, and ship
+  each provider's licence, notice, and provenance alongside the content it covers.
+
+### Preserved
+
+- All 42 public modules, their names, and their automatic activation.
+- Forge applicability, evidence and status semantics, safe-fix policy, approval boundaries,
+  deterministic analyzers, canonical symlink-free installation, and the fail-closed Ship gate.
+
 ## [0.1.0] - 2026-07-26
 
 ### Agent-first product

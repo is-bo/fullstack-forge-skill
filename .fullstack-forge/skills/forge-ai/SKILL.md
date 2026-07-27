@@ -5,6 +5,8 @@ description: Audit model boundaries, prompt injection, tool authority, data hand
 
 # forge-ai: AI-enabled features
 
+Engine: Hybrid — Forge + wshobson, Google, Cloudflare, Sentry
+
 ## Purpose
 
 Audit model boundaries, prompt injection, tool authority, data handling, output validation, evaluation, fallback, and cost.

@@ -5,6 +5,8 @@ description: Inspect WebSocket, SSE, subscription, and presence flows for author
 
 # forge-realtime: Realtime communication
 
+Engine: Hybrid — Forge + Supabase, Cloudflare, Sentry
+
 ## Purpose
 
 Inspect WebSocket, SSE, subscription, and presence flows for authorization, lifecycle, ordering, abuse, and recovery.

@@ -5,6 +5,8 @@ description: Find correctness, maintainability, type-safety, error-handling, and
 
 # forge-code: Code quality
 
+Engine: Upstream-powered — Addy Osmani Agent Skills
+
 ## Purpose
 
 Find correctness, maintainability, type-safety, error-handling, and dead-code risks in changed and critical paths.

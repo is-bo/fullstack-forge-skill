@@ -1,10 +1,17 @@
 # Turn your AI coding agent into a production-focused full-stack engineer
 
-Fullstack Forge is an Agent Skill that guides AI coding agents through architecture, security,
-databases, APIs, frontend, UI, UX, testing, performance, reliability, and release readiness.
+Fullstack Forge is a production-engineering orchestration and verification system that packages
+selected open-source specialist expertise behind one consistent workflow. It understands the
+repository, selects established specialist expertise, coordinates architecture, security, databases,
+APIs, frontend, UI, UX, testing, performance, reliability, and release readiness, resolves conflicts
+between them, implements safely, verifies evidence, and decides whether the result is
+production-ready.
 
 Once installed, it works automatically. Continue talking to your AI agent normally. Forge is
 agent-guided, with deterministic CLI checks and evidence gates where supported.
+
+**You install and use one product.** Forge vendors expertise from eight open-source Agent Skills
+projects, but you never install, invoke, update, or need to understand any of them.
 
 [![Release](https://img.shields.io/github/v/release/is-bo/fullstack-forge-skill)](https://github.com/is-bo/fullstack-forge-skill/releases)
 [![CI](https://github.com/is-bo/fullstack-forge-skill/actions/workflows/ci.yml/badge.svg)](https://github.com/is-bo/fullstack-forge-skill/actions/workflows/ci.yml)
@@ -16,7 +23,7 @@ agent-guided, with deterministic CLI checks and evidence gates where supported.
 Requires Node.js 20.19+, 22.13+, or 24+.
 
 ```bash
-npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.1.0"
+npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.2.0"
 npx forge init
 npx forge doctor
 ```
@@ -65,6 +72,73 @@ Terminal and CI:  npx forge audit cache
 The terminal form is the stable executable interface. See
 [platform support](docs/PLATFORM_SUPPORT.md) for host-specific selection forms and live-UI
 limitations. Explicit commands preserve the same evidence and approval rules as automatic use.
+
+## Where the expertise comes from
+
+Forge owns the operating system: repository discovery, task interpretation, risk detection,
+applicability, module selection, progressive disclosure, cross-domain coordination, conflict
+resolution, approval boundaries, safe-fix policy, evidence requirements, deterministic analyzers,
+the `PASS` / `FAIL` / `NOT_VERIFIED` / `BLOCKED` / `NOT_APPLICABLE` contract, and the fail-closed
+Ship gate.
+
+Specialist procedure comes from vendored open-source expertise. Every module says which:
+
+```text
+Engine: Forge native
+Engine: Upstream-powered — Impeccable
+Engine: Hybrid — Forge + Vercel
+```
+
+| Provider                          | Licence    | Powers                                                      |
+| --------------------------------- | ---------- | ----------------------------------------------------------- |
+| Impeccable                        | Apache-2.0 | UI and UX, and the deterministic design detector            |
+| Addy Osmani Agent Skills          | MIT        | requirements, code, testing, docs, recovery, performance    |
+| Vercel Agent Skills               | MIT        | React, Next.js, React Native, web design, Vercel tuning     |
+| Supabase Agent Skills             | MIT        | PostgreSQL practice, and Supabase where it is in use        |
+| Google Skills                     | Apache-2.0 | Well-Architected pillars, Cloud Run, Cloud SQL, GKE, Gemini |
+| Cloudflare Skills                 | Apache-2.0 | Workers, Wrangler, Durable Objects, web performance         |
+| Sentry Agent Skills               | Apache-2.0 | issue investigation, tracing, and SDK setup                 |
+| wshobson Agents (approved subset) | MIT        | accessibility, payments, threat modelling, AI, SQL, SLOs    |
+
+Provider guidance is **evidence-gated**: Vercel, Supabase, Google Cloud, Cloudflare, Sentry, Stripe,
+and PayPal material loads only when your repository proves that provider is in use, or when you name
+it. A generic queue does not summon Cloudflare advice; plain PostgreSQL does not summon Supabase
+advice.
+
+Upstream skills cannot activate on their own. Their content installs outside every agent-host
+skill-discovery root, and each upstream `SKILL.md` is compiled to `PLAYBOOK.md` with its activation
+frontmatter made inert, so it reaches the agent only when Forge selects it. When Forge and an
+upstream workflow disagree, Forge wins — see
+`fullstack-forge/references/shared/composition-precedence.md`.
+
+Normal use is fully offline. There is no automatic upstream update check and no telemetry. Every
+import is pinned to an immutable commit and checksummed; inspect exactly what you have with:
+
+```bash
+npm run upstream:status
+```
+
+Attribution, licences, exact commits, and the modifications Forge applies are recorded in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The upstream maintainers do not endorse Fullstack
+Forge.
+
+## Forge UI
+
+The UI and UX workflows are Forge commands:
+
+```text
+$forge ui init | craft | document | extract | shape | critique | audit | polish | bolder |
+quieter | distill | harden | onboard | animate | colorize | typeset | layout | delight |
+overdrive | clarify | adapt | optimize | live
+```
+
+Earlier Forge UI commands still work as aliases (`build` to `craft`, `review` and `verify` to
+`audit`, `improve` and `fix` to `polish`). Project state lives in `PRODUCT.md`, `DESIGN.md`, and
+`.fullstack-forge/ui/`.
+
+Design-detector results arrive as Forge findings: accessibility, layout, and measured-performance
+defects with concrete evidence are owned by the matching module, while subjective visual-craft
+results are advisories that never block Ship.
 
 ## What Forge does
 
@@ -149,8 +223,11 @@ See [development](docs/DEVELOPMENT.md), [contributing](CONTRIBUTING.md), and
 
 ## Version policy
 
-`v0.1.0` is the first intentionally supported public release of the agent-first Fullstack Forge
-product. Earlier numbered snapshots were development previews preserved in Git history.
+`v0.2.0` is the current supported public release: the upstream-powered architecture. `v0.1.0` was
+the first intentionally supported release of the agent-first product; earlier numbered snapshots
+were development previews preserved in Git history.
+
+Upgrading from `v0.1.0`? See [the migration notes](docs/MIGRATION_v0.2.0.md).
 
 ## License
 

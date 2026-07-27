@@ -5,6 +5,8 @@ description: Trace business rules and acceptance criteria to executable behavior
 
 # forge-requirements: Requirements and domain logic
 
+Engine: Upstream-powered — Addy Osmani Agent Skills
+
 ## Purpose
 
 Trace business rules and acceptance criteria to executable behavior, including adverse and recovery paths.

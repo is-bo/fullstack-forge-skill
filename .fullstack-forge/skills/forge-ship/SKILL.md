@@ -5,6 +5,8 @@ description: Enforce a fail-closed release gate across project checks, findings,
 
 # forge-ship: Release readiness
 
+Engine: Forge native
+
 ## Purpose
 
 Enforce a fail-closed release gate across project checks, findings, generated assets, packages, licenses, and installation.

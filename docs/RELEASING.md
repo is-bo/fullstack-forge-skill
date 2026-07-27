@@ -1,7 +1,7 @@
 # Maintainer release guide
 
-See [RELEASE.md](RELEASE.md) for the authoritative agent-first `v0.1.0` candidate, preview cleanup,
-and publication sequence.
+See [RELEASE.md](RELEASE.md) for the authoritative `v0.2.0` candidate, preview cleanup, and
+publication sequence.
 
 The short rule is: focused tests first, complete local validation once near the end, clean Ship
 gate, remote CI, explicit release/tag inventory, dependency check, preview cleanup by exact names,

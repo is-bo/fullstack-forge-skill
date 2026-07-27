@@ -5,6 +5,8 @@ description: Inspect personal-data inventory, purpose, minimization, consent, re
 
 # forge-privacy: Privacy
 
+Engine: Forge native
+
 ## Purpose
 
 Inspect personal-data inventory, purpose, minimization, consent, retention, access, deletion, export, and logging.

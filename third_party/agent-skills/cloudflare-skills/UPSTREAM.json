@@ -1,0 +1,28 @@
+{
+  "id": "cloudflare-skills",
+  "displayName": "Cloudflare Skills",
+  "repository": "cloudflare/skills",
+  "upstreamCommit": "30553f89ae1ef1e3c2917cd09d72dac992bb4e9a",
+  "upstreamTag": null,
+  "license": "Apache-2.0",
+  "licenseEvidence": "LICENSE",
+  "copyright": "Copyright Cloudflare, Inc.",
+  "importedAt": "2026-07-27T17:03:46.577Z",
+  "selectedPaths": [
+    "LICENSE",
+    "commands/build-agent.md",
+    "commands/build-mcp.md",
+    "skills/agents-sdk/",
+    "skills/cloudflare/",
+    "skills/durable-objects/",
+    "skills/sandbox-sdk/",
+    "skills/web-perf/",
+    "skills/wrangler/"
+  ],
+  "excludedPaths": [],
+  "contentChecksum": "f14e1e97699868ab89bc95f77c34f307fdb8a6e4d7b7a4d16007f7430b1aca38",
+  "fileCount": 352,
+  "localPatches": [],
+  "runtimeExecutables": [],
+  "updatePolicy": "reviewed-only"
+}

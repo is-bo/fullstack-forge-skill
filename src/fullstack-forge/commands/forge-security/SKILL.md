@@ -5,6 +5,8 @@ description: Perform a threat-informed audit of trust boundaries, injection, sec
 
 # forge-security: Application security
 
+Engine: Hybrid — Forge + Addy Osmani Agent Skills, Google
+
 ## Purpose
 
 Perform a threat-informed audit of trust boundaries, injection, secrets, browser controls, dependencies, and abuse cases.

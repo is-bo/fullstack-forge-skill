@@ -10,6 +10,14 @@ const markdown = execFileSync(
 )
   .split(/\r?\n/u)
   .filter(Boolean)
+  // Vendored upstream content is pristine by contract: Forge neither authors nor edits its links,
+  // and importing a reviewed subset of a provider legitimately leaves cross-references to sibling
+  // skills Forge chose not to import. Its integrity is enforced by `npm run upstream:verify`
+  // instead, and the composition engine never follows an upstream link. The compiled runtime copy
+  // under `.fullstack-forge/upstream/` is excluded for the same reason.
+  .filter(
+    (file) => !file.startsWith("third_party/") && !file.startsWith(".fullstack-forge/upstream/")
+  )
   .sort();
 const errors = [];
 let references = 0;

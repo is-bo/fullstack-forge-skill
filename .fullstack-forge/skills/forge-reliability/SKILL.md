@@ -5,6 +5,8 @@ description: Audit timeouts, retries, overload, dependencies, degradation, consi
 
 # forge-reliability: Reliability
 
+Engine: Hybrid — Forge + Google, Addy Osmani Agent Skills, Sentry, Cloudflare
+
 ## Purpose
 
 Audit timeouts, retries, overload, dependencies, degradation, consistency, and operational objectives.

@@ -5,6 +5,8 @@ description: Use automatically for human-facing interface work and audit WCAG 2.
 
 # forge-accessibility: Accessibility
 
+Engine: Hybrid — Forge + Addy Osmani Agent Skills, Vercel
+
 ## Purpose
 
 Use automatically for human-facing interface work and audit WCAG 2.2 AA with automated evidence plus keyboard and assistive-technology reasoning.

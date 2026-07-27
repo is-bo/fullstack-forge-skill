@@ -5,6 +5,8 @@ description: Tie resource and vendor cost to workloads, ownership, unit economic
 
 # forge-cost: Cost efficiency
 
+Engine: Hybrid — Forge + Google, Vercel, Cloudflare
+
 ## Purpose
 
 Tie resource and vendor cost to workloads, ownership, unit economics, budgets, and safe optimization choices.

@@ -32,3 +32,12 @@ export declare function utcNow(): string;
  * the commit SHA directly; dirty or unversioned trees add a digest of changed/untracked bytes.
  */
 export declare function workingTreeRevision(root: string, sharedInventory?: RepositoryInventory): Promise<string>;
+/**
+ * Counts distinct installed Fullstack Forge skills from managed file paths.
+ *
+ * Vendored upstream providers keep their own `skills/` directories inside the managed support tree
+ * at `.fullstack-forge/upstream/`. Those are references composed by Forge, not installed skills, so
+ * a naive "last `skills` segment" scan would report them as if the user had installed 125 skills.
+ * Only `.fullstack-forge/skills/` and the per-host skills roots hold real Forge skills.
+ */
+export declare function countManagedSkills(paths: Iterable<string>): number;

@@ -5,6 +5,8 @@ description: Measure and improve user- and system-visible latency, throughput, r
 
 # forge-performance: Performance
 
+Engine: Upstream-powered — Addy Osmani Agent Skills
+
 ## Purpose
 
 Measure and improve user- and system-visible latency, throughput, resource use, and stability without guessing.

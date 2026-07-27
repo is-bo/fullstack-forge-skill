@@ -5,6 +5,8 @@ description: Find locale, translation, formatting, expansion, fallback, and bidi
 
 # forge-i18n: Internationalization
 
+Engine: Forge native
+
 ## Purpose
 
 Find locale, translation, formatting, expansion, fallback, and bidirectional-layout defects.

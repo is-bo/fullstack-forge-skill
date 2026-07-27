@@ -5,6 +5,8 @@ description: Verify deny-by-default function, object, role, tenant, and administ
 
 # forge-authorization: Authorization
 
+Engine: Forge native
+
 ## Purpose
 
 Verify deny-by-default function, object, role, tenant, and administrative authorization on every path.

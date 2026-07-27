@@ -5,6 +5,8 @@ description: Evaluate whether tests provide reliable risk-based evidence across 
 
 # forge-testing: Testing strategy
 
+Engine: Upstream-powered — Addy Osmani Agent Skills
+
 ## Purpose
 
 Evaluate whether tests provide reliable risk-based evidence across units, boundaries, workflows, and failure modes.

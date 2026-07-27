@@ -5,6 +5,8 @@ description: Inspect schema integrity, migrations, constraints, tenancy, lifecyc
 
 # forge-database: Database design
 
+Engine: Hybrid — Forge + Supabase, wshobson, Google
+
 ## Purpose
 
 Inspect schema integrity, migrations, constraints, tenancy, lifecycle, recovery, and production-safe evolution.
