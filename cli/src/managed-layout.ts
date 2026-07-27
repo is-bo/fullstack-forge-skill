@@ -8,7 +8,9 @@
  * symlink, junction, or reparse point is ever created or required.
  *
  * `scripts/lib/managed-layout.mjs` mirrors this module for the repository asset generator. The two
- * are kept byte-identical by `cli/tests/managed-layout.test.ts`.
+ * are kept byte-identical by `cli/tests/managed-layout.test.ts`, which renders the same inputs
+ * through both. `cli/tests/host-acceptance.test.ts` then proves the rendered layout resolves from
+ * each host's documented discovery root.
  */
 
 export const CANONICAL_ROOT_SEGMENTS = [".fullstack-forge", "skills"] as const;

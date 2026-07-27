@@ -14,6 +14,15 @@ test("package policy accepts only declared common files and managed platform roo
   ])
     assert.doesNotThrow(() => assertPublishableArchivePath(path, VERSION), path);
 
+  // Host adapters are pointers, so the canonical tree they name must be publishable too.
+  for (const path of [
+    ".fullstack-forge/skills/fullstack-forge/SKILL.md",
+    ".fullstack-forge/skills/forge-security/SKILL.md",
+    ".fullstack-forge/skills/fullstack-forge/references/shared/module-contract.md",
+    ".fullstack-forge/skills/forge/assets/fullstack-forge-icon.png"
+  ])
+    assert.doesNotThrow(() => assertPublishableArchivePath(path, VERSION), path);
+
   for (const path of [
     "package.json",
     "cli/src/index.ts",
@@ -56,7 +65,13 @@ test("package policy rejects private state, specifications, credentials, logs, a
     "backups/database.tar",
     ".agents/skills/fullstack-forge/../../escape.md",
     "C:/absolute.md",
-    ".agents\\skills\\fullstack-forge\\SKILL.md"
+    ".agents\\skills\\fullstack-forge\\SKILL.md",
+    // Only `.fullstack-forge/skills/` is exempt; installed-project state stays private, and the
+    // exemption must not become a hole for private segments nested below it.
+    ".fullstack-forge/install-manifest.json",
+    ".fullstack-forge/skills/node_modules/pkg/index.js",
+    ".fullstack-forge/skills/forge/.env",
+    ".fullstack-forge/skills/forge/release.log"
   ])
     assert.throws(
       () => assertPublishableArchivePath(path, VERSION),

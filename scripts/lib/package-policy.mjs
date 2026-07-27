@@ -9,6 +9,17 @@ const PLATFORM_PREFIXES = Object.freeze([
   ".windsurf/skills/"
 ]);
 
+/**
+ * The one publishable path below `.fullstack-forge/`.
+ *
+ * `.fullstack-forge` is otherwise private: in an installed project it holds the ownership manifest
+ * and other local state that must never be published. The bundled canonical managed content lives
+ * under `.fullstack-forge/skills/`, and every host adapter in a release archive points at it, so an
+ * archive without this tree extracts into a damaged installation. Only the leading segment is
+ * exempted; every segment below it is still scanned for private, credential, and log names.
+ */
+const CANONICAL_ARCHIVE_PREFIX = ".fullstack-forge/skills/";
+
 const PRIVATE_SEGMENTS = new Set([
   ".audit",
   ".audit-work",
@@ -98,8 +109,11 @@ export function assertPublishableArchivePath(path, version) {
   if (path.includes("\\")) throw new Error(`Package paths must use forward slashes: ${path}`);
   const normalized = path.toLowerCase();
   const segments = normalized.split("/");
+  const canonicalManagedPath = normalized.startsWith(CANONICAL_ARCHIVE_PREFIX);
+  // Skip only the exempted leading segment for canonical content; keep scanning everything below it.
+  const scanned = canonicalManagedPath ? segments.slice(1) : segments;
   if (
-    segments.some((segment) => PRIVATE_SEGMENTS.has(segment)) ||
+    scanned.some((segment) => PRIVATE_SEGMENTS.has(segment)) ||
     normalized.endsWith(".log") ||
     PRIVATE_NAME.test(normalized) ||
     segments.some((segment) => CREDENTIAL_SEGMENT.test(segment))
@@ -108,6 +122,6 @@ export function assertPublishableArchivePath(path, version) {
 
   const common = new Set(packageCommonPaths(version));
   const managedPlatformPath = PLATFORM_PREFIXES.some((prefix) => normalized.startsWith(prefix));
-  if (!common.has(path) && !managedPlatformPath)
+  if (!common.has(path) && !managedPlatformPath && !canonicalManagedPath)
     throw new Error(`Undeclared package path outside the release allowlist: ${path}`);
 }

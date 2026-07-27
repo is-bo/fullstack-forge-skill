@@ -97,29 +97,29 @@ try {
   const skill = join(consumerRoot, ".agents", "skills", "fullstack-forge", "SKILL.md");
   const simpleSkill = join(consumerRoot, ".agents", "skills", "forge", "SKILL.md");
   const projectInstructions = join(consumerRoot, "AGENTS.md");
-  // Host files are adapters; the playbook text lives once under the canonical root. Assert both
-  // halves so a broken pointer or missing managed content still fails this smoke test.
-  const canonicalSkills = join(consumerRoot, ".fullstack-forge", "skills");
-  for (const [adapterPath, name] of [
-    [skill, "fullstack-forge"],
-    [simpleSkill, "forge"]
+  // Host files are adapters; the playbook text lives once under the canonical root. Follow each
+  // pointer the way an agent on that host would -- resolved from the adapter's own directory -- so
+  // a broken pointer or missing managed content fails here instead of at the user's first request.
+  for (const [adapterPath, expectedHeading] of [
+    [skill, "# Fullstack Forge"],
+    [simpleSkill, "# forge: Simple product workflow"]
   ]) {
-    const adapter = await readFile(adapterPath, "utf8");
-    if (!adapter.includes(`.fullstack-forge/skills/${name}/SKILL.md`))
-      throw new Error(`installed ${name} adapter does not point at canonical content`);
+    const playbook = await resolveAdapter(adapterPath);
+    if (!playbook.includes(expectedHeading))
+      throw new Error(`canonical playbook behind ${adapterPath} is invalid`);
   }
-  if (
-    !(await readFile(join(canonicalSkills, "fullstack-forge", "SKILL.md"), "utf8")).includes(
-      "# Fullstack Forge"
+  // The packed artifact itself must carry the canonical tree; without it every adapter dangles.
+  await stat(
+    join(
+      consumerRoot,
+      "node_modules",
+      "fullstack-forge-skill",
+      ".fullstack-forge",
+      "skills",
+      "fullstack-forge",
+      "SKILL.md"
     )
-  )
-    throw new Error("installed master skill is invalid");
-  if (
-    !(await readFile(join(canonicalSkills, "forge", "SKILL.md"), "utf8")).includes(
-      "# forge: Simple product workflow"
-    )
-  )
-    throw new Error("installed simple forge skill is invalid");
+  );
   if (!(await readFile(projectInstructions, "utf8")).includes("automatic-activation:start"))
     throw new Error("generic install did not enable managed automatic activation");
   const installManifest = JSON.parse(
@@ -177,8 +177,8 @@ try {
     if (platformInstall.code !== 0)
       throw new Error(`${selector} project install failed: ${platformInstall.stderr}`);
     const installedSkill = join(consumerRoot, ...expected);
-    await stat(installedSkill);
-    await stat(join(dirname(dirname(installedSkill)), "forge", "SKILL.md"));
+    await resolveAdapter(installedSkill);
+    await resolveAdapter(join(dirname(dirname(installedSkill)), "forge", "SKILL.md"));
     const platformSkillCount = await countSkills(dirname(dirname(installedSkill)));
     if (platformSkillCount !== 46)
       throw new Error(`${selector} install produced ${platformSkillCount} skills, expected 46`);
@@ -335,4 +335,28 @@ async function countSkills(root) {
     }
   }
   return count;
+}
+
+/**
+ * Reads an installed adapter and returns the canonical playbook it names.
+ *
+ * This is a host simulation, not a live host run: it performs the same relative resolution an agent
+ * reading the adapter would perform, from the adapter's own directory. It proves the layout
+ * resolves; it does not prove any product's loader behaves this way.
+ */
+async function resolveAdapter(adapterPath) {
+  const adapter = await readFile(adapterPath, "utf8");
+  const pointer = /canonical=(\S+) -->/u.exec(adapter)?.[1];
+  if (pointer === undefined) throw new Error(`${adapterPath} carries no managed-adapter pointer`);
+  if (!adapter.includes(`\`${pointer}\``))
+    throw new Error(`${adapterPath} does not state its pointer in readable prose`);
+  const target = resolve(dirname(adapterPath), ...pointer.split("/"));
+  try {
+    return await readFile(target, "utf8");
+  } catch (error) {
+    throw new Error(
+      `${adapterPath} points at ${pointer}, which does not resolve to readable canonical content (${error.message})`,
+      { cause: error }
+    );
+  }
 }
