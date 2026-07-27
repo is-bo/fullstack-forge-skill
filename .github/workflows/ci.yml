@@ -30,6 +30,9 @@ jobs:
           cache: npm
       - name: Install locked development dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Record candidate verification evidence
+        run: node scripts/verification-evidence.mjs >> "$GITHUB_STEP_SUMMARY"
+        shell: bash
       - name: Run complete verification
         run: npm run check
       - name: Fail on stale committed build output

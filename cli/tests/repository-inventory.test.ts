@@ -426,6 +426,40 @@ test("working-tree revisions are deterministic and explicitly partial for skippe
   });
 });
 
+test("a nested repository is skipped and marked PARTIAL instead of aborting the inventory", async () => {
+  await withTemporaryProject("inventory-nested-repository", async (root) => {
+    await git(root, ["init", "--quiet"]);
+    await writeFile(join(root, "package.json"), '{"name":"host-app"}', "utf8");
+    await writeFile(join(root, "app.ts"), "export const ready = true;", "utf8");
+
+    // `git ls-files --others` collapses an untracked nested repository into one directory entry
+    // with a trailing slash. Vendored checkouts, unregistered submodules, and worktrees all
+    // produce one, so this must not be able to abort an audit of an external repository.
+    const nested = join(root, "vendor", "third-party");
+    await mkdir(nested, { recursive: true });
+    await git(nested, ["init", "--quiet"]);
+    await writeFile(join(nested, "index.js"), "module.exports = 1;\n", "utf8");
+
+    const listed = await runFile(
+      "git",
+      ["ls-files", "--others", "--exclude-standard", "--", "."],
+      root,
+      30_000
+    );
+    assert.equal(listed.exitCode, 0, listed.stderr);
+    assert.match(listed.stdout, /vendor\/third-party\/\r?\n/u);
+
+    const inventory = await inventoryRepository(root);
+    assert.equal(inventory.diagnostics.status, "PARTIAL");
+    assert.equal(inventory.diagnostics.reason, "nested-repository-not-inventoried");
+    assert.ok(inventory.entries.some((entry) => entry.path === "app.ts"));
+    assert.ok(!inventory.entries.some((entry) => entry.path.endsWith("/")));
+
+    const profile = await discoverProject(root);
+    assert.equal(profile.inventory?.status, "PARTIAL");
+  });
+});
+
 async function sparseFile(path: string, bytes: number): Promise<void> {
   const handle = await open(path, "w");
   try {
