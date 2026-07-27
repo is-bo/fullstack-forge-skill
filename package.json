@@ -30,6 +30,7 @@
   "files": [
     "build/cli/src/",
     "config/",
+    ".fullstack-forge/",
     ".agents/",
     ".claude/",
     ".cursor/",

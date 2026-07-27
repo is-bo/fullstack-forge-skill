@@ -97,9 +97,28 @@ try {
   const skill = join(consumerRoot, ".agents", "skills", "fullstack-forge", "SKILL.md");
   const simpleSkill = join(consumerRoot, ".agents", "skills", "forge", "SKILL.md");
   const projectInstructions = join(consumerRoot, "AGENTS.md");
-  if (!(await readFile(skill, "utf8")).includes("# Fullstack Forge"))
+  // Host files are adapters; the playbook text lives once under the canonical root. Assert both
+  // halves so a broken pointer or missing managed content still fails this smoke test.
+  const canonicalSkills = join(consumerRoot, ".fullstack-forge", "skills");
+  for (const [adapterPath, name] of [
+    [skill, "fullstack-forge"],
+    [simpleSkill, "forge"]
+  ]) {
+    const adapter = await readFile(adapterPath, "utf8");
+    if (!adapter.includes(`.fullstack-forge/skills/${name}/SKILL.md`))
+      throw new Error(`installed ${name} adapter does not point at canonical content`);
+  }
+  if (
+    !(await readFile(join(canonicalSkills, "fullstack-forge", "SKILL.md"), "utf8")).includes(
+      "# Fullstack Forge"
+    )
+  )
     throw new Error("installed master skill is invalid");
-  if (!(await readFile(simpleSkill, "utf8")).includes("# forge: Simple product workflow"))
+  if (
+    !(await readFile(join(canonicalSkills, "forge", "SKILL.md"), "utf8")).includes(
+      "# forge: Simple product workflow"
+    )
+  )
     throw new Error("installed simple forge skill is invalid");
   if (!(await readFile(projectInstructions, "utf8")).includes("automatic-activation:start"))
     throw new Error("generic install did not enable managed automatic activation");

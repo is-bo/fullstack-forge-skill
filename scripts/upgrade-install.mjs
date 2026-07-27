@@ -195,7 +195,13 @@ async function assertInstalledRoots(root, expectRouterMetadata) {
     if ((await countSkills(skillsRoot)) !== 46)
       throw new Error(`${platformRoot} does not contain exactly 46 skills`);
     if (expectRouterMetadata) {
-      const metadata = await readFile(join(skillsRoot, "forge", "agents", "openai.yaml"), "utf8");
+      // The picker metadata is canonical content. Codex reads it with ordinary tooling, so it is
+      // also copied verbatim into .agents; every other host reaches it through the canonical root.
+      const metadataPath =
+        platformRoot === ".agents"
+          ? join(skillsRoot, "forge", "agents", "openai.yaml")
+          : join(root, ".fullstack-forge", "skills", "forge", "agents", "openai.yaml");
+      const metadata = await readFile(metadataPath, "utf8");
       if (!metadata.includes('short_description: "Automatic Build · Fix · Verify · Ship guidance"'))
         throw new Error(`${platformRoot} did not receive the Forge picker metadata`);
     }

@@ -132,11 +132,28 @@ try {
   const installed = {};
   for (const root of roots) {
     const skillsRoot = join(consumerRoot, root, "skills");
-    const master = join(skillsRoot, "fullstack-forge", "SKILL.md");
-    const simple = join(skillsRoot, "forge", "SKILL.md");
-    if (!(await readFile(master, "utf8")).includes("# Fullstack Forge"))
+    // Every host root holds adapters; the playbook text is installed once under the canonical
+    // root. Both halves are asserted so a broken pointer still fails the offline path.
+    for (const [adapterPath, name] of [
+      [join(skillsRoot, "fullstack-forge", "SKILL.md"), "fullstack-forge"],
+      [join(skillsRoot, "forge", "SKILL.md"), "forge"]
+    ]) {
+      const adapter = await readFile(adapterPath, "utf8");
+      if (!adapter.includes(`.fullstack-forge/skills/${name}/SKILL.md`))
+        throw new Error(`offline install produced a ${name} adapter in ${root} without a pointer`);
+    }
+    const canonicalSkills = join(consumerRoot, ".fullstack-forge", "skills");
+    if (
+      !(await readFile(join(canonicalSkills, "fullstack-forge", "SKILL.md"), "utf8")).includes(
+        "# Fullstack Forge"
+      )
+    )
       throw new Error(`offline install produced an invalid master skill in ${root}`);
-    if (!(await readFile(simple, "utf8")).includes("# forge: Simple product workflow"))
+    if (
+      !(await readFile(join(canonicalSkills, "forge", "SKILL.md"), "utf8")).includes(
+        "# forge: Simple product workflow"
+      )
+    )
       throw new Error(`offline install produced an invalid simple forge skill in ${root}`);
     await assertNoLinks(skillsRoot);
     installed[root] = await countSkills(skillsRoot);
