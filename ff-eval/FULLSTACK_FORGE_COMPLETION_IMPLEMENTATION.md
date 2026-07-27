@@ -26,8 +26,8 @@ nothing here is estimated or inferred.
 | Item                      | Value                                                                     |
 | ------------------------- | ------------------------------------------------------------------------- |
 | Branch                    | `fix/complete-external-readiness`                                         |
-| Candidate SHA             | `91eafab012f9c99d401c5f1875d7399332be8424`                                |
-| Commits ahead of baseline | 10                                                                        |
+| Candidate SHA             | `71edb67943e4fddf3dd5fd9953443cc75babad5c`                                |
+| Commits ahead of baseline | 13                                                                        |
 | Pull request              | https://github.com/is-bo/fullstack-forge-skill/pull/54 (open, not merged) |
 | Version bump              | None                                                                      |
 | Tag / release             | None                                                                      |
@@ -180,11 +180,7 @@ indirectly by existing installer tests but were not driven as named scenarios.
 
 ## Playbook deduplication
 
-**Measured, not performed.** No content was moved and no shared references were extracted. The
-deduplication itself remains outstanding.
-
-The measurement script left by the terminated agent was reviewed, its dangling reference to a
-never-written normative document was removed, and it was run to establish an honest baseline.
+**Performed.** Primary boilerplate is 23.42%, against a target of below 25%.
 
 Method: units are semantic — a frontmatter entry, heading, list item, or paragraph — then lowercased
 and whitespace-collapsed, so re-wrapping prose cannot move the score. A unit counts as shared
@@ -195,18 +191,33 @@ reported alongside.
 Corpus: the 42 canonical specialist playbooks at
 `src/fullstack-forge/commands/forge-<slug>/SKILL.md`.
 
-| Measure                                   | Value                     |
-| ----------------------------------------- | ------------------------- |
-| Total tokens                              | 25,981                    |
-| Shared tokens                             | 8,545                     |
-| **Primary (literal units)**               | **32.89%**                |
-| Masked variant (module name/title masked) | 42.19%                    |
-| Shingle-8 cross-check                     | 27.31%                    |
-| Worst file                                | 37.80% (`forge-realtime`) |
+| Measure                                   | Before                    | After                          |
+| ----------------------------------------- | ------------------------- | ------------------------------ |
+| Total tokens                              | 25,981                    | 22,396                         |
+| Shared tokens                             | 8,545                     | 5,246                          |
+| **Primary (literal units)**               | **32.89%**                | **23.42%**                     |
+| Masked variant (module name/title masked) | 42.19%                    | 34.21%                         |
+| Shingle-8 cross-check                     | 27.31%                    | 16.26%                         |
+| Worst file                                | 37.80% (`forge-realtime`) | 26.93% (`forge-notifications`) |
 
-Target is below 25%. The primary figure of 32.89% approximately corroborates the previously cited
-~34%, which had not been reproduced before now. No before/after pair can be reported because no
-deduplication was carried out.
+What moved: a second scoped shared reference,
+`src/fullstack-forge/references/shared/evidence-rules.md`, now owns four things named by its own
+headings — "Statuses" (the `NOT_APPLICABLE` / `NOT_VERIFIED` / `BLOCKED` vocabulary and the rule
+that absent evidence never becomes `PASS`), "Standards" (naming a standard is not a compliance
+claim), "Tools" (deterministic inspectors give bounded evidence only) and "Findings" (the route to
+`references/PROTOCOL.md`). `references/shared/module-contract.md` delegates those to it rather than
+restating them, so the two shared files do not duplicate each other either. Each specialist cites
+both documents and the topics each owns in a single sentence.
+
+What deliberately stayed duplicated: the 14 section headings required by
+`scripts/validate-skill.mjs` (1,974 of the 5,246 remaining shared tokens), the sentence "Never hide
+failed checks or claim that an operation ran when it did not." which
+`scripts/lib/skill-validation.mjs` requires verbatim in every skill (588 tokens), and the
+slug-templated activation and audit-command lines, which are load-bearing for automatic activation.
+
+No module-specific content was moved out. YAML frontmatter, `name`, `description` and therefore
+automatic activation are byte-identical: the commit changes zero bytes under `.agents/`, `.claude/`,
+`.cursor/`, `.gemini/`, `.github/skills/` and `.windsurf/`.
 
 ## Upload analysis
 
@@ -291,8 +302,10 @@ matrix.
    fixtures were added for them, and non-multer upload paths — presigned S3/GCS, busboy, formidable,
    Next.js route handlers — remain entirely unanalysed. Their "clean" result is indistinguishable
    from genuinely hardened code, which is the more dangerous failure mode.
-2. Playbook deduplication is unimplemented. It is now measured at 32.89% against a below-25% target,
-   but no content was moved and no shared references were extracted.
+2. Playbook deduplication met its target on the measured metric (32.89% to 23.42% primary), but the
+   metric is a proxy. Whether the shorter playbooks route an agent to
+   `references/shared/evidence-rules.md` as reliably as the inlined prose did is not measured here;
+   no activation or audit-quality eval was run before and after the change.
 3. `FF-AUTHZ-OBJECT-001` reports HIGH on `delete({ where: { id } })` even behind a proven admin
    guard. Defensible in principle, but likely a systemic HIGH false-positive class on real
    repositories. Pre-existing; flagged rather than changed, because suppressing it when a role guard
@@ -306,5 +319,5 @@ matrix.
 
 ## Final candidate
 
-`91eafab012f9c99d401c5f1875d7399332be8424` on `fix/complete-external-readiness`, pushed, PR #54 open
-and unmerged. Package version unchanged at `0.1.0`. No tag, no release.
+`71edb67943e4fddf3dd5fd9953443cc75babad5c` on `fix/complete-external-readiness`, not yet pushed, PR
+#54 open and unmerged. Package version unchanged at `0.1.0`. No tag, no release.
