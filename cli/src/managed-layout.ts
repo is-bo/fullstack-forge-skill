@@ -40,7 +40,7 @@ export function adapterPointer(hostSkillsRootPosix: string, skill: string): stri
 
 /** Extracts the raw YAML frontmatter block (without the `---` fences) from a SKILL.md. */
 export function extractFrontmatter(text: string, label: string): string {
-  const normalized = text.replace(/^﻿/u, "").replace(/\r\n/gu, "\n");
+  const normalized = text.replace(/^\uFEFF/u, "").replace(/\r\n/gu, "\n");
   if (!normalized.startsWith("---\n"))
     throw new Error(`Canonical skill ${label} does not begin with YAML frontmatter`);
   const end = normalized.indexOf("\n---\n", 3);

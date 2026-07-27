@@ -5,6 +5,7 @@
 // `SKILL.md` per skill into each host root, plus the small documented verbatim exception for Codex
 // (`agents/openai.yaml` and its `assets/`). No symlinks are used anywhere.
 
+import { Buffer } from "node:buffer";
 import { mkdir, readFile, readdir, rm, rmdir, stat } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
 import { assertNoSymlinkPath, assertSafeRelativePath } from "./lib/fs-safety.mjs";
@@ -242,7 +243,8 @@ async function pruneEmptyDirectories(root) {
   let empty = true;
   for (const entry of entries) {
     const path = join(root, entry.name);
-    if (entry.isSymbolicLink()) throw new Error(`Symlinks are forbidden in generated roots: ${path}`);
+    if (entry.isSymbolicLink())
+      throw new Error(`Symlinks are forbidden in generated roots: ${path}`);
     if (entry.isDirectory()) {
       if (await pruneEmptyDirectories(path)) await rmdir(path);
       else empty = false;

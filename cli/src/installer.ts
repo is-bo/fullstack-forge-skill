@@ -203,7 +203,10 @@ export async function install(
         throw new Error(`Adapter pointer escapes the managed root: ${pointer}`);
       if (pointerTarget !== resolveInside(canonicalRoot, `${skill}/SKILL.md`))
         throw new Error(`Adapter pointer does not resolve to canonical content: ${pointer}`);
-      hostFiles.set(`${skill}/SKILL.md`, Buffer.from(renderAdapter({ skill, pointer, frontmatter })));
+      hostFiles.set(
+        `${skill}/SKILL.md`,
+        Buffer.from(renderAdapter({ skill, pointer, frontmatter }))
+      );
     }
     if (VERBATIM_PLATFORMS.has(platform))
       for (const [rel, bytes] of canonical) if (isVerbatimHostFile(rel)) hostFiles.set(rel, bytes);
@@ -348,7 +351,12 @@ export async function install(
     if (currentHash === undefined) {
       // Already retired by an interrupted earlier attempt; just drop the stale record.
       retirable.push({
-        action: { action: "remove", path: rel, platform: record.platform as Platform, kind: "retired" },
+        action: {
+          action: "remove",
+          path: rel,
+          platform: record.platform as Platform,
+          kind: "retired"
+        },
         target,
         expectedHash: record.hash
       });
@@ -368,7 +376,12 @@ export async function install(
       continue;
     }
     retirable.push({
-      action: { action: "remove", path: rel, platform: record.platform as Platform, kind: "retired" },
+      action: {
+        action: "remove",
+        path: rel,
+        platform: record.platform as Platform,
+        kind: "retired"
+      },
       target,
       expectedHash: record.hash
     });
@@ -482,7 +495,7 @@ async function planFileWrite(input: {
   if (kind === "canonical") {
     const merged = new Set<string>([...(oldRecord?.platforms ?? []), ...(input.platforms ?? [])]);
     record.platforms = [...merged].sort();
-    record.platform = (record.platforms[0] ?? platform) as Platform;
+    record.platform = record.platforms[0] ?? platform;
   }
   return {
     action: { action, path: manifestRelative, platform: record.platform as Platform, kind },

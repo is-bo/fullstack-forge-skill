@@ -262,7 +262,12 @@ export async function install(rootInput, selector, options) {
         if (currentHash === undefined) {
             // Already retired by an interrupted earlier attempt; just drop the stale record.
             retirable.push({
-                action: { action: "remove", path: rel, platform: record.platform, kind: "retired" },
+                action: {
+                    action: "remove",
+                    path: rel,
+                    platform: record.platform,
+                    kind: "retired"
+                },
                 target,
                 expectedHash: record.hash
             });
@@ -282,7 +287,12 @@ export async function install(rootInput, selector, options) {
             continue;
         }
         retirable.push({
-            action: { action: "remove", path: rel, platform: record.platform, kind: "retired" },
+            action: {
+                action: "remove",
+                path: rel,
+                platform: record.platform,
+                kind: "retired"
+            },
             target,
             expectedHash: record.hash
         });
@@ -375,7 +385,7 @@ async function planFileWrite(input) {
     if (kind === "canonical") {
         const merged = new Set([...(oldRecord?.platforms ?? []), ...(input.platforms ?? [])]);
         record.platforms = [...merged].sort();
-        record.platform = (record.platforms[0] ?? platform);
+        record.platform = record.platforms[0] ?? platform;
     }
     return {
         action: { action, path: manifestRelative, platform: record.platform, kind },

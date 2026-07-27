@@ -321,8 +321,7 @@ function writeSegment(index, chain, node) {
                 continue;
             return raw;
         }
-        if (AMBIGUOUS_METHODS.has(segment.name) &&
-            !hasDataAccessReceiver(index, chain, position, node))
+        if (AMBIGUOUS_METHODS.has(segment.name) && !hasDataAccessReceiver(index, chain, position, node))
             continue;
         return { kind, entity: entityFor(index, chain, position) };
     }
@@ -341,13 +340,13 @@ function methodKind(name) {
 }
 function rawWrite(node, sourceFile) {
     const text = literalArgumentText(node, sourceFile);
-    const insert = /\binsert\s+into\s+["'`\[]?([\w.]+)/iu.exec(text);
+    const insert = /\binsert\s+into\s+["'`[]?([\w.]+)/iu.exec(text);
     if (insert !== null)
         return { kind: "create", entity: singularize(insert[1] ?? "") };
-    const update = /\bupdate\s+["'`\[]?([\w.]+)/iu.exec(text);
+    const update = /\bupdate\s+["'`[]?([\w.]+)/iu.exec(text);
     if (update !== null)
         return { kind: "update", entity: singularize(update[1] ?? "") };
-    const remove = /\bdelete\s+from\s+["'`\[]?([\w.]+)/iu.exec(text);
+    const remove = /\bdelete\s+from\s+["'`[]?([\w.]+)/iu.exec(text);
     if (remove !== null)
         return { kind: "delete", entity: singularize(remove[1] ?? "") };
     return undefined;
@@ -406,7 +405,6 @@ function isWrapperCallbackParameter(node, root) {
     let current = node;
     while (!ts.isSourceFile(current)) {
         if (ts.isFunctionLike(current) &&
-            current.parent !== undefined &&
             ts.isCallExpression(current.parent) &&
             current.parent.arguments.some((argument) => argument === current)) {
             for (const parameter of current.parameters)
@@ -600,7 +598,9 @@ function isKnownTransactionChain(chain, aliases) {
 /** A `BEGIN` … `COMMIT` pair in raw SQL is an atomic boundary for writes positioned between them. */
 function rawBoundary(index, node) {
     const start = node.getStart(index.sourceFile);
-    const begin = index.markers.filter((marker) => marker.kind === "begin" && marker.start < start).at(-1);
+    const begin = index.markers
+        .filter((marker) => marker.kind === "begin" && marker.start < start)
+        .at(-1);
     if (begin === undefined)
         return undefined;
     const commit = index.markers.find((marker) => marker.kind === "commit" && marker.start > start);
@@ -679,7 +679,10 @@ function helperWrites(index, scope, direct) {
         if (declaration === undefined || declaration.body === undefined)
             return;
         const parameters = declaration.parameters.map((parameter) => ts.isIdentifier(parameter.name) ? parameter.name.text : undefined);
-        const callerCoverage = lexicalBoundary(index, node, { root: node.expression.text, segments: [] });
+        const callerCoverage = lexicalBoundary(index, node, {
+            root: node.expression.text,
+            segments: []
+        });
         walk(declaration.body, (inner) => {
             if (!ts.isCallExpression(inner) || seen.has(inner))
                 return;
@@ -1022,8 +1025,7 @@ function callChain(node) {
         }
         return undefined;
     }
-    if (root === undefined)
-        return undefined;
+    // Every `break` above assigns `root`; the only other exit returns early.
     segments.reverse();
     return { root, segments };
 }

@@ -241,12 +241,15 @@ export function analyzeTransactionFile(file: TransactionSourceRecord): Transacti
   const issues: TransactionIssue[] = [];
   for (const [scope, writes] of scopes) {
     const resolved = [...writes, ...helperWrites(index, scope, writes)].sort(
-      (left, right) => left.anchor.getStart(index.sourceFile) - right.anchor.getStart(index.sourceFile)
+      (left, right) =>
+        left.anchor.getStart(index.sourceFile) - right.anchor.getStart(index.sourceFile)
     );
     if (resolved.length < 2) continue;
     for (const group of relatedGroups(resolved)) issues.push(...groupIssues(index, group));
   }
-  return issues.sort((left, right) => left.start - right.start || left.spec.id.localeCompare(right.spec.id));
+  return issues.sort(
+    (left, right) => left.start - right.start || left.spec.id.localeCompare(right.spec.id)
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -441,10 +444,7 @@ function writeSegment(
       if (raw === undefined) continue;
       return raw;
     }
-    if (
-      AMBIGUOUS_METHODS.has(segment.name) &&
-      !hasDataAccessReceiver(index, chain, position, node)
-    )
+    if (AMBIGUOUS_METHODS.has(segment.name) && !hasDataAccessReceiver(index, chain, position, node))
       continue;
     return { kind, entity: entityFor(index, chain, position) };
   }
@@ -464,11 +464,11 @@ function rawWrite(
   sourceFile: ts.SourceFile
 ): { kind: WriteKind; entity: string } | undefined {
   const text = literalArgumentText(node, sourceFile);
-  const insert = /\binsert\s+into\s+["'`\[]?([\w.]+)/iu.exec(text);
+  const insert = /\binsert\s+into\s+["'`[]?([\w.]+)/iu.exec(text);
   if (insert !== null) return { kind: "create", entity: singularize(insert[1] ?? "") };
-  const update = /\bupdate\s+["'`\[]?([\w.]+)/iu.exec(text);
+  const update = /\bupdate\s+["'`[]?([\w.]+)/iu.exec(text);
   if (update !== null) return { kind: "update", entity: singularize(update[1] ?? "") };
-  const remove = /\bdelete\s+from\s+["'`\[]?([\w.]+)/iu.exec(text);
+  const remove = /\bdelete\s+from\s+["'`[]?([\w.]+)/iu.exec(text);
   if (remove !== null) return { kind: "delete", entity: singularize(remove[1] ?? "") };
   return undefined;
 }
@@ -537,7 +537,6 @@ function isWrapperCallbackParameter(node: ts.Node, root: string): boolean {
   while (!ts.isSourceFile(current)) {
     if (
       ts.isFunctionLike(current) &&
-      current.parent !== undefined &&
       ts.isCallExpression(current.parent) &&
       current.parent.arguments.some((argument) => argument === current)
     ) {
@@ -742,7 +741,9 @@ function isKnownTransactionChain(chain: CallChain, aliases: ReadonlyMap<string, 
 /** A `BEGIN` … `COMMIT` pair in raw SQL is an atomic boundary for writes positioned between them. */
 function rawBoundary(index: FileIndex, node: ts.CallExpression): Coverage | undefined {
   const start = node.getStart(index.sourceFile);
-  const begin = index.markers.filter((marker) => marker.kind === "begin" && marker.start < start).at(-1);
+  const begin = index.markers
+    .filter((marker) => marker.kind === "begin" && marker.start < start)
+    .at(-1);
   if (begin === undefined) return undefined;
   const commit = index.markers.find((marker) => marker.kind === "commit" && marker.start > start);
   if (commit === undefined) return undefined;
@@ -825,15 +826,16 @@ function helperWrites(
     const parameters = declaration.parameters.map((parameter) =>
       ts.isIdentifier(parameter.name) ? parameter.name.text : undefined
     );
-    const callerCoverage = lexicalBoundary(index, node, { root: node.expression.text, segments: [] });
+    const callerCoverage = lexicalBoundary(index, node, {
+      root: node.expression.text,
+      segments: []
+    });
     walk(declaration.body, (inner) => {
       if (!ts.isCallExpression(inner) || seen.has(inner)) return;
       const write = describeWrite(index, inner);
       if (write === undefined) return;
       seen.add(inner);
-      inlined.push(
-        rebindHelperWrite(index, write, node, declaration, parameters, callerCoverage)
-      );
+      inlined.push(rebindHelperWrite(index, write, node, declaration, parameters, callerCoverage));
     });
   });
   return inlined;
@@ -860,7 +862,8 @@ function rebindHelperWrite(
   const symbols = new Set<string>();
   for (const symbol of write.symbols) symbols.add(substitute(symbol, substitutions));
   const identifiers = new Map<string, string>();
-  for (const [key, value] of write.identifiers) identifiers.set(key, substitute(value, substitutions));
+  for (const [key, value] of write.identifiers)
+    identifiers.set(key, substitute(value, substitutions));
   const helperName = ts.isIdentifier(callSite.expression) ? callSite.expression.text : "helper";
   const receiverIsParameter = declaration.parameters.some(
     (parameter) =>
@@ -1049,7 +1052,9 @@ function groupIssues(index: FileIndex, group: readonly WriteOperation[]): Transa
     evidence: `Related writes ${locations} in ${scope}: ${relationship}. Atomic boundary: ${boundaryText ?? "none observed"}. A failure after the first write leaves \`${anchor.entity}\` durable while ${group
       .slice(1)
       .map((write) => `\`${write.entity}\``)
-      .join(" and ")} ${group.length > 2 ? "are" : "is"} missing, so the ${impactDomain(anchor.entity)} invariant is left half-applied.`
+      .join(
+        " and "
+      )} ${group.length > 2 ? "are" : "is"} missing, so the ${impactDomain(anchor.entity)} invariant is left half-applied.`
   };
   if (unresolved) issue.status = "NOT_VERIFIED";
   return [issue];
@@ -1180,7 +1185,7 @@ function callChain(node: ts.CallExpression): CallChain | undefined {
     }
     return undefined;
   }
-  if (root === undefined) return undefined;
+  // Every `break` above assigns `root`; the only other exit returns early.
   segments.reverse();
   return { root, segments };
 }
