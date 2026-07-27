@@ -3,6 +3,7 @@ import ts from "typescript";
 import { buildTaintModel } from "./dataflow.js";
 import { isTestSourcePath, lineNumber, sha256, toPosix } from "./utils.js";
 import { inventoryRepository } from "./repository-inventory.js";
+import { analyzeTransactionFile } from "./transactions.js";
 const SCRIPT_EXTENSIONS = new Set([".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"]);
 const NON_APPLICATION_SOURCE_CLASSES = new Set([
     "documentation",
@@ -289,6 +290,7 @@ function analyzeScripts(files) {
         analyzeAiFile(issues, file);
         analyzeWebhookFile(issues, file);
         analyzeCsvExport(issues, file);
+        issues.push(...analyzeTransactionFile(file));
     }
     return {
         analyzer_id: "js-ts-boundaries",

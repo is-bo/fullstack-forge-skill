@@ -17,6 +17,7 @@ import {
 } from "./dataflow.js";
 import { isTestSourcePath, lineNumber, sha256, toPosix } from "./utils.js";
 import { inventoryRepository, type RepositoryInventory } from "./repository-inventory.js";
+import { analyzeTransactionFile } from "./transactions.js";
 
 const SCRIPT_EXTENSIONS = new Set([".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"]);
 const NON_APPLICATION_SOURCE_CLASSES = new Set([
@@ -1038,6 +1039,7 @@ function analyzeScripts(files: SourceRecord[]): AnalyzerRun {
     analyzeAiFile(issues, file);
     analyzeWebhookFile(issues, file);
     analyzeCsvExport(issues, file);
+    issues.push(...analyzeTransactionFile(file));
   }
   return {
     analyzer_id: "js-ts-boundaries",
