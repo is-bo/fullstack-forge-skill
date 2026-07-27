@@ -26,8 +26,8 @@ nothing here is estimated or inferred.
 | Item                      | Value                                                                     |
 | ------------------------- | ------------------------------------------------------------------------- |
 | Branch                    | `fix/complete-external-readiness`                                         |
-| Candidate SHA             | `1265b5a43e59c94a6a0878f5f2e3fb8d4dce04cd`                                |
-| Commits ahead of baseline | 6                                                                         |
+| Candidate SHA             | `62e97e97734ef95d112510adba2422440977059c`                                |
+| Commits ahead of baseline | 8                                                                         |
 | Pull request              | https://github.com/is-bo/fullstack-forge-skill/pull/54 (open, not merged) |
 | Version bump              | None                                                                      |
 | Tag / release             | None                                                                      |
@@ -191,19 +191,36 @@ its current level is — the frequently cited ~34% figure was not reproduced or 
 
 Behaviour characterised by probe (not fixed):
 
-| Fixture                                                                         | Result                         | Assessment                               |
-| ------------------------------------------------------------------------------- | ------------------------------ | ---------------------------------------- |
-| Hardened multer (private bucket, opaque key, signature check, fail-closed scan) | clean                          | correct                                  |
-| `public/` write before scan, client filename                                    | `PUBLIC` + `FILENAME` + `SCAN` | correct true positives                   |
-| Scanner error swallowed, released anyway                                        | `SCAN-ERROR`                   | correct true positive                    |
-| Filename kept only as `displayName`                                             | clean                          | correctly distinguishes display metadata |
-| Quarantine → scan → publish ordering                                            | clean                          | correct                                  |
-| Content type validated via imported helper                                      | `FF-UPLOAD-MIME-001` HIGH FAIL | **false positive**                       |
-| Presigned S3, private ACL, opaque key                                           | clean                          | **no analysis performed at all**         |
+| Fixture                                                                         | Result                                 | Assessment                               |
+| ------------------------------------------------------------------------------- | -------------------------------------- | ---------------------------------------- |
+| Hardened multer (private bucket, opaque key, signature check, fail-closed scan) | clean                                  | correct                                  |
+| `public/` write before scan, client filename                                    | `PUBLIC` + `FILENAME` + `SCAN`         | correct true positives                   |
+| Scanner error swallowed, released anyway                                        | `SCAN-ERROR`                           | correct true positive                    |
+| Filename kept only as `displayName`                                             | clean                                  | correctly distinguishes display metadata |
+| Quarantine → scan → publish ordering                                            | clean                                  | correct                                  |
+| Content type validated via imported helper                                      | `FF-UPLOAD-MIME-001` HIGH NOT_VERIFIED | **fixed** (was a HIGH false positive)    |
+| Presigned S3, private ACL, opaque key                                           | clean                                  | **no analysis performed at all**         |
 
 The multer gate incidentally suppresses false positives, so the dominant weakness is false
 negatives: any non-multer upload path receives no analysis, and its "clean" is indistinguishable
 from genuinely hardened code.
+
+### The one upload fix that was made
+
+`FF-UPLOAD-MIME-001` fired whenever a file mentioned a content-type token and did not literally
+contain `magic|signature|fileTypeFromBuffer|decode|sniff`. Content validation is routinely factored
+into a shared helper whose body the in-file regex cannot read, so hardened upload paths were
+published as confident HIGH failures purely because their validation lived in another module.
+
+When the upload payload is passed to an imported function, the finding is now `NOT_VERIFIED` and its
+evidence names the delegate that could not be resolved. Detection is structural — import bindings
+plus an AST walk for a call receiving the payload — not a name list. Trusting client MIME with no
+validation anywhere still fails, and proven in-file signature validation is still clean, so no true
+positive regressed. Three regression cases cover the boundary.
+
+This closes the confirmed false-positive class but does **not** constitute upload analyzer
+completion: the three target rule families were not rewritten, no new fixtures were added for them,
+and non-multer coverage is unchanged.
 
 ## Regression results
 
@@ -229,7 +246,7 @@ all fixed at source.
 | `npm run generate`                                     | 0    | 133 canonical, 276 adapters, 6 roots, 4 verbatim |
 | `node --test build/cli/tests/transactions.test.js`     | 0    | 8/8 after two analyzer fixes                     |
 | `node --test build/cli/tests/guard-resolution.test.js` | 0    | 11/11                                            |
-| `npm test` (candidate)                                 | 0    | 864 tests, 863 pass, 0 fail, 1 skipped, 96.2 s   |
+| `npm test` (candidate)                                 | 0    | 867 tests, 866 pass, 0 fail, 1 skipped, 98.3 s   |
 | `npx eslint .`                                         | 0    | clean                                            |
 | `npx prettier --check .`                               | 0    | clean                                            |
 | `npm run check:repository-identity`                    | 0    | valid, 7 generated roots                         |
@@ -245,8 +262,11 @@ matrix.
 
 ## Known limitations
 
-1. Upload analysis is unimplemented; `FF-UPLOAD-MIME-001` has a confirmed HIGH false-positive class
-   on cross-file validation, and non-multer upload paths are entirely unanalysed.
+1. Upload analyzer completion is unimplemented. The `FF-UPLOAD-MIME-001` cross-file false-positive
+   class is fixed, but the three target rule families were not rewritten structurally, no new
+   fixtures were added for them, and non-multer upload paths — presigned S3/GCS, busboy, formidable,
+   Next.js route handlers — remain entirely unanalysed. Their "clean" result is indistinguishable
+   from genuinely hardened code, which is the more dangerous failure mode.
 2. Playbook deduplication is unimplemented and unmeasured.
 3. `FF-AUTHZ-OBJECT-001` reports HIGH on `delete({ where: { id } })` even behind a proven admin
    guard. Defensible in principle, but likely a systemic HIGH false-positive class on real
@@ -261,5 +281,5 @@ matrix.
 
 ## Final candidate
 
-`1265b5a43e59c94a6a0878f5f2e3fb8d4dce04cd` on `fix/complete-external-readiness`, pushed, PR #54 open
+`62e97e97734ef95d112510adba2422440977059c` on `fix/complete-external-readiness`, pushed, PR #54 open
 and unmerged. Package version unchanged at `0.1.0`. No tag, no release.
