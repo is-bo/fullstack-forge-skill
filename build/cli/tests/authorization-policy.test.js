@@ -212,4 +212,3 @@ test("object-authorization findings are identical across repeated runs", async (
     assert.ok(first.length > 0);
     assert.deepEqual(first.map((finding) => [finding.id, finding.instance_id, finding.status, finding.evidence]), second.map((finding) => [finding.id, finding.instance_id, finding.status, finding.evidence]));
 });
-//# sourceMappingURL=authorization-policy.test.js.map

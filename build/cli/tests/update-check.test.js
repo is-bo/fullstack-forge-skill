@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { UPSTREAM_GIT_URL, checkUpdateAvailability, parseReleaseTags } from "../src/update-check.js";
+import { UPSTREAM_GIT_URL, checkUpdateAvailability, parseReleaseTags, publicReleaseArchive } from "../src/update-check.js";
 const hash = "a".repeat(40);
 test("release-tag parsing accepts stable canonical refs and ignores hostile noise", () => {
     const output = [
@@ -13,6 +13,16 @@ test("release-tag parsing accepts stable canonical refs and ignores hostile nois
         "\u001b[31mrefs/tags/v999.0.0\u001b[0m"
     ].join("\n");
     assert.deepEqual(parseReleaseTags(output), ["0.4.0", "0.10.2", "1.0.0"]);
+});
+test("published release installation uses an immutable credential-free archive", () => {
+    const archive = new URL(publicReleaseArchive("1.3.0"));
+    assert.equal(archive.protocol, "https:");
+    assert.equal(archive.hostname, "codeload.github.com");
+    assert.equal(archive.username, "");
+    assert.equal(archive.password, "");
+    assert.equal(archive.pathname, "/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v1.3.0");
+    assert.throws(() => publicReleaseArchive("v1.3.0"), /stable semantic version/u);
+    assert.throws(() => publicReleaseArchive("main"), /stable semantic version/u);
 });
 test("update lookup uses a fixed argument vector and reports a newer release", async () => {
     const calls = [];
@@ -66,4 +76,3 @@ test("current and development-ahead versions are distinguished", async () => {
     assert.equal((await checkUpdateAvailability("/project", false, "0.4.0", runner)).status, "PASS");
     assert.match((await checkUpdateAvailability("/project", false, "1.3.0", runner)).evidence, /newer than the latest public release/u);
 });
-//# sourceMappingURL=update-check.test.js.map

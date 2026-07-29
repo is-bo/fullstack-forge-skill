@@ -202,4 +202,3 @@ function gateById(gates, id) {
     assert.ok(gate, `expected ${id}`);
     return gate;
 }
-//# sourceMappingURL=ship-rederivation.test.js.map

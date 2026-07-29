@@ -145,13 +145,7 @@ for (const platform of platformTargets) {
   const root = join(projectRoot, ...platform.path.split("/"));
   const entries = await readdir(root, { withFileTypes: true });
   const skills = entries
-    .filter(
-      (entry) =>
-        entry.isDirectory() &&
-        (entry.name === "fullstack-forge" ||
-          entry.name === "forge" ||
-          entry.name.startsWith("forge-"))
-    )
+    .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .sort();
   const expected = [

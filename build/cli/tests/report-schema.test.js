@@ -105,6 +105,7 @@ test("new reports are written at the current schema version with every ledger pr
     assert.deepEqual(report.planned_checks, []);
     assert.deepEqual(report.runtime_evidence, []);
     assert.deepEqual(report.module_decisions, []);
+    assert.deepEqual(report.compositions, []);
     assert.equal(report.migration, undefined, "a natively written report was never migrated");
 });
 for (const release of ["v0.1.3", "v0.1.4", "v0.1.5", "v0.1.6"]) {
@@ -135,7 +136,13 @@ for (const release of ["v0.1.3", "v0.1.4", "v0.1.5", "v0.1.6"]) {
             const migration = migrated.migration;
             assert.ok(migration, "a migrated report must record that it was migrated");
             assert.equal(migration.from_schema_version, 1);
-            for (const ledger of ["tools", "planned_checks", "runtime_evidence", "module_decisions"])
+            for (const ledger of [
+                "tools",
+                "planned_checks",
+                "runtime_evidence",
+                "module_decisions",
+                "compositions"
+            ])
                 assert.ok(migration.absent_ledgers.includes(ledger), ledger);
             assert.ok(migration.detected_origin.includes(release));
             assert.ok(migration.notes.some((note) => note.includes("not evidence that")), "the report must say that an empty ledger does not imply a passing check");
@@ -286,4 +293,3 @@ test("a report from a newer schema version is refused rather than misread", () =
     assert.throws(() => migrateReport({ ...legacyReport("/project", "v0.1.6"), schema_version: 99 }), /newer than the supported version/u);
     assert.throws(() => migrateReport({ nonsense: true }), /Unsupported or invalid/u);
 });
-//# sourceMappingURL=report-schema.test.js.map

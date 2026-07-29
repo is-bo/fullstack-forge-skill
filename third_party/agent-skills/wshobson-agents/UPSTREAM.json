@@ -6,8 +6,13 @@
   "upstreamTag": null,
   "license": "MIT",
   "licenseEvidence": "LICENSE",
-  "copyright": "Copyright (c) Will Shobson",
-  "importedAt": "2026-07-27T17:03:57.607Z",
+  "copyright": "Copyright (c) 2024 Seth Hobson",
+  "copyrightEvidence": {
+    "path": "LICENSE",
+    "text": "Copyright (c) 2024 Seth Hobson"
+  },
+  "noticeEvidence": [],
+  "importedAt": "2026-07-28T16:20:48.436Z",
   "selectedPaths": [
     "LICENSE",
     "plugins/accessibility-compliance/skills/screen-reader-testing/",

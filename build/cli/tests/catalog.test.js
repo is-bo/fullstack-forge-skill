@@ -205,4 +205,3 @@ test("all bundled skills satisfy the structural validator", async () => {
     assert.deepEqual(result.errors, []);
     assert.equal(result.skills, 46);
 });
-//# sourceMappingURL=catalog.test.js.map

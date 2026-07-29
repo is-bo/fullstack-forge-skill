@@ -5,8 +5,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import {
+  assertNoExistingAttestations,
   assertReleasePreconditions,
   assertUniqueAssetNames,
+  classifyAttestationState,
+  classifyReleaseState,
+  digest,
   renderFinalVerification,
   validateTaggedReleaseDocuments,
   verifyPublishedAssets
@@ -20,7 +24,7 @@ test("release preflight rejects an existing release and a moved tag", () => {
         tag: "v1.2.3",
         expectedSha: sha,
         tagSha: sha,
-        releaseState: "exists"
+        releaseState: "draft"
       }),
     /already exists/u
   );
@@ -36,9 +40,56 @@ test("release preflight rejects an existing release and a moved tag", () => {
   );
 });
 
+test("release listing classification sees drafts and published releases across pages", () => {
+  assert.equal(
+    classifyReleaseState(
+      [[{ tag_name: "v1.0.0", draft: false }], [{ tag_name: "v1.2.3", draft: true }]],
+      "v1.2.3"
+    ),
+    "draft"
+  );
+  assert.equal(classifyReleaseState([{ tag_name: "v1.2.3", draft: false }], "v1.2.3"), "published");
+  assert.equal(classifyReleaseState([], "v1.2.3"), "missing");
+  assert.throws(() => classifyReleaseState([{ tag_name: "v1.2.3" }], "v1.2.3"), /invalid/u);
+  assert.equal(
+    classifyReleaseState(
+      [{ tag_name: "v1.2.3", draft: true, assets: [{ name: "partial.zip" }] }],
+      "v1.2.3"
+    ),
+    "draft"
+  );
+});
+
 test("duplicate asset basenames are rejected before upload", () => {
   assert.throws(() => assertUniqueAssetNames(["one/a.zip", "two/a.zip"]), /Duplicate/u);
   assert.deepEqual(assertUniqueAssetNames(["one/a.zip", "two/b.zip"]), ["a.zip", "b.zip"]);
+});
+
+test("release retry refuses an existing attestation for any candidate digest", () => {
+  const subjectDigest = `sha256:${"a".repeat(64)}`;
+  assert.equal(classifyAttestationState({ attestations: [] }, subjectDigest), "missing");
+  assert.equal(
+    classifyAttestationState(
+      { attestations: [{ subject_digest: subjectDigest, bundle: { mediaType: "test" } }] },
+      subjectDigest
+    ),
+    "existing"
+  );
+  assert.throws(
+    () => classifyAttestationState({ attestations: "not-an-array" }, subjectDigest),
+    /unproven/u
+  );
+  assert.doesNotThrow(() =>
+    assertNoExistingAttestations([{ asset: "fresh.zip", subjectDigest, state: "missing" }])
+  );
+  assert.throws(
+    () =>
+      assertNoExistingAttestations([
+        { asset: "already-attested.zip", subjectDigest, state: "existing" }
+      ]),
+    /already has an attestation/u
+  );
+  assert.equal(digest(Buffer.from("candidate")), digest(Buffer.from("candidate")));
 });
 
 test("tagged verification must keep remote publication pending", () => {
@@ -46,9 +97,18 @@ test("tagged verification must keep remote publication pending", () => {
     tag: "v1.2.3",
     notes: "# v1.2.3\nFinal remote verification is pending.\n",
     verification:
-      "# v1.2.3\nVerification stage: TAGGED_LOCAL\nLocal validation status: PASS\nRemote publication status: PENDING\n\n- [ ] CI pending\n"
+      "# v1.2.3\nVerification stage: CANDIDATE_LOCAL\nLocal validation status: PASS\nRemote publication status: PENDING\n\n- [ ] CI pending\n"
   };
   assert.doesNotThrow(() => validateTaggedReleaseDocuments(safe));
+  assert.doesNotThrow(() =>
+    validateTaggedReleaseDocuments({
+      ...safe,
+      verification: safe.verification.replace(
+        "- [ ] CI pending",
+        "- [x] explicit-request behavior passed\n- [ ] CI pending"
+      )
+    })
+  );
   assert.throws(
     () =>
       validateTaggedReleaseDocuments({

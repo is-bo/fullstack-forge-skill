@@ -62,8 +62,13 @@ Only the approved subset is imported; the rest of the marketplace, its agents, a
 The automated screen recorded the hits below. Each was reviewed against Forge's approval boundaries; guidance that merely *describes* an operation is advisory, and no vendored instruction can bypass a Forge contract at runtime.
 
 - `global-install` — `plugins/documentation-generation/skills/openapi-spec-generation/references/code-first-and-tooling.md`: ing ```bash # Install validation tools npm install -g @stoplight/spectral-cli npm install -g @redocly/cli # Spectral r
+- `global-install` — `plugins/documentation-generation/skills/openapi-spec-generation/references/code-first-and-tooling.md`: npm install -g @stoplight/spectral-cli npm install -g @redocly/cli # Spectral ruleset (.spectral.yaml) cat > .spectral
+- `global-install` — `plugins/documentation-generation/skills/openapi-spec-generation/references/code-first-and-tooling.md`: Generation ```bash # OpenAPI Generator npm install -g @openapitools/openapi-generator-cli # Generate TypeScript client
+- `foreign-skill-install` **(hard-deny rule)** — `plugins/documentation-generation/skills/openapi-spec-generation/references/code-first-and-tooling.md`: ing ```bash # Install validation tools npm install -g @stoplight/spectral-cli npm install -g @redocly/cli # Spectral r
+- `foreign-skill-install` **(hard-deny rule)** — `plugins/documentation-generation/skills/openapi-spec-generation/references/code-first-and-tooling.md`: npm install -g @stoplight/spectral-cli npm install -g @redocly/cli # Spectral ruleset (.spectral.yaml) cat > .spectral
+- `foreign-skill-install` **(hard-deny rule)** — `plugins/documentation-generation/skills/openapi-spec-generation/references/code-first-and-tooling.md`: Generation ```bash # OpenAPI Generator npm install -g @openapitools/openapi-generator-cli # Generate TypeScript client
 
 ## Attribution
 
-Copyright (c) Will Shobson. Licensed under MIT.
+Copyright (c) 2024 Seth Hobson. Licensed under MIT.
 The upstream maintainers do not endorse Fullstack Forge.

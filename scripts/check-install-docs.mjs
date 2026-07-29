@@ -8,18 +8,25 @@ import { projectRoot } from "./project.mjs";
  * Fullstack Forge is not published to the npm registry, so `npm install fullstack-forge-skill`
  * resolves to something the project does not control. Documentation may describe that command as a
  * future form, but only when the surrounding fenced block marks it unavailable. Every other
- * documented npm installation must name a Git specifier that resolves right now.
+ * documented npm installation must name a credential-free release specifier that resolves now.
  */
 
 const REGISTRY_INSTALL = /^\s*npm\s+(?:install|i|add)\b[^\n]*?fullstack-forge-skill\b/u;
 const UNAVAILABLE_MARKER = /NOT YET AVAILABLE/u;
-const GIT_SPECIFIER =
-  /(?:github:is-bo\/fullstack-forge-skill|git\+https:\/\/github\.com\/is-bo\/fullstack-forge-skill\.git)#v\d+\.\d+\.\d+/u;
+const RELEASE_SPECIFIER =
+  /https:\/\/codeload\.github\.com\/is-bo\/fullstack-forge-skill\/tar\.gz\/refs\/tags\/v\d+\.\d+\.\d+/u;
 const PROJECT_PIN =
-  /(?:github:is-bo\/fullstack-forge-skill|git\+https:\/\/github\.com\/is-bo\/fullstack-forge-skill\.git)#(v\d+\.\d+\.\d+)/gu;
+  /https:\/\/codeload\.github\.com\/is-bo\/fullstack-forge-skill\/tar\.gz\/refs\/tags\/(v\d+\.\d+\.\d+)/gu;
 
 const { version } = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8"));
 const currentTag = `v${version}`;
+const releaseProcess = await readFile(join(projectRoot, "docs", "RELEASE.md"), "utf8");
+const historicalInstallTags = new Set(
+  [
+    ...releaseProcess.matchAll(/`(v\d+\.\d+\.\d+)` is a tagged but unpublished historical state/gu)
+  ].map((match) => match[1])
+);
+const permittedProjectPins = new Set([currentTag, ...historicalInstallTags]);
 
 async function markdownFiles() {
   const files = [join(projectRoot, "README.md")];
@@ -43,7 +50,7 @@ for (const path of await markdownFiles()) {
   for (const [, body] of blocks) {
     for (const line of body.split("\n")) {
       if (!REGISTRY_INSTALL.test(line)) continue;
-      if (GIT_SPECIFIER.test(line)) continue;
+      if (RELEASE_SPECIFIER.test(line)) continue;
       if (UNAVAILABLE_MARKER.test(body)) continue;
       errors.push(
         `${relative}: presents an unpublished registry install as usable: ${line.trim()}`
@@ -51,11 +58,13 @@ for (const path of await markdownFiles()) {
     }
   }
   // Version-pinned install commands drift silently when a release bumps the tag. Outside
-  // version-stamped historical records, every project Git pin must match package.json.
+  // version-stamped historical records, every project release pin must match package.json.
   if (!/_v\d+\.\d+\.\d+\.md$/u.test(relative)) {
     for (const [, tag] of content.matchAll(PROJECT_PIN)) {
-      if (tag !== currentTag) {
-        errors.push(`${relative}: install pin ${tag} is stale; current version is ${currentTag}`);
+      if (!permittedProjectPins.has(tag)) {
+        errors.push(
+          `${relative}: install pin ${tag} is stale; permitted tags are ${[...permittedProjectPins].join(", ")}`
+        );
       }
     }
   }

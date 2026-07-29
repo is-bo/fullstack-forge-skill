@@ -173,4 +173,3 @@ test("malformed typed gate and analyzer coverage records are rejected", async ()
         await assert.rejects(readReport(root, path), /Invalid analyzer coverage/u);
     });
 });
-//# sourceMappingURL=report.test.js.map

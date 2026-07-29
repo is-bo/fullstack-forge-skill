@@ -6,46 +6,32 @@
   "upstreamTag": "skill-v4.0.2",
   "license": "Apache-2.0",
   "licenseEvidence": "LICENSE",
-  "copyright": "Copyright the Impeccable authors",
-  "importedAt": "2026-07-27T21:17:36.539Z",
+  "copyright": "Copyright 2025 Paul Bakaus",
+  "copyrightEvidence": {
+    "path": "LICENSE",
+    "text": "Copyright 2025 Paul Bakaus"
+  },
+  "noticeEvidence": [
+    "NOTICE.md"
+  ],
+  "importedAt": "2026-07-28T17:15:00.677Z",
   "selectedPaths": [
     ".claude/skills/impeccable/SKILL.md",
     ".claude/skills/impeccable/reference/",
-    ".claude/skills/impeccable/scripts/command-metadata.json",
-    ".claude/skills/impeccable/scripts/detector/",
-    ".claude/skills/impeccable/scripts/lib/impeccable-config.mjs",
     "LICENSE",
     "NOTICE.md"
   ],
   "excludedPaths": [
     ".claude/skills/impeccable/reference/doctor.md",
     ".claude/skills/impeccable/reference/hooks.md",
+    ".claude/skills/impeccable/reference/live.md",
     ".claude/skills/impeccable/scripts/detector/browser/",
     ".claude/skills/impeccable/scripts/detector/detect-antipatterns-browser.js",
     ".claude/skills/impeccable/scripts/detector/detect-antipatterns.mjs"
   ],
-  "contentChecksum": "11c6df11f95d2e8f2749560979129df5a4c0847602668191bb3ef0c0f737e237",
-  "fileCount": 54,
+  "contentChecksum": "eb42a2547d6da84eaff15f7a735657578aa02bc696098f7b35411626aa8739f2",
+  "fileCount": 34,
   "localPatches": [],
-  "runtimeExecutables": [
-    ".claude/skills/impeccable/scripts/detector/cli/main.mjs",
-    ".claude/skills/impeccable/scripts/detector/design-system.mjs",
-    ".claude/skills/impeccable/scripts/detector/engines/browser/detect-url.mjs",
-    ".claude/skills/impeccable/scripts/detector/engines/regex/detect-text.mjs",
-    ".claude/skills/impeccable/scripts/detector/engines/static-html/css-cascade.mjs",
-    ".claude/skills/impeccable/scripts/detector/engines/static-html/detect-html.mjs",
-    ".claude/skills/impeccable/scripts/detector/engines/visual/screenshot-contrast.mjs",
-    ".claude/skills/impeccable/scripts/detector/findings.mjs",
-    ".claude/skills/impeccable/scripts/detector/node/file-system.mjs",
-    ".claude/skills/impeccable/scripts/detector/profile/profiler.mjs",
-    ".claude/skills/impeccable/scripts/detector/registry/antipatterns.mjs",
-    ".claude/skills/impeccable/scripts/detector/rules/checks.mjs",
-    ".claude/skills/impeccable/scripts/detector/shared/color.mjs",
-    ".claude/skills/impeccable/scripts/detector/shared/constants.mjs",
-    ".claude/skills/impeccable/scripts/detector/shared/fonts.mjs",
-    ".claude/skills/impeccable/scripts/detector/shared/inline-ignores.mjs",
-    ".claude/skills/impeccable/scripts/detector/shared/page.mjs",
-    ".claude/skills/impeccable/scripts/lib/impeccable-config.mjs"
-  ],
+  "runtimeExecutables": [],
   "updatePolicy": "reviewed-only"
 }

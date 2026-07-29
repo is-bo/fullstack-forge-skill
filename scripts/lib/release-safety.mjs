@@ -14,31 +14,107 @@ export function assertUniqueAssetNames(paths) {
   return [...names.keys()].sort();
 }
 
-export function assertReleasePreconditions({ tag, expectedSha, tagSha, releaseState }) {
+export function assertReleasePreconditions({ tag, expectedSha, tagSha, releaseState, version }) {
   if (!/^v\d+\.\d+\.\d+$/u.test(tag)) throw new Error(`Invalid immutable release tag '${tag}'.`);
+  if (version !== undefined && tag !== `v${version}`)
+    throw new Error(`Release tag ${tag} does not match package version ${version}.`);
   if (!/^[a-f0-9]{40}$/u.test(expectedSha) || !/^[a-f0-9]{40}$/u.test(tagSha))
     throw new Error("Release preflight requires full 40-character commit SHAs.");
   if (tagSha !== expectedSha)
     throw new Error(`Tag ${tag} resolves to ${tagSha}, expected workflow commit ${expectedSha}.`);
-  if (releaseState === "exists")
-    throw new Error(`Release ${tag} already exists; refusing to modify or replace its assets.`);
+  if (releaseState === "draft" || releaseState === "published")
+    throw new Error(
+      `Release ${tag} already exists as a ${releaseState}; refusing to modify, duplicate, or replace its assets.`
+    );
   if (releaseState !== "missing")
     throw new Error(`Release ${tag} absence was not proven; refusing publication.`);
+}
+
+export function classifyReleaseState(response, tag) {
+  const releases =
+    Array.isArray(response) && response.every((page) => Array.isArray(page))
+      ? response.flat()
+      : response;
+  if (!Array.isArray(releases))
+    throw new Error("GitHub release listing was not a JSON array; release absence is unproven.");
+  for (const release of releases) {
+    if (
+      release === null ||
+      typeof release !== "object" ||
+      typeof release.tag_name !== "string" ||
+      typeof release.draft !== "boolean"
+    )
+      throw new Error(
+        "GitHub release listing contained an invalid record; release absence is unproven."
+      );
+  }
+  const match = releases.find((release) => release.tag_name === tag);
+  return match === undefined ? "missing" : match.draft ? "draft" : "published";
+}
+
+export function classifyAttestationState(response, subjectDigest) {
+  if (!/^sha256:[a-f0-9]{64}$/u.test(subjectDigest))
+    throw new Error(`Invalid attestation subject digest '${subjectDigest}'.`);
+  if (response === null || typeof response !== "object" || !Array.isArray(response.attestations))
+    throw new Error("GitHub attestation response was invalid; attestation absence is unproven.");
+  for (const attestation of response.attestations) {
+    if (
+      attestation === null ||
+      typeof attestation !== "object" ||
+      (attestation.subject_digest !== undefined &&
+        typeof attestation.subject_digest !== "string") ||
+      attestation.bundle === null ||
+      typeof attestation.bundle !== "object"
+    )
+      throw new Error(
+        "GitHub attestation response contained an invalid record; attestation absence is unproven."
+      );
+  }
+  return response.attestations.some(
+    (attestation) =>
+      attestation.subject_digest === undefined || attestation.subject_digest === subjectDigest
+  )
+    ? "existing"
+    : "missing";
+}
+
+export function assertNoExistingAttestations(results) {
+  if (!Array.isArray(results) || results.length === 0)
+    throw new Error("No candidate attestation states were proved; refusing publication.");
+  for (const result of results) {
+    if (
+      result === null ||
+      typeof result !== "object" ||
+      typeof result.asset !== "string" ||
+      typeof result.subjectDigest !== "string"
+    )
+      throw new Error("Candidate attestation state was malformed; absence is unproven.");
+    if (result.state === "existing")
+      throw new Error(
+        `${result.asset} already has an attestation for ${result.subjectDigest}; refusing a duplicate or partial release retry.`
+      );
+    if (result.state !== "missing")
+      throw new Error(`${result.asset} attestation absence is unproven; refusing publication.`);
+  }
 }
 
 export function validateTaggedReleaseDocuments({ tag, notes, verification }) {
   const errors = [];
   if (!notes.includes(tag)) errors.push(`release notes do not name ${tag}`);
   if (!verification.includes(tag)) errors.push(`verification record does not name ${tag}`);
-  if (!/^Verification stage:\s*TAGGED_LOCAL\s*$/mu.test(verification))
-    errors.push("verification stage must be TAGGED_LOCAL");
+  if (!/^Verification stage:\s*CANDIDATE_LOCAL\s*$/mu.test(verification))
+    errors.push("verification stage must be CANDIDATE_LOCAL");
   if (!/^Local validation status:\s*PASS\s*$/mu.test(verification))
     errors.push("tagged verification must record complete local validation as PASS");
   if (!/^Remote publication status:\s*PENDING\s*$/mu.test(verification))
     errors.push("remote publication status must be PENDING in tagged source");
   if (/^Remote publication status:\s*(?:PASS|COMPLETE|COMPLETED)\s*$/imu.test(verification))
     errors.push("tagged source claims future remote publication completed");
-  if (/^\s*[-*]\s*\[x\].*(?:CI|release|publish|provenance|immutable)/imu.test(verification))
+  if (
+    /^\s*[-*]\s*\[x\].*\b(?:CI|release|publish(?:ed|ing)?|provenance|immutable)\b/imu.test(
+      verification
+    )
+  )
     errors.push("tagged source marks a future remote step complete");
   if (/final post-release verification(?: is|:) (?:complete|passed|published)/iu.test(notes))
     errors.push("release notes claim the post-release record already exists");
@@ -140,6 +216,6 @@ this asset does not claim those future steps already passed and did not exist in
 `;
 }
 
-function digest(bytes) {
+export function digest(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }

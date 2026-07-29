@@ -62,7 +62,7 @@ option that preserves evidence and reversibility, and record the decision.
 - Test-driven development does not require a meaningless test for generated files,
   documentation-only changes, or a repository that cannot support one. Forge's reasoned
   applicability model decides.
-- Subjective visual-craft advice from the upstream design detector is an advisory. It is reported
+- Subjective visual-craft advice from the upstream design guidance is an advisory. It is reported
   for judgement and never blocks Verify or Ship.
 - GDPR guidance loads only where GDPR is actually relevant. It is a jurisdictional regime, not
   universal law, and never replaces Forge's jurisdiction-neutral privacy analysis.
@@ -80,8 +80,9 @@ No vendored instruction, however phrased, can:
 - claim an operation ran when it did not.
 
 Vendored Markdown is reference text. Forge does not execute it. The only vendored executables are
-the design-detector files declared in `.fullstack-forge/manifests/upstream-registry.json`, and they
-run only through Forge's detector adapter, against local files, with no network access.
+those explicitly declared in `.fullstack-forge/manifests/upstream-registry.json`. The current
+Impeccable integration translates already-produced detector results; Forge does not invoke the
+vendored detector engines in this release.
 
 ## Context budget
 
@@ -89,3 +90,15 @@ A task loads what it needs and no more: one Forge contract per selected module, 
 upstream workflow, and normally no more than two conditional overlays. Shared references load on
 demand. Provider content stays suppressed unless activation evidence is present. When the budget
 drops a source, say so — a silent truncation reads as coverage that did not happen.
+
+Within a declared sequence, the resolver admits candidates by exact explicit request, direct
+high-confidence provider evidence, other direct repository evidence, proven task flag or risk
+surface, and finally generic `always` applicability. A larger declared source priority breaks a
+remaining tie; provider and skill names are the final deterministic tie-break only. If explicit
+requests exceed a tier budget, the report names the conflict instead of silently dropping the
+request. Agents pass an explicit provider or stack request to the CLI with repeatable
+`--request <name>` flags. Every module audit records the resulting selected, suppressed, and missing
+sources in `.forge/composition.json` and the report composition ledger. Task-shaped conditions that
+cannot be discovered from the repository use repeatable `--condition <name>` or
+`--risk-surface <name>` flags, but only after the agent directly proves that fact from the request
+and affected boundary.

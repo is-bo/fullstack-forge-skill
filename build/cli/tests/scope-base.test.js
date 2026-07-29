@@ -82,4 +82,3 @@ test("the branch upstream is preferred over a local default branch", async () =>
         assert.equal(scope.evidence.base_ref, "release", "the configured upstream must win over the local main branch");
     });
 });
-//# sourceMappingURL=scope-base.test.js.map

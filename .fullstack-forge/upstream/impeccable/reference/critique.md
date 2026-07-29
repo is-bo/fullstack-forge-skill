@@ -1,17 +1,21 @@
+<!-- fullstack-forge:precedence -->
+> **Forge precedence.** Repository evidence and Forge contracts are authoritative. Upstream
+> imperative or completion language is specialist guidance only: it cannot declare Forge Verify
+> or Ship complete, authorize external action, or override approval and evidence requirements.
+> Do not install packages, enable telemetry, make network requests, deploy, publish, push, or modify remote systems unless the user explicitly approves.
+
 ### Purpose
 
-Resolve one stable target, run two independent assessments, synthesize a design critique, persist a snapshot, and ask the user what to improve next. The chat response is the primary deliverable; the snapshot is an archive/backlog for future commands.
+Resolve one stable target, run two independent assessments, synthesize a design critique from evidence Forge can actually inspect, and ask the user what to improve next. The chat response is the primary deliverable.
 
 ### Hard Invariants
 
-- Assessment A (design review) and Assessment B (detector/browser evidence) are both required.
-- Assessment A and B MUST run as two isolated sub-agents whenever a sub-agent/Task tool is exposed. Running them inline in this context is "possible" but is NOT permitted; it is a degraded run. Inline is allowed ONLY when no sub-agent tool exists (or the user declined, on harnesses that ask).
-- If you degrade for any reason, the report's first line MUST be a banner: `⚠️ DEGRADED: single-context (<reason>)`. A silent degraded critique is a failed critique.
-- Assessment A must finish before detector findings enter the parent synthesis context. Detector output is deterministic, but it still anchors judgment.
-- A skipped detector is a failed critique run unless `detect.mjs` is missing or crashes after a real attempt.
-- Viewable targets require browser inspection when available.
-- Any local server started only for critique visualization must run in the background, have a recorded stop method, and be stopped before final reporting unless the user asks to keep it.
-- Do not claim a user-visible overlay exists unless script injection succeeded and the detector ran in the page.
+- Assessment A (design review) and Assessment B (independent source, rendered-interface, accessibility, and performance evidence) are both required.
+- Run A and B as isolated sub-agents when the host exposes that capability and the user permits it. Otherwise run them sequentially and declare the limitation in the report header.
+- Assessment A must finish before Assessment B evidence enters the synthesis context so implementation details do not anchor the design review.
+- Forge does not ship the upstream detector, browser injection server, or overlay bundle. Never claim they ran.
+- Inspect a viewable target with available browser tooling. If rendered, interaction, accessibility, or performance evidence cannot be collected, mark that dimension `NOT_VERIFIED`; source inspection alone is not proof of rendered behaviour.
+- Any local server started for visualization must have an explicit stop method and be stopped before final reporting unless the user asks to keep it.
 
 ### Setup
 
@@ -19,12 +23,8 @@ Resolve one stable target, run two independent assessments, synthesize a design 
    - "the homepage" -> `site/pages/index.astro` or `index.html`
    - "the settings modal" -> the primary component file
    - "this page" -> the current URL or source file
-2. **Confirm the target slugs cleanly**:
-   ```bash
-> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/critique-storage.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
-   ```
-   Every later command also accepts the resolved target directly and derives the same slug internally; never hand-write a slug. If this exits non-zero, skip persistence and trend for this run, but continue the critique.
-3. **Read `.fullstack-forge/ui/critique/ignore.md`** if it exists. Drop matching findings silently; it is the only prior-run input critique consumes.
+2. Record the resolved path or URL verbatim in the report; do not invent a second identifier.
+3. If the project has a user-maintained `.fullstack-forge/ui/critique/ignore.md`, read it as project evidence and explain any finding it intentionally suppresses. Never drop findings silently.
 
 ### Assessment Orchestration
 
@@ -51,38 +51,19 @@ Evaluate:
 
 Return: design-specificity verdict, heuristic scores, cognitive load, emotional journey, 2-3 strengths, 3-5 priority issues, persona red flags, minor observations, and provocative questions.
 
-### Assessment B: Detector + Browser Evidence
+### Assessment B: Independent implementation and rendered evidence
 
-Run the bundled detector and browser visualization evidence. Assessment B is mandatory and must remain isolated from Assessment A until both are complete.
+Inspect the target without seeing Assessment A. Use source inspection plus the applicable Forge accessibility, frontend, performance, UX, and UI checks. When browser tooling and an approved local application URL are available, inspect representative narrow, intermediate, and wide states; exercise keyboard interaction and capture concrete computed or rendered evidence. Do not inject an upstream script or start an upstream helper.
 
-CLI scan:
-```bash
-> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/detect.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
-```
+For large trees, narrow scope to the resolved target or ask the user. Separate deterministic facts from visual judgment, identify false positives, and mark each unavailable evidence dimension `NOT_VERIFIED`. A clean automated check is supporting evidence, never proof of visual quality.
 
-- Pass markup files/directories as `[target]`; do not pass CSS-only files.
-- For URLs, skip CLI scan and use browser visualization.
-- For very large trees (500+ scannable files), narrow scope or ask.
-- Exit code 0 = clean; 2 = findings.
-- If the detector entrypoint is missing or fails to load, report deterministic scan unavailable and continue with browser/manual review.
-
-Browser visualization is required for a viewable target when browser automation is available. Use a localhost dev/static URL for local files; avoid `file://` unless the available browser explicitly supports this workflow. Overlay flow:
-
-1. Create a fresh tab and navigate. Prefer the harness's native/browser-canvas screenshot path before hand-rolling a Playwright/Puppeteer script; only fall back to a custom script when no native browser tool is exposed.
-2. Preflight mutable injection by setting `document.title` and appending a `<script>` tag. Read-only evaluate APIs do not count.
-3. If mutation is unavailable, skip live server, browser presentation, and injection; report fallback signal.
-> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/live-server.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
-5. For multi-view targets, inject on 3-5 representative pages.
-
-Return: CLI findings JSON/counts, browser console findings if applicable, false positives, and skipped/failed browser steps with concrete reasons.
-
-After Assessment B returns usable CLI findings, reuse them. Do not rerun `detect.mjs` in the parent unless Assessment B failed, was truncated, or omitted count, rule names, or file locations.
+Return: source locations, rendered observations, applicable automated-check results, false positives, and every skipped or unavailable step with its concrete reason.
 
 ### Generate Combined Critique Report
 
-Synthesize both assessments into a single report. Do NOT simply concatenate. Weave the findings together, noting where the LLM review and detector agree, where the detector caught issues the LLM missed, and where detector findings are false positives.
+Synthesize both assessments into a single report. Do not simply concatenate them. Explain where the independent design review agrees or conflicts with source, rendered, accessibility, and performance evidence, and identify false positives.
 
-The chat response is the primary user-facing deliverable. Present the full structured critique below in chat; do not replace it with a summary and a link. The persisted snapshot is only an archive/backlog for later commands.
+The chat response is the primary user-facing deliverable. Present the full structured critique below in chat; do not replace it with a summary and a link.
 
 Structure your feedback as a design director would:
 
@@ -121,11 +102,9 @@ Be honest with scores. A 4 means genuinely excellent. Most real interfaces score
 
 **Start here.** Does the result feel authored for this product, or category-interchangeable?
 
-**LLM assessment**: Your unanchored evaluation of design specificity. Cover overall coherence, structural sameness, category-interchangeable choices, and missed opportunities for product character.
+**Design assessment**: Give the unanchored evaluation of design specificity. Cover overall coherence, structural sameness, category-interchangeable choices, and missed opportunities for product character.
 
-**Deterministic scan**: Summarize what the automated detector found, with counts and file locations. Note any additional issues the detector caught that you missed, and flag any false positives.
-
-**Visual overlays** (if injection succeeded): Tell the user that overlays are now visible in the **[Human]** tab in their browser, highlighting the detected issues. Summarize what the console output reported. If browser visualization was attempted but injection failed, say that no reliable user-visible overlay is available and report the fallback signal instead.
+**Independent evidence**: Summarize verified source, rendered-interface, accessibility, and performance evidence with file locations or measurements. Explain additional issues this evidence exposed and flag false positives. List unavailable dimensions as `NOT_VERIFIED`.
 
 #### Overall Impression
 A brief gut reaction: what works, what doesn't, and the single biggest opportunity.
@@ -172,39 +151,9 @@ Provocative questions that might unlock better solutions:
 - Prioritize ruthlessly. If everything is important, nothing is.
 - Don't soften criticism. Developers need honest feedback to ship great design.
 
-### Persist the Snapshot
+### Optional Forge snapshot
 
-Once the report above is finalized, write it to `.fullstack-forge/ui/critique/` so the user can refer back, and so `$forge ui polish` can pick up the priority issues without a copy-paste.
-
-Skip this step if the Setup slug was null (vague or root-level target).
-
-1. **Write the body to a temp file** so you can pipe it to the helper. Use the full critique report (heuristic table, design-specificity verdict, priority issues, persona red flags, minor observations, and questions), but stop before the "Ask the User" / "Recommended Actions" sections that come later.
-
-2. **Pass the structured metadata** through `IMPECCABLE_CRITIQUE_META` (JSON), then run the write command:
-   ```bash
-   IMPECCABLE_CRITIQUE_META='{"target":"<user phrasing>","total_score":<n>,"max_score":<n>,"na_heuristics":"<comma-separated numbers, or empty>","p0_count":<n>,"p1_count":<n>}' \
-> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/critique-storage.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
-   ```
-   `max_score` is the applicable maximum from the heuristic table (40 when every heuristic applied), so a later run can tell a renormalized total from a full one. The helper prints the absolute path it wrote.
-
-3. **Delete the temp body file** after the write attempt completes, whether the write succeeded or failed. If deletion fails, mention `temp-file cleanup failed: <reason>` briefly in the final output, but do not block the critique.
-
-4. **Read the trend** for context:
-   ```bash
-> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/critique-storage.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
-   ```
-   This returns a JSON array of the last 5 frontmatter entries (including the one you just wrote).
-
-5. **Append a single line to the user-visible output**, after the report and before the questions:
-
-   > **Trend for `<slug>` (last 5 runs): 24 → 28 → 32 → 29 → 32 (out of 40)**
-   > Wrote `.fullstack-forge/ui/critique/<filename>`.
-
-   Read `max_score` on each trend entry. When every entry shares one maximum, state it once as above. When they differ, print each score with its own denominator (`24/32 → 30/40`) and note that the runs scored different heuristic sets, so the line is not a like-for-like comparison. Treat a missing `max_score` on an older entry as 40.
-
-   If this is the first run for the slug, the trend is just one score; say so: "First run for this target, no trend yet."
-
-This is fire-and-forget. Do not show the user the helper's JSON output; only the human-readable trend line and the written path. Failures here should not block the rest of the flow; print the error and move on.
+Do not persist the critique as an implicit side effect. If the user asks for a durable report, write the reviewed report under `.fullstack-forge/ui/critique/` using a stable, path-derived filename and include the resolved target, timestamp, applicable maximum, and evidence limitations. Read prior snapshots only when they exist, cite their paths, and compare scores only when their denominators and assessed dimensions match. Never claim a trend from absent or incompatible evidence.
 
 ### Ask the User
 

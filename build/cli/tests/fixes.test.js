@@ -193,4 +193,3 @@ test("rollback evidence is attached only to the written finding instance", async
         assert.deepEqual(writtenAfter?.fix_attempts?.map((attempt) => attempt.status), ["ROLLED_BACK"]);
     });
 });
-//# sourceMappingURL=fixes.test.js.map

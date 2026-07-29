@@ -377,4 +377,3 @@ export async function handler(req: any) {
         assert.equal(lines("FF-SEC-SQL-001").length, 1, "only the interpolated call is a defect");
     });
 });
-//# sourceMappingURL=external-testing-readiness.test.js.map

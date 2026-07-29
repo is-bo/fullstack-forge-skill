@@ -305,4 +305,3 @@ export function proxy(req) {
 }`);
     assert.ok(!ids.has("FF-SEC-SSRF-001"), "a genuine structurally proven address guard must still suppress");
 });
-//# sourceMappingURL=security-proof.test.js.map

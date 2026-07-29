@@ -12,9 +12,10 @@ directly observed.
 
 ## Required local evidence
 
-- [x] `npm run upstream:verify`: 8 providers, 905 vendored files, every pin a full 40-character
-      commit SHA, every checksum matching, no undeclared file, no symlink, no traversal, no nested
-      repository, no LFS pointer, no undeclared executable, and no unreviewed hard-deny instruction
+- [x] `npm run upstream:verify`: 8 providers, 903 vendored files on the tagged v0.2.0 source, every
+      pin a full 40-character commit SHA, every checksum matching, no undeclared file, no symlink,
+      no traversal, no nested repository, no LFS pointer, no undeclared executable, and no
+      unreviewed hard-deny instruction
 - [x] generation is deterministic: `npm run generate` followed by `git diff --exit-code`
 - [x] formatting, lint, typecheck, tests, validation, and full `npm run check`
 - [x] composition and provider gating: React, React Native, Vercel, Supabase, PostgreSQL,
@@ -23,8 +24,8 @@ directly observed.
 - [x] no upstream skill is host-discoverable: zero `SKILL.md` files in the compiled upstream tree
       and in a freshly installed project
 - [x] no upstream update check and no telemetry in any vendored runtime module
-- [x] detector mapping: subjective craft results are advisories that cannot block Ship, and no
-      detector output can produce a `PASS`
+- [x] detector-result mapping was defined, but production detector execution was not verified; the
+      v0.2.1 correction removes unreachable detector executables and the execution claim
 - [x] deterministic platform packaging and archive validation
 - [x] fresh, fixture-update, uninstall, and offline installation: 46 skills per platform, zero
       symlinks, upstream tree and manifests installed once, and clean uninstall

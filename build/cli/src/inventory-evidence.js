@@ -33,4 +33,3 @@ export function inventoryLimitationFinding(profile, section) {
         standards: ["Fullstack Forge evidence protocol"]
     };
 }
-//# sourceMappingURL=inventory-evidence.js.map

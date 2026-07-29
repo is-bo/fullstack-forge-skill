@@ -383,4 +383,3 @@ function planFromJournal(journal) {
         writes: journal.entries.map((entry) => entry.rel)
     };
 }
-//# sourceMappingURL=build-migration.js.map

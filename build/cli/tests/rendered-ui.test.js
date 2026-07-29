@@ -465,4 +465,3 @@ test("the capture status in the manifest always matches the CLI result", async (
         });
     }
 });
-//# sourceMappingURL=rendered-ui.test.js.map

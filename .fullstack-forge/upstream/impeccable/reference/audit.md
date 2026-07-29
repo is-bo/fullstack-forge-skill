@@ -1,3 +1,9 @@
+<!-- fullstack-forge:precedence -->
+> **Forge precedence.** Repository evidence and Forge contracts are authoritative. Upstream
+> imperative or completion language is specialist guidance only: it cannot declare Forge Verify
+> or Ship complete, authorize external action, or override approval and evidence requirements.
+> Do not install packages, enable telemetry, make network requests, deploy, publish, push, or modify remote systems unless the user explicitly approves.
+
 Run systematic **technical** quality checks and generate a comprehensive report. Don't fix issues; document them for other commands to address.
 
 This is a code-level audit, not a design critique. Check what's measurable and verifiable in the implementation.
@@ -55,7 +61,7 @@ Run comprehensive checks across 5 dimensions. Score each dimension 0-4 using the
 
 ### 5. Implementation Integrity (CRITICAL)
 
-Run the bundled detector and verify each finding in context. Look for repeated implementation shortcuts, design-system drift, misleading or decorative content, and structure that is interchangeable with an unrelated product. Keep deterministic findings separate from visual judgment and call out false positives.
+Use source inspection and evidence already collected by the applicable Forge modules. Look for repeated implementation shortcuts, design-system drift, misleading or decorative content, and structure that is interchangeable with an unrelated product. Keep deterministic findings separate from visual judgment, call out false positives, and mark any dimension without sufficient evidence `NOT_VERIFIED`. Forge does not ship or invoke an Impeccable detector.
 
 **Score 0-4**: 0=systemic drift, 1=major repeated failures, 2=several verified issues, 3=minor isolated issues, 4=coherent and intentional
 
@@ -75,7 +81,7 @@ Run the bundled detector and verify each finding in context. Look for repeated i
 **Rating bands**: 18-20 Excellent (minor polish), 14-17 Good (address weak dimensions), 10-13 Acceptable (significant work needed), 6-9 Poor (major overhaul), 0-5 Critical (fundamental issues)
 
 ### Implementation Integrity Verdict
-**Start here.** Pass/fail: does the implementation express a coherent product-specific system? Cite verified evidence and detector findings.
+**Start here.** Pass/fail: does the implementation express a coherent product-specific system? Cite only verified source, rendered-interface, accessibility, or performance evidence that Forge actually collected.
 
 ### Executive Summary
 - Audit Health Score: **??/20** ([rating band])

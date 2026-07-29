@@ -61,6 +61,23 @@ export function renderAdapter(input) {
         throw new Error(`Unsafe managed skill name: ${skill}`);
     if (!pointer.startsWith("../") || pointer.includes("//"))
         throw new Error(`Unsafe adapter pointer for ${skill}: ${pointer}`);
+    const module = skill.startsWith("forge-") ? skill.slice("forge-".length) : undefined;
+    const runnerPointer = `${pointer.slice(0, pointer.indexOf(CANONICAL_ROOT_POSIX))}.fullstack-forge/runtime/cli/src/composition-entry.js`;
+    const composition = module === undefined || ["all", "discover", "ship"].includes(module)
+        ? []
+        : [
+            "",
+            "**Resolve the runtime composition before loading specialist guidance:**",
+            "",
+            `\`node ${runnerPointer} ${module} compose --root <repository-root> --json\``,
+            "",
+            "Pass repeatable `--request`, `--condition`, or `--risk-surface` values only for",
+            "explicit requests and directly proven task facts.",
+            "",
+            "Then load only the ordered `selected` paths in `.forge/composition.json`. Stop and",
+            "report the installation as damaged if `missing` is non-empty; suppressed sources are not",
+            "fallback instructions."
+        ];
     return [
         "---",
         frontmatter.replace(/\n$/u, ""),
@@ -83,6 +100,7 @@ export function renderAdapter(input) {
         "(`fullstack-forge/references/...`, `fullstack-forge/schemas/...`,",
         "`fullstack-forge/templates/...`, `fullstack-forge/profiles/...`) resolves relative to",
         `\`${CANONICAL_ROOT_POSIX}/\`.`,
+        ...composition,
         "",
         "Do not edit this adapter; edit the canonical playbook instead. If the canonical file is",
         "missing or unreadable the installation is damaged: run `forge doctor`, then `forge update all`.",
@@ -100,4 +118,3 @@ export function readAdapterMarker(text) {
         return undefined;
     return { version: Number(match[1]), skill: match[2] ?? "", canonical: match[3] ?? "" };
 }
-//# sourceMappingURL=managed-layout.js.map

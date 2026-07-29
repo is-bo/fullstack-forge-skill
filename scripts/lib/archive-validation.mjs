@@ -22,6 +22,10 @@ export function validatePackagedMarkdown(entries, archiveName) {
     if (LEGACY_PUBLIC_REFERENCE.test(content))
       errors.push(`${archiveName}:${entry.name} contains an old-owner public link`);
     if (!entry.name.endsWith(".md")) continue;
+    // Compiled upstream references are screened against their provider runtime set during
+    // generation. Their Markdown also intentionally contains user-project example paths such as
+    // `/hero.jpg`, which are not archive links and must not be resolved as package assets here.
+    if (entry.name.startsWith(".fullstack-forge/upstream/")) continue;
     for (const target of markdownTargets(content)) {
       if (isExternalOrAnchor(target)) continue;
       const destination = resolvePackagedLink(entry.name, target);
@@ -29,7 +33,10 @@ export function validatePackagedMarkdown(entries, archiveName) {
         errors.push(`${archiveName}:${entry.name} ${destination.error}: ${target}`);
         continue;
       }
-      if (!names.has(destination.path))
+      if (
+        !names.has(destination.path) &&
+        ![...names].some((name) => name.startsWith(`${destination.path.replace(/\/$/u, "")}/`))
+      )
         errors.push(
           `${archiveName}:${entry.name} links to missing packaged destination ${destination.path} (${target})`
         );

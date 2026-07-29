@@ -91,4 +91,3 @@ test("an Express route with a visible guard keeps high confidence", async () => 
     assert.equal(route.visibility, "authenticated");
     assert.equal(route.confidence, "HIGH");
 });
-//# sourceMappingURL=route-adapters.test.js.map

@@ -17,6 +17,14 @@ app.get("/redirect", (req, res) => {
             assert.ok(ids.has(id), id);
     });
 });
+test("security analyzer does not treat a literal token label as sensitive logged data", async () => {
+    await withTemporaryProject("analyzer-log-label", async (root) => {
+        await writeFile(join(root, "maintainer-tool.mjs"), `const target = process.argv[2];
+console.log(\`Instruction-token delta for \${target}\`);
+`, "utf8");
+        assert.ok(!(await findingIds(root, "security")).has("FF-SEC-LOG-001"));
+    });
+});
 test("tenancy analyzer detects unscoped background and export queries", async () => {
     await withTemporaryProject("analyzer-tenant-job", async (root) => {
         await writeFile(join(root, "export-job.ts"), "export async function exportJob() { return db.invoice.findMany({ where: {} }); }\n", "utf8");
@@ -485,4 +493,3 @@ test("subject-shaped output fields are not query authorization predicates", asyn
 }`);
     assert.ok(ids.has("FF-AUTHZ-OBJECT-001"));
 });
-//# sourceMappingURL=analyzers.test.js.map

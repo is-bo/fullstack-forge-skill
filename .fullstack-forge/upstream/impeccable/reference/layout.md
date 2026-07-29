@@ -1,3 +1,9 @@
+<!-- fullstack-forge:precedence -->
+> **Forge precedence.** Repository evidence and Forge contracts are authoritative. Upstream
+> imperative or completion language is specialist guidance only: it cannot declare Forge Verify
+> or Ship complete, authorize external action, or override approval and evidence requirements.
+> Do not install packages, enable telemetry, make network requests, deploy, publish, push, or modify remote systems unless the user explicitly approves.
+
 Layout turns product priority into reading order, grouping, rhythm, and usable space. Diagnose the structural problem before moving boxes.
 
 ---
@@ -22,13 +28,9 @@ When a sub-agent tool is available and permitted, run these independently; other
    - **Density:** Does the amount of information per region fit use frequency, decision complexity, and visitor mode?
    - **Adaptation:** At narrow, intermediate, wide, zoomed, and localized states, what reorders, collapses, wraps, scrolls, or remains fixed? Does DOM and focus order still agree with the visual order?
    - **Extremes:** Do long content, empty states, overlays, sticky elements, safe areas, and small touch targets expose structural failures?
-2. **Mechanical scan:** run:
+2. **Forge-owned mechanical evidence:** inspect computed layout, overflow, stacking, container behaviour, arbitrary spacing, and applicable accessibility or frontend check results without seeing the first assessment. Use browser measurements when available and cite source locations otherwise. Mark rendered behaviour `NOT_VERIFIED` when it cannot be observed.
 
-```bash
-> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/detect.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
-```
-
-Also inspect arbitrary spacing, overflow, stacking, and container behavior the detector cannot resolve. Keep mechanical evidence out of the first assessment, then synthesize both passes before editing. A clean scan cannot prove hierarchy or rhythm.
+Synthesize both passes before editing. A clean automated check cannot prove hierarchy or rhythm.
 
 ## Set the spatial thesis
 
@@ -67,18 +69,12 @@ Variation is not a goal by itself. Repetition should support recognition; break 
 - Density matches use frequency and content complexity.
 - Long text, empty states, localization, zoom, and dynamic content do not break the structure.
 - Keyboard, touch, and assistive-technology order agree with the visual order.
-- The final mechanical scan has no unexplained findings.
+- Applicable Forge checks have no unexplained findings.
 
-Answer each item with rendered or source evidence, then rerun the scan. Do not substitute a bare “yes” for verification.
+Answer each item with rendered or source evidence, then rerun the applicable Forge checks. Do not substitute a bare “yes” for verification.
 
 When the structure holds, hand off to `$forge ui polish`.
 
-## Live-mode signature params
+## Variant parameters
 
-Every variant declares a coarse `density` parameter and authors spacing against `var(--p-density, 1)`.
-
-```json
-{"id":"density","kind":"range","min":0.6,"max":1.4,"step":0.05,"default":1,"label":"Density"}
-```
-
-Add one structural parameter only when the topology genuinely branches. Follow [live.md](live.md)'s parameter contract.
+When the user explicitly requests variants, a coarse density parameter may be useful. Keep it local to the proposed variants, use the project's existing token mechanism, and add one structural parameter only when the topology genuinely branches. Forge does not ship an Impeccable live-mode runtime.

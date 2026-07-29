@@ -134,4 +134,3 @@ async function markerExists(root, relative) {
         throw error;
     }
 }
-//# sourceMappingURL=agent-detection.js.map

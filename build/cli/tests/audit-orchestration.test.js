@@ -329,4 +329,3 @@ test("deselected checks are summarized in a single scope finding", async () => {
     assert.equal(scope[0]?.status, "NOT_VERIFIED");
     assert.equal(scope[0].evidence.length, 2);
 });
-//# sourceMappingURL=audit-orchestration.test.js.map

@@ -5,7 +5,7 @@ export function parseNodeCoverage(output) {
   for (const rawLine of output.split(/\r?\n/u)) {
     // Node writes the information glyph as UTF-8. Some Windows capture paths expose its mojibake;
     // accept both forms so the same parser gates Linux, macOS, and Windows.
-    const line = rawLine.replace(/^(?:\u2139|\u00e2\u201e\u00b9) ?/u, "");
+    const line = rawLine.replace(/^(?:(?:\u2139|\u00e2\u201e\u00b9)|#) ?/u, "");
     if (!line.includes("|")) continue;
     const columns = line.split("|");
     if (columns.length < 4) continue;
@@ -27,7 +27,7 @@ export function parseNodeCoverage(output) {
       directories[indent] = name;
       continue;
     }
-    const path = [...directories.slice(0, indent), name].join("/");
+    const path = [...directories.slice(0, indent), name].join("/").replaceAll("\\", "/");
     files.set(path, { lines, branches, functions });
   }
   if (overall === undefined) throw new Error("Node coverage output contains no overall totals.");

@@ -32,6 +32,9 @@ test("installation delivers the compiled upstream tree and the composition manif
     assert.ok(await exists(join(manifests, "upstream-registry.json")));
     assert.ok(await exists(join(manifests, "module-composition.json")));
     assert.ok(await exists(join(manifests, "upstream-transforms.json")));
+    assert.ok(
+      await exists(join(root, ".fullstack-forge", "runtime", "cli", "src", "composition-entry.js"))
+    );
 
     const registry = JSON.parse(
       await readFile(join(manifests, "upstream-registry.json"), "utf8")
@@ -62,6 +65,34 @@ test("every composition source resolves inside a freshly installed project", asy
         );
       }
     }
+  });
+});
+
+test("the installed automatic host path reaches the deterministic composition runner", async () => {
+  await withTemporaryProject("upstream-install-runtime-chain", async (root) => {
+    await install(root, "claude", { global: false, dryRun: false });
+    const orchestrator = await readFile(
+      join(root, ".fullstack-forge", "skills", "fullstack-forge", "SKILL.md"),
+      "utf8"
+    );
+    const module = await readFile(
+      join(root, ".fullstack-forge", "skills", "forge-observability", "SKILL.md"),
+      "utf8"
+    );
+    const adapter = await readFile(
+      join(root, ".claude", "skills", "forge-observability", "SKILL.md"),
+      "utf8"
+    );
+
+    assert.match(
+      orchestrator,
+      /\.fullstack-forge\/skills\/forge-<module>\/SKILL\.md/u,
+      "the automatic orchestrator must name the canonical module path"
+    );
+    assert.match(orchestrator, /composition-entry\.js/u);
+    assert.match(module, /composition-entry\.js observability compose/u);
+    assert.match(adapter, /composition-entry\.js observability compose/u);
+    assert.match(module, /load only the ordered\s+`selected` runtime paths/u);
   });
 });
 

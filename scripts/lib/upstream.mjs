@@ -3,7 +3,7 @@
 // Fullstack Forge vendors specialist expertise from a fixed set of upstream repositories. Every
 // import is pinned to an immutable commit, allowlisted path by path, screened for content that
 // could subvert Forge's contracts, and recorded with a content checksum. Nothing here reaches the
-// network: `upstream-update.mjs` and `upstream-check.mjs` are the only network callers, and both
+// network: `upstream-update.mjs`, `upstream-check.mjs`, and `upstream-diff.mjs` are the only network callers, and all
 // are maintainer-only. Ordinary development, installation, and runtime use read these records
 // offline.
 
@@ -69,6 +69,29 @@ export function validateProviderSelection(provider) {
     throw new Error(`Provider ${id} declares an unsupported license: ${provider.license}`);
   if (typeof provider.licenseEvidence !== "string" || provider.licenseEvidence.length === 0)
     throw new Error(`Provider ${id} must record where its licence grant was read from`);
+  if (provider.copyright === null) {
+    if (provider.copyrightEvidence !== null)
+      throw new Error(`Provider ${id} has no copyright claim but declares copyrightEvidence`);
+  } else {
+    if (typeof provider.copyright !== "string" || provider.copyright.length === 0)
+      throw new Error(`Provider ${id} copyright must be a non-empty string or null`);
+    if (
+      provider.copyrightEvidence === null ||
+      typeof provider.copyrightEvidence !== "object" ||
+      typeof provider.copyrightEvidence.path !== "string" ||
+      typeof provider.copyrightEvidence.text !== "string" ||
+      provider.copyrightEvidence.text !== provider.copyright
+    )
+      throw new Error(
+        `Provider ${id} copyright claims require matching copyrightEvidence path and exact text`
+      );
+    assertSafeRelativePath(
+      provider.copyrightEvidence.path,
+      `Provider ${id} copyrightEvidence path`
+    );
+  }
+  if (!Array.isArray(provider.noticeEvidence))
+    throw new Error(`Provider ${id} noticeEvidence must be an array`);
   // A grant read from a README rather than a LICENSE file is weaker evidence, so it must be
   // acknowledged explicitly. This is a gate, not a comment: an import cannot quietly rely on a
   // two-word licence declaration without someone marking that they looked at it.
@@ -93,6 +116,15 @@ export function validateProviderSelection(provider) {
   }
   if (provider.selectedPaths.length === 0)
     throw new Error(`Provider ${id} must select at least one path`);
+  if (provider.copyrightEvidence !== null && !isSelected(provider.copyrightEvidence.path, provider))
+    throw new Error(`Provider ${id} copyrightEvidence must be selected for redistribution`);
+  for (const path of provider.noticeEvidence) {
+    if (typeof path !== "string" || path.length === 0)
+      throw new Error(`Provider ${id} noticeEvidence contains a non-string entry`);
+    assertSafeRelativePath(path, `Provider ${id} noticeEvidence path`);
+    if (!isSelected(path, provider))
+      throw new Error(`Provider ${id} noticeEvidence must be selected for redistribution: ${path}`);
+  }
 }
 
 /**
@@ -156,7 +188,7 @@ export function screenFile({ path, buffer, provider, documentFileExtensions }) {
   const problems = [];
   assertSafeRelativePath(path, "vendored path");
   if (path.split("/").includes(".git")) problems.push("nested Git repository content");
-  if (buffer.length > MAX_FILE_BYTES && !provider.runtimeExecutables.includes(path))
+  if (buffer.length > MAX_FILE_BYTES)
     problems.push(`file exceeds ${MAX_FILE_BYTES} bytes (${buffer.length})`);
   const isDocument = isDocumentPath(path, documentFileExtensions);
   if (!isDocument && !provider.runtimeExecutables.includes(path))
@@ -198,6 +230,24 @@ export const DANGEROUS_INSTRUCTION_RULES = Object.freeze([
     hardDeny: false
   },
   {
+    id: "foreign-skill-install",
+    pattern:
+      /\bnpx[^\r\n|;&]{0,256}\b(?:skills?|agent-skills?)[ \t]+add\b|\b(?:npm\s+i(?:nstall)?\s+-g|yarn\s+global\s+add|pnpm\s+add\s+-g|bun\s+add\s+-g)\b/iu,
+    hardDeny: true
+  },
+  {
+    id: "foreign-skill-install",
+    pattern:
+      /\b(?:install\s+(?:this|the)\s+skill(?:\s+first)?|do\s+not\s+skip\s+(?:this|the)\s+installation)\b/iu,
+    hardDeny: true
+  },
+  {
+    id: "foreign-skill-install",
+    pattern:
+      /\b(?:cp|mv|mkdir|install|git\s+clone|tee)\b[^\n]*(?:\.claude|\.agents|\.cursor|\.gemini|\.windsurf|\.github)[\\/]skills(?:[\\/]|$)/iu,
+    hardDeny: true
+  },
+  {
     id: "credential-read",
     pattern: /\bcat\s+[~.\w/]*(?:\.env|\.npmrc|id_rsa|credentials)\b/iu,
     hardDeny: true
@@ -215,6 +265,14 @@ export const DANGEROUS_INSTRUCTION_RULES = Object.freeze([
     hardDeny: true
   }
 ]);
+
+const FOREIGN_SKILL_INSTALL_PATTERNS = DANGEROUS_INSTRUCTION_RULES.filter(
+  (rule) => rule.id === "foreign-skill-install"
+).map((rule) => rule.pattern);
+
+export function isForeignSkillInstallation(value) {
+  return FOREIGN_SKILL_INSTALL_PATTERNS.some((pattern) => pattern.test(value));
+}
 
 export function scanDangerousInstructions(path, text) {
   const findings = [];

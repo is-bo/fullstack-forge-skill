@@ -11,6 +11,8 @@ Engine: Forge native
 
 Enforce a fail-closed release gate across project checks, findings, generated assets, packages, licenses, and installation.
 
+
+
 Read `fullstack-forge/references/shared/module-contract.md` (applicability, execution, mutation,
 verification, completion) and `fullstack-forge/references/shared/evidence-rules.md` (statuses,
 standards, tools, findings via `fullstack-forge/references/PROTOCOL.md`) before reporting.

@@ -147,4 +147,3 @@ test("report mode exits 1 when the report contains a failing finding", async () 
         assert.ok(result.stdout.includes("FAIL"));
     });
 });
-//# sourceMappingURL=cli-report-mode.test.js.map

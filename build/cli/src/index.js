@@ -8,4 +8,3 @@ catch (error) {
     console.error(`Fullstack Forge: ${message}`);
     process.exitCode = 1;
 }
-//# sourceMappingURL=index.js.map

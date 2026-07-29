@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { performance } from "node:perf_hooks";
 import test from "node:test";
 import {
   contentChecksum,
   isDocumentPath,
+  isForeignSkillInstallation,
   isSelected,
   matchesPattern,
   scanDangerousInstructions,
@@ -28,8 +30,11 @@ function valid(overrides = {}) {
     upstreamTag: "v1.0.0",
     license: "MIT",
     licenseEvidence: "LICENSE",
+    copyright: null,
+    copyrightEvidence: null,
+    noticeEvidence: [],
     updatePolicy: "reviewed-only",
-    selectedPaths: ["skills/example/"],
+    selectedPaths: ["LICENSE", "skills/example/"],
     excludedPaths: [],
     runtimeExecutables: [],
     ...overrides
@@ -63,6 +68,82 @@ test("a missing or unsupported licence is rejected", () => {
   assert.throws(
     () => validateProviderSelection(valid({ licenseEvidence: "" })),
     /licence grant was read/u
+  );
+});
+
+test("copyright claims require exact vendored source evidence", () => {
+  assert.throws(
+    () =>
+      validateProviderSelection(
+        valid({
+          copyright: "Copyright Example Corp.",
+          copyrightEvidence: null
+        })
+      ),
+    /copyrightEvidence/u
+  );
+  assert.doesNotThrow(() =>
+    validateProviderSelection(
+      valid({
+        copyright: "Copyright Example Corp.",
+        copyrightEvidence: {
+          path: "LICENSE",
+          text: "Copyright Example Corp."
+        }
+      })
+    )
+  );
+  for (const provider of config.providers) {
+    if (provider.copyright === null) {
+      assert.equal(provider.copyrightEvidence, null, provider.id);
+      continue;
+    }
+    assert.equal(typeof provider.copyrightEvidence?.path, "string", provider.id);
+    assert.equal(typeof provider.copyrightEvidence?.text, "string", provider.id);
+    const evidence = readFileSync(
+      join(
+        projectRoot,
+        "third_party",
+        "agent-skills",
+        provider.id,
+        "content",
+        ...provider.copyrightEvidence.path.split("/")
+      ),
+      "utf8"
+    );
+    assert.ok(
+      evidence.includes(provider.copyrightEvidence.text),
+      `${provider.id} copyright claim is not present in ${provider.copyrightEvidence.path}`
+    );
+    assert.equal(provider.copyright, provider.copyrightEvidence.text, provider.id);
+  }
+});
+
+test("upstream NOTICE evidence is declared as safe selected paths", () => {
+  for (const provider of config.providers) {
+    assert.ok(Array.isArray(provider.noticeEvidence), `${provider.id} must declare noticeEvidence`);
+    for (const path of provider.noticeEvidence) {
+      assert.ok(
+        isSelected(path, provider),
+        `${provider.id} NOTICE is not in selected paths: ${path}`
+      );
+      assert.doesNotThrow(() =>
+        readFileSync(
+          join(
+            projectRoot,
+            "third_party",
+            "agent-skills",
+            provider.id,
+            "content",
+            ...path.split("/")
+          )
+        )
+      );
+    }
+  }
+  assert.deepEqual(
+    config.providers.find((provider) => provider.id === "impeccable")?.noticeEvidence,
+    ["NOTICE.md"]
   );
 });
 
@@ -155,6 +236,17 @@ test("an oversized file is rejected", () => {
     path: "skills/example/SKILL.md",
     buffer: Buffer.alloc(600 * 1024, 0x61),
     provider: valid(),
+    documentFileExtensions
+  });
+  assert.ok(problems.some((problem) => problem.includes("exceeds")));
+});
+
+test("an oversized declared runtime executable is still rejected", () => {
+  const path = "skills/example/run.mjs";
+  const problems = screenFile({
+    path,
+    buffer: Buffer.alloc(600 * 1024, 0x61),
+    provider: valid({ runtimeExecutables: [path] }),
     documentFileExtensions
   });
   assert.ok(problems.some((problem) => problem.includes("exceeds")));
@@ -270,6 +362,20 @@ test("dangerous-instruction rules detect the categories they claim to", () => {
   assert.deepEqual(scanDangerousInstructions("a.md", "Write a clear component test."), []);
 });
 
+test("foreign installer detection stays bounded on adversarial option-like input", () => {
+  assert.equal(
+    isForeignSkillInstallation("npx --yes --package=skills skills add vendor/product"),
+    true
+  );
+  const adversarial = `npx ${"-- -".repeat(30)}not-an-installer`;
+  const startedAt = performance.now();
+  assert.equal(isForeignSkillInstallation(adversarial), false);
+  assert.ok(
+    performance.now() - startedAt < 250,
+    "foreign installer detection must not backtrack exponentially"
+  );
+});
+
 test("every hard-deny instruction in vendored content is explicitly reviewed", () => {
   const review = JSON.parse(
     readFileSync(join(projectRoot, "config", "upstream-instruction-review.json"), "utf8")
@@ -301,7 +407,9 @@ test("licence evidence read from a README is flagged for explicit review", () =>
     // The declaration alone is not the notice the licence requires; the canonical permission text
     // must travel with the redistributed content.
     assert.ok(licence.includes("PERMISSION NOTICE (supplied by Fullstack Forge)"));
-    assert.ok(licence.includes(provider.copyright));
+    if (provider.copyright === null)
+      assert.ok(licence.includes("No explicit upstream copyright notice was published"));
+    else assert.ok(licence.includes(provider.copyright));
   }
 });
 

@@ -3,6 +3,8 @@ import { redactToString } from "./redaction.js";
 import { runFile } from "./utils.js";
 
 export const UPSTREAM_GIT_URL = "https://github.com/is-bo/fullstack-forge-skill.git";
+const RELEASE_ARCHIVE_ROOT =
+  "https://codeload.github.com/is-bo/fullstack-forge-skill/tar.gz/refs/tags";
 
 type Version = {
   text: string;
@@ -33,6 +35,13 @@ export function parseReleaseTags(output: string): string[] {
     if (parsed !== undefined) versions.set(parsed.text, parsed);
   }
   return [...versions.values()].sort(compareVersions).map((version) => version.text);
+}
+
+/** Returns the public, immutable source archive for a stable released version. */
+export function publicReleaseArchive(version: string): string {
+  if (!/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(version))
+    throw new Error(`Release archive version must be stable semantic version: ${version}`);
+  return `${RELEASE_ARCHIVE_ROOT}/v${encodeURIComponent(version)}`;
 }
 
 export async function checkUpdateAvailability(

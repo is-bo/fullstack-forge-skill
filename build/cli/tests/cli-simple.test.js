@@ -21,6 +21,41 @@ test("no-argument and help output are simple-first while advanced help remains a
     assert.match(advanced.stdout, /accept-risk/u);
     assert.match(advanced.stdout, /forge <section> <audit\|fix\|verify\|report>/u);
 });
+test("bare update and uninstall stay scoped to hosts recorded by the installation", async () => {
+    await withTemporaryProject("bare-host-scope", async (root) => {
+        const initialized = await runFile(process.execPath, [cli, "init", "claude", "--root", root], root);
+        assert.equal(initialized.exitCode, 0, initialized.stderr);
+        const updated = await runFile(process.execPath, [cli, "update", "--root", root, "--json"], root);
+        assert.equal(updated.exitCode, 0, updated.stderr);
+        const updateResult = JSON.parse(updated.stdout);
+        assert.equal(updateResult.selector, "claude");
+        assert.ok(updateResult.actions.every((action) => action.path === "CLAUDE.md" ||
+            action.path.startsWith(".claude/") ||
+            action.path.startsWith(".fullstack-forge/")));
+        const removed = await runFile(process.execPath, [cli, "uninstall", "--root", root, "--json"], root);
+        assert.equal(removed.exitCode, 0, removed.stderr);
+        assert.equal(JSON.parse(removed.stdout).selector, "claude");
+        await assert.rejects(readFile(join(root, ".agents", "skills", "forge-api", "SKILL.md")));
+    });
+});
+test("bare update infers the installed host from a v0.1.0 schema-1 manifest", async () => {
+    await withTemporaryProject("schema-one-host-scope", async (root) => {
+        const initialized = await runFile(process.execPath, [cli, "init", "claude", "--root", root], root);
+        assert.equal(initialized.exitCode, 0, initialized.stderr);
+        const manifestPath = join(root, ".fullstack-forge", "install-manifest.json");
+        const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+        manifest.schemaVersion = 1;
+        for (const record of Object.values(manifest.files)) {
+            delete record.kind;
+            delete record.platforms;
+        }
+        await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+        const updated = await runFile(process.execPath, [cli, "update", "--root", root, "--json"], root);
+        assert.equal(updated.exitCode, 0, updated.stderr);
+        assert.equal(JSON.parse(updated.stdout).selector, "claude");
+        await assert.rejects(readFile(join(root, ".agents", "skills", "forge", "SKILL.md")));
+    });
+});
 test("no-argument menu is read-only and makes one next choice explicit", async () => {
     await withTemporaryProject("simple-menu-read-only", async (root) => {
         const before = await readdir(root);
@@ -110,7 +145,7 @@ test("simple audit, verify, ship, and status use concise output while JSON stays
         const json = await runFile(process.execPath, [cli, "audit", "security", "--json", "--root", root], root);
         assert.equal(json.exitCode, 0, json.stderr);
         const parsed = JSON.parse(json.stdout);
-        assert.equal(parsed.report.schema_version, 2);
+        assert.equal(parsed.report.schema_version, 3);
         assert.equal(parsed.report.scope, "security");
         const verify = await runFile(process.execPath, [cli, "verify", "--root", root], root);
         assert.match(verify.stdout, /Verify finished/u);
@@ -188,6 +223,10 @@ test("install success and doctor distinguish incomplete, ready, and modified sta
         assert.match(ready.stdout, /\[WARNING\] update availability/u);
         assert.match(ready.stdout, /\[PASS\] bundled generated copies/u);
         assert.match(ready.stdout, /installed skill integrity: 46 skills/iu);
+        const defaultOffline = await runFile(process.execPath, [cli, "doctor", "--root", root], root);
+        assert.equal(defaultOffline.exitCode, 0, defaultOffline.stderr);
+        assert.match(defaultOffline.stdout, /not checked by default/u);
+        assert.match(defaultOffline.stdout, /forge doctor --check-updates/u);
         const forgeSkill = join(root, ".agents", "skills", "forge", "SKILL.md");
         await writeFile(forgeSkill, `${await readFile(forgeSkill, "utf8")}\nmodified\n`, "utf8");
         const modified = await runFile(process.execPath, [cli, "doctor", "--offline", "--root", root], root);
@@ -240,4 +279,3 @@ test("the quickstart demo completes audit, preview, safe fix, and verification",
         assert.match(shipped.stdout, /resolve the named gates/iu);
     });
 });
-//# sourceMappingURL=cli-simple.test.js.map

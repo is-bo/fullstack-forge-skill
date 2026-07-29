@@ -200,4 +200,3 @@ test("repository confidence is derived from Git inspection, not an excluded path
         assert.ok(after.profile.repository.evidence.some((item) => item.includes("rev-parse")));
     });
 });
-//# sourceMappingURL=semantics.test.js.map

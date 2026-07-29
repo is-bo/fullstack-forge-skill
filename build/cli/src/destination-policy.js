@@ -176,4 +176,3 @@ function parseIpv6(host) {
 function verdict(safe, classification, reason, dnsDependent) {
     return { safe, classification, reason, dns_dependent: dnsDependent };
 }
-//# sourceMappingURL=destination-policy.js.map

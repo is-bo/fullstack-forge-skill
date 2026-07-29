@@ -6,8 +6,10 @@
   "upstreamTag": null,
   "license": "Apache-2.0",
   "licenseEvidence": "LICENSE",
-  "copyright": "Copyright Cloudflare, Inc.",
-  "importedAt": "2026-07-27T17:03:46.577Z",
+  "copyright": null,
+  "copyrightEvidence": null,
+  "noticeEvidence": [],
+  "importedAt": "2026-07-28T16:20:39.727Z",
   "selectedPaths": [
     "LICENSE",
     "commands/build-agent.md",
@@ -15,13 +17,12 @@
     "skills/agents-sdk/",
     "skills/cloudflare/",
     "skills/durable-objects/",
-    "skills/sandbox-sdk/",
     "skills/web-perf/",
     "skills/wrangler/"
   ],
   "excludedPaths": [],
-  "contentChecksum": "f14e1e97699868ab89bc95f77c34f307fdb8a6e4d7b7a4d16007f7430b1aca38",
-  "fileCount": 352,
+  "contentChecksum": "3f21a2a8efe98f1f1229540588578823170f7d0c52afee4c75935e1422c49abb",
+  "fileCount": 349,
   "localPatches": [],
   "runtimeExecutables": [],
   "updatePolicy": "reviewed-only"

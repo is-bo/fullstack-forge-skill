@@ -260,4 +260,3 @@ test("normalizes scoped command aliases without widening modes", () => {
     assert.equal(normalizeFrontendWorkflow("ux", "improve"), "fix");
     assert.throws(() => normalizeFrontendWorkflow("frontend", "deploy"), /Unknown frontend workflow/u);
 });
-//# sourceMappingURL=frontend-routing.test.js.map

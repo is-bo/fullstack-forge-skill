@@ -52,6 +52,19 @@ test("secret scanner redacts the fixture credential value", async () => {
     assert.ok(serialized.includes("value redacted") || serialized.includes("value is intentionally redacted"));
     assert.ok(!serialized.includes("fixture_token_1234567890"));
 });
+test("secret scanner ignores low-confidence assignments in vendored guidance but keeps high-signal detection", async () => {
+    await withTemporaryProject("secret-vendored-guidance", async (root) => {
+        const references = join(root, "third_party", "provider", "references");
+        await mkdir(references, { recursive: true });
+        await writeFile(join(references, "configuration.md"), 'client_secret = "documented-test-runtime-variable-value"\n', "utf8");
+        await writeFile(join(references, "leaked-key.md"), "AKIATESTTESTTESTTEST\n", "utf8");
+        const result = await inspectWithTool("scan-secret-patterns", root);
+        assert.equal(result.findings.length, 1);
+        assert.match(result.findings[0]?.evidence.join(" ") ?? "", /leaked-key\.md/u);
+        assert.ok(result.findings.every((finding) => finding.location.every((location) => !location.path.endsWith("configuration.md"))));
+        assert.ok(result.observations.every((observation) => !observation.path.endsWith("configuration.md")));
+    });
+});
 test("frontend discovery does not imply a public indexable website", async () => {
     await withTemporaryProject("profile-frontend-visibility", async (root) => {
         await writeFile(join(root, "package.json"), `${JSON.stringify({ name: "private-dashboard", dependencies: { react: "0.0.0-fixture" } })}\n`, "utf8");
@@ -59,6 +72,25 @@ test("frontend discovery does not imply a public indexable website", async () =>
         const profile = await discoverProject(root);
         assert.ok(profile.applications.some((application) => application.type === "frontend"));
         assert.equal(profile.capabilities["public-web"], undefined);
+    });
+});
+test("discovery records provider identities instead of relying on evidence-path substrings", async () => {
+    await withTemporaryProject("profile-provider-identities", async (root) => {
+        await writeFile(join(root, "package.json"), `${JSON.stringify({
+            name: "provider-app",
+            dependencies: {
+                next: "0.0.0-fixture",
+                "@sentry/nextjs": "0.0.0-fixture",
+                stripe: "0.0.0-fixture",
+                "@supabase/supabase-js": "0.0.0-fixture",
+                openai: "0.0.0-fixture"
+            }
+        }, null, 2)}\n`, "utf8");
+        const profile = await discoverProject(root);
+        assert.ok(profile.observability.some((record) => record.name === "Sentry"));
+        assert.ok(profile.payment_providers.some((record) => record.name === "Stripe"));
+        assert.ok(profile.integrations.some((record) => record.name === "Supabase"));
+        assert.ok(profile.ai_providers.some((record) => record.name === "OpenAI"));
     });
 });
 test("project profile schema v2 records applications, routes, boundaries, and old-profile regeneration", async () => {
@@ -99,4 +131,3 @@ const tenantId = session.tenantId;
         assert.ok(regenerated.repository.evidence.some((item) => item.includes("preserved original")));
     });
 });
-//# sourceMappingURL=discovery.test.js.map

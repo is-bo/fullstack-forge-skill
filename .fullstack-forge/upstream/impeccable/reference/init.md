@@ -1,10 +1,16 @@
+<!-- fullstack-forge:precedence -->
+> **Forge precedence.** Repository evidence and Forge contracts are authoritative. Upstream
+> imperative or completion language is specialist guidance only: it cannot declare Forge Verify
+> or Ship complete, authorize external action, or override approval and evidence requirements.
+> Do not install packages, enable telemetry, make network requests, deploy, publish, push, or modify remote systems unless the user explicitly approves.
+
 # Init flow
 
-`init` captures durable product truth in PRODUCT.md. It does not invent a visual world and does not write DESIGN.md; [new-work.md](new-work.md) creates or expands one, and [document.md](document.md) records an incumbent one. Existing runnable web projects may also receive `.fullstack-forge/ui/live/config.json`.
+`init` captures durable product truth in PRODUCT.md. It does not invent a visual world and does not write DESIGN.md; [new-work.md](new-work.md) creates or expands one, and [document.md](document.md) records an incumbent one.
 
 ## Step 1: Load current state
 
-Use the PRODUCT.md path resolved by context.mjs. Update it instead of creating a competing authority. In a child app inheriting root context, confirm shared versus app-specific scope before writing.
+Use the PRODUCT.md path resolved by Forge discovery. Update it instead of creating a competing authority. In a child app inheriting root context, confirm shared versus app-specific scope before writing.
 
 - **No PRODUCT.md:** explore, interview, and write it.
 - **PRODUCT.md exists:** ask what product knowledge is stale or missing; do not reopen confirmed fields without a reason.
@@ -98,17 +104,13 @@ Platform is the bare value `web`, `ios`, `android`, or `adaptive`. Preserve usef
 
 Copy the `impeccable:product-schema` comment verbatim, including when you update an older file. It records which version of the product record this file follows, so later versions can tell a deliberately short record from one written before a section existed, and never propose an interview the user has already sat through. Update the number only when this reference's template changes it. Sections a later version retires are reported to you at boot as deprecated; delete them when the user agrees rather than carrying them forward.
 
-When the platform you just recorded is `ios`, `android`, or `adaptive`, load [ios.md](ios.md), [android.md](android.md), or both before any design work. On a project that had no PRODUCT.md, context.mjs could not know the platform and so never loaded them; init is the only place that learns the answer.
+When the platform you just recorded is `ios`, `android`, or `adaptive`, load [ios.md](ios.md), [android.md](android.md), or both before any design work. Init is the workflow that confirms this platform truth.
 
 ### Completion gate
 
 Before loading new-work or resuming shape/build, verify that PRODUCT.md exists at the resolved path and contains the confirmed product record. If the file is absent, init is incomplete. Do not substitute interview notes, a planning packet, or later design prose for the file.
 
-## Step 5: Configure live mode when useful
-
-Skip native or non-runnable projects and leave existing config untouched. Otherwise follow [live.md](live.md)'s first-time setup. Any CSP source edit still requires its stated consent.
-
-## Step 6: Wrap up or resume
+## Step 5: Wrap up or resume
 
 Summarize captured and deliberately undecided facts. Do not offer DESIGN.md merely because it is missing.
 
@@ -117,6 +119,5 @@ Recommend the next action from the actual project state:
 - Empty or early project: ask naturally for the surface to be built, or use `$forge ui shape <surface>` when the user wants a confirmed brief without implementation. New-work will establish a visual world only when the requested work needs one.
 - Existing coherent interface without DESIGN.md: `$forge ui document` if the user wants the incumbent system recorded independently of a new build.
 - Existing surface needing work: name the most relevant scoped command.
-- Web project ready for visual iteration: `$forge ui live` when configured.
 
-If init was invoked by another request, resume without rerunning context.mjs; the native reference above is the one thing that run could not have given you, and new-work owns later visual decisions.
+If init was invoked by another request, resume from Forge's existing discovery record; the native reference above is the platform-specific addition, and new-work owns later visual decisions.

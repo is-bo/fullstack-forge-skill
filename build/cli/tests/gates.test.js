@@ -270,4 +270,3 @@ function gateById(gates, id) {
     assert.ok(gate, `expected ${id}`);
     return gate;
 }
-//# sourceMappingURL=gates.test.js.map

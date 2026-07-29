@@ -587,4 +587,3 @@ test("a raw magic-byte comparison counts as decoded-content validation", async (
     });
     assert.deepEqual(withId(findings, MIME), []);
 });
-//# sourceMappingURL=uploads.test.js.map

@@ -13,5 +13,5 @@ const [notes, verification] = await Promise.all([
 ]);
 validateTaggedReleaseDocuments({ tag, notes, verification });
 console.log(
-  `Validated honest tagged release documents for ${tag}; remote publication remains PENDING.`
+  `Validated honest candidate release documents for ${tag}; remote publication remains PENDING.`
 );

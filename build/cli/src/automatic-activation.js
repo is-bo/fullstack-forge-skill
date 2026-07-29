@@ -69,4 +69,3 @@ export function removeManagedSection(current) {
     const without = current.replace(existing, "").replace(/^\s+|\s+$/gu, "");
     return without.length === 0 ? "" : `${without}\n`;
 }
-//# sourceMappingURL=automatic-activation.js.map

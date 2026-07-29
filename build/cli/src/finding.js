@@ -305,4 +305,3 @@ function isVerificationAction(value) {
         return typeof value.procedure === "string";
     return false;
 }
-//# sourceMappingURL=finding.js.map

@@ -27,6 +27,16 @@ import {
   discoverProjectWithInventory,
   writeProjectArtifacts
 } from "./discovery.js";
+import {
+  compositionEvidenceFor,
+  resolveRuntimeComposition,
+  writeCompositionArtifact
+} from "./composition-runtime.js";
+import {
+  COMPOSITION_TASK_FLAGS,
+  type CompositionResult,
+  type CompositionTaskFlag
+} from "./composition.js";
 import { inspectRenderedUi } from "./rendered-ui.js";
 import { writeReportOutput } from "./report-output.js";
 import { executeFixes } from "./fixes.js";
@@ -73,7 +83,7 @@ import {
   workingTreeRevision
 } from "./utils.js";
 import { verifyFindings } from "./verification.js";
-import { checkUpdateAvailability } from "./update-check.js";
+import { checkUpdateAvailability, publicReleaseArchive } from "./update-check.js";
 import {
   normalizeFrontendWorkflow,
   routeFrontendRequest,
@@ -216,6 +226,8 @@ export async function runCli(argv: string[]): Promise<number> {
         recommendations !== undefined && recommendations.length > 0
           ? [...new Set(recommendations.map((item) => item.selector))].join(",")
           : "agents";
+    if (command === "update" && positionals[0] === undefined && options.platform === undefined)
+      selector = await installedPlatformSelector(options);
     const actions = await install(options.cwd, selector, {
       global: options.global,
       dryRun: options.dryRun
@@ -244,7 +256,10 @@ export async function runCli(argv: string[]): Promise<number> {
     return 0;
   }
   if (command === "uninstall") {
-    const selector = selectPlatform(positionals[0], options.platform);
+    const selector =
+      positionals[0] === undefined && options.platform === undefined
+        ? await installedPlatformSelector(options)
+        : selectPlatform(positionals[0], options.platform);
     const actions = await uninstall(options.cwd, selector, {
       global: options.global,
       dryRun: options.dryRun
@@ -281,6 +296,7 @@ export async function runCli(argv: string[]): Promise<number> {
     );
   if (command === "ship") return ship(options);
   const requestedMode = positionals[0] ?? "audit";
+  if (requestedMode === "compose") return composeModule(command, options);
   if (["frontend", "ui", "ux"].includes(command) && requestedMode !== "report") {
     const area = command as FrontendArea;
     const mode = normalizeFrontendWorkflow(area, requestedMode);
@@ -313,6 +329,41 @@ export async function runCli(argv: string[]): Promise<number> {
   if (!MODES.has(mode))
     throw new Error(`Unknown mode '${mode}'. Expected audit, fix, verify, or report.`);
   return runModule(command, mode, options);
+}
+
+async function composeModule(section: ModuleSlug, options: CliOptions): Promise<number> {
+  const root = await canonicalDirectory(options.cwd);
+  const profile = await discoverProject(root, inventoryOptions(options));
+  const compositions = await resolveRuntimeComposition(
+    root,
+    [section],
+    compositionEvidenceFor(profile, {
+      requested: options.requestedSources,
+      taskFlags: options.compositionConditions as CompositionTaskFlag[] | undefined,
+      riskSurfaces: options.compositionRiskSurfaces
+    })
+  );
+  const compositionArtifact = options.dryRun
+    ? undefined
+    : await writeCompositionArtifact(root, compositions);
+  const response = {
+    compositions,
+    ...(compositionArtifact === undefined ? {} : { composition_artifact: compositionArtifact }),
+    dry_run: options.dryRun
+  };
+  printValue(
+    options.json
+      ? response
+      : [
+          `Resolved ${section} composition with ${compositions[0]?.selected.length ?? 0} ordered source(s).`,
+          ...(compositionArtifact === undefined
+            ? ["Dry run: no composition artifact was written."]
+            : [`Composition artifact: ${compositionArtifact}`]),
+          ...(compositions[0]?.missing ?? []).map((path) => `Missing required content: ${path}`)
+        ].join("\n"),
+    options.json
+  );
+  return compositions.some((composition) => composition.missing.length > 0) ? 2 : 0;
 }
 
 async function runModule(
@@ -391,6 +442,18 @@ async function runModule(
   let selected = decisions
     .filter((decision) => decision.selection_status === "SELECTED")
     .map((decision) => decision.module as ModuleSlug);
+  const compositions = await resolveRuntimeComposition(
+    root,
+    selected,
+    compositionEvidenceFor(profile, {
+      requested: options.requestedSources,
+      taskFlags: options.compositionConditions as CompositionTaskFlag[] | undefined,
+      riskSurfaces: options.compositionRiskSurfaces
+    })
+  );
+  const compositionArtifact = options.dryRun
+    ? undefined
+    : await writeCompositionArtifact(root, compositions);
   if (!options.dryRun) await writeProjectArtifacts(profile);
 
   // Orchestration decides what this audit is authorized to do before any of it happens, so the
@@ -459,6 +522,7 @@ async function runModule(
     );
   }
   findings.push(...ledger.findings());
+  findings.push(...compositions.flatMap(compositionMissingFindings));
   const inventoryLimitation = inventoryLimitationFinding(profile, section);
   if (inventoryLimitation !== undefined) findings.push(inventoryLimitation);
   const report = createReport(
@@ -479,7 +543,7 @@ async function runModule(
     results.flatMap((result) => result.analyzer_coverage),
     revision,
     reportEnvironment(options),
-    { module_decisions: decisions, ...ledger.ledgers() }
+    { module_decisions: decisions, compositions, ...ledger.ledgers() }
   );
   const paths = options.dryRun ? [] : await writeReport(report);
   printValue(
@@ -491,6 +555,7 @@ async function runModule(
           planned_checks: orchestration.planned,
           check_outcomes: orchestration.outcomes,
           runtime_evidence: orchestration.runtime_evidence,
+          composition_artifact: compositionArtifact,
           evidence_complete:
             orchestration.evidence_complete && profile.inventory?.status !== "PARTIAL",
           dry_run: options.dryRun
@@ -503,7 +568,11 @@ async function runModule(
   // A proven defect outranks missing evidence, so FAIL keeps exit 1. Requested evidence that could
   // not be collected exits 2: nothing failed, but the run did not prove what it was asked to prove.
   if (report.findings.some((finding) => finding.status === "FAIL")) return 1;
-  return orchestration.evidence_complete && profile.inventory?.status !== "PARTIAL" ? 0 : 2;
+  return orchestration.evidence_complete &&
+    profile.inventory?.status !== "PARTIAL" &&
+    compositions.every((composition) => composition.missing.length === 0)
+    ? 0
+    : 2;
 }
 
 /**
@@ -790,7 +859,14 @@ async function doctor(options: CliOptions): Promise<number> {
       recovery: "Install Git and make it available on PATH."
     });
   }
-  const update = await checkUpdateAvailability(root, options.offline);
+  const update = options.checkUpdates
+    ? await checkUpdateAvailability(root, options.offline)
+    : {
+        status: "WARNING" as const,
+        evidence:
+          "not checked by default; use --check-updates to permit the remote release-tag lookup",
+        unavailable: true
+      };
   checks.push({
     name: "update availability",
     status: update.status,
@@ -799,21 +875,24 @@ async function doctor(options: CliOptions): Promise<number> {
       ? {}
       : update.latestVersion === undefined
         ? {
-            recovery: options.offline
-              ? "Run 'forge doctor' without --offline when network access is permitted."
-              : "Check network access, then rerun 'forge doctor'."
+            recovery: !options.checkUpdates
+              ? "Run 'forge doctor --check-updates' when network access is permitted."
+              : options.offline
+                ? "Remove --offline and rerun 'forge doctor --check-updates' when network access is permitted."
+                : "Check network access, then rerun 'forge doctor --check-updates'."
           }
         : {
             recovery: options.global
-              ? `Run 'npm install --global git+https://github.com/is-bo/fullstack-forge-skill.git#v${update.latestVersion}', then 'forge update all --global'.`
-              : `Run 'npm install --save-dev git+https://github.com/is-bo/fullstack-forge-skill.git#v${update.latestVersion}', then 'npx forge update all'.`
+              ? `Run 'npm install --global ${publicReleaseArchive(update.latestVersion)}', then 'forge update all --global'.`
+              : `Run 'npm install --save-dev ${publicReleaseArchive(update.latestVersion)}', then 'npx forge update all'.`
           })
   });
   for (const path of [
     "src/fullstack-forge/SKILL.md",
     "config/modules.json",
     ".agents/skills/fullstack-forge/SKILL.md",
-    ".agents/skills/forge/SKILL.md"
+    ".agents/skills/forge/SKILL.md",
+    ".fullstack-forge/runtime/cli/src/composition-entry.js"
   ]) {
     try {
       await access(join(PACKAGE_ROOT, ...path.split("/")));
@@ -1203,6 +1282,32 @@ function coverageFinding(section: ModuleSlug, observations: number, detail: stri
   };
 }
 
+function compositionMissingFindings(composition: CompositionResult): Finding[] {
+  if (composition.missing.length === 0) return [];
+  const section = composition.module as ModuleSlug;
+  return [
+    {
+      id: `FF-${section.toUpperCase()}-901`,
+      section,
+      title: `${section} specialist context is missing from the installation`,
+      severity: "HIGH",
+      confidence: "HIGH",
+      status: "NOT_VERIFIED",
+      location: composition.missing.map((path) => ({ path })),
+      evidence: composition.missing.map((path) => `Declared runtime path is unavailable: ${path}`),
+      impact:
+        "Forge cannot supply the declared module contract or specialist procedure, so this run cannot claim complete module coverage.",
+      recommendation:
+        "Run 'forge doctor --offline', repair or reinstall the managed Fullstack Forge tree, and repeat the audit.",
+      safe_fix: false,
+      verification: [
+        "Run 'forge doctor --offline' and confirm every managed path is present and hash-valid."
+      ],
+      standards: ["Fullstack Forge composition contract"]
+    }
+  ];
+}
+
 /**
  * Turns an unselected module decision into a finding.
  *
@@ -1290,6 +1395,33 @@ function adapterCoverageFinding(
   };
 }
 
+async function installedPlatformSelector(options: CliOptions): Promise<string> {
+  const root = options.global ? homedir() : options.cwd;
+  const manifest = await readInstallManifest(root);
+  if (manifest === undefined)
+    throw new Error(
+      "No Fullstack Forge installation manifest was found. Name a platform explicitly instead of using a bare update or uninstall."
+    );
+  const installed = new Set<string>();
+  for (const record of Object.values(manifest.files)) {
+    if (record.kind === "adapter" || record.kind === "instructions") installed.add(record.platform);
+  }
+  if (installed.size === 0)
+    for (const record of Object.values(manifest.files))
+      if (record.kind === "canonical")
+        for (const platform of record.platforms ?? [record.platform]) installed.add(platform);
+  // v0.1.0 used schema 1 and had no `kind` field. Those records are all previous-layout host
+  // files, so their platform is direct evidence of an installed host during the one-way upgrade.
+  if (installed.size === 0 && manifest.schemaVersion === 1)
+    for (const record of Object.values(manifest.files))
+      if (record.kind === undefined) installed.add(record.platform);
+  if (installed.size === 0)
+    throw new Error(
+      "The installation manifest names no installed host. Run 'forge doctor' and provide an explicit platform for repair."
+    );
+  return [...installed].sort().join(",");
+}
+
 function parseArguments(argv: string[]): { positionals: string[]; options: CliOptions } {
   const options: CliOptions = {
     cwd: process.cwd(),
@@ -1299,6 +1431,7 @@ function parseArguments(argv: string[]): { positionals: string[]; options: CliOp
     dryRun: false,
     global: false,
     offline: false,
+    checkUpdates: false,
     allowRun: false,
     safe: false
   };
@@ -1318,13 +1451,23 @@ function parseArguments(argv: string[]): { positionals: string[]; options: CliOp
   };
   // Repeatable flags accumulate instead of overwriting, so `--check lint --check test` selects both
   // rather than silently discarding the first value.
-  const listFlags: Record<string, "checks" | "skipChecks" | "excludes"> = {
+  type ListFlag =
+    | "checks"
+    | "skipChecks"
+    | "excludes"
+    | "requestedSources"
+    | "compositionConditions"
+    | "compositionRiskSurfaces";
+  const listFlags: Record<string, ListFlag> = {
     "--check": "checks",
     "--skip-check": "skipChecks",
-    "--exclude": "excludes"
+    "--exclude": "excludes",
+    "--request": "requestedSources",
+    "--condition": "compositionConditions",
+    "--risk-surface": "compositionRiskSurfaces"
   };
   const appendList = (flag: string, value: string): void => {
-    const key = listFlags[flag] as "checks" | "skipChecks" | "excludes";
+    const key = listFlags[flag] as ListFlag;
     options[key] = [...(options[key] ?? []), value];
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -1337,6 +1480,7 @@ function parseArguments(argv: string[]): { positionals: string[]; options: CliOp
     } else if (arg === "--dry-run") options.dryRun = true;
     else if (arg === "--global") options.global = true;
     else if (arg === "--offline") options.offline = true;
+    else if (arg === "--check-updates") options.checkUpdates = true;
     else if (arg === "--allow-run") options.allowRun = true;
     else if (arg === "--safe") options.safe = true;
     else if (arg.startsWith("--") && arg.includes("=")) {
@@ -1374,6 +1518,26 @@ function parseArguments(argv: string[]): { positionals: string[]; options: CliOp
   }
   options.cwd = resolve(options.cwd);
   if (options.excludes !== undefined) options.excludes = [...new Set(options.excludes)];
+  if (options.requestedSources !== undefined)
+    options.requestedSources = [...new Set(options.requestedSources)];
+  if (options.compositionConditions !== undefined) {
+    options.compositionConditions = [...new Set(options.compositionConditions)];
+    const allowed = new Set<string>(COMPOSITION_TASK_FLAGS);
+    const unknown = options.compositionConditions.find((value) => !allowed.has(value));
+    if (unknown !== undefined)
+      throw new Error(
+        `Unknown composition condition '${unknown}'. Expected one of: ${COMPOSITION_TASK_FLAGS.join(", ")}.`
+      );
+  }
+  if (options.compositionRiskSurfaces !== undefined) {
+    options.compositionRiskSurfaces = [
+      ...new Set(options.compositionRiskSurfaces.map((value) => value.trim().toLowerCase()))
+    ];
+    const invalid = options.compositionRiskSurfaces.find(
+      (value) => !/^[a-z][a-z0-9-]*$/u.test(value)
+    );
+    if (invalid !== undefined) throw new Error(`Invalid composition risk surface '${invalid}'.`);
+  }
   if (options.scope !== undefined && !["full", "changed", "applicable"].includes(options.scope))
     throw new Error(`Unknown scope '${options.scope}'. Expected full, changed, or applicable.`);
   if (options.risk !== undefined && options.risk !== "high")
@@ -1453,6 +1617,7 @@ Options:
   --json          Emit machine-readable JSON
   --offline       Refuse non-loopback destinations, remote driver resolution, and any other
                   network-dependent step; such checks report BLOCKED or NOT_VERIFIED
+  --check-updates Permit 'forge doctor' to query remote release tags; omitted by default
   --allow-run     Explicitly authorize inspected local project scripts
   --safe          Authorize execution of bounded safe fixes; without it 'fix' only plans
   --check <name>       Run only the named planned check (repeatable)

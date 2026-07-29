@@ -779,10 +779,28 @@ async function buildStructuredProfile(
         evidence: [path]
       })
     );
-  const observability = capabilityRecords(capabilities, [["observability", "observability"]]);
-  const integrations = capabilityRecords(capabilities, [["integrations", "external-integration"]]);
-  const aiProviders = capabilityRecords(capabilities, [["ai", "ai-provider"]]);
-  const paymentProviders = capabilityRecords(capabilities, [["payments", "payment-provider"]]);
+  const observability = contentRecords(root, files, contentByFile, [
+    ["Sentry", "observability-provider", /@sentry\/|\bsentry[-_]sdk\b/iu],
+    ["OpenTelemetry", "observability-provider", /@opentelemetry\/|\bopentelemetry\b/iu],
+    ["Datadog", "observability-provider", /\b(?:datadog|dd-trace)\b/iu],
+    ["New Relic", "observability-provider", /\b(?:newrelic|new-relic)\b/iu],
+    ["Prometheus", "observability-provider", /\bprometheus\b/iu]
+  ]);
+  const integrations = contentRecords(root, files, contentByFile, [
+    ["Supabase", "external-integration", /@supabase\/|\bsupabase\b/iu],
+    ["Firebase", "external-integration", /\b(?:firebase-admin|firebase\/app|firebase)\b/iu]
+  ]);
+  const aiProviders = contentRecords(root, files, contentByFile, [
+    ["OpenAI", "ai-provider", /@openai\/|\bopenai\b/iu],
+    ["Anthropic", "ai-provider", /@anthropic-ai\/sdk|\banthropic\b/iu],
+    ["Gemini", "ai-provider", /@google\/generative-ai|\bgemini\b/iu],
+    ["Google AI", "ai-provider", /\b(?:vertexai|vertex-ai|google-genai)\b/iu]
+  ]);
+  const paymentProviders = contentRecords(root, files, contentByFile, [
+    ["Stripe", "payment-provider", /@stripe\/|\bstripe\b/iu],
+    ["PayPal", "payment-provider", /@paypal\/|\b(?:paypal-server-sdk|paypal)\b/iu],
+    ["Braintree", "payment-provider", /\bbraintree\b/iu]
+  ]);
   const hosting = contentRecords(
     root,
     files,
@@ -790,6 +808,10 @@ async function buildStructuredProfile(
     [
       ["Vercel", "hosting", /(?:^|\/)vercel\.json$|\bvercel\b/iu],
       ["Cloudflare", "hosting", /wrangler\.(?:jsonc?|toml)|cloudflare/iu],
+      ["Google Cloud", "hosting", /\b(?:google cloud|google_cloud|gcp)\b/iu],
+      ["GKE", "hosting", /\b(?:google_container_cluster|gke)\b/iu],
+      ["Kubernetes", "hosting", /\b(?:apiVersion:\s*(?:apps\/v1|v1)|kubernetes)\b/iu],
+      ["Supabase", "hosting", /@supabase\/|\bsupabase\b/iu],
       ["Netlify", "hosting", /netlify\.toml|\bnetlify\b/iu],
       ["Container", "hosting", /(?:^|\/)Dockerfile$|\bcontainer\b/iu]
     ],

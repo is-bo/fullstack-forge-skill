@@ -42,15 +42,20 @@ const readme = await readFile(join(projectRoot, "README.md"), "utf8");
 for (const required of [
   `https://img.shields.io/github/v/release/${repository}`,
   `https://github.com/${repository}/actions/workflows/ci.yml/badge.svg`,
-  `https://github.com/${repository}/releases`,
-  `npm install --save-dev "git+https://github.com/${repository}.git#v${packageJson.version}"`
+  `https://github.com/${repository}/releases`
 ]) {
   if (!readme.includes(required))
     errors.push(`README.md is missing canonical identity: ${required}`);
 }
+const canonicalInstallPattern = new RegExp(
+  `npm install --save-dev "https://codeload\\.github\\.com/${repository}/tar\\.gz/refs/tags/v\\d+\\.\\d+\\.\\d+"`,
+  "u"
+);
+if (!canonicalInstallPattern.test(readme))
+  errors.push("README.md is missing a versioned canonical repository installation example");
 
 const gettingStarted = await readFile(join(projectRoot, "docs", "GETTING_STARTED.md"), "utf8");
-if (!gettingStarted.includes(`git+https://github.com/${repository}.git#v${packageJson.version}`))
+if (!canonicalInstallPattern.test(gettingStarted))
   errors.push("Getting started installation example is not canonical");
 
 const releaseWorkflow = await readFile(

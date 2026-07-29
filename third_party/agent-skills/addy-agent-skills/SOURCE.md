@@ -63,5 +63,5 @@ The automated screen recorded the hits below. Each was reviewed against Forge's 
 
 ## Attribution
 
-Copyright (c) Addy Osmani. Licensed under MIT.
+Copyright (c) 2025 Addy Osmani. Licensed under MIT.
 The upstream maintainers do not endorse Fullstack Forge.

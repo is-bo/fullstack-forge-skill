@@ -1,6 +1,6 @@
 // Maintainer-only: review a candidate upstream version before importing it.
 //
-//   npm run upstream:diff -- <provider> <tag-or-sha>
+//   node scripts/upstream-diff.mjs <provider> <tag-or-sha>
 //
 // Reports what would change in the selection if the candidate were imported: added, removed and
 // modified files, licence changes, new scripts, command and frontmatter changes, token deltas, and
@@ -26,7 +26,7 @@ const provider = config.providers.find((entry) => entry.id === providerId);
 
 if (provider === undefined || target === undefined) {
   console.error(
-    "Usage: npm run upstream:diff -- <provider> <tag-or-sha>\n\n" +
+    "Usage: node scripts/upstream-diff.mjs <provider> <tag-or-sha>\n\n" +
       `Providers: ${config.providers.map((entry) => entry.id).join(", ")}`
   );
   process.exit(2);
@@ -111,7 +111,7 @@ try {
   console.log(
     `\n## Summary\n\n  ${added.length} added, ${removed.length} removed, ${modified.length} modified.` +
       `\n  Approximate instruction-token delta: ${tokenDelta >= 0 ? "+" : ""}${tokenDelta}.` +
-      "\n\nNothing was changed. To import: npm run upstream:update -- " +
+      "\n\nNothing was changed. To import: node scripts/upstream-update.mjs " +
       `${provider.id} ${target}\n(then update the pin in config/upstream-providers.json first).`
   );
 } finally {

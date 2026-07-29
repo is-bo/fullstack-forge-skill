@@ -2,6 +2,7 @@ import { VERSION } from "./constants.js";
 import { redactToString } from "./redaction.js";
 import { runFile } from "./utils.js";
 export const UPSTREAM_GIT_URL = "https://github.com/is-bo/fullstack-forge-skill.git";
+const RELEASE_ARCHIVE_ROOT = "https://codeload.github.com/is-bo/fullstack-forge-skill/tar.gz/refs/tags";
 /** Parses only stable, canonical vMAJOR.MINOR.PATCH refs from untrusted `git ls-remote` output. */
 export function parseReleaseTags(output) {
     const versions = new Map();
@@ -14,6 +15,12 @@ export function parseReleaseTags(output) {
             versions.set(parsed.text, parsed);
     }
     return [...versions.values()].sort(compareVersions).map((version) => version.text);
+}
+/** Returns the public, immutable source archive for a stable released version. */
+export function publicReleaseArchive(version) {
+    if (!/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(version))
+        throw new Error(`Release archive version must be stable semantic version: ${version}`);
+    return `${RELEASE_ARCHIVE_ROOT}/v${encodeURIComponent(version)}`;
 }
 export async function checkUpdateAvailability(root, offline, currentVersion = VERSION, runner = runFile) {
     if (offline)
@@ -82,4 +89,3 @@ function boundedDiagnostic(value) {
         .slice(0, 200);
     return safe.length === 0 ? "no diagnostic output" : safe;
 }
-//# sourceMappingURL=update-check.js.map

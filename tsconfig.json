@@ -18,7 +18,7 @@
     "skipLibCheck": true,
     "types": ["node"],
     "declaration": true,
-    "sourceMap": true
+    "sourceMap": false
   },
   "include": ["cli/**/*.ts"],
   "exclude": ["build", "dist", "node_modules"]

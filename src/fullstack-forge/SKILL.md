@@ -80,6 +80,14 @@ Module families are foundation; frontend experience; API and trust boundaries; d
 specialized capabilities such as notifications, AI, payments, realtime, and offline behavior. Do not
 load modules merely to increase check counts.
 
+After selecting a module, read its canonical playbook at
+`.fullstack-forge/skills/forge-<module>/SKILL.md`. Its deterministic-runtime section is the only
+route to upstream specialist guidance: run the stated
+`.fullstack-forge/runtime/cli/src/composition-entry.js` command, then load only the ordered
+`selected` paths from `.forge/composition.json`. Never browse or choose files directly from
+`.fullstack-forge/upstream/`, and stop with `NOT_VERIFIED` if the composition reports missing
+content.
+
 For interface work, `forge-frontend` orchestrates `forge-ui`, `forge-ux`, and `forge-accessibility`.
 It adds i18n, SEO, performance, offline, data, authorization, security, or recovery only when
 request or repository evidence makes them relevant. Ambiguous words such as `page`, `table`, `form`,
@@ -116,8 +124,8 @@ activated.
 | Verify findings                | `$forge verify [area]`                       | `npx forge verify [area]`                          |
 | Gate a release                 | `$forge ship`                                | `npx forge ship`                                   |
 
-Host invocation syntax differs; use the installed `forge` skill name or the platform form documented
-in `docs/PLATFORM_SUPPORT.md`. The CLI supports the agent; it is not the primary intelligence.
+Host invocation syntax differs; use the installed `forge` skill name or the host's documented
+skill-selection syntax. The CLI supports the agent; it is not the primary intelligence.
 
 ## Completion contract
 

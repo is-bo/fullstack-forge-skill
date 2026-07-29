@@ -11,8 +11,8 @@ adaptations are applied by the composition compiler from declared overlays and t
 | Upstream tag | _none — pinned default-branch head_ |
 | Licence | MIT |
 | Licence evidence | `README.md#license` |
-| Files imported | 194 |
-| Content checksum | `3c3b2a3fbfb3510e2d64a7e412c6b94421b3193a8ebae6e882f17a6fd82764c6` |
+| Files imported | 119 |
+| Content checksum | `3e0356036a7cb5a180c85c7495cb63667f6855eca8aa1b10a11d68809364945e` |
 | Update policy | reviewed-only |
 
 ## Selected paths
@@ -21,7 +21,6 @@ adaptations are applied by the composition compiler from declared overlays and t
 - `skills/react-best-practices/`
 - `skills/react-native-skills/`
 - `skills/react-view-transitions/`
-- `skills/vercel-optimize/`
 - `skills/web-design-guidelines/`
 
 ## Excluded paths
@@ -29,6 +28,15 @@ adaptations are applied by the composition compiler from declared overlays and t
 - `**/lib/`
 - `**/scripts/`
 - `**/tests/`
+- `skills/react-best-practices/AGENTS.md`
+- `skills/react-best-practices/README.md`
+- `skills/react-best-practices/metadata.json`
+- `skills/react-native-skills/AGENTS.md`
+- `skills/react-native-skills/README.md`
+- `skills/react-native-skills/metadata.json`
+- `skills/react-view-transitions/AGENTS.md`
+- `skills/react-view-transitions/README.md`
+- `skills/react-view-transitions/metadata.json`
 
 ## Import notes
 
@@ -38,11 +46,12 @@ The repository has no LICENSE file at the pinned commit; MIT is declared in READ
 
 The automated screen recorded the hits below. Each was reviewed against Forge's approval boundaries; guidance that merely *describes* an operation is advisory, and no vendored instruction can bypass a Forge contract at runtime.
 
-- `telemetry` **(hard-deny rule)** — `skills/react-best-practices/AGENTS.md`: ese block the main thread immediately analytics.track('search', { query }) saveToRecentSearches(query) prefetchTop
+- `foreign-skill-install` **(hard-deny rule)** — `README.md`: ?code=... ``` ## Installation ```bash npx skills add vercel-labs/agent-skills ``` ## Usage Skills are automatically
 - `telemetry` **(hard-deny rule)** — `skills/react-best-practices/rules/js-request-idle-callback.md`: ese block the main thread immediately analytics.track('search', { query }) saveToRecentSearches(query) prefetchTop
-- `global-install` — `skills/vercel-optimize/README.md`: l contract`, and `vercel api` support (`npm i -g vercel@latest`). The skill enforces v53+ as its compatibility floor. -
+- `telemetry` **(hard-deny rule)** — `skills/react-best-practices/rules/js-request-idle-callback.md`: riods requestIdleCallback(() => { analytics.track('search', { query }) }) requestIdleCallback(() => { sav
+- `telemetry` **(hard-deny rule)** — `skills/react-best-practices/rules/js-request-idle-callback.md`: stays busy requestIdleCallback( () => analytics.track('page_view', { path: location.pathname }), { timeout: 2000 } )
 
 ## Attribution
 
-Copyright (c) Vercel, Inc.. Licensed under MIT.
+No explicit upstream copyright notice was published. Licensed under MIT.
 The upstream maintainers do not endorse Fullstack Forge.

@@ -16,8 +16,8 @@ function first(values) {
     assert.ok(value !== undefined, "expected at least one element");
     return value;
 }
-function record(name, confidence = "HIGH") {
-    return { name, type: name, confidence, evidence: [`detected ${name}`] };
+function record(name, confidence = "HIGH", evidence = [`detected ${name}`], type = name) {
+    return { name, type, confidence, evidence };
 }
 function profile(overrides) {
     const empty = [];
@@ -117,14 +117,63 @@ test("React Native guidance needs React Native evidence, not merely React", () =
         profile: profile({ frameworks: [record("expo")] })
     });
     assert.ok(native.selected.some((entry) => entry.skill === "react-native-skills"));
+    const spaced = resolve("frontend", {
+        profile: profile({ frameworks: [record("React Native")] })
+    });
+    assert.ok(spaced.selected.some((entry) => entry.skill === "react-native-skills"));
+    assert.ok(!spaced.selected.some((entry) => entry.skill === "react-best-practices"), "React must not match the React token inside React Native");
 });
-test("Vercel optimisation needs proven Vercel usage or an explicit request", () => {
-    const none = resolve("performance", { profile: profile({}) });
-    assert.ok(!none.selected.some((entry) => entry.skill === "vercel-optimize"));
-    const hosted = resolve("performance", { profile: profile({ hosting: [record("Vercel")] }) });
-    assert.ok(hosted.selected.some((entry) => entry.skill === "vercel-optimize"));
-    const asked = resolve("performance", { requested: ["vercel"] });
-    assert.ok(asked.selected.some((entry) => entry.skill === "vercel-optimize"));
+test("path-shaped evidence cannot activate a provider by substring", () => {
+    const cases = [
+        { target: { frameworks: ["expo"] }, observed: "Next.js", path: "apps/exporter/package.json" },
+        { target: { frameworks: ["react"] }, observed: "Preact", path: "packages/preact/package.json" },
+        { target: { hosting: ["gcp"] }, observed: "AWS", path: "infra/gcp-exporter.tf" },
+        { target: { frameworks: ["next"] }, observed: "Nextra", path: "apps/docs/package.json" }
+    ];
+    for (const fixture of cases) {
+        const dimensions = "hosting" in fixture.target
+            ? profile({ hosting: [record(fixture.observed, "HIGH", [fixture.path])] })
+            : profile({ frameworks: [record(fixture.observed, "HIGH", [fixture.path])] });
+        assert.equal(evaluateActivation(fixture.target, { profile: dimensions }), undefined, `${Object.keys(fixture.target)[0]} must not match ${fixture.observed} or ${fixture.path}`);
+    }
+    assert.match(evaluateActivation({ frameworks: ["nextjs"] }, { profile: profile({ frameworks: [record("Next.js")] }) }) ?? "", /Next\.js/u);
+});
+test("activation grammar supports allOf, anyOf, not, nesting, and confidence thresholds", () => {
+    const sentryNext = {
+        allOf: [
+            { observability: ["sentry"], minimumConfidence: "MEDIUM" },
+            {
+                anyOf: [{ frameworks: ["next", "nextjs"] }, { requested: ["sentry-nextjs"] }],
+                not: { frameworks: ["nextra"] }
+            }
+        ]
+    };
+    assert.match(evaluateActivation(sentryNext, {
+        profile: profile({
+            observability: [record("sentry", "HIGH")],
+            frameworks: [record("Next.js", "MEDIUM")]
+        })
+    }) ?? "", /all conditions matched/u);
+    assert.equal(evaluateActivation(sentryNext, {
+        profile: profile({ frameworks: [record("Next.js")] })
+    }), undefined, "the framework alone is insufficient");
+    assert.equal(evaluateActivation(sentryNext, {
+        profile: profile({
+            observability: [record("sentry", "HIGH")],
+            frameworks: [record("Nextra", "HIGH")]
+        })
+    }), undefined, "a matching exclusion suppresses the condition");
+    assert.equal(evaluateActivation({ observability: ["sentry"], minimumConfidence: "HIGH" }, { profile: profile({ observability: [record("sentry", "MEDIUM")] }) }), undefined);
+});
+test("Vercel optimisation stays out of composition while its required scripts are not vendored", () => {
+    for (const declaration of manifest.modules) {
+        const sources = [
+            ...declaration.primary,
+            ...declaration.overlays,
+            ...(declaration.supplemental ?? [])
+        ];
+        assert.ok(!sources.some((source) => source.skill === "vercel-optimize"));
+    }
 });
 test("Supabase content stays suppressed on plain PostgreSQL, but PostgreSQL guidance still loads", () => {
     const plain = resolve("database", { profile: profile({ databases: [record("postgres")] }) });
@@ -151,6 +200,55 @@ test("Sentry bundles need Sentry, and generic observability never requires it", 
         profile: profile({ observability: [record("sentry")] })
     });
     assert.ok(providers(sentry).includes("sentry-agent-skills"));
+});
+test("Sentry SDK guidance requires Sentry and the matching stack", () => {
+    const matching = resolve("observability", {
+        profile: profile({
+            observability: [record("sentry")],
+            frameworks: [record("Next.js")]
+        })
+    });
+    assert.ok(matching.selected.some((entry) => entry.skill === "sentry-nextjs-sdk"));
+    const frameworkOnly = resolve("observability", {
+        profile: profile({ frameworks: [record("Next.js")] })
+    });
+    assert.ok(!frameworkOnly.selected.some((entry) => entry.skill === "sentry-nextjs-sdk"));
+    const sentryOnly = resolve("observability", {
+        profile: profile({ observability: [record("sentry")] })
+    });
+    assert.ok(!sentryOnly.selected.some((entry) => entry.skill === "sentry-nextjs-sdk"));
+    const explicitlyRequested = resolve("observability", {
+        requested: ["sentry-nextjs"]
+    });
+    assert.ok(explicitlyRequested.selected.some((entry) => entry.skill === "sentry-nextjs-sdk"));
+    const lowConfidence = resolve("observability", {
+        profile: profile({
+            observability: [record("sentry", "LOW")],
+            frameworks: [record("Next.js")]
+        })
+    });
+    assert.ok(!lowConfidence.selected.some((entry) => entry.skill === "sentry-nextjs-sdk"));
+});
+test("an exclusion-only branch does not weaken a matching Sentry React conjunction", () => {
+    const result = resolve("observability", {
+        profile: profile({
+            observability: [record("sentry")],
+            frameworks: [record("React")]
+        })
+    });
+    assert.ok(result.selected.some((entry) => entry.skill === "sentry-react-sdk"), "Sentry + React must select the matching SDK instead of lower-priority generic Sentry sources");
+});
+test("two proven Sentry stacks fill but do not exceed the overlay budget", () => {
+    const result = resolve("observability", {
+        profile: profile({
+            observability: [record("sentry")],
+            frameworks: [record("Next.js"), record("SvelteKit")]
+        })
+    });
+    assert.deepEqual(result.selected
+        .filter((entry) => entry.tier === "overlay")
+        .map((entry) => entry.skill)
+        .sort(), ["sentry-nextjs-sdk", "sentry-svelte-sdk"]);
 });
 test("Google Cloud and GKE overlays need Google Cloud evidence", () => {
     const aws = resolve("infrastructure", { profile: profile({ hosting: [record("AWS")] }) });
@@ -209,8 +307,136 @@ test("the context budget is enforced and every drop is reported", () => {
             assert.ok(dropped.reason.length > 0, "every suppression states a reason");
     }
 });
+test("an explicit provider request wins a saturated overlay budget", () => {
+    const result = resolve("infrastructure", {
+        requested: ["gke"],
+        profile: profile({ hosting: [record("Cloudflare")] })
+    });
+    const selected = result.selected.filter((entry) => entry.tier === "overlay");
+    assert.equal(selected.length, 2);
+    assert.ok(selected.every((entry) => entry.provider === "google-skills"));
+    assert.ok(selected.every((entry) => entry.reason.startsWith("explicitly requested")));
+});
+test("an exact source request makes every declared composition source reachable", () => {
+    for (const declaration of manifest.modules) {
+        for (const source of [
+            ...declaration.primary,
+            ...declaration.overlays,
+            ...(declaration.supplemental ?? [])
+        ]) {
+            const result = resolve(declaration.module, { requested: [source.skill] });
+            assert.ok(result.selected.some((entry) => entry.provider === source.provider && entry.skill === source.skill), `${declaration.module} cannot select ${source.provider}/${source.skill} by exact request`);
+        }
+    }
+});
+test("high-confidence provider evidence outranks generic repository evidence", () => {
+    const synthetic = {
+        schemaVersion: 2,
+        defaultContextBudget: {
+            maxPrimarySkills: 1,
+            maxOverlays: 1,
+            maxSupplemental: 1
+        },
+        modules: [
+            {
+                module: "observability",
+                mode: "hybrid",
+                designation: "fixture",
+                forgeContract: "references/build/observability.md",
+                primary: [],
+                overlays: [
+                    {
+                        provider: "addy-agent-skills",
+                        skill: "generic-react-observability",
+                        path: "generic/SKILL.md",
+                        when: { frameworks: ["react"] }
+                    },
+                    {
+                        provider: "sentry-agent-skills",
+                        skill: "sentry-observability",
+                        path: "sentry/SKILL.md",
+                        when: { observability: ["sentry"] }
+                    }
+                ],
+                conflicts: [],
+                dependsOn: [],
+                outputClassification: "finding",
+                forgeAuthority: []
+            }
+        ]
+    };
+    const result = resolveComposition({
+        manifest: synthetic,
+        module: "observability",
+        evidence: {
+            profile: profile({
+                frameworks: [record("react")],
+                observability: [record("sentry")]
+            })
+        },
+        runtimePathFor
+    });
+    assert.equal(result.selected.find((entry) => entry.tier === "overlay")?.skill, "sentry-observability");
+});
+test("every over-budget module preserves an exact requested source and reports other drops", () => {
+    for (const declaration of manifest.modules) {
+        const budget = declaration.contextBudget ?? manifest.defaultContextBudget;
+        for (const [tier, sources, limit] of [
+            ["primary", declaration.primary, budget.maxPrimarySkills],
+            ["overlay", declaration.overlays, budget.maxOverlays],
+            ["supplemental", declaration.supplemental ?? [], budget.maxSupplemental]
+        ]) {
+            if (sources.length <= limit)
+                continue;
+            for (const source of sources) {
+                const result = resolve(declaration.module, {
+                    requested: [source.skill],
+                    riskSurfaces: ["frontend", "api", "payments"],
+                    flags: {
+                        ci: true,
+                        retrieval: true,
+                        migration: true,
+                        threatModelling: true,
+                        gdprRelevant: true,
+                        testingApplicable: true,
+                        missingEssentialRequirements: true,
+                        divergentExploration: true,
+                        incidentInvestigation: true
+                    },
+                    profile: profile({
+                        languages: [record("Python"), record("Go"), record("Ruby"), record(".NET")],
+                        frameworks: [
+                            record("React"),
+                            record("Next.js"),
+                            record("React Native"),
+                            record("SvelteKit")
+                        ],
+                        databases: [record("PostgreSQL"), record("Supabase")],
+                        hosting: [
+                            record("Cloudflare"),
+                            record("Google Cloud"),
+                            record("GKE"),
+                            record("Vercel")
+                        ],
+                        integrations: [record("Supabase")],
+                        observability: [record("Sentry")],
+                        ai_providers: [record("Gemini")],
+                        payment_providers: [record("Stripe"), record("PayPal")]
+                    })
+                });
+                assert.ok(result.selected.some((entry) => entry.tier === tier &&
+                    entry.provider === source.provider &&
+                    entry.skill === source.skill), `${declaration.module}/${tier} dropped exact request ${source.provider}/${source.skill}`);
+                assert.ok(result.suppressed
+                    .filter((entry) => entry.tier === tier)
+                    .every((entry) => entry.reason.length > 0), `${declaration.module}/${tier} hid a saturation drop`);
+            }
+        }
+    }
+});
 test("resolution is deterministic and requirements keep their declared sequence", () => {
     const evidence = {
+        requested: ["planning-and-task-breakdown"],
         flags: { missingEssentialRequirements: true, divergentExploration: true }
     };
     const first = resolve("requirements", evidence);
@@ -281,4 +507,3 @@ test("modules that must never be overridden declare an explicit wildcard conflic
         assert.ok(declaration?.conflicts.some((conflict) => conflict.with === "*"), `${slug} must declare a wildcard precedence rule`);
     }
 });
-//# sourceMappingURL=composition.test.js.map

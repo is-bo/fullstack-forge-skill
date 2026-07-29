@@ -4,6 +4,12 @@ The official outputs are `.forge/report.json` and `.forge/report.md`. They must 
 findings, verification state, and limitations, and the final agent response must not contradict
 them.
 
+The current JSON document has `schema_version: 3`. Schema 3 adds a `compositions` ledger. Each entry
+records the module, composition identifier and mode, activation reason, precedence, resolved runtime
+sources, and status. Runtime composition is valid only when every selected path is present inside
+the installed Forge tree and satisfies the Forge evidence contract. Missing or invalid composition
+evidence is recorded as `NOT_VERIFIED`, never omitted or promoted to `PASS`.
+
 ## Severity is potential impact, not a verdict
 
 `severity` records what would happen if the finding is real; `status` records whether it was proven.

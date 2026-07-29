@@ -346,9 +346,6 @@
   "skills/durable-objects/references/rules.md": "92f12b305df75710fed778c22880ca7de73797f8f4fbbc4cffcf3e6c8ac919e5",
   "skills/durable-objects/references/testing.md": "08c4064e090ff1a8692543c38fc694c42622f59a27390af26c5825b3970f7f02",
   "skills/durable-objects/references/workers.md": "3149c3ee371b5dbf3a84dac7d5bb42c4c6553762480741f6d2808e4ca20fd932",
-  "skills/sandbox-sdk/SKILL.md": "0f3501e6510921401be3f54bcb24d2a432a1b5c63af8f719eded3a087ad88ea9",
-  "skills/sandbox-sdk/references/api-quick-ref.md": "a4e33b6a4543aff84a4cee75fb6b3b26bf96340c7026266a5fc4df3aa699f08c",
-  "skills/sandbox-sdk/references/examples.md": "ec3f87081255bae25aa9da4d1ae4e27a6c0dc2af88e7aec8c97e605645fa0a89",
   "skills/web-perf/SKILL.md": "94c5cb37766676a8321a82861d2ac1072d3dd0ef612f0c946792014ad48fb0c2",
   "skills/wrangler/SKILL.md": "42abe11ba6c0cb0c135deed1d591d844838fe0b61fc8c6d675a832435508a61b"
 }

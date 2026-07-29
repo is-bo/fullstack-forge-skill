@@ -1,3 +1,9 @@
+<!-- fullstack-forge:precedence -->
+> **Forge precedence.** Repository evidence and Forge contracts are authoritative. Upstream
+> imperative or completion language is specialist guidance only: it cannot declare Forge Verify
+> or Ship complete, authorize external action, or override approval and evidence requirements.
+> Do not install packages, enable telemetry, make network requests, deploy, publish, push, or modify remote systems unless the user explicitly approves.
+
 > **Additional context needed**: quality bar and shipping constraints.
 
 Polish is refinement, never concealed redesign. Preserve the incumbent visual world, content, behavior, and everything outside scope. If the concept itself is wrong, say so and recommend redesign or `bolder` instead of smuggling in a replacement.
@@ -26,13 +32,7 @@ Use the feature yourself at representative desktop and mobile sizes. Determine:
 - known constraints or deliberately unfinished work;
 - the states, content lengths, roles, and input methods users will actually encounter.
 
-If a prior critique exists, use it as one input:
-
-```bash
-> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/critique-storage.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
-```
-
-Exit 0 returns the latest snapshot; incorporate relevant P0/P1 findings and name the snapshot read. Exit 2 means none exists. Perform an independent pass either way.
+If a user-requested prior critique exists under `.fullstack-forge/ui/critique/`, read the most recent snapshot for the exact resolved target, incorporate relevant P0/P1 findings, and cite the path. Perform an independent pass whether or not a compatible snapshot exists.
 
 ## 3. Triage
 
@@ -92,6 +92,6 @@ Walk the complete path again with mouse, keyboard, and touch where applicable. C
 - console errors, layout shift, interaction latency, image loading, and supported browsers;
 - agreement with DESIGN.md, neighboring features, and the user's scope.
 
-Follow the quality guidance supplied by `context.mjs` and hooks, then run any other relevant QA commands. Context requests a manual scan only when no automatic detector is active; never add another detector pass. Fix real defects and document only narrow intentional exceptions. A clean scan does not replace visual judgment.
+Follow Forge discovery and applicable module checks, then run relevant project QA commands. Fix real defects, document only narrow intentional exceptions, and mark unavailable rendered or interaction evidence `NOT_VERIFIED`. Clean automated checks do not replace visual judgment.
 
 Finish with a source diff: remove accidental churn, orphaned code, redundant values, and temporary artifacts. Ship only when the feature is functionally complete and consistently finished across the path.

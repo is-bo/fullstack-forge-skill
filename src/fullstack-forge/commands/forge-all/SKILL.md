@@ -11,6 +11,8 @@ Engine: Forge native
 
 Discover the project, select applicable modules, run safe independent checks, merge evidence, and prioritize remediation.
 
+
+
 Read `fullstack-forge/references/shared/module-contract.md` (applicability, execution, mutation,
 verification, completion) and `fullstack-forge/references/shared/evidence-rules.md` (statuses,
 standards, tools, findings via `fullstack-forge/references/PROTOCOL.md`) before reporting.

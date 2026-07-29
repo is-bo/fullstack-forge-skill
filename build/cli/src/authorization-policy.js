@@ -180,4 +180,3 @@ export function classifyResourcePartition(context, tenantKeyPattern) {
 function escapeRegExp(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
-//# sourceMappingURL=authorization-policy.js.map

@@ -185,4 +185,3 @@ export function blocksShip(finding) {
         return true;
     return finding.status === "FAIL" && finding.section !== "Visual craft advisory";
 }
-//# sourceMappingURL=upstream-detector.js.map

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
 import { PACKAGE_ROOT, VERSION } from "../src/constants.js";
 import { install, normalizePlatforms, readInstallManifest, uninstall } from "../src/installer.js";
@@ -28,6 +28,55 @@ test("dry-run, install, update, and uninstall honor ownership", async () => {
     const removed = await uninstall(root, "antigravity", { global: false, dryRun: false });
     assert.ok(removed.some((action) => action.action === "remove"));
     await assert.rejects(stat(master), { code: "ENOENT" });
+  });
+});
+
+test("update retires stale canonical files and preserves modified stale canonical files", async () => {
+  await withTemporaryProject("stale-canonical", async (root) => {
+    await install(root, "generic", { global: false, dryRun: false });
+    const manifest = await readInstallManifest(root);
+    assert.ok(manifest);
+    const cleanRelative = ".fullstack-forge/skills/retired-clean/SKILL.md";
+    const modifiedRelative = ".fullstack-forge/skills/retired-modified/SKILL.md";
+    const cleanBytes = Buffer.from("retired clean canonical\n", "utf8");
+    const originalModifiedBytes = Buffer.from("retired original canonical\n", "utf8");
+    for (const [relative, bytes] of [
+      [cleanRelative, cleanBytes],
+      [modifiedRelative, originalModifiedBytes]
+    ] as const) {
+      const target = join(root, ...relative.split("/"));
+      await mkdir(dirname(target), { recursive: true });
+      await writeFile(target, bytes);
+      manifest.files[relative] = {
+        hash: sha256(bytes),
+        platform: "agents",
+        platforms: ["agents"],
+        owned: true,
+        kind: "canonical"
+      };
+    }
+    await writeFile(
+      join(root, ".fullstack-forge", "install-manifest.json"),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+      "utf8"
+    );
+    const userBytes = Buffer.from("user changed retired canonical\n", "utf8");
+    await writeFile(join(root, ...modifiedRelative.split("/")), userBytes);
+
+    const actions = await install(root, "generic", { global: false, dryRun: false });
+    assert.ok(
+      actions.some((action) => action.path === cleanRelative && action.action === "remove")
+    );
+    assert.ok(
+      actions.some(
+        (action) => action.path === modifiedRelative && action.action === "preserve-modified"
+      )
+    );
+    await assert.rejects(stat(join(root, ...cleanRelative.split("/"))), { code: "ENOENT" });
+    assert.deepEqual(await readFile(join(root, ...modifiedRelative.split("/"))), userBytes);
+    const updated = await readInstallManifest(root);
+    assert.equal(updated?.files[cleanRelative], undefined);
+    assert.equal(updated?.files[modifiedRelative], undefined);
   });
 });
 

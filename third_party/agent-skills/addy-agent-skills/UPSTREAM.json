@@ -6,8 +6,13 @@
   "upstreamTag": "0.6.5",
   "license": "MIT",
   "licenseEvidence": "LICENSE",
-  "copyright": "Copyright (c) Addy Osmani",
-  "importedAt": "2026-07-27T17:03:08.618Z",
+  "copyright": "Copyright (c) 2025 Addy Osmani",
+  "copyrightEvidence": {
+    "path": "LICENSE",
+    "text": "Copyright (c) 2025 Addy Osmani"
+  },
+  "noticeEvidence": [],
+  "importedAt": "2026-07-28T16:20:09.529Z",
   "selectedPaths": [
     "LICENSE",
     "references/accessibility-checklist.md",

@@ -4,7 +4,20 @@ All notable supported changes are documented here.
 
 ## [Unreleased]
 
-- No supported-release changes yet.
+## [0.2.1] - 2026-07-28
+
+- Wired deterministic specialist composition into the real module runtime and report ledger.
+- Added exact provider matching, nested activation conditions, explicit-request precedence,
+  saturated-budget handling, and stack-specific Sentry routing.
+- Neutralized foreign-skill installation guidance and removed unreachable or unverified runtime
+  content, including the Impeccable detector executables and Vercel Optimize composition.
+- Made platform archives complete and clean-room validated, tightened vendored licence and path
+  checks, retired stale owned files safely, and scoped bare update/uninstall to installed hosts.
+- Made doctor update checks opt-in, fixed coverage parsing across supported Node versions, and made
+  release preflight draft-aware and fail-closed.
+
+Remote publication, exact-head CI, CodeQL, live-host activation, and the final release record remain
+pending and must not be inferred from this candidate source.
 
 ## [0.2.0] - 2026-07-27
 
@@ -53,9 +66,9 @@ All notable supported changes are documented here.
   allowlist. Normal use makes no network request.
 - Extended installation to deliver the compiled upstream tree and manifests once per project,
   removed on uninstall, with no symlink and no per-host duplication.
-- Added review-only maintenance commands: `upstream:status`, `upstream:check`, `upstream:verify`,
-  `upstream:diff`, and `upstream:update`. Nothing updates automatically and no command commits,
-  merges, tags, or publishes.
+- Added review-only source-checkout maintenance tools under `scripts/upstream-*.mjs`, plus the
+  offline `upstream:verify` command. Nothing updates automatically and no tool commits, merges,
+  tags, or publishes.
 - Generated `THIRD_PARTY_NOTICES.md` from the provider records so attribution cannot drift, and ship
   each provider's licence, notice, and provenance alongside the content it covers.
 
@@ -101,5 +114,6 @@ All notable supported changes are documented here.
 - Earlier numbered snapshots were rapid development previews. They remain visible in Git history but
   are not supported public releases of the agent-first product.
 
-[Unreleased]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.2.0...v0.2.1
 [0.1.0]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.0

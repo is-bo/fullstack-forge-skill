@@ -1405,4 +1405,3 @@ function singularize(value) {
         return lower.slice(0, -1);
     return lower;
 }
-//# sourceMappingURL=transactions.js.map

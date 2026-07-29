@@ -5,11 +5,26 @@ description: Tie resource and vendor cost to workloads, ownership, unit economic
 
 # forge-cost: Cost efficiency
 
-Engine: Hybrid — Forge + Google, Vercel, Cloudflare
+Engine: Hybrid — Forge + Google, Cloudflare
 
 ## Purpose
 
 Tie resource and vendor cost to workloads, ownership, unit economics, budgets, and safe optimization choices.
+
+
+## Deterministic runtime composition
+
+Before loading any provider procedure, run:
+
+`node .fullstack-forge/runtime/cli/src/composition-entry.js cost compose --root <repository-root> --json`
+
+Add one repeatable `--request <provider-or-source>` flag for each explicit user request. Add
+`--condition <task-condition>` or `--risk-surface <surface>` only for a task fact you directly
+proved; never infer one from generic wording. Read `.forge/composition.json`, keep the Forge
+contract at index zero, and load only the ordered `selected` runtime paths. Respect every reported
+suppression and context budget. If `missing` is non-empty, stop and report the installation as
+damaged; do not improvise a prose fallback.
+
 
 Read `fullstack-forge/references/shared/module-contract.md` (applicability, execution, mutation,
 verification, completion) and `fullstack-forge/references/shared/evidence-rules.md` (statuses,

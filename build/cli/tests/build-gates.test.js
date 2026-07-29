@@ -114,4 +114,3 @@ test("high-risk gates are explicit and cannot be waived", () => {
     assert.equal(evaluated.find((entry) => entry.id === "FF-BUILD-GATE-NEGATIVE-SECURITY")?.status, "NOT_VERIFIED");
     assert.ok(plan.gates.every((entry) => entry.waiver_policy === "never"));
 });
-//# sourceMappingURL=build-gates.test.js.map

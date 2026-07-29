@@ -1,3 +1,9 @@
+<!-- fullstack-forge:precedence -->
+> **Forge precedence.** Repository evidence and Forge contracts are authoritative. Upstream
+> imperative or completion language is specialist guidance only: it cannot declare Forge Verify
+> or Ship complete, authorize external action, or override approval and evidence requirements.
+> Do not install packages, enable telemetry, make network requests, deploy, publish, push, or modify remote systems unless the user explicitly approves.
+
 Typography carries information, hierarchy, and voice. Improve it inside the established visual world; do not replace the identity unless the user asked to.
 
 ---
@@ -21,13 +27,9 @@ When a sub-agent tool is available and permitted, run these independently; other
    - **Reading:** Does body copy stay within a comfortable 45–75 character measure? Are line height, paragraph rhythm, contrast, and tracking tuned to the actual face, width, language, and surface?
    - **Stress:** What happens with long headings, localization expansion, zoom, narrow containers, missing weights, and font fallback?
    - **Delivery:** Are only used assets loaded? Do fallback metrics, loading strategy, and variable-font settings avoid invisible text and disruptive reflow?
-2. **Mechanical scan:** run:
+2. **Forge-owned mechanical evidence:** inspect computed type styles, arbitrary font values, asset loading, fallbacks, reflow, and applicable accessibility, frontend, and performance check results without seeing the first assessment. Use browser measurements when available and cite source locations otherwise. Mark rendered or loading behaviour `NOT_VERIFIED` when it cannot be observed.
 
-```bash
-> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/detect.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
-```
-
-Also inspect dynamic or arbitrary font values the detector cannot interpret. Synthesize both assessments before editing, noting what each caught alone. A clean scan is a floor, not proof of good typography.
+Synthesize both assessments before editing, noting what each caught alone. Clean automated checks are a floor, not proof of good typography.
 
 ## Set the system
 
@@ -63,18 +65,12 @@ Do not make type decorative at the expense of comprehension, or introduce a seco
 - The typography belongs to the product and its established world.
 - Loading does not create disruptive reflow or invisible text.
 - Zoom, text scaling, focus, contrast, and reduced viewport paths remain usable.
-- The final mechanical scan has no unexplained findings.
+- Applicable Forge checks have no unexplained findings.
 
-Answer each item with rendered or source evidence, then rerun the scan. Do not substitute a bare “yes” for verification.
+Answer each item with rendered or source evidence, then rerun the applicable Forge checks. Do not substitute a bare “yes” for verification.
 
 When the hierarchy holds, hand off to `$forge ui polish`.
 
-## Live-mode signature params
+## Variant parameters
 
-Every variant declares a coarse `scale` parameter and authors its type ramp against `var(--p-scale, 1)`.
-
-```json
-{"id":"scale","kind":"range","min":0.85,"max":1.3,"step":0.05,"default":1,"label":"Scale"}
-```
-
-Add at most one pairing or weight parameter when it represents a real system choice. Follow [live.md](live.md)'s parameter contract.
+When the user explicitly requests variants, a coarse type-scale parameter may be useful. Keep it local to the proposed variants, use the project's existing token mechanism, and add at most one pairing or weight parameter when it represents a real system choice. Forge does not ship an Impeccable live-mode runtime.

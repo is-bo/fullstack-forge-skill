@@ -6,7 +6,7 @@ import { assertModuleDecisions, assertPlannedChecks, assertRuntimeEvidence, asse
 import { assertFindings } from "./finding.js";
 import { assertEvidenceArtifacts } from "./evidence-envelope.js";
 import { assertNoSymlinkPath, utcNow } from "./utils.js";
-export const REPORT_SCHEMA_VERSION = 2;
+export const REPORT_SCHEMA_VERSION = 3;
 /* -------------------------------------------------------------------------- */
 /* Status-aware finding aggregation                                            */
 /* -------------------------------------------------------------------------- */
@@ -158,6 +158,7 @@ export function migrateReport(value) {
     const plannedChecks = take("planned_checks");
     const runtimeEvidence = take("runtime_evidence");
     const moduleDecisions = take("module_decisions");
+    const compositions = take("compositions");
     const base = source;
     const migrated = {
         ...base,
@@ -168,6 +169,7 @@ export function migrateReport(value) {
         planned_checks: plannedChecks,
         runtime_evidence: runtimeEvidence,
         module_decisions: moduleDecisions,
+        compositions,
         // Recomputed rather than carried over. A summary written by an older release cannot be trusted
         // to separate verdicts, and it is a pure projection of findings the report already contains, so
         // deriving it invents nothing.
@@ -218,7 +220,9 @@ export function migrateReport(value) {
  */
 function classifyLegacyOrigin(source) {
     if (source.schema_version === REPORT_SCHEMA_VERSION)
-        return "schema 2 report missing one or more ledgers";
+        return `schema ${REPORT_SCHEMA_VERSION} report missing one or more ledgers`;
+    if (source.schema_version === 2)
+        return "schema 2 report written before composition provenance was recorded";
     const findings = Array.isArray(source.findings) ? source.findings : [];
     const hasInstanceIdentity = findings.some((finding) => finding.instance_id !== undefined || finding.evidence_snapshot !== undefined);
     if (source.environment !== undefined || source.revision !== undefined)
@@ -259,6 +263,32 @@ function assertReportLedgers(report) {
     assertPlannedChecks(report.planned_checks);
     assertRuntimeEvidence(report.runtime_evidence);
     assertModuleDecisions(report.module_decisions);
+    assertCompositionResults(report.compositions);
+}
+function assertCompositionResults(results) {
+    if (!Array.isArray(results))
+        throw new Error("Invalid composition provenance");
+    const tiers = new Set(["forge-contract", "primary", "overlay", "supplemental"]);
+    for (const result of results) {
+        const budget = result.budget;
+        if (typeof result.module !== "string" ||
+            !Array.isArray(result.selected) ||
+            !Array.isArray(result.suppressed) ||
+            !Array.isArray(result.missing) ||
+            budget === null ||
+            typeof budget !== "object")
+            throw new Error("Invalid composition provenance");
+        for (const source of [...result.selected, ...result.suppressed]) {
+            if (!tiers.has(source.tier) ||
+                typeof source.provider !== "string" ||
+                typeof source.skill !== "string" ||
+                typeof source.reason !== "string")
+                throw new Error(`Invalid composition source for ${result.module}`);
+        }
+        if (result.selected.some((source) => typeof source.runtimePath !== "string") ||
+            result.missing.some((path) => typeof path !== "string"))
+            throw new Error(`Invalid composition runtime paths for ${result.module}`);
+    }
 }
 export function createReport(root, profile, findings, scope, execution = [], assumptions = [], residualRisk = [], scopeEvidence, gateEvidence = [], analyzerCoverage = [], revision, environment, ledgers = {}) {
     // One logical conclusion per scope: retract synthetic non-applicability before asserting, so a
@@ -285,6 +315,7 @@ export function createReport(root, profile, findings, scope, execution = [], ass
         planned_checks: structuredClone(ledgers.planned_checks ?? []),
         runtime_evidence: structuredClone(ledgers.runtime_evidence ?? []),
         module_decisions: structuredClone(ledgers.module_decisions ?? []),
+        compositions: structuredClone(ledgers.compositions ?? []),
         ...(revision === undefined ? {} : { revision })
     };
 }
@@ -409,6 +440,8 @@ export function renderMarkdown(report) {
         "- No analyzer coverage records were applicable.";
     const moduleDecisions = report.module_decisions.map(renderModuleDecision).join("\n") ||
         "- No module decisions were recorded. Module applicability is therefore unstated, not proven.";
+    const compositions = report.compositions.map(renderComposition).join("\n\n") ||
+        "- No composition provenance was recorded. Provider context selection is therefore unstated.";
     const plannedChecks = report.planned_checks.map(renderPlannedCheck).join("\n") ||
         "- No planned checks were recorded. This is not evidence that every check ran.";
     const runtimeEvidence = report.runtime_evidence.map(renderRuntimeEvidence).join("\n") ||
@@ -482,6 +515,10 @@ ${execution || "- No project command was executed."}
 ## Module applicability decisions
 
 ${moduleDecisions}
+
+## Composed specialist context
+
+${compositions}
 
 ## Planned checks
 
@@ -564,6 +601,25 @@ function renderModuleDecision(decision) {
             ? "not applicable in the bounded scanned scope"
             : "NOT audited in this run — this is not evidence that the module is inapplicable";
     return `- **${decision.module}** — capability ${decision.capability_status}; selection ${decision.selection_status}${decision.explicitly_selected === true ? " (explicitly selected)" : ""}; ${applicability}. Reasons: ${decision.reasons.join("; ")}. Evidence: ${decision.evidence.join("; ") || "none recorded"}`;
+}
+function renderComposition(result) {
+    const selected = result.selected
+        .map((source) => `  - **${source.tier}** \`${source.runtimePath}\` (${source.provider}/${source.skill}): ${source.reason}`)
+        .join("\n");
+    const suppressed = result.suppressed
+        .map((source) => `  - **${source.tier}** ${source.provider}/${source.skill}: ${source.reason}`)
+        .join("\n");
+    const missing = result.missing.map((path) => `  - \`${path}\``).join("\n");
+    return [
+        `- **${result.module}** (${result.mode}; ${result.outputClassification})`,
+        `  - Budget: primary ${result.budget.maxPrimarySkills}, overlays ${result.budget.maxOverlays}, supplemental ${result.budget.maxSupplemental}`,
+        "  - Selected:",
+        selected || "  - None beyond the Forge contract.",
+        "  - Suppressed:",
+        suppressed || "  - None.",
+        "  - Missing runtime paths:",
+        missing || "  - None."
+    ].join("\n");
 }
 function renderPlannedCheck(check) {
     return `- **${check.check_id}** (${check.module}) — ${check.status}${check.reason === undefined ? "" : `: ${check.reason}`}; command \`${check.command?.join(" ") ?? "none recorded"}\`; source ${check.source}; authorization required: ${check.requires_authorization ? "yes" : "no"}; network policy ${check.network_policy}`;
@@ -735,4 +791,3 @@ function compact(value) {
     const compacted = value.replace(/\s+/gu, " ").trim();
     return compacted.length > 240 ? `${compacted.slice(0, 237)}...` : compacted || "no output";
 }
-//# sourceMappingURL=report.js.map

@@ -198,4 +198,3 @@ test("both exclusion facts are preserved when risk and changed scope overlap", (
     assert.equal(ui.selection_status, "EXCLUDED_BY_RISK");
     assert.ok(ui.reasons.some((reason) => reason.includes("changed file")), "the changed-scope fact must survive even when risk drives the status");
 });
-//# sourceMappingURL=module-decision.test.js.map

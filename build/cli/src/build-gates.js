@@ -149,4 +149,3 @@ function strongest(current, next) {
     };
     return rank[next] > rank[current] ? next : current;
 }
-//# sourceMappingURL=build-gates.js.map

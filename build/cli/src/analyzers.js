@@ -204,7 +204,9 @@ function analyzeScripts(files) {
                     !isConstrainedRedirect(node, file, taint)) {
                     issues.push(issue(SPECS.redirect, file, node, flowSource(flow, argumentText), name));
                 }
-                if (isLogSink(name) && containsSensitiveLogData(argumentText))
+                if (isLogSink(name) &&
+                    requestControlled &&
+                    containsSensitiveLogData(node.arguments, file.sourceFile))
                     issues.push(issue(SPECS.sensitiveLog, file, node, flowSource(flow, argumentText), name));
                 if (name.endsWith("upload.any"))
                     issues.push(issue(SPECS.uploadAny, file, node, "unrestricted multipart fields", name));
@@ -1460,8 +1462,31 @@ function isPaymentSink(name) {
 function containsRequestData(text) {
     return /\b(?:req|request)\.(?:body|params|query|headers|file|files)\b/u.test(text);
 }
-function containsSensitiveLogData(text) {
-    return /(?:req|request)\.(?:body|headers)|\b(?:password|secret|token|authorization|creditCard|ssn)\b/iu.test(text);
+function containsSensitiveLogData(arguments_, sourceFile) {
+    let sensitive = false;
+    const inspect = (node) => {
+        if (sensitive)
+            return;
+        // Prose labels such as "instruction-token delta" describe the output; they are not data
+        // fields. Template expressions are still traversed, so `${token}` and request-derived values
+        // retain coverage without treating the template's static words as credentials.
+        if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node))
+            return;
+        if (ts.isPropertyAccessExpression(node) &&
+            /^(?:req|request)\.(?:body|headers)(?:\.|$)/u.test(node.getText(sourceFile))) {
+            sensitive = true;
+            return;
+        }
+        if (ts.isIdentifier(node) &&
+            /^(?:password|secret|token|authorization|creditCard|ssn)$/iu.test(node.text)) {
+            sensitive = true;
+            return;
+        }
+        node.forEachChild(inspect);
+    };
+    for (const argument of arguments_)
+        inspect(argument);
+    return sensitive;
 }
 /** Resolves the strongest taint origin across a call's arguments. */
 function resolveArgumentTaint(node, file, taint) {
@@ -2201,4 +2226,3 @@ function offsetForLine(content, line) {
 function isRecord(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-//# sourceMappingURL=analyzers.js.map

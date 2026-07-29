@@ -164,4 +164,3 @@ test("aggregation does not weaken the fail-closed Ship gate for unverified criti
     assert.equal(failing.status, "FAIL", "a confirmed HIGH must still fail the gate");
     assert.equal(openFindingsGate([]).status, "PASS");
 });
-//# sourceMappingURL=report-aggregation.test.js.map

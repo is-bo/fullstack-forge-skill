@@ -124,4 +124,3 @@ function sameScope(left, right) {
     return (left.location.some((location) => rightPaths.has(location.path)) ||
         left.section === right.section);
 }
-//# sourceMappingURL=agent-findings.js.map

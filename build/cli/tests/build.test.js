@@ -772,4 +772,3 @@ test("adding a high-risk discipline at plan time re-applies the tier floor", asy
         assert.ok(planned.tier_inputs.some((input) => input.includes("high-tier triggers")));
     });
 });
-//# sourceMappingURL=build.test.js.map

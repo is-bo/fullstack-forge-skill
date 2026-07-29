@@ -314,4 +314,3 @@ export function isSafeLedgerPath(value) {
 function isRecord(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-//# sourceMappingURL=ledger.js.map

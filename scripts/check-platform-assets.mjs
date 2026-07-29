@@ -101,9 +101,9 @@ async function verifyRoot(platform, expected) {
   }
   for (const file of await walk(root)) {
     const rel = relative(root, file).split(sep).join("/");
-    if (rel === manifestName || !isManaged(rel)) continue;
+    if (rel === manifestName) continue;
     if (!expected.has(rel))
-      failures.push(`${platform.id}: unknown or un-retired managed file: ${rel}`);
+      failures.push(`${platform.id}: unknown or un-retired host-root file: ${rel}`);
   }
 }
 

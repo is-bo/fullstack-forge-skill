@@ -45,13 +45,14 @@ jobs:
         run: |
           npm run check
           npm run test:coverage
-          git diff --exit-code -- build/
+          git diff --exit-code -- build/ .fullstack-forge/ THIRD_PARTY_NOTICES.md .agents/ .claude/ .cursor/ .gemini/ .github/skills/ .windsurf/
           npm audit --ignore-scripts
           npm run check:release-docs
       - name: Package and clean-room install
         run: |
           npm run package:platforms
           npm run smoke:install
+          node scripts/upgrade-install.mjs v0.1.0
           npm run offline:install
       - name: Refuse duplicate candidate asset names
         env:
@@ -76,7 +77,7 @@ jobs:
             --draft \
             --verify-tag \
             --notes-file "$notes" \
-            --title "Fullstack Forge $GITHUB_REF_NAME — First supported agent-first release"
+            --title "Fullstack Forge $GITHUB_REF_NAME"
       - name: Download and verify draft release assets
         env:
           GH_TOKEN: ${{ github.token }}

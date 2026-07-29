@@ -1,6 +1,7 @@
 import type { ChangedScopeEvidence } from "./scope.js";
 import { type AnalyzerCoverage, type Confidence, type Finding, type GateEvidence, type ModuleDecision, type PlannedCheck, type ProjectProfile, type RuntimeEvidence, type Severity, type Status, type ToolRecord } from "./types.js";
-export declare const REPORT_SCHEMA_VERSION = 2;
+import type { CompositionResult } from "./composition.js";
+export declare const REPORT_SCHEMA_VERSION = 3;
 export type ExecutionRecord = {
     command: string[];
     exitCode: number;
@@ -105,6 +106,7 @@ export type ReportLedgers = {
     planned_checks?: PlannedCheck[];
     runtime_evidence?: RuntimeEvidence[];
     module_decisions?: ModuleDecision[];
+    compositions?: CompositionResult[];
 };
 export type AuditReport = {
     schema_version: typeof REPORT_SCHEMA_VERSION;
@@ -134,6 +136,8 @@ export type AuditReport = {
     runtime_evidence: RuntimeEvidence[];
     /** Why each module was or was not audited, on independent capability and selection axes. */
     module_decisions: ModuleDecision[];
+    /** Deterministic provider context selected and suppressed for each audited module. */
+    compositions: CompositionResult[];
     migration?: ReportMigration;
 };
 export declare function writeReport(report: AuditReport, outputDirectory?: string): Promise<string[]>;

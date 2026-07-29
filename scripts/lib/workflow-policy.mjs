@@ -29,6 +29,7 @@ export function validateWorkflowPolicies(workflows) {
   for (const [pattern, message] of [
     [/^concurrency:/mu, "release concurrency guard is missing"],
     [/release-preflight\.mjs/iu, "release preflight is missing"],
+    [/--asset/iu, "candidate asset and attestation preflight is missing"],
     [/--draft/iu, "draft-first publication is missing"],
     [/gh release verify/iu, "immutable release verification is missing"],
     [/gh release verify-asset/iu, "asset attestation verification is missing"],
@@ -40,6 +41,11 @@ export function validateWorkflowPolicies(workflows) {
     ]
   ])
     if (!pattern.test(release)) errors.push(`release.yml: ${message}`);
+  if (
+    release.lastIndexOf("release-preflight.mjs") >
+    release.indexOf("actions/attest-build-provenance@")
+  )
+    errors.push("release.yml: candidate attestation preflight must run before provenance creation");
   if (/--clobber/iu.test(release)) errors.push("release.yml: asset clobbering is forbidden");
 
   const codeql = workflows["codeql.yml"] ?? "";

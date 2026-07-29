@@ -263,4 +263,3 @@ function deriveDesignDirection(input) {
         limitations: ["This proves a structural design-direction record, not visual quality."]
     };
 }
-//# sourceMappingURL=build-runtime.js.map
