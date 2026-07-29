@@ -5,6 +5,7 @@
  * generated archive runtime is a transpiled closure of this entry, not a second implementation.
  */
 
+import { realpathSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -26,6 +27,21 @@ type ParsedArguments = {
   json: boolean;
   dryRun: boolean;
 };
+
+export function isDirectExecution(
+  argumentPath: string | undefined,
+  modulePath = fileURLToPath(import.meta.url),
+  canonicalize: (path: string) => string = realpathSync
+): boolean {
+  if (argumentPath === undefined) return false;
+  const resolvedArgument = resolve(argumentPath);
+  const resolvedModule = resolve(modulePath);
+  try {
+    return canonicalize(resolvedArgument) === canonicalize(resolvedModule);
+  } catch {
+    return resolvedArgument === resolvedModule;
+  }
+}
 
 export async function runCompositionEntry(argv: string[]): Promise<number> {
   const parsed = parseArguments(argv);
@@ -138,7 +154,7 @@ function parseRiskSurface(value: string): string {
   return normalized;
 }
 
-if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isDirectExecution(process.argv[1])) {
   runCompositionEntry(process.argv.slice(2))
     .then((exitCode) => {
       process.exitCode = exitCode;

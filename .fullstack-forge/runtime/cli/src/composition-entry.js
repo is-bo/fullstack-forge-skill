@@ -4,6 +4,7 @@
  * This file deliberately calls the same discovery and resolver functions as the npm CLI. The
  * generated archive runtime is a transpiled closure of this entry, not a second implementation.
  */
+import { realpathSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { compositionEvidenceFor, resolveRuntimeComposition, writeCompositionArtifact } from "./composition-runtime.js";
@@ -11,6 +12,18 @@ import { COMPOSITION_TASK_FLAGS } from "./composition.js";
 import { MODULE_SLUGS } from "./constants.js";
 import { discoverProject } from "./discovery.js";
 import { canonicalDirectory } from "./utils.js";
+export function isDirectExecution(argumentPath, modulePath = fileURLToPath(import.meta.url), canonicalize = realpathSync) {
+    if (argumentPath === undefined)
+        return false;
+    const resolvedArgument = resolve(argumentPath);
+    const resolvedModule = resolve(modulePath);
+    try {
+        return canonicalize(resolvedArgument) === canonicalize(resolvedModule);
+    }
+    catch {
+        return resolvedArgument === resolvedModule;
+    }
+}
 export async function runCompositionEntry(argv) {
     const parsed = parseArguments(argv);
     const root = await canonicalDirectory(parsed.root);
@@ -117,7 +130,7 @@ function parseRiskSurface(value) {
         throw new Error(`Invalid composition risk surface '${value}'.`);
     return normalized;
 }
-if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isDirectExecution(process.argv[1])) {
     runCompositionEntry(process.argv.slice(2))
         .then((exitCode) => {
         process.exitCode = exitCode;
