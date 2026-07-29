@@ -15,6 +15,11 @@ test("repository workflows satisfy immutable action and release policy", async (
     )
   );
   assert.deepEqual(validateWorkflowPolicies(workflows), []);
+  assert.match(
+    workflows["ci.yml"],
+    /timeout-minutes:\s*(?:3[0-9]|[4-9][0-9]|[1-9][0-9]{2,})/u,
+    "the supported Windows/Node 20 matrix must have enough time to complete every release gate"
+  );
   assert.match(workflows["ci.yml"], /node scripts\/upgrade-install\.mjs v0\.1\.0/u);
   assert.match(workflows["release.yml"], /node scripts\/upgrade-install\.mjs v0\.1\.0/u);
 });
