@@ -23,11 +23,11 @@ projects, but you never install, invoke, update, or need to understand any of th
 Requires Node.js 20.19+, 22.13+, or 24+.
 
 Use the newest immutable release shown on the
-[GitHub Releases page](https://github.com/is-bo/fullstack-forge-skill/releases). If v0.2.1 is
+[GitHub Releases page](https://github.com/is-bo/fullstack-forge-skill/releases). If v0.2.2 is
 published there, install it with:
 
 ```bash
-npm install --save-dev "https://codeload.github.com/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v0.2.1"
+npm install --save-dev "https://codeload.github.com/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v0.2.2"
 npx forge init
 npx forge doctor
 ```
@@ -227,13 +227,12 @@ See [development](docs/DEVELOPMENT.md), [contributing](CONTRIBUTING.md), and
 
 ## Version policy
 
-This source tree is the `v0.2.1` release candidate. It becomes the current supported public release
-only when its immutable GitHub Release is published and verified. `v0.2.0` remains a fetchable
-historical tag but was never published as a GitHub Release; it will not be moved, rewritten, or
-republished.
+This source tree is the `v0.2.2` release candidate. It becomes the current supported public release
+only when its immutable GitHub Release is published and verified. `v0.2.0` and `v0.2.1` remain
+fetchable historical tags without GitHub Releases; neither will be moved, rewritten, or republished.
 
 Preparing to test the candidate after publication? See
-[the v0.2.1 migration notes](docs/MIGRATION_v0.2.1.md).
+[the v0.2.2 migration notes](docs/MIGRATION_v0.2.2.md).
 
 ## License
 

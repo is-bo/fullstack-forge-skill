@@ -1,6 +1,6 @@
 {
   "name": "fullstack-forge-skill",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Agent-first production engineering workflows for full-stack application changes.",
   "type": "module",
   "license": "Apache-2.0",
