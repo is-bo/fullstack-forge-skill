@@ -1,11 +1,23 @@
 import { execFile } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
-import { assertReleasePreconditions, assertUniqueAssetNames } from "./lib/release-safety.mjs";
+import {
+  assertNoExistingAttestations,
+  assertReleasePreconditions,
+  assertUniqueAssetNames,
+  classifyAttestationState,
+  classifyReleaseState,
+  digest
+} from "./lib/release-safety.mjs";
 
 const run = promisify(execFile);
 const values = parseArguments(process.argv.slice(2));
 const tag = required(values, "tag");
 const expectedSha = required(values, "sha");
+const version = JSON.parse(
+  await readFile(new URL("../package.json", import.meta.url), "utf8")
+).version;
+if (typeof version !== "string") throw new Error("package.json has no release version.");
 const repository = process.env.GITHUB_REPOSITORY;
 if (repository === undefined || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(repository))
   throw new Error("GITHUB_REPOSITORY is required.");
@@ -15,22 +27,51 @@ const tagResult = await run("git", ["rev-list", "-n", "1", `${tag}^{commit}`], {
   windowsHide: true
 });
 const tagSha = tagResult.stdout.trim();
+// Tag-specific lookups can be draft-blind. Listing every page makes retries fail closed when an
+// unpublished draft already owns the tag.
 let releaseState;
 try {
-  await run("gh", ["api", `repos/${repository}/releases/tags/${tag}`], {
-    encoding: "utf8",
-    windowsHide: true
-  });
-  releaseState = "exists";
+  const releases = await run(
+    "gh",
+    ["api", "--paginate", "--slurp", `repos/${repository}/releases?per_page=100`],
+    {
+      encoding: "utf8",
+      windowsHide: true
+    }
+  );
+  releaseState = classifyReleaseState(JSON.parse(releases.stdout), tag);
 } catch (error) {
-  const message = `${error.stderr ?? ""}\n${error.message ?? ""}`;
-  if (/HTTP 404|Not Found/iu.test(message)) releaseState = "missing";
-  else throw new Error(`Could not prove release absence: ${message.trim()}`, { cause: error });
+  throw new Error(`Could not prove release absence: ${error.message}`, { cause: error });
 }
-assertReleasePreconditions({ tag, expectedSha, tagSha, releaseState });
+assertReleasePreconditions({ tag, expectedSha, tagSha, releaseState, version });
 assertUniqueAssetNames(values.assets ?? []);
+const attestations = [];
+for (const asset of values.assets ?? []) {
+  const subjectDigest = `sha256:${digest(await readFile(asset))}`;
+  try {
+    const response = await run("gh", ["api", `repos/${repository}/attestations/${subjectDigest}`], {
+      encoding: "utf8",
+      windowsHide: true
+    });
+    attestations.push({
+      asset,
+      subjectDigest,
+      state: classifyAttestationState(JSON.parse(response.stdout), subjectDigest)
+    });
+  } catch (error) {
+    throw new Error(
+      `Could not prove attestation absence for ${asset} (${subjectDigest}): ${error.message}`,
+      { cause: error }
+    );
+  }
+}
+if (attestations.length > 0) assertNoExistingAttestations(attestations);
 console.log(
-  JSON.stringify({ tag, tagSha, releaseState, assetNames: values.assets ?? [] }, null, 2)
+  JSON.stringify(
+    { tag, tagSha, releaseState, assetNames: values.assets ?? [], attestations },
+    null,
+    2
+  )
 );
 
 function parseArguments(args) {

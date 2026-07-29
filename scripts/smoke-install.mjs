@@ -80,6 +80,19 @@ try {
     throw new Error(
       `CLI version smoke failed: expected ${expectedVersion}, got ${version.stdout} ${version.stderr}`
     );
+  const installedPackageRoot = join(consumerRoot, "node_modules", "fullstack-forge-skill");
+  const upstreamVerify = await run(
+    process.execPath,
+    [join(installedPackageRoot, "scripts", "upstream-verify.mjs")],
+    installedPackageRoot
+  );
+  if (
+    upstreamVerify.code !== 0 ||
+    !upstreamVerify.stdout.includes("Shipped upstream runtime verification passed")
+  )
+    throw new Error(
+      `packed upstream runtime verification failed:\n${upstreamVerify.stderr}\n${upstreamVerify.stdout}`
+    );
 
   const dryInit = await run(
     process.execPath,
@@ -253,6 +266,7 @@ try {
         antigravity_global: ".gemini/config/skills",
         gemini_project: ".gemini/skills",
         installed_skills: 46,
+        upstream_runtime_verified: true,
         automatic_activation: true,
         symlinks: 0
       },

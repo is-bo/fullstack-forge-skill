@@ -2201,4 +2201,3 @@ function offsetForLine(content, line) {
 function isRecord(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-//# sourceMappingURL=analyzers.js.map

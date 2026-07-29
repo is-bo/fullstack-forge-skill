@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { join, posix } from "node:path";
+import { spawn } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, posix } from "node:path";
 import { validateArchiveBytes } from "./lib/archive-validation.mjs";
 import { assertNoSymlinkPath, assertRegularFile } from "./lib/fs-safety.mjs";
 import { CANONICAL_ROOT_POSIX, readAdapterMarker } from "./lib/managed-layout.mjs";
@@ -36,6 +38,13 @@ const requiredEntries = [
   "examples/quickstart-demo/README.md",
   `docs/RELEASE_NOTES_v${version}.md`,
   `docs/RELEASE_VERIFICATION_v${version}.md`
+];
+const requiredManagedEntries = [
+  `${CANONICAL_ROOT_POSIX}/fullstack-forge/SKILL.md`,
+  ".fullstack-forge/manifests/module-composition.json",
+  ".fullstack-forge/manifests/upstream-registry.json",
+  ".fullstack-forge/manifests/upstream-transforms.json",
+  ".fullstack-forge/runtime/cli/src/composition-entry.js"
 ];
 await assertRegularFile(join(distRoot, "manifest.json"), "distribution manifest");
 await assertRegularFile(join(distRoot, "SHA256SUMS.txt"), "checksum file");
@@ -88,6 +97,138 @@ function assertArchiveResolves(archiveName, entries) {
   return resolved;
 }
 
+function assertCompleteForgeRuntime(archiveName, entries) {
+  const byName = new Map(entries.map((entry) => [entry.name, entry.data]));
+  for (const required of requiredManagedEntries)
+    if (!byName.has(required)) throw new Error(`${archiveName} is missing ${required}`);
+
+  const composition = JSON.parse(
+    byName.get(".fullstack-forge/manifests/module-composition.json").toString("utf8")
+  );
+  const registry = JSON.parse(
+    byName.get(".fullstack-forge/manifests/upstream-registry.json").toString("utf8")
+  );
+  for (const module of composition.modules ?? []) {
+    const contract = `${CANONICAL_ROOT_POSIX}/fullstack-forge/${module.forgeContract}`;
+    if (!byName.has(contract))
+      throw new Error(`${archiveName}:${module.module} is missing Forge contract ${contract}`);
+    for (const source of module.resolvedSources ?? [])
+      if (!byName.has(source.runtimePath))
+        throw new Error(
+          `${archiveName}:${module.module} resolves ${source.provider}/${source.skill} to missing ${source.runtimePath}`
+        );
+  }
+
+  const upstreamSkills = [...byName.keys()].filter(
+    (name) => name.startsWith(".fullstack-forge/upstream/") && name.endsWith("/SKILL.md")
+  );
+  if (upstreamSkills.length > 0)
+    throw new Error(`${archiveName} exposes discoverable upstream skills: ${upstreamSkills[0]}`);
+
+  const notices = byName.get("THIRD_PARTY_NOTICES.md").toString("utf8");
+  for (const provider of registry.providers ?? []) {
+    if (!notices.includes(provider.displayName) || !notices.includes(provider.repository))
+      throw new Error(`${archiveName} notices do not identify shipped provider ${provider.id}`);
+    for (const attribution of ["UPSTREAM-LICENSE", "UPSTREAM-NOTICE", "UPSTREAM-SOURCE.md"]) {
+      const path = `${provider.runtimeRoot}/${attribution}`;
+      if (!byName.has(path))
+        throw new Error(`${archiveName} is missing ${provider.id} attribution ${path}`);
+    }
+  }
+  return { composition, registry };
+}
+
+async function assertCleanRoomExtraction(archiveName, entries, composition) {
+  const extractionRoot = await mkdtemp(join(tmpdir(), "fullstack-forge-archive-"));
+  try {
+    for (const entry of entries) {
+      const target = join(extractionRoot, ...entry.name.split("/"));
+      await mkdir(dirname(target), { recursive: true });
+      await writeFile(target, entry.data);
+    }
+    for (const required of requiredManagedEntries)
+      await assertRegularFile(
+        join(extractionRoot, ...required.split("/")),
+        `${archiveName} extracted managed file`
+      );
+    for (const module of composition.modules ?? []) {
+      await assertRegularFile(
+        join(
+          extractionRoot,
+          CANONICAL_ROOT_POSIX,
+          "fullstack-forge",
+          ...module.forgeContract.split("/")
+        ),
+        `${archiveName} extracted Forge contract`
+      );
+      for (const source of module.resolvedSources ?? [])
+        await assertRegularFile(
+          join(extractionRoot, ...source.runtimePath.split("/")),
+          `${archiveName} extracted upstream runtime source`
+        );
+    }
+    const fixtureRoot = join(extractionRoot, "clean-room-project");
+    await mkdir(fixtureRoot);
+    await writeFile(
+      join(fixtureRoot, "package.json"),
+      `${JSON.stringify({
+        name: "archive-composition-fixture",
+        private: true,
+        dependencies: { react: "19.0.0", "@sentry/react": "10.0.0" }
+      })}\n`,
+      "utf8"
+    );
+    const execution = await run(
+      process.execPath,
+      [
+        join(extractionRoot, ".fullstack-forge", "runtime", "cli", "src", "composition-entry.js"),
+        "observability",
+        "compose",
+        "--request",
+        "sentry-react",
+        "--root",
+        fixtureRoot,
+        "--json"
+      ],
+      fixtureRoot
+    );
+    if (execution.exitCode !== 0)
+      throw new Error(
+        `${archiveName} composition runtime failed clean-room execution: ${execution.stderr}`
+      );
+    const resolved = JSON.parse(execution.stdout);
+    const result = resolved.compositions?.[0];
+    if (
+      !Array.isArray(result?.selected) ||
+      result.selected[0]?.tier !== "forge-contract" ||
+      !result.selected.some((source) => source.skill === "sentry-react-sdk") ||
+      !Array.isArray(result.missing) ||
+      result.missing.length !== 0
+    )
+      throw new Error(`${archiveName} composition runtime returned an incomplete resolution`);
+  } finally {
+    await rm(extractionRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+}
+
+async function run(command, args, cwd) {
+  return await new Promise((resolvePromise, reject) => {
+    const child = spawn(command, args, { cwd, shell: false, windowsHide: true });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.on("error", reject);
+    child.on("close", (exitCode) => resolvePromise({ exitCode: exitCode ?? 1, stdout, stderr }));
+  });
+}
+
 let totalEntries = 0;
 let totalResolvedAdapters = 0;
 for (const name of expected) {
@@ -105,9 +246,9 @@ for (const name of expected) {
     if (!names.has(required)) throw new Error(`${name} is missing ${required}`);
   if (![...names].some((entry) => entry.endsWith("/fullstack-forge/SKILL.md")))
     throw new Error(`${name} contains no Fullstack Forge master skill`);
-  if (!names.has(`${CANONICAL_ROOT_POSIX}/fullstack-forge/SKILL.md`))
-    throw new Error(`${name} is missing the canonical managed content its adapters point at`);
+  const completeRuntime = assertCompleteForgeRuntime(name, entries);
   totalResolvedAdapters += assertArchiveResolves(name, entries);
+  await assertCleanRoomExtraction(name, entries, completeRuntime.composition);
 }
 
 console.log(

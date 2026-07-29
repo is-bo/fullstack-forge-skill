@@ -198,4 +198,3 @@ async function analyzerFinding(root, section, id) {
     assert.ok(finding, `expected ${id}`);
     return finding;
 }
-//# sourceMappingURL=verification.test.js.map

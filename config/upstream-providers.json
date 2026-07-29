@@ -1,5 +1,5 @@
 {
-  "$comment": "Fixed upstream source set for Fullstack Forge. This file is the INPUT to `npm run upstream:update`; the per-provider `third_party/agent-skills/<id>/UPSTREAM.json` is the recorded OUTPUT. Every pin is an immutable commit SHA. Selection is allowlist-only: a path is imported when it matches `selectedPaths` and does not match `excludedPaths`. Executable files are rejected unless listed in `runtimeExecutables`.",
+  "$comment": "Fixed upstream source set for Fullstack Forge. This file is the INPUT to the source-only `node scripts/upstream-update.mjs` maintainer tool; the per-provider `third_party/agent-skills/<id>/UPSTREAM.json` is the recorded OUTPUT. Every pin is an immutable commit SHA. Selection is allowlist-only: a path is imported when it matches `selectedPaths` and does not match `excludedPaths`. Executable files are rejected unless listed in `runtimeExecutables`.",
   "schema": "src/fullstack-forge/schemas/upstream-provider.schema.json",
   "documentFileExtensions": [".md", ".mdc", ".json", ".txt", ".yaml", ".yml"],
   "providers": [
@@ -12,45 +12,29 @@
       "relatedReleases": ["cli-v3.3.1"],
       "license": "Apache-2.0",
       "licenseEvidence": "LICENSE",
-      "copyright": "Copyright the Impeccable authors",
+      "copyright": "Copyright 2025 Paul Bakaus",
+      "copyrightEvidence": {
+        "path": "LICENSE",
+        "text": "Copyright 2025 Paul Bakaus"
+      },
+      "noticeEvidence": ["NOTICE.md"],
       "updatePolicy": "reviewed-only",
       "selectedPaths": [
         "LICENSE",
         "NOTICE.md",
         ".claude/skills/impeccable/SKILL.md",
-        ".claude/skills/impeccable/reference/",
-        ".claude/skills/impeccable/scripts/command-metadata.json",
-        ".claude/skills/impeccable/scripts/detector/",
-        ".claude/skills/impeccable/scripts/lib/impeccable-config.mjs"
+        ".claude/skills/impeccable/reference/"
       ],
       "excludedPaths": [
         ".claude/skills/impeccable/reference/doctor.md",
         ".claude/skills/impeccable/reference/hooks.md",
+        ".claude/skills/impeccable/reference/live.md",
         ".claude/skills/impeccable/scripts/detector/browser/",
         ".claude/skills/impeccable/scripts/detector/detect-antipatterns-browser.js",
         ".claude/skills/impeccable/scripts/detector/detect-antipatterns.mjs"
       ],
-      "runtimeExecutables": [
-        ".claude/skills/impeccable/scripts/detector/cli/main.mjs",
-        ".claude/skills/impeccable/scripts/detector/design-system.mjs",
-        ".claude/skills/impeccable/scripts/detector/findings.mjs",
-        ".claude/skills/impeccable/scripts/detector/engines/browser/detect-url.mjs",
-        ".claude/skills/impeccable/scripts/detector/engines/regex/detect-text.mjs",
-        ".claude/skills/impeccable/scripts/detector/engines/static-html/css-cascade.mjs",
-        ".claude/skills/impeccable/scripts/detector/engines/static-html/detect-html.mjs",
-        ".claude/skills/impeccable/scripts/detector/engines/visual/screenshot-contrast.mjs",
-        ".claude/skills/impeccable/scripts/detector/node/file-system.mjs",
-        ".claude/skills/impeccable/scripts/detector/profile/profiler.mjs",
-        ".claude/skills/impeccable/scripts/detector/registry/antipatterns.mjs",
-        ".claude/skills/impeccable/scripts/detector/rules/checks.mjs",
-        ".claude/skills/impeccable/scripts/detector/shared/color.mjs",
-        ".claude/skills/impeccable/scripts/detector/shared/constants.mjs",
-        ".claude/skills/impeccable/scripts/detector/shared/fonts.mjs",
-        ".claude/skills/impeccable/scripts/detector/shared/inline-ignores.mjs",
-        ".claude/skills/impeccable/scripts/detector/shared/page.mjs",
-        ".claude/skills/impeccable/scripts/lib/impeccable-config.mjs"
-      ],
-      "notes": "The detector import closure is vendored whole so the module graph resolves offline; the 350 KiB pre-bundled browser detector and the browser-injection payload are excluded because Forge only ever runs the detector against local files. `forge ui live` ships guidance only: the interactive live server, hook system, and screenshot runtime are deliberately not imported. The hook and doctor reference documents are excluded with the subsystems they describe: Forge does not vendor the hook system, and `forge doctor` owns installation health, so shipping guidance for either would advertise a workflow that does not exist."
+      "runtimeExecutables": [],
+      "notes": "Forge vendors Impeccable as compiled workflow guidance only. No detector, hook, live-server, screenshot, or other Impeccable executable is shipped or invoked. `forge ui audit` applies the translated audit procedure to Forge and user-supplied evidence; deterministic checks remain owned by Forge modules. The hook and doctor reference documents are excluded with the subsystems they describe."
     },
     {
       "id": "addy-agent-skills",
@@ -60,7 +44,12 @@
       "upstreamTag": "0.6.5",
       "license": "MIT",
       "licenseEvidence": "LICENSE",
-      "copyright": "Copyright (c) Addy Osmani",
+      "copyright": "Copyright (c) 2025 Addy Osmani",
+      "copyrightEvidence": {
+        "path": "LICENSE",
+        "text": "Copyright (c) 2025 Addy Osmani"
+      },
+      "noticeEvidence": [],
       "updatePolicy": "reviewed-only",
       "selectedPaths": [
         "LICENSE",
@@ -105,17 +94,31 @@
       "upstreamTag": null,
       "license": "MIT",
       "licenseEvidence": "README.md#license",
-      "copyright": "Copyright (c) Vercel, Inc.",
+      "copyright": null,
+      "copyrightEvidence": null,
+      "noticeEvidence": [],
       "updatePolicy": "reviewed-only",
       "selectedPaths": [
         "README.md",
         "skills/react-best-practices/",
         "skills/react-native-skills/",
         "skills/react-view-transitions/",
-        "skills/vercel-optimize/",
         "skills/web-design-guidelines/"
       ],
-      "excludedPaths": ["**/scripts/", "**/lib/", "**/tests/"],
+      "excludedPaths": [
+        "**/scripts/",
+        "**/lib/",
+        "**/tests/",
+        "skills/react-best-practices/README.md",
+        "skills/react-best-practices/AGENTS.md",
+        "skills/react-best-practices/metadata.json",
+        "skills/react-native-skills/README.md",
+        "skills/react-native-skills/AGENTS.md",
+        "skills/react-native-skills/metadata.json",
+        "skills/react-view-transitions/README.md",
+        "skills/react-view-transitions/AGENTS.md",
+        "skills/react-view-transitions/metadata.json"
+      ],
       "runtimeExecutables": [],
       "notes": "The repository has no LICENSE file at the pinned commit; MIT is declared in README.md and in each selected SKILL.md frontmatter (`license: MIT`). Both are recorded verbatim in SOURCE.md as the licence evidence. `writing-guidelines`, `deploy-to-vercel`, and `vercel-cli-with-tokens` are excluded: Forge does not adopt a house writing style and does not import autonomous deployment.",
       "requiresLicenseEvidenceReview": true
@@ -128,7 +131,12 @@
       "upstreamTag": "v0.1.6",
       "license": "MIT",
       "licenseEvidence": "LICENSE",
-      "copyright": "Copyright (c) Supabase, Inc.",
+      "copyright": "Copyright (c) 2026 Supabase",
+      "copyrightEvidence": {
+        "path": "LICENSE",
+        "text": "Copyright (c) 2026 Supabase"
+      },
+      "noticeEvidence": [],
       "updatePolicy": "reviewed-only",
       "selectedPaths": ["LICENSE", "skills/supabase/", "skills/supabase-postgres-best-practices/"],
       "excludedPaths": [],
@@ -142,7 +150,9 @@
       "upstreamTag": null,
       "license": "Apache-2.0",
       "licenseEvidence": "LICENSE",
-      "copyright": "Copyright Google LLC",
+      "copyright": null,
+      "copyrightEvidence": null,
+      "noticeEvidence": [],
       "updatePolicy": "reviewed-only",
       "selectedPaths": [
         "LICENSE",
@@ -157,7 +167,6 @@
         "skills/cloud/google-cloud-storage-basics/",
         "skills/cloud/firebase-basics/",
         "skills/cloud/gke-productionize/",
-        "skills/cloud/gke-reliability/",
         "skills/cloud/gke-storage/",
         "skills/cloud/gke-workload-scaling/",
         "skills/cloud/gke-multitenancy/",
@@ -166,10 +175,6 @@
         "skills/cloud/gke-observability/",
         "skills/cloud/google-cloud-networking-observability/",
         "skills/cloud/gemini-api/",
-        "skills/cloud/gemini-agents-api/",
-        "skills/cloud/agent-platform-inference/",
-        "skills/cloud/agent-platform-deploy/",
-        "skills/cloud/agent-platform-eval-flywheel/",
         "skills/analytics/google-analytics-admin-api-basics/",
         "skills/analytics/google-analytics-data-api-basics/"
       ],
@@ -185,7 +190,9 @@
       "upstreamTag": null,
       "license": "Apache-2.0",
       "licenseEvidence": "LICENSE",
-      "copyright": "Copyright Cloudflare, Inc.",
+      "copyright": null,
+      "copyrightEvidence": null,
+      "noticeEvidence": [],
       "updatePolicy": "reviewed-only",
       "selectedPaths": [
         "LICENSE",
@@ -194,7 +201,6 @@
         "skills/web-perf/",
         "skills/agents-sdk/",
         "skills/durable-objects/",
-        "skills/sandbox-sdk/",
         "commands/build-mcp.md",
         "commands/build-agent.md"
       ],
@@ -205,32 +211,35 @@
     {
       "id": "sentry-agent-skills",
       "displayName": "Sentry Agent Skills",
-      "repository": "getsentry/sentry-agent-skills",
-      "upstreamCommit": "9f54eb021916a7cff2c04a9f4e4c1f9439f3202c",
+      "repository": "getsentry/sentry-for-ai",
+      "upstreamCommit": "3f7d285efc6f6ff5c5cfc5690857a9474c6642f8",
       "upstreamTag": null,
-      "license": "Apache-2.0",
-      "licenseEvidence": "README.md#license",
-      "copyright": "Copyright Functional Software, Inc. dba Sentry",
+      "license": "MIT",
+      "licenseEvidence": "LICENSE",
+      "copyright": "Copyright (c) 2025 Sentry (https://sentry.io) and contributors",
+      "copyrightEvidence": {
+        "path": "LICENSE",
+        "text": "Copyright (c) 2025 Sentry (https://sentry.io) and contributors"
+      },
+      "noticeEvidence": [],
       "updatePolicy": "reviewed-only",
       "selectedPaths": [
-        "README.md",
-        "skills/sentry-fix-issues/",
-        "skills/sentry-pr-code-review/",
-        "skills/sentry-setup-ai-monitoring/",
-        "skills/sentry-otel-exporter-setup/",
-        "skills/sentry-nextjs-sdk/",
-        "skills/sentry-react-sdk/",
-        "skills/sentry-react-native-sdk/",
-        "skills/sentry-svelte-sdk/",
-        "skills/sentry-python-sdk/",
-        "skills/sentry-go-sdk/",
-        "skills/sentry-ruby-sdk/",
-        "skills/sentry-dotnet-sdk/"
+        "LICENSE",
+        "skills-legacy/sentry-fix-issues/",
+        "src/skills/sentry-setup-ai-monitoring/",
+        "src/skills/sentry-otel-exporter-setup/",
+        "skills-legacy/sentry-nextjs-sdk/",
+        "skills-legacy/sentry-react-sdk/",
+        "skills-legacy/sentry-react-native-sdk/",
+        "skills-legacy/sentry-svelte-sdk/",
+        "skills-legacy/sentry-python-sdk/",
+        "skills-legacy/sentry-go-sdk/",
+        "skills-legacy/sentry-ruby-sdk/",
+        "skills-legacy/sentry-dotnet-sdk/"
       ],
-      "excludedPaths": [],
+      "excludedPaths": ["skills-legacy/sentry-svelte-sdk/references/session-replay.md"],
       "runtimeExecutables": [],
-      "notes": "The repository has no LICENSE file at the pinned commit; Apache-2.0 is declared in README.md, recorded verbatim in SOURCE.md. `sentry-setup-metrics` does not exist upstream at this commit \u2014 metrics guidance ships only as per-SDK `references/metrics.md`, which is imported with the Go, Python, and Ruby bundles. `sentry-cocoa-sdk` is excluded (no Forge Swift/Objective-C support) as are `sentry-sdk-skill-creator` and `sentry-create-alert`.",
-      "requiresLicenseEvidenceReview": true
+      "notes": "Sentry's active source-of-truth repository retains the reviewed framework SDK bundles under `skills-legacy/`; current AI monitoring and OpenTelemetry setup guidance comes from `src/skills/`. Metrics guidance ships only where present in the selected SDK references. Apple-only and skill-authoring material remains excluded."
     },
     {
       "id": "wshobson-agents",
@@ -240,7 +249,12 @@
       "upstreamTag": null,
       "license": "MIT",
       "licenseEvidence": "LICENSE",
-      "copyright": "Copyright (c) Will Shobson",
+      "copyright": "Copyright (c) 2024 Seth Hobson",
+      "copyrightEvidence": {
+        "path": "LICENSE",
+        "text": "Copyright (c) 2024 Seth Hobson"
+      },
+      "noticeEvidence": [],
       "updatePolicy": "reviewed-only",
       "selectedPaths": [
         "LICENSE",

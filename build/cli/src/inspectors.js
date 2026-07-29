@@ -717,4 +717,3 @@ function emptyResult(tool, root) {
 export function isModuleSlug(value) {
     return MODULE_SLUGS.includes(value);
 }
-//# sourceMappingURL=inspectors.js.map

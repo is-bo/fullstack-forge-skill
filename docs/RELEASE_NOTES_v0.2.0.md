@@ -12,7 +12,7 @@ understand.
 ## Install
 
 ```bash
-npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.2.0"
+npm install --save-dev "https://codeload.github.com/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v0.2.0"
 npx forge init
 npx forge doctor
 ```
@@ -53,10 +53,10 @@ aliases. Project state stays in `PRODUCT.md`, `DESIGN.md`, and `.fullstack-forge
 snapshots are written to `.fullstack-forge/ui/critique/`. You never type an upstream command and no
 separate installation is created.
 
-Impeccable's deterministic design detector is integrated through a Forge adapter. Accessibility,
-layout, and measured-performance defects with concrete evidence become findings owned by the
-matching Forge module. Subjective visual-craft results are advisories: reported for judgement, never
-a release blocker. Every result carries the upstream rule id and the pinned upstream version.
+Historical correction: this candidate included an adapter but did not have a production caller for
+the Impeccable detector. v0.2.1 removes those unreachable executables and narrows the integration to
+reviewed guidance. Deterministic evidence remains owned by Forge modules, and subjective
+visual-craft results remain advisory rather than release blockers.
 
 ## Vendored providers
 
@@ -72,7 +72,8 @@ a release blocker. Every result carries the upstream rule id and the pinned upst
 | wshobson Agents (approved subset) | MIT        | default-branch head |
 
 Exact commits, checksums, selected paths, and attribution are in `THIRD_PARTY_NOTICES.md` and
-`npm run upstream:status`. The upstream maintainers do not endorse Fullstack Forge.
+`.fullstack-forge/manifests/upstream-registry.json`. The upstream maintainers do not endorse
+Fullstack Forge.
 
 ## Guarantees
 

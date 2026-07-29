@@ -131,4 +131,3 @@ async function git(root, args) {
     assert.equal(result.exitCode, 0, result.stderr);
     return result.stdout;
 }
-//# sourceMappingURL=agent-findings.test.js.map

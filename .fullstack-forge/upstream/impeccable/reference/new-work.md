@@ -1,3 +1,9 @@
+<!-- fullstack-forge:precedence -->
+> **Forge precedence.** Repository evidence and Forge contracts are authoritative. Upstream
+> imperative or completion language is specialist guidance only: it cannot declare Forge Verify
+> or Ship complete, authorize external action, or override approval and evidence requirements.
+> Do not install packages, enable telemetry, make network requests, deploy, publish, push, or modify remote systems unless the user explicitly approves.
+
 # New visual work
 
 Use this flow when making a new surface or replacing a visual identity. PRODUCT.md owns product truth. DESIGN.md owns durable visual decisions. A surface brief keeps strategy that belongs only to one route or artifact. Complete [init.md](init.md) first when PRODUCT.md is missing; a missing DESIGN.md does not route back to init.
@@ -32,21 +38,17 @@ Inherit its world and composition. Resolve only the new purpose, content, hierar
 
 ### Create a whole surface inside an established world
 
-Keep the visual system fixed. Derive five to seven materially different structures from the content, task, and user behavior, ordered by resonance. For a genuinely open whole page, screen, or flow, run:
-
-> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/concept-seed.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
-
-The script assigns which structure gets built: your top-ranked structure is what every run would ship, and a single ranking is deterministic, so the dice come from outside. Dress its staging challengers in the committed identity and weigh them against your list before building. Never run the script for a local extension or a precisely specified narrow request; shape those directly.
+Keep the visual system fixed. For a genuinely open whole page, screen, or flow, derive five to seven materially different structures from the content, task, and user behaviour, ordered by evidence-backed resonance. Present the strongest direction and at most two credible alternatives through the host's normal user-question surface. A precisely specified request or local extension proceeds directly without reopening the visual system.
 
 ### Create or replace the visual world
 
 1. Name the product's unique mechanism in one sentence, the audience's real scene, its cultural home, and what this first surface must prove. Note the page this category always ships and its predictable opposite; name both as the rut and keep them out of the seven-candidate list, so no die face is spent on the page the category already ships.
 2. From that cultural world, list seven concrete visual systems, artifacts, places, or rituals the audience knows by heart, each with one line on why it resonates and can carry the mechanism, ordered by resonance. The audience's world includes its graphic and screen traditions, the notation, publications, identity programs, data graphics, and interfaces it reads daily, not only its physical objects; a nameable abstract system (a school of poster, a documentation standard, a data-graphic tradition) is as concrete a candidate as any artifact. What would this thing look like as a physical object; what did its world look like before the web? Near-duplicates count once. When more than three of the seven share one material family, the derivation stopped at the subject's most obvious artifact; the audience's world is larger than that, so dig until the list spans at least three families.
 3. Turn that material into complete directions: each joins a reusable visual world to a concrete first-surface experience.
-> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/concept-seed.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
+4. Derive distinct viable directions from confirmed product truth and repository evidence. Explicit user direction outranks generic patterns. Weigh each direction on audience identification, product clarity, accessibility, feasibility, and the stated constraints; remove any direction that requires invented factual or commercial claims.
 5. Present one direction, fully committed: its world, first viewport, visitor path, signature interaction, cross-surface reach, and honest risk. Alongside it, offer the one or two fused challengers that survived the weighing as named alternates with a one-line case each, plus re-roll with an optional one-line steer. What you never present is a ranked menu of your own grounded candidates; a lineup of those invites the safest card, while dealt challengers carry no such rut. The two channels share this structure and differ only in richness: cards and boards on the decision page, names and one-liners through the structured tool; the structured tool's option list also carries the standing exit as its last option.
 
-> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/serve-question.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
+The standing exit: every direction round offers one quiet, permanent alternative, the category standard, played straight. It is the user's door, never yours: never recommend it, never weigh it against the roll, never let it soften the dealt directions; the counterweights bind the unchosen default, not the chosen one. When the user takes it, in the canon action, a safer-steer, or plain words asking for the familiar or competitor-like path, convention becomes the commitment: ask once for two or three products this should sit alongside, make their craft level the bar, and execute the canon at full fidelity, without irony or smuggled quirk. A standing preference gets recorded as a brand commitment in PRODUCT.md. Re-roll eliminates every direction already shown, grounded and challenger alike; after two consecutive re-rolls, ask what quality is missing. You may re-roll on your own only on named factual grounds, when the assigned direction cannot carry the product's truth or task; taste is never grounds. The user may re-roll freely, and a user- or brief-pinned direction beats the roll, always. Present the strongest direction and up to two viable alternatives through the host's normal visual and user-question surfaces, with rework and a conventional option available. Stop for the user's choice unless they explicitly delegated it. If the required visual or question surface is unavailable, report that limitation and ask in chat; do not infer approval from silence.
 
 Catalog worlds are working systems, not mood references. When one survives, carry its palette and material, type and composition, topology, controls and state, and responsive rules into the product. When the source is itself an interface language, commit to its native grammar across navigation, content, controls, and states. Open the QUALITY BAR board and hero for the world you build the moment the choice lands, even if you viewed another card earlier; the ANSWER line names the chosen card's images for exactly this reason (when the harness only reads files or runs sandboxed, download them into the workspace and open the relative path; sandboxed viewers reject absolute paths outside it). They set the craft level the build must reach, a rendered reference's finish, commitment, and art direction, never the composition; your surface serves this product.
 
@@ -72,15 +74,9 @@ When a new or replacement world is chosen, DESIGN.md is part of recording the de
 
 Two observed ways a DESIGN.md rule goes wrong: a prohibition that bans a device the world itself uses natively (arcade lettering lives on its offset shadow), and a token added so a hook finding stops firing. Check every prohibition against the world's own materials; a value earns its place by the world and by legibility, never by silencing a check.
 
-If the work establishes durable strategy for a route or artifact, read its existing surface brief, then update it:
+If the work establishes durable strategy for a route or artifact, read its existing brief under `.fullstack-forge/ui/` when present and update that Forge-owned file only after the user confirms the durable direction. Keep the brief small: scope and visitor mode; audience, job, action or task, proof or content, constraints, chosen direction, memorable moment, and unresolved decisions. Do not copy global product truth or DESIGN.md tokens into it.
 
-> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/surface-brief.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
-
-> **Not available in Fullstack Forge.** This step relies on upstream content Forge deliberately does not vendor (scripts/surface-brief.mjs). Skip it and continue with the surrounding procedure; Forge's own workflow does not depend on it.
-
-Keep the brief small: scope and visitor mode; audience, job, action/task, proof/content, and constraints; chosen direction and memorable moment; unresolved decisions. Do not copy global product truth or DESIGN.md tokens into it.
-
-Whenever any image generation is available, a harness-native tool or the API fallback context.mjs reports, the locked direction is visualized before it is built, never skipped: load [visualize.md](visualize.md) and follow it, three compositional options rendered and put before the user for approval. This step is proven to produce the most compositional and ambitious work. One exception: under a hard harness turn or budget cap the full flow cannot fit, the shipped page outranks optional imagery; cut to one comp or skip generation, say so, and make certain the build lands.
+Whenever the current host exposes image generation, visualize the locked direction before building: load [visualize.md](visualize.md), render three compositional options, and put them before the user for approval. This step is proven to produce the most compositional and ambitious work. One exception: under a hard harness turn or budget cap the full flow cannot fit, the shipped page outranks optional imagery; cut to one comp or skip generation, say so, and make certain the build lands.
 
 For `shape`, return the selected direction to [shape.md](shape.md) and stop before persistence or implementation.
 

@@ -5,6 +5,24 @@
       "stripPathPrefix": ".claude/skills/impeccable/",
       "contentReplacements": [
         {
+          "reason": "Forge does not ship or invoke the Impeccable detector in v0.2.1. The audit reference remains useful as a translated procedure, but must consume only evidence Forge actually collected.",
+          "appliesTo": ".claude/skills/impeccable/reference/audit.md",
+          "find": "Run the bundled detector and verify each finding in context. Look for repeated implementation shortcuts, design-system drift, misleading or decorative content, and structure that is interchangeable with an unrelated product. Keep deterministic findings separate from visual judgment and call out false positives.",
+          "replace": "Use source inspection and evidence already collected by the applicable Forge modules. Look for repeated implementation shortcuts, design-system drift, misleading or decorative content, and structure that is interchangeable with an unrelated product. Keep deterministic findings separate from visual judgment, call out false positives, and mark any dimension without sufficient evidence `NOT_VERIFIED`. Forge does not ship or invoke an Impeccable detector."
+        },
+        {
+          "reason": "The translated audit must not cite findings from a detector that Forge does not ship or run.",
+          "appliesTo": ".claude/skills/impeccable/reference/audit.md",
+          "find": "**Start here.** Pass/fail: does the implementation express a coherent product-specific system? Cite verified evidence and detector findings.",
+          "replace": "**Start here.** Pass/fail: does the implementation express a coherent product-specific system? Cite only verified source, rendered-interface, accessibility, or performance evidence that Forge actually collected."
+        },
+        {
+          "reason": "The native audit must not name an excluded detector executable even to state that it does not apply.",
+          "appliesTo": ".claude/skills/impeccable/reference/audit.native.md",
+          "find": "This is a code-level audit, not a design critique. Audit from source (SwiftUI / UIKit / Compose / React Native / Flutter); no browser tooling or `detect.mjs` applies.",
+          "replace": "This is a code-level audit, not a design critique. Audit from source (SwiftUI / UIKit / Compose / React Native / Flutter); browser-only tooling does not apply."
+        },
+        {
           "reason": "Forge owns repository discovery and project state. The upstream setup step runs a context script that Forge deliberately does not vendor (it is part of the interactive runtime, not the detector), so it is replaced by the Forge-owned equivalent.",
           "appliesTo": ".claude/skills/impeccable/SKILL.md",
           "find": "1. Run `node .claude/skills/impeccable/scripts/context.mjs` once per session (if the runtime shows this skill's loaded base directory, run `node <skill-base-dir>/scripts/context.mjs`; keep cwd at the user's project). Pass a named source file or route as `--target <path>`. It loads PRODUCT.md, DESIGN.md, the matching surface brief, and native-platform guidance when applicable; follow its directives and do not rerun it.",
@@ -21,6 +39,222 @@
           "appliesTo": ".claude/skills/impeccable/SKILL.md",
           "find": "**Doctor:** `/impeccable doctor` reports and repairs drift between this project's Impeccable artifacts (PRODUCT.md, DESIGN.md and its sidecar, config, surface briefs, the hook) and what this version reads. Load [reference/doctor.md](reference/doctor.md) when the user invokes it, or when they ask what is out of date, stale, or needs refreshing. A `CONTEXT_STALE` directive in Setup's output is the cheap subset of the same report; act on it there per its own instructions rather than running doctor unasked.",
           "replace": "**Doctor:** Not available as a UI sub-command in Fullstack Forge. Forge owns installation and drift reporting for its own managed content: run `forge doctor`, and `forge update all` to repair. Project design state lives in `PRODUCT.md`, `DESIGN.md`, and `.fullstack-forge/ui/`."
+        },
+        {
+          "reason": "Forge does not ship the Impeccable detector, browser injection server, or critique-storage helper. The critique remains operational as two independent evidence reviews and must not claim evidence from missing runtime components.",
+          "appliesTo": ".claude/skills/impeccable/reference/critique.md",
+          "find": "Resolve one stable target, run two independent assessments, synthesize a design critique, persist a snapshot, and ask the user what to improve next. The chat response is the primary deliverable; the snapshot is an archive/backlog for future commands.",
+          "replace": "Resolve one stable target, run two independent assessments, synthesize a design critique from evidence Forge can actually inspect, and ask the user what to improve next. The chat response is the primary deliverable."
+        },
+        {
+          "reason": "The critique contract must be fail-closed when rendered or deterministic evidence is unavailable rather than requiring unshipped detector and overlay components.",
+          "appliesTo": ".claude/skills/impeccable/reference/critique.md",
+          "find": "- Assessment A (design review) and Assessment B (detector/browser evidence) are both required.\n- Assessment A and B MUST run as two isolated sub-agents whenever a sub-agent/Task tool is exposed. Running them inline in this context is \"possible\" but is NOT permitted; it is a degraded run. Inline is allowed ONLY when no sub-agent tool exists (or the user declined, on harnesses that ask).\n- If you degrade for any reason, the report's first line MUST be a banner: `⚠️ DEGRADED: single-context (<reason>)`. A silent degraded critique is a failed critique.\n- Assessment A must finish before detector findings enter the parent synthesis context. Detector output is deterministic, but it still anchors judgment.\n- A skipped detector is a failed critique run unless `detect.mjs` is missing or crashes after a real attempt.\n- Viewable targets require browser inspection when available.\n- Any local server started only for critique visualization must run in the background, have a recorded stop method, and be stopped before final reporting unless the user asks to keep it.\n- Do not claim a user-visible overlay exists unless script injection succeeded and the detector ran in the page.",
+          "replace": "- Assessment A (design review) and Assessment B (independent source, rendered-interface, accessibility, and performance evidence) are both required.\n- Run A and B as isolated sub-agents when the host exposes that capability and the user permits it. Otherwise run them sequentially and declare the limitation in the report header.\n- Assessment A must finish before Assessment B evidence enters the synthesis context so implementation details do not anchor the design review.\n- Forge does not ship the upstream detector, browser injection server, or overlay bundle. Never claim they ran.\n- Inspect a viewable target with available browser tooling. If rendered, interaction, accessibility, or performance evidence cannot be collected, mark that dimension `NOT_VERIFIED`; source inspection alone is not proof of rendered behaviour.\n- Any local server started for visualization must have an explicit stop method and be stopped before final reporting unless the user asks to keep it."
+        },
+        {
+          "reason": "The critique-storage executable and separate Impeccable state root are not shipped; Forge resolves the target directly and owns optional UI records.",
+          "appliesTo": ".claude/skills/impeccable/reference/critique.md",
+          "find": "2. **Confirm the target slugs cleanly**:\n   ```bash\n   node .claude/skills/impeccable/scripts/critique-storage.mjs slug \"<resolved-path-or-url>\"\n   ```\n   Every later command also accepts the resolved target directly and derives the same slug internally; never hand-write a slug. If this exits non-zero, skip persistence and trend for this run, but continue the critique.\n3. **Read `.impeccable/critique/ignore.md`** if it exists. Drop matching findings silently; it is the only prior-run input critique consumes.",
+          "replace": "2. Record the resolved path or URL verbatim in the report; do not invent a second identifier.\n3. If the project has a user-maintained `.fullstack-forge/ui/critique/ignore.md`, read it as project evidence and explain any finding it intentionally suppresses. Never drop findings silently."
+        },
+        {
+          "reason": "Assessment B is translated to an operational Forge evidence pass because none of the named upstream detector, live server, or browser bundle assets ship.",
+          "appliesTo": ".claude/skills/impeccable/reference/critique.md",
+          "find": "### Assessment B: Detector + Browser Evidence\n\nRun the bundled detector and browser visualization evidence. Assessment B is mandatory and must remain isolated from Assessment A until both are complete.\n\nCLI scan:\n```bash\nnode .claude/skills/impeccable/scripts/detect.mjs --json [target]\n```\n\n- Pass markup files/directories as `[target]`; do not pass CSS-only files.\n- For URLs, skip CLI scan and use browser visualization.\n- For very large trees (500+ scannable files), narrow scope or ask.\n- Exit code 0 = clean; 2 = findings.\n- If the detector entrypoint is missing or fails to load, report deterministic scan unavailable and continue with browser/manual review.\n\nBrowser visualization is required for a viewable target when browser automation is available. Use a localhost dev/static URL for local files; avoid `file://` unless the available browser explicitly supports this workflow. Overlay flow:\n\n1. Create a fresh tab and navigate. Prefer the harness's native/browser-canvas screenshot path before hand-rolling a Playwright/Puppeteer script; only fall back to a custom script when no native browser tool is exposed.\n2. Preflight mutable injection by setting `document.title` and appending a `<script>` tag. Read-only evaluate APIs do not count.\n3. If mutation is unavailable, skip live server, browser presentation, and injection; report fallback signal.\n4. If mutation is available, start `node .claude/skills/impeccable/scripts/live-server.mjs --background`, present the browser if supported, label `[Human]`, scroll top, inject `http://localhost:PORT/detect.js`, wait 2-3 seconds, read `impeccable` console messages, then stop the live server.\n5. For multi-view targets, inject on 3-5 representative pages.\n\nReturn: CLI findings JSON/counts, browser console findings if applicable, false positives, and skipped/failed browser steps with concrete reasons.\n\nAfter Assessment B returns usable CLI findings, reuse them. Do not rerun `detect.mjs` in the parent unless Assessment B failed, was truncated, or omitted count, rule names, or file locations.",
+          "replace": "### Assessment B: Independent implementation and rendered evidence\n\nInspect the target without seeing Assessment A. Use source inspection plus the applicable Forge accessibility, frontend, performance, UX, and UI checks. When browser tooling and an approved local application URL are available, inspect representative narrow, intermediate, and wide states; exercise keyboard interaction and capture concrete computed or rendered evidence. Do not inject an upstream script or start an upstream helper.\n\nFor large trees, narrow scope to the resolved target or ask the user. Separate deterministic facts from visual judgment, identify false positives, and mark each unavailable evidence dimension `NOT_VERIFIED`. A clean automated check is supporting evidence, never proof of visual quality.\n\nReturn: source locations, rendered observations, applicable automated-check results, false positives, and every skipped or unavailable step with its concrete reason."
+        },
+        {
+          "reason": "The synthesis must cite the evidence that Forge actually collected and may not describe absent detector or overlay output.",
+          "appliesTo": ".claude/skills/impeccable/reference/critique.md",
+          "find": "Synthesize both assessments into a single report. Do NOT simply concatenate. Weave the findings together, noting where the LLM review and detector agree, where the detector caught issues the LLM missed, and where detector findings are false positives.\n\nThe chat response is the primary user-facing deliverable. Present the full structured critique below in chat; do not replace it with a summary and a link. The persisted snapshot is only an archive/backlog for later commands.",
+          "replace": "Synthesize both assessments into a single report. Do not simply concatenate them. Explain where the independent design review agrees or conflicts with source, rendered, accessibility, and performance evidence, and identify false positives.\n\nThe chat response is the primary user-facing deliverable. Present the full structured critique below in chat; do not replace it with a summary and a link."
+        },
+        {
+          "reason": "The report structure is translated away from nonexistent detector and browser-overlay claims.",
+          "appliesTo": ".claude/skills/impeccable/reference/critique.md",
+          "find": "**LLM assessment**: Your unanchored evaluation of design specificity. Cover overall coherence, structural sameness, category-interchangeable choices, and missed opportunities for product character.\n\n**Deterministic scan**: Summarize what the automated detector found, with counts and file locations. Note any additional issues the detector caught that you missed, and flag any false positives.\n\n**Visual overlays** (if injection succeeded): Tell the user that overlays are now visible in the **[Human]** tab in their browser, highlighting the detected issues. Summarize what the console output reported. If browser visualization was attempted but injection failed, say that no reliable user-visible overlay is available and report the fallback signal instead.",
+          "replace": "**Design assessment**: Give the unanchored evaluation of design specificity. Cover overall coherence, structural sameness, category-interchangeable choices, and missed opportunities for product character.\n\n**Independent evidence**: Summarize verified source, rendered-interface, accessibility, and performance evidence with file locations or measurements. Explain additional issues this evidence exposed and flag false positives. List unavailable dimensions as `NOT_VERIFIED`."
+        },
+        {
+          "reason": "Snapshot persistence and trend helpers are absent. Optional user-requested records may use Forge's own UI state but cannot be an implicit side effect or claim historical trend without evidence.",
+          "appliesTo": ".claude/skills/impeccable/reference/critique.md",
+          "find": "### Persist the Snapshot\n\nOnce the report above is finalized, write it to `.impeccable/critique/` so the user can refer back, and so `/impeccable polish` can pick up the priority issues without a copy-paste.\n\nSkip this step if the Setup slug was null (vague or root-level target).\n\n1. **Write the body to a temp file** so you can pipe it to the helper. Use the full critique report (heuristic table, design-specificity verdict, priority issues, persona red flags, minor observations, and questions), but stop before the \"Ask the User\" / \"Recommended Actions\" sections that come later.\n\n2. **Pass the structured metadata** through `IMPECCABLE_CRITIQUE_META` (JSON), then run the write command:\n   ```bash\n   IMPECCABLE_CRITIQUE_META='{\"target\":\"<user phrasing>\",\"total_score\":<n>,\"max_score\":<n>,\"na_heuristics\":\"<comma-separated numbers, or empty>\",\"p0_count\":<n>,\"p1_count\":<n>}' \\\n     node .claude/skills/impeccable/scripts/critique-storage.mjs write \"<resolved target>\" <body-file>\n   ```\n   `max_score` is the applicable maximum from the heuristic table (40 when every heuristic applied), so a later run can tell a renormalized total from a full one. The helper prints the absolute path it wrote.\n\n3. **Delete the temp body file** after the write attempt completes, whether the write succeeded or failed. If deletion fails, mention `temp-file cleanup failed: <reason>` briefly in the final output, but do not block the critique.\n\n4. **Read the trend** for context:\n   ```bash\n   node .claude/skills/impeccable/scripts/critique-storage.mjs trend \"<resolved target>\" 5\n   ```\n   This returns a JSON array of the last 5 frontmatter entries (including the one you just wrote).\n\n5. **Append a single line to the user-visible output**, after the report and before the questions:\n\n   > **Trend for `<slug>` (last 5 runs): 24 → 28 → 32 → 29 → 32 (out of 40)**\n   > Wrote `.impeccable/critique/<filename>`.\n\n   Read `max_score` on each trend entry. When every entry shares one maximum, state it once as above. When they differ, print each score with its own denominator (`24/32 → 30/40`) and note that the runs scored different heuristic sets, so the line is not a like-for-like comparison. Treat a missing `max_score` on an older entry as 40.\n\n   If this is the first run for the slug, the trend is just one score; say so: \"First run for this target, no trend yet.\"\n\nThis is fire-and-forget. Do not show the user the helper's JSON output; only the human-readable trend line and the written path. Failures here should not block the rest of the flow; print the error and move on.",
+          "replace": "### Optional Forge snapshot\n\nDo not persist the critique as an implicit side effect. If the user asks for a durable report, write the reviewed report under `.fullstack-forge/ui/critique/` using a stable, path-derived filename and include the resolved target, timestamp, applicable maximum, and evidence limitations. Read prior snapshots only when they exist, cite their paths, and compare scores only when their denominators and assessed dimensions match. Never claim a trend from absent or incompatible evidence."
+        },
+        {
+          "reason": "The layout procedure must remain operational without the unshipped detector and live workflow.",
+          "appliesTo": ".claude/skills/impeccable/reference/layout.md",
+          "find": "2. **Mechanical scan:** run:\n\n```bash\nnode .claude/skills/impeccable/scripts/detect.mjs --json --scope layout [target files or dirs]\n```\n\nAlso inspect arbitrary spacing, overflow, stacking, and container behavior the detector cannot resolve. Keep mechanical evidence out of the first assessment, then synthesize both passes before editing. A clean scan cannot prove hierarchy or rhythm.",
+          "replace": "2. **Forge-owned mechanical evidence:** inspect computed layout, overflow, stacking, container behaviour, arbitrary spacing, and applicable accessibility or frontend check results without seeing the first assessment. Use browser measurements when available and cite source locations otherwise. Mark rendered behaviour `NOT_VERIFIED` when it cannot be observed.\n\nSynthesize both passes before editing. A clean automated check cannot prove hierarchy or rhythm."
+        },
+        {
+          "reason": "Verification cannot require rerunning a detector that Forge does not ship.",
+          "appliesTo": ".claude/skills/impeccable/reference/layout.md",
+          "find": "- The final mechanical scan has no unexplained findings.\n\nAnswer each item with rendered or source evidence, then rerun the scan. Do not substitute a bare “yes” for verification.",
+          "replace": "- Applicable Forge checks have no unexplained findings.\n\nAnswer each item with rendered or source evidence, then rerun the applicable Forge checks. Do not substitute a bare “yes” for verification."
+        },
+        {
+          "reason": "The unshipped live workflow cannot define the layout command's parameter contract.",
+          "appliesTo": ".claude/skills/impeccable/reference/layout.md",
+          "find": "## Live-mode signature params\n\nEvery variant declares a coarse `density` parameter and authors spacing against `var(--p-density, 1)`.\n\n```json\n{\"id\":\"density\",\"kind\":\"range\",\"min\":0.6,\"max\":1.4,\"step\":0.05,\"default\":1,\"label\":\"Density\"}\n```\n\nAdd one structural parameter only when the topology genuinely branches. Follow [live.md](live.md)'s parameter contract.",
+          "replace": "## Variant parameters\n\nWhen the user explicitly requests variants, a coarse density parameter may be useful. Keep it local to the proposed variants, use the project's existing token mechanism, and add one structural parameter only when the topology genuinely branches. Forge does not ship an Impeccable live-mode runtime."
+        },
+        {
+          "reason": "Polish may consume a user-requested Forge snapshot directly; it cannot invoke the absent critique-storage helper.",
+          "appliesTo": ".claude/skills/impeccable/reference/polish.md",
+          "find": "If a prior critique exists, use it as one input:\n\n```bash\nnode .claude/skills/impeccable/scripts/critique-storage.mjs latest \"<resolved target>\"\n```\n\nExit 0 returns the latest snapshot; incorporate relevant P0/P1 findings and name the snapshot read. Exit 2 means none exists. Perform an independent pass either way.",
+          "replace": "If a user-requested prior critique exists under `.fullstack-forge/ui/critique/`, read the most recent snapshot for the exact resolved target, incorporate relevant P0/P1 findings, and cite the path. Perform an independent pass whether or not a compatible snapshot exists."
+        },
+        {
+          "reason": "The upstream context script, hooks, and detector are absent; Forge discovery and applicable modules own verification.",
+          "appliesTo": ".claude/skills/impeccable/reference/polish.md",
+          "find": "Follow the quality guidance supplied by `context.mjs` and hooks, then run any other relevant QA commands. Context requests a manual scan only when no automatic detector is active; never add another detector pass. Fix real defects and document only narrow intentional exceptions. A clean scan does not replace visual judgment.",
+          "replace": "Follow Forge discovery and applicable module checks, then run relevant project QA commands. Fix real defects, document only narrow intentional exceptions, and mark unavailable rendered or interaction evidence `NOT_VERIFIED`. Clean automated checks do not replace visual judgment."
+        },
+        {
+          "reason": "The typography procedure must remain operational without the unshipped detector and live workflow.",
+          "appliesTo": ".claude/skills/impeccable/reference/typeset.md",
+          "find": "2. **Mechanical scan:** run:\n\n```bash\nnode .claude/skills/impeccable/scripts/detect.mjs --json --scope type [target files or dirs]\n```\n\nAlso inspect dynamic or arbitrary font values the detector cannot interpret. Synthesize both assessments before editing, noting what each caught alone. A clean scan is a floor, not proof of good typography.",
+          "replace": "2. **Forge-owned mechanical evidence:** inspect computed type styles, arbitrary font values, asset loading, fallbacks, reflow, and applicable accessibility, frontend, and performance check results without seeing the first assessment. Use browser measurements when available and cite source locations otherwise. Mark rendered or loading behaviour `NOT_VERIFIED` when it cannot be observed.\n\nSynthesize both assessments before editing, noting what each caught alone. Clean automated checks are a floor, not proof of good typography."
+        },
+        {
+          "reason": "Verification cannot require rerunning a detector that Forge does not ship.",
+          "appliesTo": ".claude/skills/impeccable/reference/typeset.md",
+          "find": "- The final mechanical scan has no unexplained findings.\n\nAnswer each item with rendered or source evidence, then rerun the scan. Do not substitute a bare “yes” for verification.",
+          "replace": "- Applicable Forge checks have no unexplained findings.\n\nAnswer each item with rendered or source evidence, then rerun the applicable Forge checks. Do not substitute a bare “yes” for verification."
+        },
+        {
+          "reason": "The unshipped live workflow cannot define the typography command's parameter contract.",
+          "appliesTo": ".claude/skills/impeccable/reference/typeset.md",
+          "find": "## Live-mode signature params\n\nEvery variant declares a coarse `scale` parameter and authors its type ramp against `var(--p-scale, 1)`.\n\n```json\n{\"id\":\"scale\",\"kind\":\"range\",\"min\":0.85,\"max\":1.3,\"step\":0.05,\"default\":1,\"label\":\"Scale\"}\n```\n\nAdd at most one pairing or weight parameter when it represents a real system choice. Follow [live.md](live.md)'s parameter contract.",
+          "replace": "## Variant parameters\n\nWhen the user explicitly requests variants, a coarse type-scale parameter may be useful. Keep it local to the proposed variants, use the project's existing token mechanism, and add at most one pairing or weight parameter when it represents a real system choice. Forge does not ship an Impeccable live-mode runtime."
+        },
+        {
+          "reason": "The public Forge UI surface excludes the upstream live subsystem because its required server, browser bundle, polling journal, and mutation helpers are not redistributed.",
+          "appliesTo": ".claude/skills/impeccable/SKILL.md",
+          "find": "| `live` | Iterate | Visual variant mode: pick elements in the browser, generate alternatives | [reference/live.md](reference/live.md) |\n",
+          "replace": ""
+        },
+        {
+          "reason": "Forge discovery replaces remaining prose dependencies on the unshipped context helper.",
+          "appliesTo": ".claude/skills/impeccable/SKILL.md",
+          "find": "- **Otherwise:** treat the request as general design work. Missing PRODUCT.md routes a new surface or replacement world through init, then new-work; a narrow refinement of existing code proceeds on the incumbent implementation as context.mjs directs, offering init afterward rather than blocking on it.",
+          "replace": "- **Otherwise:** treat the request as general design work. Missing PRODUCT.md routes a new surface or replacement world through init, then new-work; a narrow refinement of existing code proceeds from Forge discovery and the incumbent implementation, offering init afterward rather than blocking on it."
+        },
+        {
+          "reason": "The init handoff must not claim an upstream context helper ran.",
+          "appliesTo": ".claude/skills/impeccable/SKILL.md",
+          "find": "After init writes PRODUCT.md, resume without rerunning `context.mjs`; init loads the native platform reference itself when the platform it recorded is `ios`, `android`, or `adaptive`.",
+          "replace": "After init writes PRODUCT.md, resume from Forge's existing discovery record; init loads the native platform reference itself when the platform it recorded is `ios`, `android`, or `adaptive`."
+        },
+        {
+          "reason": "The upstream shortcut installer is not shipped and must not advertise an unavailable command-authority mutation.",
+          "appliesTo": ".claude/skills/impeccable/SKILL.md",
+          "find": "**Pin / Unpin:** `node .claude/skills/impeccable/scripts/pin.mjs <pin|unpin> <command>` creates or removes a standalone `/<command>` shortcut. Report the script's result concisely; relay stderr verbatim on error.",
+          "replace": "**Pin / Unpin:** Not available in Fullstack Forge. Do not create standalone upstream command shortcuts or modify host discovery roots."
+        },
+        {
+          "reason": "Init writes product truth only; it cannot configure the excluded live runtime or depend on the absent context helper.",
+          "appliesTo": ".claude/skills/impeccable/reference/init.md",
+          "find": "`init` captures durable product truth in PRODUCT.md. It does not invent a visual world and does not write DESIGN.md; [new-work.md](new-work.md) creates or expands one, and [document.md](document.md) records an incumbent one. Existing runnable web projects may also receive `.impeccable/live/config.json`.",
+          "replace": "`init` captures durable product truth in PRODUCT.md. It does not invent a visual world and does not write DESIGN.md; [new-work.md](new-work.md) creates or expands one, and [document.md](document.md) records an incumbent one."
+        },
+        {
+          "reason": "Forge discovery resolves the authoritative PRODUCT.md path.",
+          "appliesTo": ".claude/skills/impeccable/reference/init.md",
+          "find": "Use the PRODUCT.md path resolved by context.mjs. Update it instead of creating a competing authority. In a child app inheriting root context, confirm shared versus app-specific scope before writing.",
+          "replace": "Use the PRODUCT.md path resolved by Forge discovery. Update it instead of creating a competing authority. In a child app inheriting root context, confirm shared versus app-specific scope before writing."
+        },
+        {
+          "reason": "Init itself learns platform truth and does not rely on an absent helper's prior behavior.",
+          "appliesTo": ".claude/skills/impeccable/reference/init.md",
+          "find": "When the platform you just recorded is `ios`, `android`, or `adaptive`, load [ios.md](ios.md), [android.md](android.md), or both before any design work. On a project that had no PRODUCT.md, context.mjs could not know the platform and so never loaded them; init is the only place that learns the answer.",
+          "replace": "When the platform you just recorded is `ios`, `android`, or `adaptive`, load [ios.md](ios.md), [android.md](android.md), or both before any design work. Init is the workflow that confirms this platform truth."
+        },
+        {
+          "reason": "The excluded live subsystem cannot be configured or recommended by init.",
+          "appliesTo": ".claude/skills/impeccable/reference/init.md",
+          "find": "## Step 5: Configure live mode when useful\n\nSkip native or non-runnable projects and leave existing config untouched. Otherwise follow [live.md](live.md)'s first-time setup. Any CSP source edit still requires its stated consent.\n\n## Step 6: Wrap up or resume",
+          "replace": "## Step 5: Wrap up or resume"
+        },
+        {
+          "reason": "The excluded live command and absent context helper cannot appear in init's handoff.",
+          "appliesTo": ".claude/skills/impeccable/reference/init.md",
+          "find": "- Existing surface needing work: name the most relevant scoped command.\n- Web project ready for visual iteration: `/impeccable live` when configured.\n\nIf init was invoked by another request, resume without rerunning context.mjs; the native reference above is the one thing that run could not have given you, and new-work owns later visual decisions.",
+          "replace": "- Existing surface needing work: name the most relevant scoped command.\n\nIf init was invoked by another request, resume from Forge's existing discovery record; the native reference above is the platform-specific addition, and new-work owns later visual decisions."
+        },
+        {
+          "reason": "The color workflow may describe bounded variants but cannot rely on the excluded live runtime.",
+          "appliesTo": ".claude/skills/impeccable/reference/colorize.md",
+          "find": "## Live-mode signature params\n\nWhen invoked from live mode, every variant declares a `color-amount` parameter. Author CSS against `var(--p-color-amount, 0.5)` so the user can move from neutral to the variant's full color strategy without regeneration.\n\n```json\n{\"id\":\"color-amount\",\"kind\":\"range\",\"min\":0,\"max\":1,\"step\":0.05,\"default\":0.5,\"label\":\"Color amount\"}\n```\n\nAdd at most two variant-specific parameters, such as palette, temperature, or tint behavior. Follow [live.md](live.md)'s parameter contract.",
+          "replace": "## Variant parameters\n\nWhen the user explicitly requests variants, a coarse color-amount parameter may be useful. Keep it local to the proposed variants, use the project's existing token mechanism, and add at most two variant-specific parameters such as palette, temperature, or tint behaviour. Forge does not ship an Impeccable live-mode runtime."
+        },
+        {
+          "reason": "The no-argument menu is derived from Forge discovery and repository evidence, not missing context-signals, detector, or live helpers.",
+          "appliesTo": ".claude/skills/impeccable/reference/routing.md",
+          "find": "Setup has already run `context.mjs`. If that reported `NO_PRODUCT_MD`, the project has no captured context yet: lead the menu with `/impeccable init` as the top recommendation (one line on why) and still show the rest below; don't silently jump into init. Otherwise run `node .claude/skills/impeccable/scripts/context-signals.mjs` once and read its JSON, then lead with the **2-3 highest-value next commands**, each with a one-line reason pulled from the signals, followed by the full menu (the Commands table in SKILL.md, grouped by category). **Never auto-run a command; the recommendation is a suggestion the user confirms.**",
+          "replace": "Use Forge discovery and current repository evidence. If PRODUCT.md is absent, lead the menu with `$forge ui init` as the top recommendation and still show the rest; do not silently run it. Otherwise lead with the **2-3 highest-value next commands**, each with a one-line evidence-backed reason, followed by the full menu in PLAYBOOK.md grouped by category. **Never auto-run a command; the recommendation is a suggestion the user confirms.**"
+        },
+        {
+          "reason": "Routing signals are translated to evidence Forge can actually observe; the live route is removed.",
+          "appliesTo": ".claude/skills/impeccable/reference/routing.md",
+          "find": "- `setup.hasDesign` false while `setup.hasCode` true → `document` (capture the visual system).\n- `critique.latest` is `null` → the project has never been critiqued; for a set-up project with a real surface, offering `/impeccable critique <surface>` is a strong default.\n- `critique.latest` with a low `score` or non-zero `p0` / `p1` → `polish` (it reads that snapshot as its backlog), or re-run `critique` if the snapshot looks stale.\n- `git.changedFiles` pointing at one surface → scope `audit` or `polish` to those files specifically, naming them.\n- `devServer.running` true → `live` is available for in-browser iteration; if false, don't lead with `live`. **`live` and the bundled `detect.mjs` are web-only.** If `setup.platform` is `ios`, `android`, or `adaptive`, don't lead with either; the browser overlay and the HTML rule engine don't apply to native app code.\n- Otherwise group by intent (build new / improve what's there / iterate visually), tailored to the current surface and `setup.platform`.",
+          "replace": "- DESIGN.md absent while interface code exists → `document` (capture the incumbent visual system).\n- No compatible critique exists under `.fullstack-forge/ui/critique/` → offer `$forge ui critique <surface>` for a real surface.\n- A compatible critique has unresolved P0/P1 evidence → `polish`, or re-run `critique` when its evidence is stale.\n- Changed files point at one surface → scope `audit` or `polish` to those files, naming them.\n- Otherwise group by intent (build new / improve what exists / inspect visually), tailored to the current surface and confirmed platform."
+        },
+        {
+          "reason": "The routing workflow must not invoke the absent detector; applicable Forge modules own deterministic checks.",
+          "appliesTo": ".claude/skills/impeccable/reference/routing.md",
+          "find": "**If `scan.targets` is non-empty and `setup.platform` is not `ios`/`android`/`adaptive`, run `node .claude/skills/impeccable/scripts/detect.mjs --json <scan.targets joined by spaces>` once** (the bundled detector over local files: no network, no npx; it reads HTML/CSS, so skip it for native projects). `scan.via` tells you what they are: `git-changes` (the markup/style files in your dirty tree, the most relevant set), `source-dir` (e.g. `src`, `app`), `html`, or `root`. Fold the hits into your picks: many quality / contrast hits → `audit` or `polish`; a specific slop family → the matching command (gradient text or eyebrows → `quieter` / `typeset`, flat or gray palette → `colorize`, and so on). It's a real, current signal that beats guessing. If detect errors or the tree is large and slow, skip it and recommend the user run `audit` themselves; never block the suggestion on it.",
+          "replace": "Use applicable Forge accessibility, frontend, performance, UI, and UX findings as supporting signals. Many verified quality or contrast findings suggest `audit` or `polish`; a specific pattern may suggest `quieter`, `typeset`, or `colorize`. Keep subjective advice separate from deterministic findings, and never block the menu when an evidence source is unavailable."
+        },
+        {
+          "reason": "The concept-seed executable is absent. Forge can still derive multiple grounded structures and ask the user directly.",
+          "appliesTo": ".claude/skills/impeccable/reference/new-work.md",
+          "find": "Keep the visual system fixed. Derive five to seven materially different structures from the content, task, and user behavior, ordered by resonance. For a genuinely open whole page, screen, or flow, run:\n\n`node .claude/skills/impeccable/scripts/concept-seed.mjs --scope surface --mode <mode>`\n\nThe script assigns which structure gets built: your top-ranked structure is what every run would ship, and a single ranking is deterministic, so the dice come from outside. Dress its staging challengers in the committed identity and weigh them against your list before building. Never run the script for a local extension or a precisely specified narrow request; shape those directly.",
+          "replace": "Keep the visual system fixed. For a genuinely open whole page, screen, or flow, derive five to seven materially different structures from the content, task, and user behaviour, ordered by evidence-backed resonance. Present the strongest direction and at most two credible alternatives through the host's normal user-question surface. A precisely specified request or local extension proceeds directly without reopening the visual system."
+        },
+        {
+          "reason": "The direction seed executable is absent. User intent and repository evidence outrank randomized upstream selection.",
+          "appliesTo": ".claude/skills/impeccable/reference/new-work.md",
+          "find": "4. Run `node .claude/skills/impeccable/scripts/concept-seed.mjs --scope direction --mode <mode>` and follow what it prints. The script assigns which direction gets built and deals catalog challengers. Fuse each challenger before judging it: the challenger supplies the form and its system grammar, the product supplies every fact, and clarity wins conflicts. Weigh fused challengers against the assigned direction on exactly two axes, audience identification and product clarity; losing to strong grounded material is a valid outcome, and beating a thin or tool-monoculture list is the point.",
+          "replace": "4. Derive distinct viable directions from confirmed product truth and repository evidence. Explicit user direction outranks generic patterns. Weigh each direction on audience identification, product clarity, accessibility, feasibility, and the stated constraints; remove any direction that requires invented factual or commercial claims."
+        },
+        {
+          "reason": "The upstream decision-page executable is absent. Use the host's ordinary approval surface and never continue without the required user choice.",
+          "appliesTo": ".claude/skills/impeccable/reference/new-work.md",
+          "find": "Present the decision visually: write an options payload with the assigned direction leading, the dealt challengers as alternates carrying their QUALITY BAR cards, and re-roll, steer, plus canon enabled; a degraded roll with no challengers still uses the page, as a single text-only card with re-roll. Run `node .claude/skills/impeccable/scripts/serve-question.mjs --start --payload <file>` (run it with `--schema` first for the exact payload shape). It daemonizes, prints the page URL and a key, and exits immediately; now open that URL for the user, in-app browser first, then the system opener, then showing the URL. Collect the choice with `--wait --key <key>`, repeating while it exits 3; the ANSWER prints as JSON. Exit 4 means the page was closed without an answer: re-present once through the structured question tool, and with no answer there either, proceed unattended with the assigned direction and state the assumptions. A harness that can leave a shell blocked in the background may instead run the script without `--start` and let it auto-open and block. Only a session where no browser can open at all, headless, CI, an eval worker, a remote shell with no display, puts the same decision through the structured question tool instead; the script self-detects these environments and exits 2 with that advice, so treat exit 2 as this fallback, never as an error to retry.",
+          "replace": "Present the strongest direction and up to two viable alternatives through the host's normal visual and user-question surfaces, with rework and a conventional option available. Stop for the user's choice unless they explicitly delegated it. If the required visual or question surface is unavailable, report that limitation and ask in chat; do not infer approval from silence."
+        },
+        {
+          "reason": "The surface-brief helper is absent. Forge-owned project state can be read and updated directly with ordinary reviewed file operations.",
+          "appliesTo": ".claude/skills/impeccable/reference/new-work.md",
+          "find": "If the work establishes durable strategy for a route or artifact, read its existing surface brief, then update it:\n\n`node .claude/skills/impeccable/scripts/surface-brief.mjs read <primary-target>`\n\n`node .claude/skills/impeccable/scripts/surface-brief.mjs write <primary-target> <body-file> [related-target ...]`\n\nKeep the brief small: scope and visitor mode; audience, job, action/task, proof/content, and constraints; chosen direction and memorable moment; unresolved decisions. Do not copy global product truth or DESIGN.md tokens into it.",
+          "replace": "If the work establishes durable strategy for a route or artifact, read its existing brief under `.fullstack-forge/ui/` when present and update that Forge-owned file only after the user confirms the durable direction. Keep the brief small: scope and visitor mode; audience, job, action or task, proof or content, constraints, chosen direction, memorable moment, and unresolved decisions. Do not copy global product truth or DESIGN.md tokens into it."
+        },
+        {
+          "reason": "Image generation availability comes from the host, not an absent context helper.",
+          "appliesTo": ".claude/skills/impeccable/reference/new-work.md",
+          "find": "Whenever any image generation is available, a harness-native tool or the API fallback context.mjs reports, the locked direction is visualized before it is built, never skipped: load [visualize.md](visualize.md) and follow it, three compositional options rendered and put before the user for approval.",
+          "replace": "Whenever the current host exposes image generation, visualize the locked direction before building: load [visualize.md](visualize.md), render three compositional options, and put them before the user for approval."
+        },
+        {
+          "reason": "The visualization workflow cannot rely on absent context, decision-page, asset-producer, or generate-image helpers.",
+          "appliesTo": ".claude/skills/impeccable/reference/visualize.md",
+          "find": "Load this from [new-work.md](new-work.md) whenever any image generation is available, a harness-native tool or the API fallback context.mjs reports. PRODUCT.md and DESIGN.md are preconditions. New-work has already resolved the visual world; this file must not reopen it.",
+          "replace": "Load this from [new-work.md](new-work.md) when the current host exposes image generation. PRODUCT.md and DESIGN.md are preconditions. New-work has already resolved the visual world; this file must not reopen it."
+        },
+        {
+          "reason": "The upstream decision page does not ship. Show generated options in the host and ask through its normal user-question surface.",
+          "appliesTo": ".claude/skills/impeccable/reference/visualize.md",
+          "find": "Show the three together: in the harness when it can display images, otherwise on the decision page (`serve-question.mjs`, one option per comp with the comp as its hero). Ask what should carry forward, what feels false to the world, and whether the selected surface concept should be approved, combined, revised, or rejected. Then stop and wait. A structured simulated user counts as attended and receives the same question.",
+          "replace": "Show the three together in the host. Ask what should carry forward, what feels false to the world, and whether the selected surface concept should be approved, combined, revised, or rejected. Then stop and wait. If the host cannot display the generated options, report the limitation and do not claim visual approval."
+        },
+        {
+          "reason": "No Impeccable asset-producer or generate-image executable ships; use only image generation the host actually exposes.",
+          "appliesTo": ".claude/skills/impeccable/reference/visualize.md",
+          "find": "When clean raster ingredients are required and the harness runs subagents, use the shipped asset producer, `impeccable-asset-producer` (`impeccable_asset_producer` in codex): give it the approved comp, output paths, required dimensions and formats, transparency needs, crop notes, and what must remain semantic code. Otherwise produce the minimum required assets in the current thread with whatever generation exists, the native tool or generate-image.mjs.",
+          "replace": "When clean raster ingredients are required, use only image generation the current host actually exposes and produce the minimum required assets. Record output paths, dimensions, formats, transparency and crop requirements, and what must remain semantic code. If no suitable capability exists, mark the asset production step `NOT_VERIFIED` or ask the user for the required asset; do not claim a helper ran."
         }
       ],
       "commandRoutes": {
@@ -46,8 +280,7 @@
         "/impeccable:overdrive": "$forge ui overdrive",
         "/impeccable:clarify": "$forge ui clarify",
         "/impeccable:adapt": "$forge ui adapt",
-        "/impeccable:optimize": "$forge ui optimize",
-        "/impeccable:live": "$forge ui live"
+        "/impeccable:optimize": "$forge ui optimize"
       },
       "managedPaths": {
         ".impeccable/critiques": ".fullstack-forge/ui/critique",
@@ -57,18 +290,56 @@
       }
     },
     "addy-agent-skills": {
+      "contentReplacements": [
+        {
+          "reason": "The optional idea-refine initializer is not selected for redistribution. The interactive procedure is operational without it and should create output only after user confirmation.",
+          "appliesTo": "skills/idea-refine/SKILL.md",
+          "find": "```bash\n# Optional: Initialize the ideas directory\nbash skills/idea-refine/scripts/idea-refine.sh\n```",
+          "replace": "No initializer is shipped or required. Continue the interactive refinement in memory and create `docs/ideas/[idea-name].md` only after the user confirms the final one-pager."
+        }
+      ],
       "commandRoutes": {},
       "managedPaths": {}
     },
     "vercel-agent-skills": {
+      "contentReplacements": [
+        {
+          "reason": "The generated AGENTS.md duplicates the selected React Native rule files and adds dead package weight. The playbook routes directly to the applicable reviewed rule instead.",
+          "appliesTo": "skills/react-native-skills/SKILL.md",
+          "find": "## Full Compiled Document\n\nFor the complete guide with all rules expanded: `AGENTS.md`",
+          "replace": "## Detailed rules\n\nRead only the applicable reviewed file under `rules/`; do not load an expanded duplicate of every rule."
+        },
+        {
+          "reason": "The generated AGENTS.md duplicates the selected View Transition references and adds dead package weight. The playbook routes directly to the applicable reviewed reference instead.",
+          "appliesTo": "skills/react-view-transitions/SKILL.md",
+          "find": "## Full Compiled Document\n\nFor the complete guide with all reference files expanded: `AGENTS.md`",
+          "replace": "## Detailed references\n\nRead only the applicable reviewed file under `references/`; do not load an expanded duplicate of every reference."
+        }
+      ],
       "commandRoutes": {},
       "managedPaths": {}
     },
     "supabase-agent-skills": {
+      "contentReplacements": [
+        {
+          "reason": "The feedback template's source field is a project-file example, not a reference to another vendored Supabase asset.",
+          "appliesTo": "skills/supabase/assets/feedback-issue-template.md",
+          "find": "**File:** <!-- e.g., references/security-model.md -->",
+          "replace": "**File:** <!-- e.g., src/auth/session.ts -->"
+        }
+      ],
       "commandRoutes": {},
       "managedPaths": {}
     },
     "google-skills": {
+      "contentReplacements": [
+        {
+          "reason": "The GKE audit helper is not redistributed. Replace the broken bundled-script dependency with a fail-closed Forge inspection procedure.",
+          "appliesTo": "skills/cloud/gke-workload-security/SKILL.md",
+          "find": "Assess the current security posture of your cluster using the provided audit\nscript.\n\n**Prerequisites:**\n\n-   `gcloud` CLI authenticated.\n-   `jq` command-line JSON processor installed.\n\n**Capabilities:**\n\n-   Checks for Workload Identity.\n-   Verifies Network Policy is enabled.\n-   Checks if Shielded Nodes are enabled.\n-   Checks if Binary Authorization is enabled.\n-   Checks for Private Cluster configuration.\n\n**Command:**\n\n```bash\nscripts/audit_cluster.sh <cluster-name> <region> <project-id>\n```",
+          "replace": "Forge does not ship the upstream audit helper. Inspect Workload Identity, Network Policy, Shielded Nodes, Binary Authorization, and private-cluster settings using repository configuration first. Run narrowly scoped read-only `gcloud` or `kubectl` queries only after the user approves access to the named cluster and project. If direct cluster evidence is unavailable, report the runtime checks as `NOT_VERIFIED`; do not infer them from configuration."
+        }
+      ],
       "commandRoutes": {},
       "managedPaths": {}
     },
@@ -77,10 +348,56 @@
       "managedPaths": {}
     },
     "sentry-agent-skills": {
+      "contentReplacements": [
+        {
+          "reason": "AI tracing can capture prompts, outputs, identifiers, and cost data. Enabling it is an explicit privacy and external-telemetry decision owned by the user, never an automatic upstream setup step.",
+          "appliesTo": "skills-legacy/sentry-nextjs-sdk/references/ai-monitoring.md",
+          "find": "### Per-Call Telemetry (Required)\n\nYou **must** pass `experimental_telemetry: { isEnabled: true }` to every AI SDK function call you want traced:",
+          "replace": "### Per-Call Telemetry (Approval Required)\n\nOnly after the user explicitly approves Sentry telemetry and the prompt/output data boundary, pass `experimental_telemetry: { isEnabled: true }` to the specific AI SDK calls they approved:"
+        },
+        {
+          "reason": "The current AI monitoring procedure must not silently enable prompt and output telemetry.",
+          "appliesTo": "src/skills/sentry-setup-ai-monitoring/SKILL.md",
+          "find": "Enable telemetry per-call:",
+          "replace": "Only after explicit user approval for telemetry, prompt/output capture, and the resulting external data transfer, enable telemetry on the approved calls:"
+        },
+        {
+          "reason": "Runtime guidance must not perform an automatic latest-version network lookup. The user chooses and approves an explicit reviewed collector version.",
+          "appliesTo": "src/skills/sentry-otel-exporter-setup/SKILL.md",
+          "find": "Fetch the latest release version from GitHub:\n```bash\ncurl -s https://api.github.com/repos/open-telemetry/opentelemetry-collector-releases/releases/latest | grep '\"tag_name\"' | cut -d'\"' -f4\n```",
+          "replace": "Ask the user to choose and approve an explicit reviewed collector version. Do not query GitHub for the latest release automatically. If the user separately approves network access, verify the chosen immutable release and checksum using the project's normal dependency-review process."
+        },
+        {
+          "reason": "Downloading and executing a collector changes the user's environment and uses the network, so the procedure must retain a direct approval boundary.",
+          "appliesTo": "src/skills/sentry-otel-exporter-setup/SKILL.md",
+          "find": "Perform these steps for the user—do not just show them the commands.",
+          "replace": "Perform these steps only after the user explicitly approves the exact version, network download, package installation, destination, and command execution."
+        }
+      ],
       "commandRoutes": {},
       "managedPaths": {}
     },
     "wshobson-agents": {
+      "contentReplacements": [
+        {
+          "reason": "The SAST wrapper script is not redistributed. The selected playbook remains operational by invoking the configured scanner directly under Forge's command-approval boundary.",
+          "appliesTo": "plugins/security-scanning/skills/sast-configuration/SKILL.md",
+          "find": "```bash\n./scripts/run-sast.sh --setup --language python --tools semgrep,sonarqube\n```",
+          "replace": "Use the repository's existing SAST command when one is configured. Otherwise, after the user approves any required package installation and the exact scan command, run the chosen scanner directly (for example, `semgrep scan --config auto .`). If no reviewed scanner is available, keep SAST execution `NOT_VERIFIED`."
+        },
+        {
+          "reason": "A comment inside an executable rule example must not be replaced with generic missing-asset prose. Project-specific rules are reviewed locally.",
+          "appliesTo": "plugins/security-scanning/skills/sast-configuration/SKILL.md",
+          "find": "# See references/semgrep-rules.md for detailed examples",
+          "replace": "# Add only reviewed project-specific rules; validate each rule against positive and negative fixtures."
+        },
+        {
+          "reason": "Related unimported skills are routed to the Forge contracts that already own those concerns.",
+          "appliesTo": "plugins/security-scanning/skills/sast-configuration/SKILL.md",
+          "find": "## Related Skills\n\n- [OWASP Top 10 Checklist](../owasp-top10-checklist/SKILL.md)\n- [Container Security](../container-security/SKILL.md)\n- [Dependency Scanning](../dependency-scanning/SKILL.md)",
+          "replace": "## Related Forge contracts\n\nApply Forge security for OWASP-oriented threat coverage, Forge infrastructure for container boundaries, and Forge supply-chain for dependency scanning. These contracts remain authoritative over this specialist SAST guidance."
+        }
+      ],
       "commandRoutes": {},
       "managedPaths": {}
     }

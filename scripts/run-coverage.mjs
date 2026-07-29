@@ -3,22 +3,19 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { enforceCoverage, parseNodeCoverage } from "./lib/coverage.mjs";
+import { collectTestFiles } from "./lib/test-files.mjs";
 import { projectRoot } from "./project.mjs";
 
 const execute = promisify(execFile);
 const thresholds = JSON.parse(
   await readFile(join(projectRoot, "config", "coverage-thresholds.json"), "utf8")
 );
+const testFiles = await collectTestFiles(projectRoot);
 let result;
 try {
   result = await execute(
     process.execPath,
-    [
-      "--test",
-      "--experimental-test-coverage",
-      "build/cli/tests/**/*.test.js",
-      "scripts/tests/**/*.test.mjs"
-    ],
+    ["--test", "--experimental-test-coverage", "--test-reporter=spec", ...testFiles],
     {
       cwd: projectRoot,
       encoding: "utf8",

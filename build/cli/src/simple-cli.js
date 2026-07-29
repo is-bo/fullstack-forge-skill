@@ -483,4 +483,3 @@ function plainRiskLabel(status, severity) {
         return "Not verified";
     return `${severity.slice(0, 1)}${severity.slice(1).toLowerCase()} risk`;
 }
-//# sourceMappingURL=simple-cli.js.map

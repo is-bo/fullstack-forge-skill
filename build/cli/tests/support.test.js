@@ -62,4 +62,3 @@ test("documentation is byte-synchronized with the runtime support registry", asy
     const documented = await readFile(join(PACKAGE_ROOT, "docs", "ANALYZER_SUPPORT.md"), "utf8");
     assert.equal(documented.replaceAll("\r\n", "\n"), renderSupportRegistryMarkdown());
 });
-//# sourceMappingURL=support.test.js.map

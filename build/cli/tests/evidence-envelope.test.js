@@ -386,4 +386,3 @@ async function writePackage(root) {
 function gateStatus(result) {
     return result.gates.find((gate) => gate.gate_id === "FF-GATE-SECRETS")?.status ?? "missing";
 }
-//# sourceMappingURL=evidence-envelope.test.js.map

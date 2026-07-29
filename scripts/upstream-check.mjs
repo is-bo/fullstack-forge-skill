@@ -47,8 +47,8 @@ for (const provider of config.providers) {
 
 console.log(
   `\n${behind} provider(s) have a newer candidate; ${unreachable} could not be checked.\n` +
-    "Nothing was changed. Use `npm run upstream:diff` to review a candidate, then\n" +
-    "`npm run upstream:update -- <provider> <tag-or-sha>` to import it deliberately."
+    "Nothing was changed. Use `node scripts/upstream-diff.mjs` to review a candidate, then\n" +
+    "`node scripts/upstream-update.mjs <provider> <tag-or-sha>` to import it deliberately."
 );
 
 async function fetchJson(url) {

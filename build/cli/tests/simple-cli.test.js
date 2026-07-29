@@ -243,4 +243,3 @@ test("plain report gives a nontechnical summary while keeping technical details 
     assert.match(output, /Safe fix: available/u);
     assert.match(output, /Details: \.forge\/report\.md and \.forge\/report\.json/u);
 });
-//# sourceMappingURL=simple-cli.test.js.map

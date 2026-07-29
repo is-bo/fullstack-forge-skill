@@ -125,8 +125,8 @@ function validateProcedures(procedures) {
 }
 
 function validateUiCommands(config) {
-  if (!Array.isArray(config?.commands) || config.commands.length !== 23)
-    throw new Error("config/ui-commands.json must declare exactly the 23 public Forge UI commands");
+  if (!Array.isArray(config?.commands) || config.commands.length !== 22)
+    throw new Error("config/ui-commands.json must declare exactly the 22 public Forge UI commands");
   const names = config.commands.map((entry) => entry.name);
   if (new Set(names).size !== names.length) throw new Error("Duplicate Forge UI command name");
   for (const entry of config.commands) {
@@ -165,6 +165,24 @@ function renderEngineBadge(slug) {
   if (entry.mode === "forge-native" || labelled.length === 0) return "Engine: Forge native";
   if (entry.mode === "upstream-powered") return `Engine: Upstream-powered — ${labelled[0]}`;
   return `Engine: Hybrid — Forge + ${labelled.join(", ")}`;
+}
+
+function renderCompositionRuntime(slug) {
+  if (["all", "discover", "ship"].includes(slug)) return "";
+  return `
+## Deterministic runtime composition
+
+Before loading any provider procedure, run:
+
+\`node .fullstack-forge/runtime/cli/src/composition-entry.js ${slug} compose --root <repository-root> --json\`
+
+Add one repeatable \`--request <provider-or-source>\` flag for each explicit user request. Add
+\`--condition <task-condition>\` or \`--risk-surface <surface>\` only for a task fact you directly
+proved; never infer one from generic wording. Read \`.forge/composition.json\`, keep the Forge
+contract at index zero, and load only the ordered \`selected\` runtime paths. Respect every reported
+suppression and context budget. If \`missing\` is non-empty, stop and report the installation as
+damaged; do not improvise a prose fallback.
+`;
 }
 
 function renderUiCommands(slug) {
@@ -377,6 +395,8 @@ ${renderEngineBadge(module.slug)}
 ## Purpose
 
 ${module.purpose}
+
+${renderCompositionRuntime(module.slug)}
 
 Read \`fullstack-forge/references/shared/module-contract.md\` (applicability, execution, mutation,
 verification, completion) and \`fullstack-forge/references/shared/evidence-rules.md\` (statuses,

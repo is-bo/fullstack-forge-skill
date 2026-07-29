@@ -190,4 +190,3 @@ test("atomic project persistence leaves no partial temporary file on write failu
         assert.deepEqual(entries.sort(), ["project.json"]);
     });
 });
-//# sourceMappingURL=build-state.test.js.map

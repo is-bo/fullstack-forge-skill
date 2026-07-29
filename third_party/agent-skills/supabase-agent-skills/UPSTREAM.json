@@ -6,8 +6,13 @@
   "upstreamTag": "v0.1.6",
   "license": "MIT",
   "licenseEvidence": "LICENSE",
-  "copyright": "Copyright (c) Supabase, Inc.",
-  "importedAt": "2026-07-27T17:03:24.324Z",
+  "copyright": "Copyright (c) 2026 Supabase",
+  "copyrightEvidence": {
+    "path": "LICENSE",
+    "text": "Copyright (c) 2026 Supabase"
+  },
+  "noticeEvidence": [],
+  "importedAt": "2026-07-28T16:20:21.158Z",
   "selectedPaths": [
     "LICENSE",
     "skills/supabase-postgres-best-practices/",

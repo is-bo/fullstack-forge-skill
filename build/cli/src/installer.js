@@ -18,7 +18,8 @@ const CANONICAL_SOURCE_ROOT = join(PACKAGE_ROOT, ...CANONICAL_ROOT_SEGMENTS);
  */
 const MANAGED_SUPPORT_ROOTS = Object.freeze([
     { source: "upstream", segments: [".fullstack-forge", "upstream"] },
-    { source: "manifests", segments: [".fullstack-forge", "manifests"] }
+    { source: "manifests", segments: [".fullstack-forge", "manifests"] },
+    { source: "runtime", segments: [".fullstack-forge", "runtime"] }
 ]);
 /**
  * Hosts whose skills root must also receive verbatim copies of the Codex agent metadata and its
@@ -313,9 +314,7 @@ export async function install(rootInput, selector, options) {
     for (const [rel, record] of Object.entries(previous.files).sort(([a], [b]) => a.localeCompare(b))) {
         if (plannedPaths.has(rel))
             continue;
-        if (record.kind === "canonical")
-            continue;
-        if (!selected.has(record.platform))
+        if (record.kind !== "canonical" && !selected.has(record.platform))
             continue;
         assertSafeRelative(rel);
         const target = resolveInside(root, rel);
@@ -407,14 +406,17 @@ export async function install(rootInput, selector, options) {
     if (retirable.length > 0) {
         const prunable = new Set();
         for (const item of retirable) {
-            if (item.action.action !== "remove")
-                continue;
-            await unlink(item.target).catch((error) => {
-                if (error.code !== "ENOENT")
-                    throw error;
-            });
+            if (item.action.action === "remove") {
+                await unlink(item.target).catch((error) => {
+                    if (error.code !== "ENOENT")
+                        throw error;
+                });
+                prunable.add(dirname(item.target));
+            }
+            // A user-modified stale file is preserved as user content, not retained as Forge-owned
+            // state. Leaving the obsolete record behind makes doctor treat the preserved bytes as a
+            // damaged managed installation and lets a retired skill inflate the installed-skill count.
             delete next.files[item.action.path];
-            prunable.add(dirname(item.target));
         }
         await writeManifest(root, next);
         for (const directory of [...prunable].sort((a, b) => b.length - a.length))
@@ -752,4 +754,3 @@ async function hashIfPresent(path) {
 function isRecord(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-//# sourceMappingURL=installer.js.map

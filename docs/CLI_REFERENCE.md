@@ -22,16 +22,20 @@ forge help
 forge init [selector|all] [--global] [--dry-run]
 forge update [selector|all] [--global] [--dry-run]
 forge uninstall [selector|all] [--global] [--dry-run]
-forge doctor [--global] [--offline]
+forge doctor [--global] [--offline] [--check-updates]
 ```
 
 Project installs include automatic activation. Global installs provide skills only because no single
 project instruction file exists at global scope.
 
+`forge doctor` performs no remote update lookup by default. Add `--check-updates` to authorize that
+network request; `--offline` continues to prohibit it.
+
 ## Specialist workflows
 
 ```text
-forge <module> audit [--scope changed|full] [--json]
+forge <module> audit [--scope changed|full] [--request <provider-or-technology>] [--condition <task-condition>] [--risk-surface <surface>] [--json]
+forge <module> compose [--request <provider-or-source>] [--condition <task-condition>] [--risk-surface <surface>] [--json]
 forge <module> fix [--safe] [--dry-run]
 forge <module> verify [--json]
 forge <module> report [--output <directory>]
@@ -53,6 +57,14 @@ prints the selected modules, progressive references, and workflow with evidence 
 
 `forge audit queries` is the executable equivalent of `$forge audit queries` or
 `/forge audit queries` on hosts that support those skill-selection forms.
+
+`--request` is repeatable. It records an explicitly requested provider or technology for exact,
+precedence-aware composition; it never turns an unavailable source into verified evidence.
+`--condition` and `--risk-surface` are also repeatable, but are valid only for task facts directly
+proved from the request and affected boundary. Supported conditions are `ci`, `retrieval`,
+`migration`, `threatModelling`, `gdprRelevant`, `testingApplicable`, `missingEssentialRequirements`,
+`divergentExploration`, and `incidentInvestigation`; the current risk surfaces are `frontend`,
+`api`, and `payments`. Unknown conditions fail closed.
 
 ## Tools
 

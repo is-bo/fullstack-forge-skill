@@ -169,4 +169,3 @@ function capabilityFor(discipline, profile) {
 function confidenceRank(confidence) {
     return confidence === "HIGH" ? 3 : confidence === "MEDIUM" ? 2 : 1;
 }
-//# sourceMappingURL=build-applicability.js.map

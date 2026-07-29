@@ -789,6 +789,20 @@ test("host acceptance 15: the packed npm tarball carries the canonical tree ever
     );
   // Installed-project state must never be published inside the package.
   assert.ok(!paths.has(".fullstack-forge/install-manifest.json"));
+  for (const maintainerOnly of [
+    "scripts/upstream-check.mjs",
+    "scripts/upstream-diff.mjs",
+    "scripts/upstream-status.mjs",
+    "scripts/upstream-update.mjs"
+  ])
+    assert.ok(!paths.has(maintainerOnly), `packed tarball includes ${maintainerOnly}`);
+  const manifest = JSON.parse(await readFile(join(PACKAGE_ROOT, "package.json"), "utf8")) as {
+    scripts?: Record<string, string>;
+  };
+  for (const command of ["upstream:check", "upstream:diff", "upstream:status", "upstream:update"])
+    assert.equal(manifest.scripts?.[command], undefined, `public package exposes ${command}`);
+  assert.equal(manifest.scripts?.["upstream:verify"], "node scripts/upstream-verify.mjs");
+  assert.ok(paths.has("scripts/upstream-verify.mjs"));
 });
 
 /** Locates the npm CLI without shelling out through a shell. Mirrors the installation scripts. */

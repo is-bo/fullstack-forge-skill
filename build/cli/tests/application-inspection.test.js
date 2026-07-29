@@ -45,4 +45,3 @@ function activeApplicationIds(findings) {
         .map((finding) => finding.instance_id)
         .sort();
 }
-//# sourceMappingURL=application-inspection.test.js.map

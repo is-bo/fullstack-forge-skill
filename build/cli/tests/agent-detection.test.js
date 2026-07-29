@@ -68,4 +68,3 @@ test("agent detection treats finite PATH matches as hints without executing them
         assert.deepEqual(recommendations[0]?.evidence, ["path:codex"]);
     });
 });
-//# sourceMappingURL=agent-detection.test.js.map

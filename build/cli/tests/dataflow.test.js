@@ -324,4 +324,3 @@ export function outer(db) {
 }`);
     assert.equal(findings.filter((finding) => finding.id === "FF-SEC-SQL-001").length, 1, "only the outer request-controlled binding is vulnerable");
 });
-//# sourceMappingURL=dataflow.test.js.map

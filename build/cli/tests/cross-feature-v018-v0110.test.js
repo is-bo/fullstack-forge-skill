@@ -118,4 +118,3 @@ test("a capability the evidence layer does not model falls back to the legacy pr
     // The modeled capability still comes from the assessment layer in the same profile.
     assert.equal(capabilityStatusFor("auth", withFrontend).status, "PRESENT");
 });
-//# sourceMappingURL=cross-feature-v018-v0110.test.js.map

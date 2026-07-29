@@ -15,6 +15,9 @@ import { runtimePathFor } from "./lib/upstream-compile.mjs";
 const corpus = JSON.parse(
   await readFile(join(projectRoot, "ff-eval", "composition-corpus.json"), "utf8")
 );
+const saturationCorpus = JSON.parse(
+  await readFile(join(projectRoot, "ff-eval", "composition-saturation-corpus.json"), "utf8")
+);
 const composition = JSON.parse(
   await readFile(join(projectRoot, "config", "module-composition.json"), "utf8")
 );
@@ -27,6 +30,7 @@ const { resolveComposition } = await import(
 );
 
 const DIMENSIONS = [
+  "languages",
   "frameworks",
   "databases",
   "hosting",
@@ -40,6 +44,7 @@ const DIMENSIONS = [
 function toEvidence(raw) {
   const profileInput = raw.profile ?? {};
   const profile = {
+    languages: [],
     frameworks: [],
     databases: [],
     orms: [],
@@ -51,6 +56,7 @@ function toEvidence(raw) {
     ai_providers: []
   };
   const target = {
+    languages: "languages",
     frameworks: "frameworks",
     databases: "databases",
     hosting: "hosting",
@@ -88,7 +94,48 @@ async function sizeOf(relative) {
 const results = [];
 let failures = 0;
 
-for (const testCase of corpus.cases) {
+const saturatedEvidence = {
+  requested: [],
+  riskSurfaces: ["frontend", "api", "payments"],
+  flags: {
+    ci: true,
+    retrieval: true,
+    migration: true,
+    threatModelling: true,
+    gdprRelevant: true,
+    testingApplicable: true,
+    missingEssentialRequirements: true,
+    divergentExploration: true,
+    incidentInvestigation: true
+  },
+  profile: {
+    languages: ["Python", "Go", "Ruby", ".NET"],
+    frameworks: ["React", "Next.js", "React Native", "SvelteKit"],
+    databases: ["PostgreSQL", "Supabase"],
+    hosting: ["Cloudflare", "Google Cloud", "GKE", "Vercel", "Kubernetes"],
+    integrations: ["Supabase"],
+    observability: ["Sentry"],
+    paymentProviders: ["Stripe", "PayPal"],
+    aiProviders: ["Gemini"]
+  }
+};
+const cases = [
+  ...corpus.cases,
+  ...saturationCorpus.cases.map((entry) => ({
+    id: entry.id,
+    title: `Saturated ${entry.module} ${entry.tier} budget`,
+    modules: [entry.module],
+    evidence: {
+      ...saturatedEvidence,
+      requested: [entry.request]
+    },
+    expectActive: [entry.expectActive],
+    expectSuppressed: [],
+    saturation: entry
+  }))
+];
+
+for (const testCase of cases) {
   const evidence = toEvidence(testCase.evidence);
   const active = new Set();
   const suppressed = new Set();
@@ -99,6 +146,7 @@ for (const testCase of corpus.cases) {
   // them. Both numbers are reported because only reporting the smaller one would flatter the design.
   let eagerUpstreamBytes = 0;
   let availableUpstreamBytes = 0;
+  const saturationProblems = [];
 
   for (const module of testCase.modules) {
     const result = resolveComposition({
@@ -123,23 +171,50 @@ for (const testCase of corpus.cases) {
       if (entry.tier === "primary") eagerUpstreamBytes += bytes;
     }
     for (const entry of result.suppressed) suppressed.add(`${entry.provider}/${entry.skill}`);
+    if (testCase.saturation !== undefined && module === testCase.saturation.module) {
+      const limit =
+        testCase.saturation.tier === "primary"
+          ? result.budget.maxPrimarySkills
+          : testCase.saturation.tier === "overlay"
+            ? result.budget.maxOverlays
+            : result.budget.maxSupplemental;
+      const selectedInTier = result.selected.filter(
+        (entry) => entry.tier === testCase.saturation.tier
+      ).length;
+      if (selectedInTier !== limit)
+        saturationProblems.push(
+          `${testCase.saturation.tier} selected ${selectedInTier}, expected saturated limit ${limit}`
+        );
+      if (
+        !result.suppressed.some(
+          (entry) =>
+            entry.tier === testCase.saturation.tier && entry.reason.includes("context budget")
+        )
+      )
+        saturationProblems.push(
+          `${testCase.saturation.tier} reported no reasoned context-budget suppression`
+        );
+    }
   }
 
   const missingExpected = testCase.expectActive.filter((name) => !active.has(name));
   const wronglyActive = testCase.expectSuppressed.filter((name) => active.has(name));
-  const ok = missingExpected.length === 0 && wronglyActive.length === 0;
+  const ok =
+    missingExpected.length === 0 && wronglyActive.length === 0 && saturationProblems.length === 0;
   if (!ok) failures += 1;
 
   results.push({
     id: testCase.id,
     title: testCase.title,
     modules: testCase.modules,
+    saturation: testCase.saturation !== undefined,
     ok,
     activeCount: active.size,
     active: [...active].sort(),
     suppressedCount: suppressed.size,
     missingExpected,
     wronglyActive,
+    saturationProblems,
     baselineBytes,
     eagerUpstreamBytes,
     availableUpstreamBytes,
@@ -156,11 +231,14 @@ for (const testCase of corpus.cases) {
   });
 }
 
-const measured = results.filter((row) => row.eagerPercentIncrease !== null);
+const measured = results.filter((row) => !row.saturation && row.eagerPercentIncrease !== null);
 const summary = {
   cases: results.length,
   passed: results.length - failures,
   failed: failures,
+  baseCases: results.filter((row) => !row.saturation).length,
+  saturationCases: results.filter((row) => row.saturation).length,
+  saturationPassed: results.filter((row) => row.saturation && row.ok).length,
   medianEagerPercentIncrease: median(measured.map((row) => row.eagerPercentIncrease)),
   maxEagerPercentIncrease: Math.max(...measured.map((row) => row.eagerPercentIncrease)),
   medianAvailablePercentIncrease: median(measured.map((row) => row.availablePercentIncrease)),
@@ -184,6 +262,7 @@ if (process.argv.includes("--json")) {
     );
     for (const name of row.missingExpected) console.log(`    MISSING  ${name}`);
     for (const name of row.wronglyActive) console.log(`    LEAKED   ${name}`);
+    for (const problem of row.saturationProblems) console.log(`    BUDGET   ${problem}`);
   }
   console.log(`\n${JSON.stringify(summary, null, 2)}`);
 }

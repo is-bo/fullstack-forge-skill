@@ -52,7 +52,8 @@ const CANONICAL_SOURCE_ROOT = join(PACKAGE_ROOT, ...CANONICAL_ROOT_SEGMENTS);
  */
 const MANAGED_SUPPORT_ROOTS = Object.freeze([
   { source: "upstream", segments: [".fullstack-forge", "upstream"] },
-  { source: "manifests", segments: [".fullstack-forge", "manifests"] }
+  { source: "manifests", segments: [".fullstack-forge", "manifests"] },
+  { source: "runtime", segments: [".fullstack-forge", "runtime"] }
 ]);
 
 /**
@@ -406,8 +407,7 @@ export async function install(
     a.localeCompare(b)
   )) {
     if (plannedPaths.has(rel)) continue;
-    if (record.kind === "canonical") continue;
-    if (!selected.has(record.platform as Platform)) continue;
+    if (record.kind !== "canonical" && !selected.has(record.platform as Platform)) continue;
     assertSafeRelative(rel);
     const target = resolveInside(root, rel);
     await assertNoSymlinkPath(root, target);
@@ -506,12 +506,16 @@ export async function install(
   if (retirable.length > 0) {
     const prunable = new Set<string>();
     for (const item of retirable) {
-      if (item.action.action !== "remove") continue;
-      await unlink(item.target).catch((error: NodeJS.ErrnoException) => {
-        if (error.code !== "ENOENT") throw error;
-      });
+      if (item.action.action === "remove") {
+        await unlink(item.target).catch((error: NodeJS.ErrnoException) => {
+          if (error.code !== "ENOENT") throw error;
+        });
+        prunable.add(dirname(item.target));
+      }
+      // A user-modified stale file is preserved as user content, not retained as Forge-owned
+      // state. Leaving the obsolete record behind makes doctor treat the preserved bytes as a
+      // damaged managed installation and lets a retired skill inflate the installed-skill count.
       delete next.files[item.action.path];
-      prunable.add(dirname(item.target));
     }
     await writeManifest(root, next);
     for (const directory of [...prunable].sort((a, b) => b.length - a.length))

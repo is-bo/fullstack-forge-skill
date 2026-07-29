@@ -355,4 +355,3 @@ function isInspectionTool(value) {
         ? true
         : value === "inspect-platform-skills" || value === "scan-secret-patterns";
 }
-//# sourceMappingURL=tools.js.map

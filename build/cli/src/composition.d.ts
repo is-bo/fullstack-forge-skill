@@ -10,7 +10,7 @@
  *   2. A provider source loads only when its activation condition is satisfied by evidence.
  *   3. The context budget is enforced, and anything dropped is reported rather than hidden.
  */
-import type { ProjectProfile } from "./types.js";
+import type { Confidence, ProjectProfile } from "./types.js";
 export type CompositionMode = "forge-native" | "hybrid" | "upstream-powered";
 export type OutputClassification = "finding" | "finding-or-advisory" | "advisory" | "profile" | "specification" | "report" | "gate";
 /**
@@ -20,6 +20,7 @@ export type OutputClassification = "finding" | "finding-or-advisory" | "advisory
  */
 export type ActivationCondition = {
     always?: boolean;
+    languages?: string[];
     frameworks?: string[];
     databases?: string[];
     hosting?: string[];
@@ -38,6 +39,14 @@ export type ActivationCondition = {
     missingEssentialRequirements?: boolean;
     divergentExploration?: boolean;
     incidentInvestigation?: boolean;
+    /** Minimum confidence for profile-record matches in this condition. Defaults to MEDIUM. */
+    minimumConfidence?: Confidence;
+    /** Every nested condition must match. The strongest proven positive authority sets its rank. */
+    allOf?: ActivationCondition[];
+    /** At least one nested condition must match. The strongest matching branch wins. */
+    anyOf?: ActivationCondition[];
+    /** This nested condition must not match. It never increases activation strength. */
+    not?: ActivationCondition;
 };
 export type CompositionSource = {
     provider: string;
@@ -47,6 +56,8 @@ export type CompositionSource = {
     sequence?: number;
     sections?: string[];
     commands?: string[];
+    /** Higher values win only after sequence and activation strength are equal. */
+    priority?: number;
     when: ActivationCondition;
 };
 export type ContextBudget = {
@@ -114,8 +125,10 @@ export type CompositionEvidence = {
     /** Risk surfaces Forge proved for this task, e.g. `frontend`, `api`, `payments`. */
     riskSurfaces?: string[];
     /** Task-shaped facts that are not repository detections. */
-    flags?: Partial<Record<"ci" | "retrieval" | "migration" | "threatModelling" | "gdprRelevant" | "testingApplicable" | "missingEssentialRequirements" | "divergentExploration" | "incidentInvestigation", boolean>>;
+    flags?: Partial<Record<CompositionTaskFlag, boolean>>;
 };
+export declare const COMPOSITION_TASK_FLAGS: readonly ["ci", "retrieval", "migration", "threatModelling", "gdprRelevant", "testingApplicable", "missingEssentialRequirements", "divergentExploration", "incidentInvestigation"];
+export type CompositionTaskFlag = (typeof COMPOSITION_TASK_FLAGS)[number];
 /**
  * Evaluates one activation condition. Returns the reason it matched, or `undefined` when the
  * condition is not satisfied. A source with no satisfiable key never activates: absence of

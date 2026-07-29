@@ -335,4 +335,3 @@ async function git(root, args) {
     const result = await runFile("git", args, root, 30_000);
     assert.equal(result.exitCode, 0, `${args.join(" ")}\n${result.stderr}`);
 }
-//# sourceMappingURL=repository-inventory.test.js.map

@@ -331,4 +331,3 @@ test("captured screenshot hashes match the bytes actually written to disk", asyn
         }
     });
 });
-//# sourceMappingURL=rendered-ui-capture.test.js.map

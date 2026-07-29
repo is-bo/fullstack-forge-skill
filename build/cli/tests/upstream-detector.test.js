@@ -198,4 +198,3 @@ test("adapted findings are never marked safe to auto-apply", () => {
     assert.equal(first(result.findings).safe_fix, false);
     assert.equal(first(result.findings).safe_fix_classification, "approval-required");
 });
-//# sourceMappingURL=upstream-detector.test.js.map

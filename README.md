@@ -22,11 +22,18 @@ projects, but you never install, invoke, update, or need to understand any of th
 
 Requires Node.js 20.19+, 22.13+, or 24+.
 
+Use the newest immutable release shown on the
+[GitHub Releases page](https://github.com/is-bo/fullstack-forge-skill/releases). If v0.2.1 is
+published there, install it with:
+
 ```bash
-npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.2.0"
+npm install --save-dev "https://codeload.github.com/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v0.2.1"
 npx forge init
 npx forge doctor
 ```
+
+Until that release exists, v0.1.0 remains the supported public release. Do not install the
+unpublished historical v0.2.0 tag.
 
 Restart or reopen your AI coding agent only if it does not refresh installed project skills
 automatically. `forge init` installs skills and ownership-managed project instructions for detected
@@ -91,13 +98,13 @@ Engine: Hybrid — Forge + Vercel
 
 | Provider                          | Licence    | Powers                                                      |
 | --------------------------------- | ---------- | ----------------------------------------------------------- |
-| Impeccable                        | Apache-2.0 | UI and UX, and the deterministic design detector            |
+| Impeccable                        | Apache-2.0 | reviewed UI and UX guidance                                 |
 | Addy Osmani Agent Skills          | MIT        | requirements, code, testing, docs, recovery, performance    |
-| Vercel Agent Skills               | MIT        | React, Next.js, React Native, web design, Vercel tuning     |
+| Vercel Agent Skills               | MIT        | React, Next.js, React Native, and web-design guidance       |
 | Supabase Agent Skills             | MIT        | PostgreSQL practice, and Supabase where it is in use        |
 | Google Skills                     | Apache-2.0 | Well-Architected pillars, Cloud Run, Cloud SQL, GKE, Gemini |
 | Cloudflare Skills                 | Apache-2.0 | Workers, Wrangler, Durable Objects, web performance         |
-| Sentry Agent Skills               | Apache-2.0 | issue investigation, tracing, and SDK setup                 |
+| Sentry Agent Skills               | MIT        | issue investigation, tracing, and SDK setup                 |
 | wshobson Agents (approved subset) | MIT        | accessibility, payments, threat modelling, AI, SQL, SLOs    |
 
 Provider guidance is **evidence-gated**: Vercel, Supabase, Google Cloud, Cloudflare, Sentry, Stripe,
@@ -112,11 +119,8 @@ upstream workflow disagree, Forge wins — see
 `fullstack-forge/references/shared/composition-precedence.md`.
 
 Normal use is fully offline. There is no automatic upstream update check and no telemetry. Every
-import is pinned to an immutable commit and checksummed; inspect exactly what you have with:
-
-```bash
-npm run upstream:status
-```
+import is pinned to an immutable commit and checksummed. Inspect exactly what you have in
+`.fullstack-forge/manifests/upstream-registry.json` and `THIRD_PARTY_NOTICES.md`.
 
 Attribution, licences, exact commits, and the modifications Forge applies are recorded in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The upstream maintainers do not endorse Fullstack
@@ -129,16 +133,16 @@ The UI and UX workflows are Forge commands:
 ```text
 $forge ui init | craft | document | extract | shape | critique | audit | polish | bolder |
 quieter | distill | harden | onboard | animate | colorize | typeset | layout | delight |
-overdrive | clarify | adapt | optimize | live
+overdrive | clarify | adapt | optimize
 ```
 
 Earlier Forge UI commands still work as aliases (`build` to `craft`, `review` and `verify` to
 `audit`, `improve` and `fix` to `polish`). Project state lives in `PRODUCT.md`, `DESIGN.md`, and
 `.fullstack-forge/ui/`.
 
-Design-detector results arrive as Forge findings: accessibility, layout, and measured-performance
-defects with concrete evidence are owned by the matching module, while subjective visual-craft
-results are advisories that never block Ship.
+`forge ui audit` applies reviewed Impeccable guidance to evidence already available to Forge. The
+Impeccable detector executable is not shipped or invoked; deterministic checks remain Forge-owned,
+and subjective visual-craft results are advisories that never block Ship.
 
 ## What Forge does
 
@@ -223,11 +227,13 @@ See [development](docs/DEVELOPMENT.md), [contributing](CONTRIBUTING.md), and
 
 ## Version policy
 
-`v0.2.0` is the current supported public release: the upstream-powered architecture. `v0.1.0` was
-the first intentionally supported release of the agent-first product; earlier numbered snapshots
-were development previews preserved in Git history.
+This source tree is the `v0.2.1` release candidate. It becomes the current supported public release
+only when its immutable GitHub Release is published and verified. `v0.2.0` remains a fetchable
+historical tag but was never published as a GitHub Release; it will not be moved, rewritten, or
+republished.
 
-Upgrading from `v0.1.0`? See [the migration notes](docs/MIGRATION_v0.2.0.md).
+Preparing to test the candidate after publication? See
+[the v0.2.1 migration notes](docs/MIGRATION_v0.2.1.md).
 
 ## License
 

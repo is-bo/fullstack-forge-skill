@@ -194,4 +194,3 @@ test("ledger appends are deterministic for identical inputs", () => {
     assert.deepEqual(build(), build());
     assert.deepEqual(build().map((check) => check.check_id), ["FF-C", "FF-A", "FF-B"]);
 });
-//# sourceMappingURL=ledger.test.js.map

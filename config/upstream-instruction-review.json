@@ -1,5 +1,5 @@
 {
-  "$comment": "Reviewed dangerous-instruction findings in vendored upstream content. `npm run upstream:verify` fails when a hard-deny rule matches a vendored file that is not acknowledged here, so newly imported content cannot introduce an unreviewed instruction. Acknowledging a finding records why it cannot subvert a Forge contract; it does not grant the instruction any authority. Vendored Markdown is inert reference text: Forge never executes it, and the only vendored executables are the Impeccable detector files declared in `runtimeExecutables`.",
+  "$comment": "Reviewed dangerous-instruction findings in vendored upstream content. `npm run upstream:verify` fails when a hard-deny rule matches a vendored file that is not acknowledged here, so newly imported content cannot introduce an unreviewed instruction. Acknowledging a finding records why it cannot subvert a Forge contract; it does not grant the instruction any authority. Vendored Markdown is inert reference text and Forge ships no upstream executable runtime.",
   "acknowledged": [
     {
       "provider": "addy-agent-skills",
@@ -8,14 +8,6 @@
       "reviewedOn": "2026-07-27",
       "verdict": "benign",
       "rationale": "The match is prompt-injection defence, not an override. The skill instructs the agent that text found in a page saying \"Ignore previous instructions\" is data to report rather than an action to take. This agrees with Forge's own instruction-source boundary."
-    },
-    {
-      "provider": "vercel-agent-skills",
-      "path": "skills/react-best-practices/AGENTS.md",
-      "rule": "telemetry",
-      "reviewedOn": "2026-07-27",
-      "verdict": "benign",
-      "rationale": "`analytics.track(...)` appears inside an example of user application code illustrating main-thread blocking. It describes what a reader's app might call; it does not enable telemetry in Forge."
     },
     {
       "provider": "vercel-agent-skills",
@@ -35,7 +27,7 @@
     },
     {
       "provider": "sentry-agent-skills",
-      "path": "skills/sentry-nextjs-sdk/references/error-monitoring.md",
+      "path": "skills-legacy/sentry-nextjs-sdk/references/error-monitoring.md",
       "rule": "telemetry",
       "reviewedOn": "2026-07-27",
       "verdict": "benign",
@@ -43,7 +35,7 @@
     },
     {
       "provider": "sentry-agent-skills",
-      "path": "skills/sentry-react-sdk/references/error-monitoring.md",
+      "path": "skills-legacy/sentry-react-sdk/references/error-monitoring.md",
       "rule": "telemetry",
       "reviewedOn": "2026-07-27",
       "verdict": "benign",

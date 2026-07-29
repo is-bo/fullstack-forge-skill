@@ -11,6 +11,21 @@ Engine: Upstream-powered — Impeccable
 
 Use automatically for visual-interface creation and improvement, including direction, typography, color, spacing, layout, systems, states, consistency, motion, and polish while preserving usability, accessibility, and established brand conventions.
 
+
+## Deterministic runtime composition
+
+Before loading any provider procedure, run:
+
+`node .fullstack-forge/runtime/cli/src/composition-entry.js ui compose --root <repository-root> --json`
+
+Add one repeatable `--request <provider-or-source>` flag for each explicit user request. Add
+`--condition <task-condition>` or `--risk-surface <surface>` only for a task fact you directly
+proved; never infer one from generic wording. Read `.forge/composition.json`, keep the Forge
+contract at index zero, and load only the ordered `selected` runtime paths. Respect every reported
+suppression and context budget. If `missing` is non-empty, stop and report the installation as
+damaged; do not improvise a prose fallback.
+
+
 Read `fullstack-forge/references/shared/module-contract.md` (applicability, execution, mutation,
 verification, completion) and `fullstack-forge/references/shared/evidence-rules.md` (statuses,
 standards, tools, findings via `fullstack-forge/references/PROTOCOL.md`) before reporting.
@@ -55,7 +70,7 @@ Forge's contracts.
 | `$forge ui extract` | Extract design tokens and visual truth from the existing implementation. |
 | `$forge ui shape` | Shape information architecture, flow, and hierarchy before visual work. |
 | `$forge ui critique` | Critique an interface against craft, hierarchy, and usability criteria. |
-| `$forge ui audit` | Run the deterministic design detector and report evidence-backed findings. |
+| `$forge ui audit` | Apply the translated technical audit procedure to available Forge evidence. |
 | `$forge ui polish` | Apply bounded, reversible refinement to an existing interface. |
 | `$forge ui bolder` | Increase visual confidence and contrast where a design reads timid. |
 | `$forge ui quieter` | Reduce visual noise where a design reads loud. |
@@ -71,7 +86,6 @@ Forge's contracts.
 | `$forge ui clarify` | Improve interface copy, labels, and comprehension. |
 | `$forge ui adapt` | Adapt an interface across breakpoints, platforms, and locales. |
 | `$forge ui optimize` | Improve measured frontend performance of an interface. |
-| `$forge ui live` | Guidance for iterating on an interface in a live browser session. _(guidance only; see limitations)_ |
 
 Compatibility aliases are preserved: `$forge ui build` → `$forge ui craft`, `$forge ui review` → `$forge ui audit`, `$forge ui improve` → `$forge ui polish`, `$forge ui fix` → `$forge ui polish`, `$forge ui verify` → `$forge ui audit`.
 

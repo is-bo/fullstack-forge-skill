@@ -210,4 +210,3 @@ test("executed project commands are recorded as untrusted project-owned tools", 
     const check = ledger.ledgers().planned_checks.find((entry) => entry.check_id === "command:lint");
     assert.equal(check?.status, "RUN");
 });
-//# sourceMappingURL=cross-feature-v017-v019.test.js.map

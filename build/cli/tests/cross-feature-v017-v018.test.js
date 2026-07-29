@@ -143,12 +143,13 @@ test("a v0.1.7 report migrates without fabricating ledgers it never recorded", (
         analyzer_coverage: []
     };
     const migrated = migrateReport(legacy);
-    assert.equal(migrated.schema_version, 2);
+    assert.equal(migrated.schema_version, 3);
     // Ledgers the writing release never tracked come back empty, never invented.
     assert.deepEqual(migrated.tools, []);
     assert.deepEqual(migrated.planned_checks, []);
     assert.deepEqual(migrated.runtime_evidence, []);
     assert.deepEqual(migrated.module_decisions, []);
+    assert.deepEqual(migrated.compositions, []);
     // The v0.1.7 execution ledger survives migration untouched.
     assert.equal(migrated.execution.length, 1);
     assert.deepEqual(migrated.execution[0]?.command, ["npm", "test"]);
@@ -158,7 +159,8 @@ test("a v0.1.7 report migrates without fabricating ledgers it never recorded", (
         "tools",
         "planned_checks",
         "runtime_evidence",
-        "module_decisions"
+        "module_decisions",
+        "compositions"
     ]);
     // Emptiness must be stated as absence of tracking, not as evidence of success.
     const notes = migrated.migration.notes.join(" ");
@@ -185,4 +187,3 @@ test("a v0.1.7 report is not claimed to be a v0.1.6 report", () => {
     const origin = migrated.migration?.detected_origin ?? "";
     assert.match(origin, /v0\.1\.6-or-v0\.1\.7/u);
 });
-//# sourceMappingURL=cross-feature-v017-v018.test.js.map

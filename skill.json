@@ -1,7 +1,7 @@
 {
   "$schema": "./src/fullstack-forge/schemas/skill.schema.json",
   "name": "fullstack-forge",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "license": "Apache-2.0",
   "description": "Automatically guide AI coding agents through production-ready full-stack software-engineering changes; explicit Forge commands remain optional.",
   "entrypoint": "src/fullstack-forge/SKILL.md",

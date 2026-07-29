@@ -203,16 +203,17 @@
       ]
     },
     {
-      "id": "15-vercel-optimisation",
-      "title": "Vercel optimisation",
+      "id": "15-vercel-performance-without-unsupported-runtime",
+      "title": "Vercel-hosted Next.js performance without the unsupported optimiser",
       "modules": ["performance", "cost", "deployment"],
       "evidence": {
+        "requested": ["vercel"],
         "profile": {
           "hosting": ["Vercel"],
           "frameworks": ["next"]
         }
       },
-      "expectActive": ["vercel-agent-skills/vercel-optimize"],
+      "expectActive": ["vercel-agent-skills/react-best-practices"],
       "expectSuppressed": ["cloudflare-skills/wrangler", "google-skills/cloud-run-basics"]
     },
     {
@@ -237,6 +238,7 @@
       "title": "Cloudflare Worker",
       "modules": ["infrastructure", "jobs", "realtime"],
       "evidence": {
+        "requested": ["cloudflare"],
         "profile": {
           "hosting": ["Cloudflare"]
         }
@@ -249,6 +251,7 @@
       "title": "Google Cloud service",
       "modules": ["infrastructure", "reliability", "cost"],
       "evidence": {
+        "requested": ["google-cloud"],
         "profile": {
           "hosting": ["Google Cloud"]
         }
@@ -264,6 +267,7 @@
       "title": "Sentry issue investigation",
       "modules": ["observability", "recovery"],
       "evidence": {
+        "requested": ["sentry"],
         "profile": {
           "observability": ["sentry"]
         }
@@ -351,6 +355,34 @@
         "addy-agent-skills/definition-of-done",
         "wshobson-agents/secrets-management"
       ],
+      "expectSuppressed": []
+    },
+    {
+      "id": "26-explicit-gke-beats-cloudflare-budget",
+      "title": "Explicit GKE request in a Cloudflare-detected repository",
+      "modules": ["infrastructure"],
+      "evidence": {
+        "requested": ["gke"],
+        "profile": {
+          "hosting": ["Cloudflare"]
+        }
+      },
+      "expectActive": ["google-skills/gke-platform-security", "google-skills/gke-productionize"],
+      "expectSuppressed": ["cloudflare-skills/cloudflare"]
+    },
+    {
+      "id": "27-explicit-sentry-nextjs-survives-observability-budget",
+      "title": "Explicit Sentry Next.js setup with competing Google Cloud evidence",
+      "modules": ["observability"],
+      "evidence": {
+        "requested": ["sentry-nextjs"],
+        "profile": {
+          "frameworks": ["Next.js"],
+          "hosting": ["Google Cloud"],
+          "observability": ["Sentry"]
+        }
+      },
+      "expectActive": ["sentry-agent-skills/sentry-nextjs-sdk"],
       "expectSuppressed": []
     }
   ]

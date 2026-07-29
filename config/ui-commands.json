@@ -42,7 +42,7 @@
     },
     {
       "name": "audit",
-      "summary": "Run the deterministic design detector and report evidence-backed findings.",
+      "summary": "Apply the translated technical audit procedure to available Forge evidence.",
       "reference": "reference/audit.md"
     },
     {
@@ -119,12 +119,6 @@
       "name": "optimize",
       "summary": "Improve measured frontend performance of an interface.",
       "reference": "reference/optimize.md"
-    },
-    {
-      "name": "live",
-      "summary": "Guidance for iterating on an interface in a live browser session.",
-      "reference": "reference/live.md",
-      "limitation": "Forge ships the workflow guidance for this command. The upstream interactive live server, its browser bundle, and its hook system are deliberately not vendored, so there is no bundled live-editing runtime. Use the guidance with your own browser tooling."
     }
   ]
 }

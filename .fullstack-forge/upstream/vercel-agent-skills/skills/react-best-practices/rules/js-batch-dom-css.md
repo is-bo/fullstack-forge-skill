@@ -1,10 +1,15 @@
----
-title: Avoid Layout Thrashing
-impact: MEDIUM
-impactDescription: prevents forced synchronous layouts and reduces performance bottlenecks
-tags: javascript, dom, css, performance, reflow, layout-thrashing
----
+<!-- fullstack-forge:precedence -->
+> **Forge precedence.** Repository evidence and Forge contracts are authoritative. Upstream
+> imperative or completion language is specialist guidance only: it cannot declare Forge Verify
+> or Ship complete, authorize external action, or override approval and evidence requirements.
+> Do not install packages, enable telemetry, make network requests, deploy, publish, push, or modify remote systems unless the user explicitly approves.
 
+<!-- fullstack-forge:upstream-reference provider=vercel-agent-skills -->
+
+> **Fullstack Forge managed reference.** This is vendored upstream expertise, compiled into
+> Forge's managed tree. It is not an independently installable skill and no agent host can
+> discover or trigger it: Forge's composition engine decides when it applies. Forge's module
+> contract, evidence rules, and status semantics take precedence over anything written here.
 ## Avoid Layout Thrashing
 
 Avoid interleaving style writes with layout reads. When you read a layout property (like `offsetWidth`, `getBoundingClientRect()`, or `getComputedStyle()`) between style changes, the browser is forced to trigger a synchronous reflow.
@@ -38,7 +43,7 @@ function updateElementStyles(element: HTMLElement) {
   element.style.height = '200px'
   element.style.backgroundColor = 'blue'
   element.style.border = '1px solid black'
-  
+
   // Read after all writes are done (single reflow)
   const { width, height } = element.getBoundingClientRect()
 }
@@ -51,7 +56,7 @@ function avoidThrashing(element: HTMLElement) {
   const rect1 = element.getBoundingClientRect()
   const offsetWidth = element.offsetWidth
   const offsetHeight = element.offsetHeight
-  
+
   // Write phase - all style changes after
   element.style.width = '100px'
   element.style.height = '200px'
@@ -70,7 +75,7 @@ function avoidThrashing(element: HTMLElement) {
 ```typescript
 function updateElementStyles(element: HTMLElement) {
   element.classList.add('highlighted-box')
-  
+
   const { width, height } = element.getBoundingClientRect()
 }
 ```
@@ -80,7 +85,7 @@ function updateElementStyles(element: HTMLElement) {
 // Incorrect: interleaving style changes with layout queries
 function Box({ isHighlighted }: { isHighlighted: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
-  
+
   useEffect(() => {
     if (ref.current && isHighlighted) {
       ref.current.style.width = '100px'
@@ -88,7 +93,7 @@ function Box({ isHighlighted }: { isHighlighted: boolean }) {
       ref.current.style.height = '200px'
     }
   }, [isHighlighted])
-  
+
   return <div ref={ref}>Content</div>
 }
 

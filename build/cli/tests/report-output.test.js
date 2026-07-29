@@ -169,4 +169,3 @@ test("an empty output value is refused", async () => {
         await assert.rejects(() => writeReportOutput(root, "   ", report(root), false), /--output requires a directory path/u);
     });
 });
-//# sourceMappingURL=report-output.test.js.map

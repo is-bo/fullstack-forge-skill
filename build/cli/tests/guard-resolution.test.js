@@ -361,4 +361,3 @@ test("route findings are byte-identical across repeated runs", async () => {
     assert.ok(first.length > 0, "the fixture must produce findings to compare");
     assert.deepEqual(first.map((finding) => [finding.id, finding.instance_id, finding.status, finding.evidence]), second.map((finding) => [finding.id, finding.instance_id, finding.status, finding.evidence]));
 });
-//# sourceMappingURL=guard-resolution.test.js.map

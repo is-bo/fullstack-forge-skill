@@ -61,6 +61,25 @@ test("frontend discovery does not imply a public indexable website", async () =>
         assert.equal(profile.capabilities["public-web"], undefined);
     });
 });
+test("discovery records provider identities instead of relying on evidence-path substrings", async () => {
+    await withTemporaryProject("profile-provider-identities", async (root) => {
+        await writeFile(join(root, "package.json"), `${JSON.stringify({
+            name: "provider-app",
+            dependencies: {
+                next: "0.0.0-fixture",
+                "@sentry/nextjs": "0.0.0-fixture",
+                stripe: "0.0.0-fixture",
+                "@supabase/supabase-js": "0.0.0-fixture",
+                openai: "0.0.0-fixture"
+            }
+        }, null, 2)}\n`, "utf8");
+        const profile = await discoverProject(root);
+        assert.ok(profile.observability.some((record) => record.name === "Sentry"));
+        assert.ok(profile.payment_providers.some((record) => record.name === "Stripe"));
+        assert.ok(profile.integrations.some((record) => record.name === "Supabase"));
+        assert.ok(profile.ai_providers.some((record) => record.name === "OpenAI"));
+    });
+});
 test("project profile schema v2 records applications, routes, boundaries, and old-profile regeneration", async () => {
     await withTemporaryProject("profile-v2", async (root) => {
         await writeFile(join(root, "package.json"), `${JSON.stringify({ name: "profile-app", private: true, dependencies: { express: "0.0.0-fixture" } }, null, 2)}\n`, "utf8");
@@ -99,4 +118,3 @@ const tenantId = session.tenantId;
         assert.ok(regenerated.repository.evidence.some((item) => item.includes("preserved original")));
     });
 });
-//# sourceMappingURL=discovery.test.js.map

@@ -485,4 +485,3 @@ test("subject-shaped output fields are not query authorization predicates", asyn
 }`);
     assert.ok(ids.has("FF-AUTHZ-OBJECT-001"));
 });
-//# sourceMappingURL=analyzers.test.js.map

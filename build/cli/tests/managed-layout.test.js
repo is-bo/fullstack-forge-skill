@@ -73,4 +73,3 @@ test("frontmatter extraction tolerates BOM and CRLF the same way in both modules
     assert.equal(extractFrontmatter(text, "fixture"), generator.extractFrontmatter(text, "fixture"));
     assert.equal(extractFrontmatter(text, "fixture"), "name: forge-api\ndescription: x\n");
 });
-//# sourceMappingURL=managed-layout.test.js.map

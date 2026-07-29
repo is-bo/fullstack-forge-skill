@@ -30,4 +30,3 @@ function validate(path, prefix, canonicalTemp) {
         throw new Error(`Refusing to remove unexpected test path: ${resolved}`);
     }
 }
-//# sourceMappingURL=helpers.js.map

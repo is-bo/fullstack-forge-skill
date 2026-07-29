@@ -668,4 +668,3 @@ function describe(resolution) {
 function text(node, file) {
     return node.getText(file.sourceFile);
 }
-//# sourceMappingURL=guard-resolution.js.map

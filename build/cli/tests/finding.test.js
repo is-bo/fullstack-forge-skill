@@ -170,4 +170,3 @@ test("rendered-review findings reject malformed capture metadata", () => {
     ])
         assert.ok(errors.some((error) => error.includes(expected)), expected);
 });
-//# sourceMappingURL=finding.test.js.map

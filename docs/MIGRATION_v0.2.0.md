@@ -7,7 +7,7 @@ type still works.
 ## Upgrade
 
 ```bash
-npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.2.0"
+npm install --save-dev "https://codeload.github.com/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v0.2.0"
 npx forge init
 npx forge doctor
 ```
@@ -60,10 +60,10 @@ If you previously used Impeccable separately, note that Forge does not create, r
 `.fullstack-forge/ui/`, with critique snapshots under `.fullstack-forge/ui/critique/`. You do not
 need Impeccable installed, and you never type `/impeccable`.
 
-Design-detector results now reach you as Forge findings. Accessibility, layout, and measured
-performance defects with concrete file evidence are findings owned by `forge-accessibility`,
-`forge-frontend`, and `forge-performance`. Subjective visual-craft results are advisories: they are
-reported for judgement and **cannot block Ship**.
+Correction recorded for v0.2.1: the v0.2.0 candidate described detector results as production
+output, but no production caller existed. v0.2.1 removes the unreachable detector executables and
+uses reviewed Impeccable guidance only. Deterministic evidence remains Forge-owned, while subjective
+visual-craft results are advisory and **cannot block Ship**.
 
 ## What did not change
 
@@ -81,13 +81,10 @@ approval boundary, or trigger a deployment. See
 
 ## Inspecting what you have
 
-```bash
-npm run upstream:status
-```
-
-Reports every vendored provider, its licence, its pinned tag and immutable commit, its content
-checksum, its selected paths, and which Forge modules use it. `npm run upstream:verify` re-checks
-the pins and checksums offline.
+`.fullstack-forge/manifests/upstream-registry.json` and `THIRD_PARTY_NOTICES.md` report every
+vendored provider, its licence, pinned tag and immutable commit, content checksum, selected paths,
+and runtime location. Maintainers can run `npm run upstream:verify` from a source checkout to
+re-check the pristine pins and checksums offline.
 
 Nothing updates automatically. Forge performs no upstream update check and ships no telemetry.
 

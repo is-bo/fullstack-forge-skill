@@ -12,31 +12,27 @@
       "upstreamTag": "skill-v4.0.2",
       "license": "Apache-2.0",
       "licenseEvidence": "LICENSE",
-      "copyright": "Copyright the Impeccable authors",
-      "contentChecksum": "11c6df11f95d2e8f2749560979129df5a4c0847602668191bb3ef0c0f737e237",
+      "copyright": "Copyright 2025 Paul Bakaus",
+      "copyrightEvidence": {
+        "path": "LICENSE",
+        "text": "Copyright 2025 Paul Bakaus"
+      },
+      "noticeEvidence": [
+        "NOTICE.md"
+      ],
+      "contentChecksum": "eb42a2547d6da84eaff15f7a735657578aa02bc696098f7b35411626aa8739f2",
       "updatePolicy": "reviewed-only",
       "runtimeRoot": ".fullstack-forge/upstream/impeccable",
       "runtimeSkillFilename": "PLAYBOOK.md",
-      "fileCount": 57,
-      "runtimeExecutables": [
-        ".claude/skills/impeccable/scripts/detector/cli/main.mjs",
-        ".claude/skills/impeccable/scripts/detector/design-system.mjs",
-        ".claude/skills/impeccable/scripts/detector/engines/browser/detect-url.mjs",
-        ".claude/skills/impeccable/scripts/detector/engines/regex/detect-text.mjs",
-        ".claude/skills/impeccable/scripts/detector/engines/static-html/css-cascade.mjs",
-        ".claude/skills/impeccable/scripts/detector/engines/static-html/detect-html.mjs",
-        ".claude/skills/impeccable/scripts/detector/engines/visual/screenshot-contrast.mjs",
-        ".claude/skills/impeccable/scripts/detector/findings.mjs",
-        ".claude/skills/impeccable/scripts/detector/node/file-system.mjs",
-        ".claude/skills/impeccable/scripts/detector/profile/profiler.mjs",
-        ".claude/skills/impeccable/scripts/detector/registry/antipatterns.mjs",
-        ".claude/skills/impeccable/scripts/detector/rules/checks.mjs",
-        ".claude/skills/impeccable/scripts/detector/shared/color.mjs",
-        ".claude/skills/impeccable/scripts/detector/shared/constants.mjs",
-        ".claude/skills/impeccable/scripts/detector/shared/fonts.mjs",
-        ".claude/skills/impeccable/scripts/detector/shared/inline-ignores.mjs",
-        ".claude/skills/impeccable/scripts/detector/shared/page.mjs",
-        ".claude/skills/impeccable/scripts/lib/impeccable-config.mjs"
+      "fileCount": 36,
+      "runtimeChecksum": "ccdddde9a782fcedbdadaecb1912984b892c25946180e1cb7f33a82a52cf9f27",
+      "runtimeExecutables": [],
+      "runtimeNotices": [
+        {
+          "sourcePath": "NOTICE.md",
+          "runtimePath": "UPSTREAM-NOTICES/NOTICE.md.verbatim",
+          "sha256": "c60a093c2845fd9fb82f9c6f742ece31f379f8190b535309d32d66c45ccffdcb"
+        }
       ]
     },
     {
@@ -47,13 +43,20 @@
       "upstreamTag": "0.6.5",
       "license": "MIT",
       "licenseEvidence": "LICENSE",
-      "copyright": "Copyright (c) Addy Osmani",
+      "copyright": "Copyright (c) 2025 Addy Osmani",
+      "copyrightEvidence": {
+        "path": "LICENSE",
+        "text": "Copyright (c) 2025 Addy Osmani"
+      },
+      "noticeEvidence": [],
       "contentChecksum": "eec969dc7508586a185eb38742379c480b50b8c86a94e177b7f292086b3352c3",
       "updatePolicy": "reviewed-only",
       "runtimeRoot": ".fullstack-forge/upstream/addy-agent-skills",
       "runtimeSkillFilename": "PLAYBOOK.md",
-      "fileCount": 35,
-      "runtimeExecutables": []
+      "fileCount": 34,
+      "runtimeChecksum": "6ddeb6d4eb637a2997340c8ecc96cc111f1c59618ba69a7e82191d03727f0151",
+      "runtimeExecutables": [],
+      "runtimeNotices": []
     },
     {
       "id": "vercel-agent-skills",
@@ -63,13 +66,17 @@
       "upstreamTag": null,
       "license": "MIT",
       "licenseEvidence": "README.md#license",
-      "copyright": "Copyright (c) Vercel, Inc.",
-      "contentChecksum": "3c3b2a3fbfb3510e2d64a7e412c6b94421b3193a8ebae6e882f17a6fd82764c6",
+      "copyright": null,
+      "copyrightEvidence": null,
+      "noticeEvidence": [],
+      "contentChecksum": "3e0356036a7cb5a180c85c7495cb63667f6855eca8aa1b10a11d68809364945e",
       "updatePolicy": "reviewed-only",
       "runtimeRoot": ".fullstack-forge/upstream/vercel-agent-skills",
       "runtimeSkillFilename": "PLAYBOOK.md",
-      "fileCount": 197,
-      "runtimeExecutables": []
+      "fileCount": 121,
+      "runtimeChecksum": "3a8ff6738a3e21960fc277385c7c598f4c66599e5cb51a8480094c40f1d99a79",
+      "runtimeExecutables": [],
+      "runtimeNotices": []
     },
     {
       "id": "supabase-agent-skills",
@@ -79,13 +86,20 @@
       "upstreamTag": "v0.1.6",
       "license": "MIT",
       "licenseEvidence": "LICENSE",
-      "copyright": "Copyright (c) Supabase, Inc.",
+      "copyright": "Copyright (c) 2026 Supabase",
+      "copyrightEvidence": {
+        "path": "LICENSE",
+        "text": "Copyright (c) 2026 Supabase"
+      },
+      "noticeEvidence": [],
       "contentChecksum": "9f0d34ce17b71a69237735448a0f333501d28480a3685c4b7ef92ae362633571",
       "updatePolicy": "reviewed-only",
       "runtimeRoot": ".fullstack-forge/upstream/supabase-agent-skills",
       "runtimeSkillFilename": "PLAYBOOK.md",
-      "fileCount": 44,
-      "runtimeExecutables": []
+      "fileCount": 43,
+      "runtimeChecksum": "f5256a04dafe701261d5794da0d66948e5bec14ef80af4e8f8b63a1a058438e4",
+      "runtimeExecutables": [],
+      "runtimeNotices": []
     },
     {
       "id": "google-skills",
@@ -95,13 +109,17 @@
       "upstreamTag": null,
       "license": "Apache-2.0",
       "licenseEvidence": "LICENSE",
-      "copyright": "Copyright Google LLC",
-      "contentChecksum": "38636729b3ae06c5db6dced55a3a9c85f3aa75b006986a09220681c9c86d490a",
+      "copyright": null,
+      "copyrightEvidence": null,
+      "noticeEvidence": [],
+      "contentChecksum": "e60ee707fca23756b304b7b134dca85615e4b89b35cca9957409c82d61eb75fe",
       "updatePolicy": "reviewed-only",
       "runtimeRoot": ".fullstack-forge/upstream/google-skills",
       "runtimeSkillFilename": "PLAYBOOK.md",
-      "fileCount": 107,
-      "runtimeExecutables": []
+      "fileCount": 94,
+      "runtimeChecksum": "8616d10497bd274a3a77897911866679c4e1cdf1bc2415b137cee73460a7b5b4",
+      "runtimeExecutables": [],
+      "runtimeNotices": []
     },
     {
       "id": "cloudflare-skills",
@@ -111,29 +129,40 @@
       "upstreamTag": null,
       "license": "Apache-2.0",
       "licenseEvidence": "LICENSE",
-      "copyright": "Copyright Cloudflare, Inc.",
-      "contentChecksum": "f14e1e97699868ab89bc95f77c34f307fdb8a6e4d7b7a4d16007f7430b1aca38",
+      "copyright": null,
+      "copyrightEvidence": null,
+      "noticeEvidence": [],
+      "contentChecksum": "3f21a2a8efe98f1f1229540588578823170f7d0c52afee4c75935e1422c49abb",
       "updatePolicy": "reviewed-only",
       "runtimeRoot": ".fullstack-forge/upstream/cloudflare-skills",
       "runtimeSkillFilename": "PLAYBOOK.md",
-      "fileCount": 355,
-      "runtimeExecutables": []
+      "fileCount": 349,
+      "runtimeChecksum": "77b8801ba9a5deae0acdfbfd2a30bb14c9e5a472013c425d4bf73f92e93add99",
+      "runtimeExecutables": [],
+      "runtimeNotices": []
     },
     {
       "id": "sentry-agent-skills",
       "displayName": "Sentry Agent Skills",
-      "repository": "getsentry/sentry-agent-skills",
-      "upstreamCommit": "9f54eb021916a7cff2c04a9f4e4c1f9439f3202c",
+      "repository": "getsentry/sentry-for-ai",
+      "upstreamCommit": "3f7d285efc6f6ff5c5cfc5690857a9474c6642f8",
       "upstreamTag": null,
-      "license": "Apache-2.0",
-      "licenseEvidence": "README.md#license",
-      "copyright": "Copyright Functional Software, Inc. dba Sentry",
-      "contentChecksum": "18067aa3313135f9a31506ca55a185f53f703d23df7a1722241febf17fe47a26",
+      "license": "MIT",
+      "licenseEvidence": "LICENSE",
+      "copyright": "Copyright (c) 2025 Sentry (https://sentry.io) and contributors",
+      "copyrightEvidence": {
+        "path": "LICENSE",
+        "text": "Copyright (c) 2025 Sentry (https://sentry.io) and contributors"
+      },
+      "noticeEvidence": [],
+      "contentChecksum": "827b3c2aaf0b8e0fc2b400cbf9b99370a8e956f068e2ead463637cf645a7e5f2",
       "updatePolicy": "reviewed-only",
       "runtimeRoot": ".fullstack-forge/upstream/sentry-agent-skills",
       "runtimeSkillFilename": "PLAYBOOK.md",
-      "fileCount": 64,
-      "runtimeExecutables": []
+      "fileCount": 65,
+      "runtimeChecksum": "ec1434652ba86c3e754e50cfeeca7c6a4af7e31b33898acc2e13457561fec1a2",
+      "runtimeExecutables": [],
+      "runtimeNotices": []
     },
     {
       "id": "wshobson-agents",
@@ -143,13 +172,20 @@
       "upstreamTag": null,
       "license": "MIT",
       "licenseEvidence": "LICENSE",
-      "copyright": "Copyright (c) Will Shobson",
+      "copyright": "Copyright (c) 2024 Seth Hobson",
+      "copyrightEvidence": {
+        "path": "LICENSE",
+        "text": "Copyright (c) 2024 Seth Hobson"
+      },
+      "noticeEvidence": [],
       "contentChecksum": "e07343003536b2a318ed44c4791c8e740e5df7f6e8f489aacb454a31987adbda",
       "updatePolicy": "reviewed-only",
       "runtimeRoot": ".fullstack-forge/upstream/wshobson-agents",
       "runtimeSkillFilename": "PLAYBOOK.md",
-      "fileCount": 68,
-      "runtimeExecutables": []
+      "fileCount": 67,
+      "runtimeChecksum": "bb76a7bcdf548d7d3cd78d208d9b35bc3fc0235b6230b6f79518df1b9d8bd1d7",
+      "runtimeExecutables": [],
+      "runtimeNotices": []
     }
   ]
 }

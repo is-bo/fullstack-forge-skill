@@ -687,4 +687,3 @@ function assertImpactBudget(left, right, label) {
     if (left * right > MAX_IMPACT_COMPARISONS)
         throw new Error(`Changed-scope ${label} exceeded the ${MAX_IMPACT_COMPARISONS}-comparison budget.`);
 }
-//# sourceMappingURL=scope.js.map

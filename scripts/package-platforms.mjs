@@ -33,22 +33,30 @@ const archives = [
   { name: `fullstack-forge-github-v${version}.zip`, platforms: ["github"] }
 ];
 
-// Every host adapter is a pointer into the shared canonical tree, so each archive must carry that
-// tree as well as its host roots. Shipping host roots alone would extract into an installation
-// whose adapters all dangle. Collected once and reused, since the bytes are identical per archive.
-const canonicalEntries = [];
+// Every archive is a self-contained Forge installation: host adapters, canonical contracts,
+// composition manifests, and the exact compiled upstream guidance those manifests resolve.
+// Collected once and reused, since the bytes are identical per archive.
+const managedEntries = [];
 {
-  const canonicalManagedRoot = join(projectRoot, ".fullstack-forge", "skills");
-  await assertNoSymlinkPath(projectRoot, canonicalManagedRoot);
-  for (const file of await walk(canonicalManagedRoot)) {
-    if (basename(file) === ".fullstack-forge-generated.json") continue;
-    const entryPath = relative(projectRoot, file).split(sep).join("/");
-    assertPublishableArchivePath(entryPath, version);
-    canonicalEntries.push({ path: entryPath, data: await readFile(file) });
+  for (const relativeRoot of ["skills", "upstream", "manifests", "runtime"]) {
+    const managedRoot = join(projectRoot, ".fullstack-forge", relativeRoot);
+    await assertNoSymlinkPath(projectRoot, managedRoot);
+    for (const file of await walk(managedRoot)) {
+      if (basename(file) === ".fullstack-forge-generated.json") continue;
+      const entryPath = relative(projectRoot, file).split(sep).join("/");
+      assertPublishableArchivePath(entryPath, version);
+      managedEntries.push({ path: entryPath, data: await readFile(file) });
+    }
   }
 }
-if (canonicalEntries.length === 0)
-  throw new Error("Canonical managed content is missing; release archives would be unusable");
+for (const required of [
+  ".fullstack-forge/skills/fullstack-forge/SKILL.md",
+  ".fullstack-forge/manifests/module-composition.json",
+  ".fullstack-forge/manifests/upstream-registry.json",
+  ".fullstack-forge/runtime/cli/src/composition-entry.js"
+])
+  if (!managedEntries.some((entry) => entry.path === required))
+    throw new Error(`Managed archive content is incomplete: ${required} is missing`);
 
 const previous = await readOwnership();
 const outputs = new Map();
@@ -58,7 +66,7 @@ for (const archive of archives) {
     assertPublishableArchivePath(path, version);
     entries.push({ path, data: await readRequired(join(projectRoot, ...path.split("/"))) });
   }
-  entries.push(...canonicalEntries);
+  entries.push(...managedEntries);
   for (const id of archive.platforms) {
     const platform = byId.get(id);
     if (platform === undefined) throw new Error(`Unknown package platform ${id}`);

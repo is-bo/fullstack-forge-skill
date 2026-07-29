@@ -309,4 +309,3 @@ function slug(value) {
         .replace(/[^a-z0-9]+/gu, "-")
         .replace(/^-|-$/gu, "");
 }
-//# sourceMappingURL=support.js.map

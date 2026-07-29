@@ -48,4 +48,3 @@ test("release gates ignore build state entirely and re-derive their own evidence
             assert.ok(!record.producer.startsWith("build"), record.producer);
     });
 });
-//# sourceMappingURL=build-ship-isolation.test.js.map

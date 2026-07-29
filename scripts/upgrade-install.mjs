@@ -1,11 +1,17 @@
+import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
 import { lstat, mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
+import { publicReleaseArchive } from "./lib/upgrade-source.mjs";
 import { projectRoot } from "./project.mjs";
 
 const previousTag = process.argv[2] ?? "fixture";
 const useDevelopmentPreviewFixture = previousTag === "fixture";
-if (!useDevelopmentPreviewFixture && !/^v\d+\.\d+\.\d+$/u.test(previousTag))
+if (
+  !useDevelopmentPreviewFixture &&
+  !/^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(previousTag)
+)
   throw new Error(`Previous release tag must be a stable semantic version: ${previousTag}`);
 const platformRoots = [".agents", ".claude", ".cursor", ".gemini", ".github", ".windsurf"];
 const projectInstructionPaths = [
@@ -40,6 +46,9 @@ try {
   const expectedVersion = JSON.parse(
     await readFile(join(projectRoot, "package.json"), "utf8")
   ).version;
+  const previousPackage = useDevelopmentPreviewFixture
+    ? archive
+    : publicReleaseArchive(previousTag);
 
   await writeFile(
     join(consumerRoot, "package.json"),
@@ -48,16 +57,7 @@ try {
   );
   const previousInstall = await run(
     process.execPath,
-    [
-      npmCli,
-      "install",
-      "--ignore-scripts",
-      "--no-audit",
-      "--no-fund",
-      ...(useDevelopmentPreviewFixture
-        ? [archive]
-        : [`git+https://github.com/is-bo/fullstack-forge-skill.git#${previousTag}`])
-    ],
+    [npmCli, "install", "--ignore-scripts", "--no-audit", "--no-fund", previousPackage],
     consumerRoot,
     10 * 60_000
   );
@@ -166,6 +166,15 @@ try {
     }
   }
 
+  const scoped = useDevelopmentPreviewFixture
+    ? undefined
+    : await runScopedUpgradeScenario({
+        temporary,
+        archive,
+        npmCli,
+        previousPackage,
+        expectedVersion
+      });
   console.log(
     JSON.stringify(
       {
@@ -178,7 +187,8 @@ try {
         automatic_activation_added: true,
         doctor_ready: true,
         symlinks: 0,
-        uninstall_clean: true
+        uninstall_clean: true,
+        ...(scoped ?? {})
       },
       null,
       2
@@ -187,6 +197,193 @@ try {
 } finally {
   validateTemporary(temporary);
   await rm(temporary, { recursive: true });
+}
+
+async function runScopedUpgradeScenario({
+  temporary,
+  archive,
+  npmCli,
+  previousPackage,
+  expectedVersion
+}) {
+  const root = join(temporary, "scoped-consumer");
+  await mkdir(root);
+  await writeFile(
+    join(root, "package.json"),
+    '{"name":"forge-scoped-upgrade-consumer","private":true}\n',
+    "utf8"
+  );
+  const oldInstall = await run(
+    process.execPath,
+    [npmCli, "install", "--ignore-scripts", "--no-audit", "--no-fund", previousPackage],
+    root,
+    10 * 60_000
+  );
+  if (oldInstall.code !== 0)
+    throw new Error(`scoped previous install failed:\n${oldInstall.stderr}\n${oldInstall.stdout}`);
+  const cli = join(
+    root,
+    "node_modules",
+    "fullstack-forge-skill",
+    "build",
+    "cli",
+    "src",
+    "index.js"
+  );
+  const init = await run(
+    process.execPath,
+    [cli, "init", "codex", "--root", root, "--json"],
+    root,
+    5 * 60_000
+  );
+  if (init.code !== 0)
+    throw new Error(`scoped v0.1.0 init failed:\n${init.stderr}\n${init.stdout}`);
+  if (!(await exists(join(root, ".agents", "skills", "forge", "SKILL.md"))))
+    throw new Error("scoped v0.1.0 install did not create the requested Codex host");
+  for (const host of [".claude", ".cursor", ".gemini", ".github", ".windsurf"])
+    if (await exists(join(root, host, "skills", "forge", "SKILL.md")))
+      throw new Error(`scoped v0.1.0 install unexpectedly created ${host}`);
+
+  const unchangedModule = ".agents/skills/forge-retired-module/SKILL.md";
+  const unchangedProvider =
+    ".fullstack-forge/upstream/removed-provider/unchanged-managed-reference.md";
+  const modifiedProvider =
+    ".fullstack-forge/upstream/removed-provider/modified-managed-reference.md";
+  const unchangedBytes = Buffer.from("retired managed content\n", "utf8");
+  const providerBytes = Buffer.from("removed provider content\n", "utf8");
+  const modifiedBytes = Buffer.from("removed provider content\nuser modification\n", "utf8");
+  const manifestPath = join(root, ".fullstack-forge", "install-manifest.json");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  for (const [relativePath, bytes] of [
+    [unchangedModule, unchangedBytes],
+    [unchangedProvider, providerBytes],
+    [modifiedProvider, providerBytes]
+  ]) {
+    const target = join(root, ...relativePath.split("/"));
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, bytes);
+    manifest.files[relativePath] = {
+      platform: "agents",
+      hash: createHash("sha256").update(bytes).digest("hex"),
+      owned: true
+    };
+  }
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  await writeFile(join(root, ...modifiedProvider.split("/")), modifiedBytes);
+
+  const userSkill = join(root, ".agents", "skills", "user-created", "SKILL.md");
+  const foreignHostSkill = join(root, ".claude", "skills", "user-claude", "SKILL.md");
+  const userNotes = join(root, "USER_NOTES.md");
+  await mkdir(dirname(userSkill), { recursive: true });
+  await mkdir(dirname(foreignHostSkill), { recursive: true });
+  await writeFile(userSkill, "# User-created skill\n", "utf8");
+  await writeFile(foreignHostSkill, "# Uninstalled host content\n", "utf8");
+  await writeFile(userNotes, "preserve me\n", "utf8");
+
+  const candidateInstall = await run(
+    process.execPath,
+    [npmCli, "install", "--ignore-scripts", "--no-audit", "--no-fund", archive],
+    root,
+    10 * 60_000
+  );
+  if (candidateInstall.code !== 0)
+    throw new Error(
+      `scoped candidate install failed:\n${candidateInstall.stderr}\n${candidateInstall.stdout}`
+    );
+  const candidateVersion = await run(process.execPath, [cli, "--version"], root);
+  if (candidateVersion.code !== 0 || candidateVersion.stdout.trim() !== expectedVersion)
+    throw new Error(`scoped candidate CLI did not report ${expectedVersion}`);
+  const update = await run(
+    process.execPath,
+    [cli, "update", "--root", root, "--json"],
+    root,
+    5 * 60_000
+  );
+  if (update.code !== 0)
+    throw new Error(`scoped bare update failed:\n${update.stderr}\n${update.stdout}`);
+  const updateResult = parseJson(update.stdout, "scoped update");
+  if (
+    !updateResult.actions?.some(
+      (action) => action.path === unchangedModule && action.action === "remove"
+    ) ||
+    !updateResult.actions?.some(
+      (action) => action.path === unchangedProvider && action.action === "remove"
+    ) ||
+    !updateResult.actions?.some(
+      (action) => action.path === modifiedProvider && action.action === "preserve-modified"
+    )
+  )
+    throw new Error(`scoped update did not report every stale-file disposition:\n${update.stdout}`);
+  if ((await readFile(join(root, ...modifiedProvider.split("/")))).compare(modifiedBytes) !== 0)
+    throw new Error("scoped update changed the modified stale provider file");
+  for (const removed of [unchangedModule, unchangedProvider])
+    if (await exists(join(root, ...removed.split("/"))))
+      throw new Error(`scoped update retained unchanged stale managed file ${removed}`);
+  for (const preserved of [userSkill, foreignHostSkill, userNotes])
+    if (!(await exists(preserved)))
+      throw new Error(`scoped update removed user content ${preserved}`);
+  for (const host of [".claude", ".cursor", ".gemini", ".github", ".windsurf"])
+    if (await exists(join(root, host, "skills", "forge", "SKILL.md")))
+      throw new Error(`bare update expanded into uninstalled host ${host}`);
+  if (
+    !(await exists(join(root, ".fullstack-forge", "runtime", "cli", "src", "composition-entry.js")))
+  )
+    throw new Error("scoped update omitted the composition runtime");
+  const updatedManifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  for (const retired of [unchangedModule, unchangedProvider, modifiedProvider])
+    if (updatedManifest.files?.[retired] !== undefined)
+      throw new Error(`scoped update retained obsolete ownership record ${retired}`);
+
+  const doctor = await run(
+    process.execPath,
+    [cli, "doctor", "--offline", "--root", root, "--json"],
+    root,
+    5 * 60_000
+  );
+  const doctorResult = parseJson(doctor.stdout, "scoped doctor");
+  if (doctor.code !== 0 || doctorResult.ready !== true)
+    throw new Error(`scoped candidate doctor failed:\n${doctor.stderr}\n${doctor.stdout}`);
+
+  const uninstall = await run(
+    process.execPath,
+    [cli, "uninstall", "--root", root, "--json"],
+    root,
+    5 * 60_000
+  );
+  if (![0, 1].includes(uninstall.code))
+    throw new Error(`scoped bare uninstall failed:\n${uninstall.stderr}\n${uninstall.stdout}`);
+  const uninstallResult = parseJson(uninstall.stdout, "scoped uninstall");
+  if (uninstallResult.actions?.some((action) => action.path === modifiedProvider))
+    throw new Error("scoped uninstall acted on a disowned stale provider file");
+  if ((await readFile(join(root, ...modifiedProvider.split("/")))).compare(modifiedBytes) !== 0)
+    throw new Error("scoped uninstall changed the disowned stale provider file");
+  for (const preserved of [userSkill, foreignHostSkill, userNotes])
+    if (!(await exists(preserved)))
+      throw new Error(`scoped uninstall removed user-created content ${preserved}`);
+  if (await exists(join(root, ".agents", "skills", "forge", "SKILL.md")))
+    throw new Error("scoped uninstall left an unchanged owned Forge skill");
+  return {
+    real_v010_scoped_upgrade: true,
+    unchanged_stale_removed: true,
+    modified_stale_preserved: true,
+    obsolete_ownership_records_removed: true,
+    scoped_doctor_ready: true,
+    renamed_module_retired: true,
+    removed_provider_retired: true,
+    bare_update_installed_hosts_only: true,
+    bare_uninstall_installed_hosts_only: true,
+    user_content_preserved: true
+  };
+}
+
+async function exists(path) {
+  try {
+    await stat(path);
+    return true;
+  } catch (error) {
+    if (error?.code === "ENOENT") return false;
+    throw error;
+  }
 }
 
 async function assertInstalledRoots(root, expectRouterMetadata) {

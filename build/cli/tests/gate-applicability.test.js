@@ -293,4 +293,3 @@ test("no registry gate is both forge-self and backed by application evidence", (
         if (definition.applicability === "forge-self")
             assert.equal(definition.evidence_types, undefined, `${definition.gate_id} cannot be a self-check and an application evidence gate at once`);
 });
-//# sourceMappingURL=gate-applicability.test.js.map

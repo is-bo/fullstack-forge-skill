@@ -663,4 +663,3 @@ function gateValue(gateId, name, category, status, evidence, required = true, ev
         evidence_records: evidenceRecords
     };
 }
-//# sourceMappingURL=gates.js.map

@@ -8,11 +8,17 @@
 
 ## Install in a project
 
+Confirm that v0.2.1 is published on the
+[GitHub Releases page](https://github.com/is-bo/fullstack-forge-skill/releases), then:
+
 ```bash
-npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.2.0"
+npm install --save-dev "https://codeload.github.com/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v0.2.1"
 npx forge init
 npx forge doctor
 ```
+
+Until that immutable release exists, install the supported v0.1.0 release instead. The historical
+v0.2.0 tag was never published and is not a supported installation target.
 
 Continue working with your AI agent normally. Forge activates automatically for software-engineering
 tasks.
@@ -62,7 +68,7 @@ supported; slash, mention, and skill-manager forms vary by host. The executable 
 ## Update or uninstall
 
 ```bash
-npm install --save-dev "git+https://github.com/is-bo/fullstack-forge-skill.git#v0.2.0"
+npm install --save-dev "https://codeload.github.com/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v0.2.1"
 npx forge update all
 npx forge doctor
 npx forge uninstall all

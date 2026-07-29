@@ -117,7 +117,7 @@ async function synchronize(platform, sourceFiles, isManaged) {
   }
   validateManifest(previous, platform.id, isManaged);
 
-  await guardOwnedDestinations(root, previous, sourceFiles, isManaged);
+  await guardOwnedDestinations(root, previous, sourceFiles);
   await mkdir(root, { recursive: true });
   const nextFiles = {};
   for (const [rel, bytes] of [...sourceFiles.entries()].sort(([a], [b]) => a.localeCompare(b))) {
@@ -197,7 +197,7 @@ function validateManifest(value, platform, isManaged) {
   }
 }
 
-async function guardOwnedDestinations(root, previous, sourceFiles, isManaged) {
+async function guardOwnedDestinations(root, previous, sourceFiles) {
   try {
     if (!(await stat(root)).isDirectory())
       throw new Error(`Generated root is not a directory: ${root}`);
@@ -210,8 +210,8 @@ async function guardOwnedDestinations(root, previous, sourceFiles, isManaged) {
   for (const file of await walk(root)) {
     const rel = relative(root, file).split(sep).join("/");
     if (rel === manifestName) continue;
-    if (isManaged(rel) && !sourceFiles.has(rel) && !(rel in owned)) {
-      throw new Error(`Refusing unknown managed platform file ${file}`);
+    if (!sourceFiles.has(rel) && !(rel in owned)) {
+      throw new Error(`Refusing unknown file in generated platform root ${file}`);
     }
   }
   for (const rel of sourceFiles.keys()) {

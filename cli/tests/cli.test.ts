@@ -108,6 +108,163 @@ test("compiled CLI performs discovery and writes evidence artifacts", async () =
   });
 });
 
+test("a real module invocation resolves and records composed specialist context", async () => {
+  await withTemporaryProject("cli-composition", async (root) => {
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({
+        name: "composition-fixture",
+        private: true,
+        dependencies: { next: "16.0.0", react: "19.0.0", "@sentry/nextjs": "10.0.0" }
+      }),
+      "utf8"
+    );
+    const result = await runFile(
+      process.execPath,
+      [cli, "observability", "audit", "--request", "sentry-nextjs", "--root", root, "--json"],
+      root
+    );
+    assert.ok([0, 2].includes(result.exitCode), result.stderr);
+    const parsed = JSON.parse(result.stdout) as {
+      report: {
+        compositions: Array<{
+          module: string;
+          selected: Array<{ tier: string; skill: string; runtimePath: string }>;
+          suppressed: Array<{ skill: string; reason: string }>;
+        }>;
+      };
+      composition_artifact: string;
+    };
+    const [composition] = parsed.report.compositions;
+    assert.ok(composition);
+    assert.equal(composition.module, "observability");
+    assert.equal(composition.selected[0]?.tier, "forge-contract");
+    assert.ok(composition.selected.some((source) => source.skill === "sentry-nextjs-sdk"));
+    assert.ok(composition.suppressed.every((source) => source.reason.length > 0));
+    const artifact = JSON.parse(await readFile(parsed.composition_artifact, "utf8")) as {
+      compositions: Array<{ module: string }>;
+    };
+    assert.equal(artifact.compositions[0]?.module, "observability");
+  });
+});
+
+test("compose is a first-class module entry and the archive-equivalent runner uses the same resolver", async () => {
+  await withTemporaryProject("cli-compose-entry", async (root) => {
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({
+        name: "composition-entry-fixture",
+        private: true,
+        dependencies: { react: "19.0.0", "@sentry/react": "10.0.0" }
+      }),
+      "utf8"
+    );
+    const args = [
+      "observability",
+      "compose",
+      "--request",
+      "sentry-react",
+      "--root",
+      root,
+      "--json"
+    ];
+    const result = await runFile(process.execPath, [cli, ...args], root);
+    assert.equal(result.exitCode, 0, result.stderr);
+    const parsed = JSON.parse(result.stdout) as {
+      compositions: Array<{
+        selected: Array<{ tier: string; skill: string; runtimePath: string }>;
+        suppressed: Array<{ reason: string }>;
+        missing: string[];
+      }>;
+      composition_artifact: string;
+    };
+    const [composition] = parsed.compositions;
+    assert.ok(composition);
+    assert.equal(composition.selected[0]?.tier, "forge-contract");
+    assert.equal(
+      composition.selected[0].runtimePath,
+      ".fullstack-forge/skills/fullstack-forge/references/build/observability.md"
+    );
+    assert.ok(composition.selected.some((source) => source.skill === "sentry-react-sdk"));
+    assert.ok(composition.suppressed.every((source) => source.reason.length > 0));
+    assert.deepEqual(composition.missing, []);
+    const artifact = JSON.parse(await readFile(parsed.composition_artifact, "utf8")) as {
+      compositions: Array<{ module: string }>;
+    };
+    assert.equal(artifact.compositions[0]?.module, "observability");
+
+    const standalone = join(
+      PACKAGE_ROOT,
+      ".fullstack-forge",
+      "runtime",
+      "cli",
+      "src",
+      "composition-entry.js"
+    );
+    const archiveEquivalent = await runFile(process.execPath, [standalone, ...args], root);
+    assert.equal(archiveEquivalent.exitCode, 0, archiveEquivalent.stderr);
+    const archiveParsed = JSON.parse(archiveEquivalent.stdout) as typeof parsed;
+    assert.deepEqual(archiveParsed.compositions, parsed.compositions);
+  });
+});
+
+test("the production runner accepts proven task conditions and rejects invented ones", async () => {
+  await withTemporaryProject("cli-compose-task-condition", async (root) => {
+    const standalone = join(
+      PACKAGE_ROOT,
+      ".fullstack-forge",
+      "runtime",
+      "cli",
+      "src",
+      "composition-entry.js"
+    );
+    const args = [
+      "recovery",
+      "compose",
+      "--condition",
+      "incidentInvestigation",
+      "--risk-surface",
+      "api",
+      "--root",
+      root,
+      "--json"
+    ];
+    const result = await runFile(process.execPath, [cli, ...args], root);
+    assert.equal(result.exitCode, 0, result.stderr);
+    const compositions = (
+      JSON.parse(result.stdout) as {
+        compositions: Array<{
+          selected: Array<{ skill: string; reason: string }>;
+          missing: string[];
+        }>;
+      }
+    ).compositions;
+    assert.ok(
+      compositions[0]?.selected.some(
+        (source) =>
+          source.skill === "debugging-and-error-recovery" &&
+          source.reason.includes("incidentInvestigation")
+      )
+    );
+    assert.deepEqual(compositions[0]?.missing, []);
+
+    const archiveEquivalent = await runFile(process.execPath, [standalone, ...args], root);
+    assert.equal(archiveEquivalent.exitCode, 0, archiveEquivalent.stderr);
+    const archiveParsed = JSON.parse(archiveEquivalent.stdout) as {
+      compositions: typeof compositions;
+    };
+    assert.deepEqual(archiveParsed.compositions, compositions);
+
+    const invalid = await runFile(
+      process.execPath,
+      [standalone, "recovery", "compose", "--condition", "incidentMaybe", "--root", root],
+      root
+    );
+    assert.equal(invalid.exitCode, 1);
+    assert.match(invalid.stderr, /Unknown composition condition 'incidentMaybe'/u);
+  });
+});
+
 test("unsupported language audit reports a precise NOT_VERIFIED adapter boundary", async () => {
   await withTemporaryProject("cli-unsupported", async (root) => {
     await writeFile(join(root, "app.py"), "print('hello')\n", "utf8");

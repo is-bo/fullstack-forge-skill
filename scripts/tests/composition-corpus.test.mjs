@@ -6,18 +6,43 @@ import test from "node:test";
 
 const projectRoot = process.cwd();
 
-test("the composition corpus covers the 25 required evaluation scenarios", () => {
+test("the composition corpus preserves the required scenarios and explicit-request coverage", () => {
   const corpus = JSON.parse(
     readFileSync(join(projectRoot, "ff-eval", "composition-corpus.json"), "utf8")
   );
-  assert.equal(corpus.cases.length, 25);
+  assert.ok(corpus.cases.length >= 25);
   const ids = corpus.cases.map((entry) => entry.id);
-  assert.equal(new Set(ids).size, 25);
+  assert.equal(new Set(ids).size, corpus.cases.length);
+  assert.ok(
+    corpus.cases.filter((entry) => (entry.evidence?.requested ?? []).length > 0).length >= 3,
+    "the corpus must challenge explicit-request precedence in at least three cases"
+  );
   for (const entry of corpus.cases) {
     assert.ok(entry.modules.length > 0, `${entry.id} selects no module`);
     assert.ok(Array.isArray(entry.expectActive));
     assert.ok(Array.isArray(entry.expectSuppressed));
   }
+  const saturation = JSON.parse(
+    readFileSync(join(projectRoot, "ff-eval", "composition-saturation-corpus.json"), "utf8")
+  );
+  const manifest = JSON.parse(
+    readFileSync(join(projectRoot, "config", "module-composition.json"), "utf8")
+  );
+  const expected = new Set();
+  for (const module of manifest.modules) {
+    const budget = module.contextBudget ?? manifest.defaultContextBudget;
+    for (const [tier, sources, limit] of [
+      ["primary", module.primary, budget.maxPrimarySkills],
+      ["overlay", module.overlays, budget.maxOverlays],
+      ["supplemental", module.supplemental ?? [], budget.maxSupplemental]
+    ])
+      if (sources.length > limit) expected.add(`${module.module}/${tier}`);
+  }
+  assert.deepEqual(
+    new Set(saturation.cases.map((entry) => `${entry.module}/${entry.tier}`)),
+    expected,
+    "every declaration set capable of exceeding its budget needs a saturated adversarial case"
+  );
 });
 
 test("every corpus case activates and suppresses exactly what it declares", () => {
@@ -27,11 +52,20 @@ test("every corpus case activates and suppresses exactly what it declares", () =
     { cwd: projectRoot, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 }
   );
   const report = JSON.parse(output);
-  assert.equal(report.summary.cases, 25);
+  const corpus = JSON.parse(
+    readFileSync(join(projectRoot, "ff-eval", "composition-corpus.json"), "utf8")
+  );
+  const saturation = JSON.parse(
+    readFileSync(join(projectRoot, "ff-eval", "composition-saturation-corpus.json"), "utf8")
+  );
+  assert.equal(report.summary.cases, corpus.cases.length + saturation.cases.length);
+  assert.equal(report.summary.saturationCases, saturation.cases.length);
+  assert.equal(report.summary.saturationPassed, saturation.cases.length);
   assert.equal(report.summary.failed, 0);
   for (const row of report.results) {
     assert.deepEqual(row.missingExpected, [], `${row.id} did not activate expected content`);
     assert.deepEqual(row.wronglyActive, [], `${row.id} leaked suppressed provider content`);
+    assert.deepEqual(row.saturationProblems, [], `${row.id} violated its context budget`);
   }
   // Evidence gating must actually suppress across the corpus, not merely be declared.
   assert.ok(report.summary.totalSuppressedAcrossCorpus > 50);

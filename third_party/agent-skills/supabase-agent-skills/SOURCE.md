@@ -28,5 +28,5 @@ The automated screen found no instruction matching Forge's dangerous-instruction
 
 ## Attribution
 
-Copyright (c) Supabase, Inc.. Licensed under MIT.
+Copyright (c) 2026 Supabase. Licensed under MIT.
 The upstream maintainers do not endorse Fullstack Forge.

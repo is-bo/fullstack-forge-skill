@@ -131,4 +131,3 @@ async function git(root, args) {
     const result = await runFile("git", args, root, 60_000);
     assert.equal(result.exitCode, 0, `${args.join(" ")}: ${result.stderr}`);
 }
-//# sourceMappingURL=scope.test.js.map

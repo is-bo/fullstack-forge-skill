@@ -95,4 +95,3 @@ test("JavaScript/TypeScript authorization coverage is explicitly partial", async
         assert.ok(javascript.unsupported_shapes.length > 0);
     });
 });
-//# sourceMappingURL=adapter-coverage.test.js.map

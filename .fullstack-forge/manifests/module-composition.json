@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "generatedBy": "scripts/generate-upstream-runtime.mjs",
   "defaultContextBudget": {
     "maxPrimarySkills": 1,
@@ -7,8 +7,8 @@
     "maxSupplemental": 3
   },
   "modes": {
-    "forge-native": "No upstream primary. Forge owns the whole workflow; any upstream entry is a conditional supplemental reference.",
-    "hybrid": "Forge contract drives; one upstream primary supplies specialist procedure, with evidence-gated overlays.",
+    "forge-native": "Forge owns the whole workflow and takes no upstream primary; evidence-gated overlays or supplemental references may add specialist depth.",
+    "hybrid": "Forge contract drives while evidence-gated upstream primary procedures, overlays, or supplemental references add specialist depth.",
     "upstream-powered": "An established upstream workflow is the primary procedure for this module's core activity, inside Forge's contracts."
   },
   "precedence": "fullstack-forge/references/shared/composition-precedence.md",
@@ -1734,19 +1734,6 @@
           }
         },
         {
-          "provider": "vercel-agent-skills",
-          "skill": "vercel-optimize",
-          "path": "skills/vercel-optimize/SKILL.md",
-          "when": {
-            "hosting": [
-              "vercel"
-            ],
-            "requested": [
-              "vercel"
-            ]
-          }
-        },
-        {
           "provider": "cloudflare-skills",
           "skill": "cloudflare",
           "path": "skills/cloudflare/SKILL.md",
@@ -1794,11 +1781,6 @@
           "provider": "vercel-agent-skills",
           "skill": "react-best-practices",
           "runtimePath": ".fullstack-forge/upstream/vercel-agent-skills/skills/react-best-practices/PLAYBOOK.md"
-        },
-        {
-          "provider": "vercel-agent-skills",
-          "skill": "vercel-optimize",
-          "runtimePath": ".fullstack-forge/upstream/vercel-agent-skills/skills/vercel-optimize/PLAYBOOK.md"
         },
         {
           "provider": "cloudflare-skills",
@@ -2025,19 +2007,6 @@
           }
         },
         {
-          "provider": "vercel-agent-skills",
-          "skill": "vercel-optimize",
-          "path": "skills/vercel-optimize/SKILL.md",
-          "when": {
-            "hosting": [
-              "vercel"
-            ],
-            "requested": [
-              "vercel"
-            ]
-          }
-        },
-        {
           "provider": "cloudflare-skills",
           "skill": "web-perf",
           "path": "skills/web-perf/SKILL.md",
@@ -2107,11 +2076,6 @@
           "provider": "vercel-agent-skills",
           "skill": "react-best-practices",
           "runtimePath": ".fullstack-forge/upstream/vercel-agent-skills/skills/react-best-practices/PLAYBOOK.md"
-        },
-        {
-          "provider": "vercel-agent-skills",
-          "skill": "vercel-optimize",
-          "runtimePath": ".fullstack-forge/upstream/vercel-agent-skills/skills/vercel-optimize/PLAYBOOK.md"
         },
         {
           "provider": "cloudflare-skills",
@@ -2194,19 +2158,6 @@
               "cloudflare"
             ]
           }
-        },
-        {
-          "provider": "vercel-agent-skills",
-          "skill": "vercel-optimize",
-          "path": "skills/vercel-optimize/SKILL.md",
-          "when": {
-            "hosting": [
-              "vercel"
-            ],
-            "requested": [
-              "vercel"
-            ]
-          }
         }
       ],
       "supplemental": [],
@@ -2251,11 +2202,6 @@
           "provider": "cloudflare-skills",
           "skill": "durable-objects",
           "runtimePath": ".fullstack-forge/upstream/cloudflare-skills/skills/durable-objects/PLAYBOOK.md"
-        },
-        {
-          "provider": "vercel-agent-skills",
-          "skill": "vercel-optimize",
-          "runtimePath": ".fullstack-forge/upstream/vercel-agent-skills/skills/vercel-optimize/PLAYBOOK.md"
         }
       ]
     },
@@ -2278,7 +2224,8 @@
         {
           "provider": "sentry-agent-skills",
           "skill": "sentry-fix-issues",
-          "path": "skills/sentry-fix-issues/SKILL.md",
+          "path": "skills-legacy/sentry-fix-issues/SKILL.md",
+          "priority": 50,
           "when": {
             "observability": [
               "sentry"
@@ -2291,13 +2238,286 @@
         {
           "provider": "sentry-agent-skills",
           "skill": "sentry-otel-exporter-setup",
-          "path": "skills/sentry-otel-exporter-setup/SKILL.md",
+          "path": "src/skills/sentry-otel-exporter-setup/SKILL.md",
+          "priority": 40,
           "when": {
             "observability": [
               "sentry"
             ],
             "requested": [
               "sentry"
+            ]
+          }
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-nextjs-sdk",
+          "path": "skills-legacy/sentry-nextjs-sdk/SKILL.md",
+          "priority": 100,
+          "when": {
+            "anyOf": [
+              {
+                "requested": [
+                  "sentry-nextjs",
+                  "sentry-nextjs-sdk"
+                ]
+              },
+              {
+                "allOf": [
+                  {
+                    "observability": [
+                      "sentry"
+                    ],
+                    "minimumConfidence": "MEDIUM"
+                  },
+                  {
+                    "frameworks": [
+                      "next",
+                      "nextjs"
+                    ],
+                    "minimumConfidence": "MEDIUM"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-react-sdk",
+          "path": "skills-legacy/sentry-react-sdk/SKILL.md",
+          "priority": 90,
+          "when": {
+            "anyOf": [
+              {
+                "requested": [
+                  "sentry-react",
+                  "sentry-react-sdk"
+                ]
+              },
+              {
+                "allOf": [
+                  {
+                    "observability": [
+                      "sentry"
+                    ],
+                    "minimumConfidence": "MEDIUM"
+                  },
+                  {
+                    "frameworks": [
+                      "react"
+                    ],
+                    "minimumConfidence": "MEDIUM"
+                  },
+                  {
+                    "not": {
+                      "frameworks": [
+                        "next",
+                        "nextjs",
+                        "react-native",
+                        "expo"
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-react-native-sdk",
+          "path": "skills-legacy/sentry-react-native-sdk/SKILL.md",
+          "priority": 100,
+          "when": {
+            "anyOf": [
+              {
+                "requested": [
+                  "sentry-react-native",
+                  "sentry-react-native-sdk"
+                ]
+              },
+              {
+                "allOf": [
+                  {
+                    "observability": [
+                      "sentry"
+                    ],
+                    "minimumConfidence": "MEDIUM"
+                  },
+                  {
+                    "frameworks": [
+                      "react-native",
+                      "expo"
+                    ],
+                    "minimumConfidence": "MEDIUM"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-svelte-sdk",
+          "path": "skills-legacy/sentry-svelte-sdk/SKILL.md",
+          "priority": 100,
+          "when": {
+            "anyOf": [
+              {
+                "requested": [
+                  "sentry-svelte",
+                  "sentry-svelte-sdk"
+                ]
+              },
+              {
+                "allOf": [
+                  {
+                    "observability": [
+                      "sentry"
+                    ],
+                    "minimumConfidence": "MEDIUM"
+                  },
+                  {
+                    "frameworks": [
+                      "svelte",
+                      "sveltekit"
+                    ],
+                    "minimumConfidence": "MEDIUM"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-python-sdk",
+          "path": "skills-legacy/sentry-python-sdk/SKILL.md",
+          "priority": 100,
+          "when": {
+            "anyOf": [
+              {
+                "requested": [
+                  "sentry-python",
+                  "sentry-python-sdk"
+                ]
+              },
+              {
+                "allOf": [
+                  {
+                    "observability": [
+                      "sentry"
+                    ],
+                    "minimumConfidence": "MEDIUM"
+                  },
+                  {
+                    "languages": [
+                      "python"
+                    ],
+                    "minimumConfidence": "MEDIUM"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-go-sdk",
+          "path": "skills-legacy/sentry-go-sdk/SKILL.md",
+          "priority": 100,
+          "when": {
+            "anyOf": [
+              {
+                "requested": [
+                  "sentry-go",
+                  "sentry-go-sdk"
+                ]
+              },
+              {
+                "allOf": [
+                  {
+                    "observability": [
+                      "sentry"
+                    ],
+                    "minimumConfidence": "MEDIUM"
+                  },
+                  {
+                    "languages": [
+                      "go",
+                      "golang"
+                    ],
+                    "minimumConfidence": "MEDIUM"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-ruby-sdk",
+          "path": "skills-legacy/sentry-ruby-sdk/SKILL.md",
+          "priority": 100,
+          "when": {
+            "anyOf": [
+              {
+                "requested": [
+                  "sentry-ruby",
+                  "sentry-ruby-sdk"
+                ]
+              },
+              {
+                "allOf": [
+                  {
+                    "observability": [
+                      "sentry"
+                    ],
+                    "minimumConfidence": "MEDIUM"
+                  },
+                  {
+                    "languages": [
+                      "ruby"
+                    ],
+                    "minimumConfidence": "MEDIUM"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-dotnet-sdk",
+          "path": "skills-legacy/sentry-dotnet-sdk/SKILL.md",
+          "priority": 100,
+          "when": {
+            "anyOf": [
+              {
+                "requested": [
+                  "sentry-dotnet",
+                  "sentry-dotnet-sdk"
+                ]
+              },
+              {
+                "allOf": [
+                  {
+                    "observability": [
+                      "sentry"
+                    ],
+                    "minimumConfidence": "MEDIUM"
+                  },
+                  {
+                    "languages": [
+                      ".net",
+                      "dotnet",
+                      "csharp"
+                    ],
+                    "minimumConfidence": "MEDIUM"
+                  }
+                ]
+              }
             ]
           }
         },
@@ -2400,12 +2620,52 @@
         {
           "provider": "sentry-agent-skills",
           "skill": "sentry-fix-issues",
-          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills/sentry-fix-issues/PLAYBOOK.md"
+          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills-legacy/sentry-fix-issues/PLAYBOOK.md"
         },
         {
           "provider": "sentry-agent-skills",
           "skill": "sentry-otel-exporter-setup",
-          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills/sentry-otel-exporter-setup/PLAYBOOK.md"
+          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/src/skills/sentry-otel-exporter-setup/PLAYBOOK.md"
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-nextjs-sdk",
+          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills-legacy/sentry-nextjs-sdk/PLAYBOOK.md"
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-react-sdk",
+          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills-legacy/sentry-react-sdk/PLAYBOOK.md"
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-react-native-sdk",
+          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills-legacy/sentry-react-native-sdk/PLAYBOOK.md"
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-svelte-sdk",
+          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills-legacy/sentry-svelte-sdk/PLAYBOOK.md"
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-python-sdk",
+          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills-legacy/sentry-python-sdk/PLAYBOOK.md"
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-go-sdk",
+          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills-legacy/sentry-go-sdk/PLAYBOOK.md"
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-ruby-sdk",
+          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills-legacy/sentry-ruby-sdk/PLAYBOOK.md"
+        },
+        {
+          "provider": "sentry-agent-skills",
+          "skill": "sentry-dotnet-sdk",
+          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills-legacy/sentry-dotnet-sdk/PLAYBOOK.md"
         },
         {
           "provider": "google-skills",
@@ -2488,7 +2748,7 @@
         {
           "provider": "sentry-agent-skills",
           "skill": "sentry-fix-issues",
-          "path": "skills/sentry-fix-issues/SKILL.md",
+          "path": "skills-legacy/sentry-fix-issues/SKILL.md",
           "when": {
             "observability": [
               "sentry"
@@ -2556,7 +2816,7 @@
         {
           "provider": "sentry-agent-skills",
           "skill": "sentry-fix-issues",
-          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills/sentry-fix-issues/PLAYBOOK.md"
+          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills-legacy/sentry-fix-issues/PLAYBOOK.md"
         },
         {
           "provider": "cloudflare-skills",
@@ -2599,7 +2859,7 @@
         {
           "provider": "sentry-agent-skills",
           "skill": "sentry-fix-issues",
-          "path": "skills/sentry-fix-issues/SKILL.md",
+          "path": "skills-legacy/sentry-fix-issues/SKILL.md",
           "when": {
             "observability": [
               "sentry"
@@ -2675,7 +2935,7 @@
         {
           "provider": "sentry-agent-skills",
           "skill": "sentry-fix-issues",
-          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills/sentry-fix-issues/PLAYBOOK.md"
+          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills-legacy/sentry-fix-issues/PLAYBOOK.md"
         },
         {
           "provider": "google-skills",
@@ -2745,19 +3005,6 @@
               "gke"
             ]
           }
-        },
-        {
-          "provider": "vercel-agent-skills",
-          "skill": "vercel-optimize",
-          "path": "skills/vercel-optimize/SKILL.md",
-          "when": {
-            "hosting": [
-              "vercel"
-            ],
-            "requested": [
-              "vercel"
-            ]
-          }
         }
       ],
       "supplemental": [
@@ -2821,11 +3068,6 @@
           "provider": "google-skills",
           "skill": "gke-productionize",
           "runtimePath": ".fullstack-forge/upstream/google-skills/skills/cloud/gke-productionize/PLAYBOOK.md"
-        },
-        {
-          "provider": "vercel-agent-skills",
-          "skill": "vercel-optimize",
-          "runtimePath": ".fullstack-forge/upstream/vercel-agent-skills/skills/vercel-optimize/PLAYBOOK.md"
         },
         {
           "provider": "addy-agent-skills",
@@ -3106,19 +3348,6 @@
       ],
       "overlays": [
         {
-          "provider": "vercel-agent-skills",
-          "skill": "vercel-optimize",
-          "path": "skills/vercel-optimize/SKILL.md",
-          "when": {
-            "hosting": [
-              "vercel"
-            ],
-            "requested": [
-              "vercel"
-            ]
-          }
-        },
-        {
           "provider": "cloudflare-skills",
           "skill": "cloudflare",
           "path": "skills/cloudflare/SKILL.md",
@@ -3154,11 +3383,6 @@
           "provider": "google-skills",
           "skill": "google-cloud-waf-cost-optimization",
           "runtimePath": ".fullstack-forge/upstream/google-skills/skills/cloud/google-cloud-waf-cost-optimization/PLAYBOOK.md"
-        },
-        {
-          "provider": "vercel-agent-skills",
-          "skill": "vercel-optimize",
-          "runtimePath": ".fullstack-forge/upstream/vercel-agent-skills/skills/vercel-optimize/PLAYBOOK.md"
         },
         {
           "provider": "cloudflare-skills",
@@ -3390,20 +3614,6 @@
           }
         },
         {
-          "provider": "google-skills",
-          "skill": "agent-platform-inference",
-          "path": "skills/cloud/agent-platform-inference/SKILL.md",
-          "when": {
-            "hosting": [
-              "google cloud",
-              "gcp"
-            ],
-            "requested": [
-              "google-cloud"
-            ]
-          }
-        },
-        {
           "provider": "cloudflare-skills",
           "skill": "agents-sdk",
           "path": "skills/agents-sdk/SKILL.md",
@@ -3419,7 +3629,7 @@
         {
           "provider": "sentry-agent-skills",
           "skill": "sentry-setup-ai-monitoring",
-          "path": "skills/sentry-setup-ai-monitoring/SKILL.md",
+          "path": "src/skills/sentry-setup-ai-monitoring/SKILL.md",
           "when": {
             "observability": [
               "sentry"
@@ -3500,11 +3710,6 @@
           "runtimePath": ".fullstack-forge/upstream/google-skills/skills/cloud/gemini-api/PLAYBOOK.md"
         },
         {
-          "provider": "google-skills",
-          "skill": "agent-platform-inference",
-          "runtimePath": ".fullstack-forge/upstream/google-skills/skills/cloud/agent-platform-inference/PLAYBOOK.md"
-        },
-        {
           "provider": "cloudflare-skills",
           "skill": "agents-sdk",
           "runtimePath": ".fullstack-forge/upstream/cloudflare-skills/skills/agents-sdk/PLAYBOOK.md"
@@ -3512,7 +3717,7 @@
         {
           "provider": "sentry-agent-skills",
           "skill": "sentry-setup-ai-monitoring",
-          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills/sentry-setup-ai-monitoring/PLAYBOOK.md"
+          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/src/skills/sentry-setup-ai-monitoring/PLAYBOOK.md"
         },
         {
           "provider": "wshobson-agents",
@@ -3686,7 +3891,7 @@
         {
           "provider": "sentry-agent-skills",
           "skill": "sentry-fix-issues",
-          "path": "skills/sentry-fix-issues/SKILL.md",
+          "path": "skills-legacy/sentry-fix-issues/SKILL.md",
           "when": {
             "observability": [
               "sentry"
@@ -3735,7 +3940,7 @@
         {
           "provider": "sentry-agent-skills",
           "skill": "sentry-fix-issues",
-          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills/sentry-fix-issues/PLAYBOOK.md"
+          "runtimePath": ".fullstack-forge/upstream/sentry-agent-skills/skills-legacy/sentry-fix-issues/PLAYBOOK.md"
         }
       ]
     },

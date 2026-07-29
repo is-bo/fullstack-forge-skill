@@ -115,4 +115,3 @@ test("thrown non-Error values are normalized instead of stringified blindly", ()
     const fromString = redactError(`failed with token=${SENTINELS.query}`);
     assertClean(fromString, SENTINELS.query, "thrown string");
 });
-//# sourceMappingURL=redaction.test.js.map

@@ -18,7 +18,12 @@ const PLATFORM_PREFIXES = Object.freeze([
  * archive without this tree extracts into a damaged installation. Only the leading segment is
  * exempted; every segment below it is still scanned for private, credential, and log names.
  */
-const CANONICAL_ARCHIVE_PREFIX = ".fullstack-forge/skills/";
+const MANAGED_ARCHIVE_PREFIXES = Object.freeze([
+  ".fullstack-forge/skills/",
+  ".fullstack-forge/upstream/",
+  ".fullstack-forge/manifests/",
+  ".fullstack-forge/runtime/"
+]);
 
 const PRIVATE_SEGMENTS = new Set([
   ".audit",
@@ -110,14 +115,17 @@ export function assertPublishableArchivePath(path, version) {
   if (path.includes("\\")) throw new Error(`Package paths must use forward slashes: ${path}`);
   const normalized = path.toLowerCase();
   const segments = normalized.split("/");
-  const canonicalManagedPath = normalized.startsWith(CANONICAL_ARCHIVE_PREFIX);
+  const canonicalManagedPath = MANAGED_ARCHIVE_PREFIXES.some((prefix) =>
+    normalized.startsWith(prefix)
+  );
   // Skip only the exempted leading segment for canonical content; keep scanning everything below it.
   const scanned = canonicalManagedPath ? segments.slice(1) : segments;
+  const scannedPath = scanned.join("/");
   if (
     scanned.some((segment) => PRIVATE_SEGMENTS.has(segment)) ||
     normalized.endsWith(".log") ||
-    PRIVATE_NAME.test(normalized) ||
-    segments.some((segment) => CREDENTIAL_SEGMENT.test(segment))
+    PRIVATE_NAME.test(scannedPath) ||
+    scanned.some((segment) => CREDENTIAL_SEGMENT.test(segment))
   )
     throw new Error(`Forbidden private or local package path: ${path}`);
 

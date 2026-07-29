@@ -95,4 +95,3 @@ test("the blocked reason names the destination class without echoing the URL", (
     assert.match(decision.reason, /loopback only/u);
     assert.doesNotMatch(decision.reason, /secrets\.example\.com|token|abc/u);
 });
-//# sourceMappingURL=net-policy.test.js.map

@@ -157,4 +157,3 @@ function combineStatuses(statuses) {
     ];
     return precedence.find((status) => statuses.includes(status)) ?? "NOT_VERIFIED";
 }
-//# sourceMappingURL=verification.js.map

@@ -36,4 +36,3 @@ export async function deriveApplicationInspection(input) {
         findings: results.flatMap((result) => structuredClone(result.findings))
     };
 }
-//# sourceMappingURL=application-inspection.js.map

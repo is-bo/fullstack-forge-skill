@@ -1,7 +1,7 @@
 // Maintainer-only: re-import one vendored provider at an explicit immutable target.
 //
-//   npm run upstream:update -- <provider> <tag-or-sha>
-//   npm run upstream:update -- --all            (re-import every provider at its configured pin)
+//   node scripts/upstream-update.mjs <provider> <tag-or-sha>
+//   node scripts/upstream-update.mjs --all       (re-import every provider at its configured pin)
 //
 // This never commits, merges, tags, or releases. It leaves a reviewable Git diff and stops.
 // Ordinary Forge development and the installed runtime never call it: `updatePolicy` is
@@ -32,8 +32,8 @@ const config = await readProviderConfig();
 
 if (!all && (providerId === undefined || target === undefined)) {
   console.error(
-    "Usage: npm run upstream:update -- <provider> <tag-or-sha>\n" +
-      "       npm run upstream:update -- --all\n\n" +
+    "Usage: node scripts/upstream-update.mjs <provider> <tag-or-sha>\n" +
+      "       node scripts/upstream-update.mjs --all\n\n" +
       `Providers: ${config.providers.map((entry) => entry.id).join(", ")}`
   );
   process.exit(2);
@@ -144,6 +144,15 @@ async function importProvider(provider, requestedTarget) {
     }
 
     const licenseText = readLicenceEvidence(workspace, commit, provider);
+    if (provider.copyrightEvidence !== null) {
+      const evidence = contents.get(provider.copyrightEvidence.path)?.toString("utf8");
+      if (evidence === undefined || !evidence.includes(provider.copyrightEvidence.text))
+        throw new Error(
+          `Copyright evidence ${provider.copyrightEvidence.path} does not contain the exact declared text`
+        );
+    }
+    for (const path of provider.noticeEvidence)
+      if (!contents.has(path)) throw new Error(`Declared NOTICE evidence is missing: ${path}`);
 
     const destination = providerDirectory(provider.id);
     await rm(join(destination, CONTENT_DIRNAME), { recursive: true, force: true });
@@ -163,6 +172,8 @@ async function importProvider(provider, requestedTarget) {
       license: provider.license,
       licenseEvidence: provider.licenseEvidence,
       copyright: provider.copyright,
+      copyrightEvidence: provider.copyrightEvidence,
+      noticeEvidence: [...provider.noticeEvidence].sort(),
       importedAt: new Date().toISOString(),
       selectedPaths: [...provider.selectedPaths].sort(),
       excludedPaths: [...provider.excludedPaths].sort(),
@@ -276,7 +287,9 @@ function readLicenceEvidence(workspace, commit, provider) {
  * requires recipients to receive.
  */
 function permissionNotice(provider) {
-  const holder = provider.copyright ?? provider.displayName;
+  const holder =
+    provider.copyright ??
+    "No explicit upstream copyright notice was published in the selected source.";
   if (provider.license === "MIT") {
     return [
       holder,
@@ -372,7 +385,9 @@ function renderSource(provider, record, advisories) {
     "",
     "## Attribution",
     "",
-    `${record.copyright ?? provider.displayName}. Licensed under ${record.license}.`,
+    record.copyright === null
+      ? `No explicit upstream copyright notice was published. Licensed under ${record.license}.`
+      : `${record.copyright}. Licensed under ${record.license}.`,
     "The upstream maintainers do not endorse Fullstack Forge.",
     ""
   );
@@ -383,7 +398,7 @@ function renderNotice(provider, record) {
   return [
     `${provider.displayName}`,
     `${record.repository} @ ${record.upstreamCommit}`,
-    `${record.copyright ?? provider.displayName}`,
+    record.copyright ?? "No explicit upstream copyright notice was published.",
     `Licensed under ${record.license}.`,
     "",
     "This product includes software developed by the above project. The original copyright",

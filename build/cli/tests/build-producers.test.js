@@ -154,4 +154,3 @@ test("failure, incomplete manifests, and redacted output remain visible", async 
     });
     assert.equal(incomplete.status, "NOT_VERIFIED");
 });
-//# sourceMappingURL=build-producers.test.js.map

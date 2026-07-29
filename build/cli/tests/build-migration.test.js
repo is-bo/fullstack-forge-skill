@@ -222,4 +222,3 @@ test("symlinked state is refused before migration writes", async () => {
         await assert.rejects(migrateBuildState(root), /symlink/u);
     });
 });
-//# sourceMappingURL=build-migration.test.js.map

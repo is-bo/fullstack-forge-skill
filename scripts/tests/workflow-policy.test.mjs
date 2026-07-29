@@ -15,6 +15,8 @@ test("repository workflows satisfy immutable action and release policy", async (
     )
   );
   assert.deepEqual(validateWorkflowPolicies(workflows), []);
+  assert.match(workflows["ci.yml"], /node scripts\/upgrade-install\.mjs v0\.1\.0/u);
+  assert.match(workflows["release.yml"], /node scripts\/upgrade-install\.mjs v0\.1\.0/u);
 });
 
 test("workflow policy rejects mutable actions and clobbering", () => {

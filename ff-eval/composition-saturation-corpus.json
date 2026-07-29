@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "description": "Adversarial all-provider evidence for every composition tier whose declarations can exceed its context budget. Each exact request must survive saturation while the tier remains bounded and reports at least one budget suppression.",
+  "cases": [
+    {
+      "id": "saturated-i18n",
+      "module": "i18n",
+      "tier": "supplemental",
+      "request": "adapt",
+      "expectActive": "impeccable/adapt"
+    },
+    {
+      "id": "saturated-frontend",
+      "module": "frontend",
+      "tier": "overlay",
+      "request": "react-view-transitions",
+      "expectActive": "vercel-agent-skills/react-view-transitions"
+    },
+    {
+      "id": "saturated-jobs",
+      "module": "jobs",
+      "tier": "overlay",
+      "request": "wrangler",
+      "expectActive": "cloudflare-skills/wrangler"
+    },
+    {
+      "id": "saturated-security",
+      "module": "security",
+      "tier": "supplemental",
+      "request": "sast-configuration",
+      "expectActive": "wshobson-agents/sast-configuration"
+    },
+    {
+      "id": "saturated-uploads",
+      "module": "uploads",
+      "tier": "overlay",
+      "request": "google-cloud-storage-basics",
+      "expectActive": "google-skills/google-cloud-storage-basics"
+    },
+    {
+      "id": "saturated-storage",
+      "module": "storage",
+      "tier": "overlay",
+      "request": "google-cloud-storage-basics",
+      "expectActive": "google-skills/google-cloud-storage-basics"
+    },
+    {
+      "id": "saturated-performance",
+      "module": "performance",
+      "tier": "overlay",
+      "request": "google-cloud-waf-performance-optimization",
+      "expectActive": "google-skills/google-cloud-waf-performance-optimization"
+    },
+    {
+      "id": "saturated-observability",
+      "module": "observability",
+      "tier": "overlay",
+      "request": "google-cloud-networking-observability",
+      "expectActive": "google-skills/google-cloud-networking-observability"
+    },
+    {
+      "id": "saturated-reliability",
+      "module": "reliability",
+      "tier": "overlay",
+      "request": "cloudflare",
+      "expectActive": "cloudflare-skills/cloudflare"
+    },
+    {
+      "id": "saturated-deployment",
+      "module": "deployment",
+      "tier": "overlay",
+      "request": "gke-productionize",
+      "expectActive": "google-skills/gke-productionize"
+    },
+    {
+      "id": "saturated-infrastructure",
+      "module": "infrastructure",
+      "tier": "overlay",
+      "request": "wrangler",
+      "expectActive": "cloudflare-skills/wrangler"
+    },
+    {
+      "id": "saturated-ai",
+      "module": "ai",
+      "tier": "overlay",
+      "request": "sentry-setup-ai-monitoring",
+      "expectActive": "sentry-agent-skills/sentry-setup-ai-monitoring"
+    },
+    {
+      "id": "saturated-realtime",
+      "module": "realtime",
+      "tier": "overlay",
+      "request": "sentry-fix-issues",
+      "expectActive": "sentry-agent-skills/sentry-fix-issues"
+    }
+  ]
+}

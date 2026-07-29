@@ -15,9 +15,11 @@ Raw machine-readable results: `npm run eval:composition -- --json`.
 
 ## What this evaluation measures
 
-The corpus in `composition-corpus.json` holds the 25 required scenarios. Each case declares a task
-shape, the repository evidence a Forge discovery pass would produce for it, the modules the task
-selects, and the provider content that must and must not activate.
+The base corpus in `composition-corpus.json` holds 27 scenarios: the 25 original required scenarios
+plus two earlier explicit-request cases. `composition-saturation-corpus.json` adds 13 adversarial
+cases—one for every module tier whose declarations can exceed its budget. Each saturated case
+activates every provider dimension and task flag, requests one exact source, and proves that source
+survives while the tier stays bounded and reports its drops.
 
 For each case the harness resolves the real composition registry through the real composition engine
 and reports:
@@ -45,20 +47,21 @@ specified and shows what it costs.
 
 ## Results
 
-All 25 cases pass their activation and suppression expectations. Across the corpus, 79 provider
-sources were correctly suppressed for lack of evidence, and 2 cases (a non-PostgreSQL database and
-multi-tenant object access) correctly loaded **no** provider content at all.
+All 40 cases pass their activation, suppression, and budget expectations. Across the corpus, 134
+provider sources were correctly suppressed, and 2 cases (a non-PostgreSQL database and multi-tenant
+object access) correctly loaded **no** provider content at all. All 13 saturated tiers selected the
+exact requested source, stayed at their declared limit, and reported a context-budget suppression.
 
 | Metric                             | Result |
 | ---------------------------------- | ------ |
-| Cases                              | 25     |
-| Activation and suppression correct | 25     |
-| Sources correctly suppressed       | 79     |
+| Cases                              | 40     |
+| Activation and suppression correct | 40     |
+| Sources correctly suppressed       | 134    |
 | Cases loading no provider content  | 2      |
-| Median eager context increase      | +110%  |
-| Maximum eager context increase     | +522%  |
-| Median available context increase  | +304%  |
-| Maximum available context increase | +1137% |
+| Median eager context increase      | +102%  |
+| Maximum eager context increase     | +476%  |
+| Median available context increase  | +282%  |
+| Maximum available context increase | +1035% |
 
 These figures are asserted against the live harness by `scripts/tests/composition-corpus.test.mjs`,
 so the table cannot drift away from what `npm run eval:composition` actually reports.
@@ -73,8 +76,8 @@ loaded; and Stripe and PayPal each activated only for their own provider.
 
 The stated target was no more than a 15% increase in loaded instruction tokens for a normal focused
 task. **This build does not meet that target**, by a wide margin: the median focused task loads
-roughly 2.1× the instruction text of the Forge-only baseline before any reference is opened, and
-about 4× once every reference the manifest makes available is counted.
+roughly 2.0× the instruction text of the Forge-only baseline before any reference is opened, and
+about 3.8× once every reference the manifest makes available is counted.
 
 This is inherent to the architecture, not an implementation defect that was overlooked. A module
 whose engine is an upstream workflow has to read that workflow; upstream specialist skills are
@@ -84,7 +87,7 @@ requirements.
 
 What was done to keep the cost as low as honesty allows:
 
-- Provider content is suppressed unless evidence activates it — 79 suppressions across 25 cases.
+- Provider content is suppressed unless evidence activates it—134 suppressions across 40 cases.
 - Each module admits at most one primary workflow, and normally at most two overlays; every drop is
   reported rather than hidden.
 - Only overlays and supplemental references are progressive; the eager figure above already excludes
@@ -140,3 +143,18 @@ verification record.
 | 23  | Secure upload flow                       | Forge-native uploads authority                 |
 | 24  | Multi-tenant object access               | Forge-native tenancy authority                 |
 | 25  | Release-readiness review                 | Ship gate with upstream procedure              |
+| 26  | Explicit GKE under a saturated budget    | explicit request outranks competing evidence   |
+| 27  | Explicit Sentry Next.js under saturation | explicit stack request survives the budget     |
+| 28  | Saturated i18n                           | supplemental budget and exact source request   |
+| 29  | Saturated frontend                       | framework overlay budget                       |
+| 30  | Saturated jobs                           | provider overlay budget                        |
+| 31  | Saturated security                       | supplemental security budget                   |
+| 32  | Saturated uploads                        | storage-provider overlay budget                |
+| 33  | Saturated storage                        | object-storage overlay budget                  |
+| 34  | Saturated performance                    | performance-provider overlay budget            |
+| 35  | Saturated observability                  | thirteen-way observability overlay contention  |
+| 36  | Saturated reliability                    | reliability-provider overlay budget            |
+| 37  | Saturated deployment                     | deployment-provider overlay budget             |
+| 38  | Saturated infrastructure                 | six-way infrastructure overlay contention      |
+| 39  | Saturated AI                             | AI-provider and telemetry overlay budget       |
+| 40  | Saturated realtime                       | realtime-provider overlay budget               |

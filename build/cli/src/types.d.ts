@@ -222,6 +222,13 @@ export type CliOptions = {
     skipChecks?: string[];
     /** `--exclude`: repeatable repository-relative inventory exclusion. */
     excludes?: string[];
+    /** `--request`: repeatable provider or technology explicitly requested for composition. */
+    requestedSources?: string[];
+    /** `--condition`: repeatable, proven task-shaped composition condition. */
+    compositionConditions?: string[];
+    /** `--risk-surface`: repeatable, proven task risk surface for composition. */
+    compositionRiskSurfaces?: string[];
+    checkUpdates?: boolean;
     /** Strictly parsed, bounded text-inspection budget selected by the operator. */
     inspectionBudgetBytes?: number;
 };
