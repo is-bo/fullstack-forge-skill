@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { performance } from "node:perf_hooks";
 import test from "node:test";
 import {
   contentChecksum,
   isDocumentPath,
+  isForeignSkillInstallation,
   isSelected,
   matchesPattern,
   scanDangerousInstructions,
@@ -358,6 +360,20 @@ test("dangerous-instruction rules detect the categories they claim to", () => {
     )
   );
   assert.deepEqual(scanDangerousInstructions("a.md", "Write a clear component test."), []);
+});
+
+test("foreign installer detection stays bounded on adversarial option-like input", () => {
+  assert.equal(
+    isForeignSkillInstallation("npx --yes --package=skills skills add vendor/product"),
+    true
+  );
+  const adversarial = `npx ${"-- -".repeat(30)}not-an-installer`;
+  const startedAt = performance.now();
+  assert.equal(isForeignSkillInstallation(adversarial), false);
+  assert.ok(
+    performance.now() - startedAt < 250,
+    "foreign installer detection must not backtrack exponentially"
+  );
 });
 
 test("every hard-deny instruction in vendored content is explicitly reviewed", () => {

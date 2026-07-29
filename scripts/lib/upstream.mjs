@@ -232,7 +232,7 @@ export const DANGEROUS_INSTRUCTION_RULES = Object.freeze([
   {
     id: "foreign-skill-install",
     pattern:
-      /\bnpx(?:\s+--?[a-z-]+(?:=\S+)?)*\s+(?:skills?|agent-skills?)\s+add\b|\b(?:npm\s+i(?:nstall)?\s+-g|yarn\s+global\s+add|pnpm\s+add\s+-g|bun\s+add\s+-g)\b/iu,
+      /\bnpx[^\r\n|;&]{0,256}\b(?:skills?|agent-skills?)[ \t]+add\b|\b(?:npm\s+i(?:nstall)?\s+-g|yarn\s+global\s+add|pnpm\s+add\s+-g|bun\s+add\s+-g)\b/iu,
     hardDeny: true
   },
   {
