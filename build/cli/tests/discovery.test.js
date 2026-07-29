@@ -52,6 +52,19 @@ test("secret scanner redacts the fixture credential value", async () => {
     assert.ok(serialized.includes("value redacted") || serialized.includes("value is intentionally redacted"));
     assert.ok(!serialized.includes("fixture_token_1234567890"));
 });
+test("secret scanner ignores low-confidence assignments in vendored guidance but keeps high-signal detection", async () => {
+    await withTemporaryProject("secret-vendored-guidance", async (root) => {
+        const references = join(root, "third_party", "provider", "references");
+        await mkdir(references, { recursive: true });
+        await writeFile(join(references, "configuration.md"), 'client_secret = "documented-test-runtime-variable-value"\n', "utf8");
+        await writeFile(join(references, "leaked-key.md"), "AKIATESTTESTTESTTEST\n", "utf8");
+        const result = await inspectWithTool("scan-secret-patterns", root);
+        assert.equal(result.findings.length, 1);
+        assert.match(result.findings[0]?.evidence.join(" ") ?? "", /leaked-key\.md/u);
+        assert.ok(result.findings.every((finding) => finding.location.every((location) => !location.path.endsWith("configuration.md"))));
+        assert.ok(result.observations.every((observation) => !observation.path.endsWith("configuration.md")));
+    });
+});
 test("frontend discovery does not imply a public indexable website", async () => {
     await withTemporaryProject("profile-frontend-visibility", async (root) => {
         await writeFile(join(root, "package.json"), `${JSON.stringify({ name: "private-dashboard", dependencies: { react: "0.0.0-fixture" } })}\n`, "utf8");

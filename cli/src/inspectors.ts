@@ -428,6 +428,7 @@ async function scanSecretPatterns(
         if (
           isPlaceholder(candidate) ||
           isExplicitlySyntheticTestValue(candidate, path) ||
+          (pattern.confidence === "LOW" && isVendoredUpstream(path)) ||
           (pattern.confidence === "LOW" && isTestSourcePath(path))
         )
           continue;
@@ -465,6 +466,16 @@ async function scanSecretPatterns(
     }
   }
   return result("scan-secret-patterns", root, observations, findings, [], inputPaths);
+}
+
+/**
+ * Vendored guidance contains illustrative assignments and variable-to-variable wiring that the
+ * name-based credential heuristic cannot distinguish from a live value. Only that low-confidence
+ * heuristic is suppressed here; private-key and provider-key signatures still scan every file.
+ * The repository's release secret scanner applies the same boundary.
+ */
+function isVendoredUpstream(path: string): boolean {
+  return path.startsWith("third_party/") || path.startsWith(".fullstack-forge/upstream/");
 }
 
 async function inspectDependencies(root: string): Promise<InspectionResult> {
