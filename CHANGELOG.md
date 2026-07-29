@@ -4,6 +4,16 @@ All notable supported changes are documented here.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-07-29
+
+- Corrected release preflight to treat GitHub's exact attestation-digest 404 as absence only after
+  independently proving that the repository is public; all other lookup failures remain fail-closed.
+- Preserved the immutable `v0.2.1` tag after its release workflow stopped before draft creation. No
+  GitHub Release or npm publication exists for that partial tag.
+
+Remote publication, exact-head CI, CodeQL, attestations, immutable assets, and the final release
+record remain pending for this candidate.
+
 ## [0.2.1] - 2026-07-28
 
 - Wired deterministic specialist composition into the real module runtime and report ledger.
@@ -114,6 +124,7 @@ pending and must not be inferred from this candidate source.
 - Earlier numbered snapshots were rapid development previews. They remain visible in Git history but
   are not supported public releases of the agent-first product.
 
-[Unreleased]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.2.0...v0.2.1
 [0.1.0]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.0

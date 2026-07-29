@@ -5,6 +5,7 @@ import {
   assertNoExistingAttestations,
   assertReleasePreconditions,
   assertUniqueAssetNames,
+  classifyAttestationLookupFailure,
   classifyAttestationState,
   classifyReleaseState,
   digest
@@ -45,6 +46,27 @@ try {
 }
 assertReleasePreconditions({ tag, expectedSha, tagSha, releaseState, version });
 assertUniqueAssetNames(values.assets ?? []);
+let repositoryVisibility;
+try {
+  const repositoryResponse = await run("gh", ["api", `repos/${repository}`], {
+    encoding: "utf8",
+    windowsHide: true
+  });
+  const metadata = JSON.parse(repositoryResponse.stdout);
+  if (
+    metadata === null ||
+    typeof metadata !== "object" ||
+    typeof metadata.full_name !== "string" ||
+    metadata.full_name.toLowerCase() !== repository.toLowerCase() ||
+    (metadata.visibility !== "public" && metadata.visibility !== "private")
+  )
+    throw new Error("GitHub repository metadata was invalid.");
+  repositoryVisibility = metadata.visibility;
+} catch (error) {
+  throw new Error(`Could not prove repository identity and visibility: ${error.message}`, {
+    cause: error
+  });
+}
 const attestations = [];
 for (const asset of values.assets ?? []) {
   const subjectDigest = `sha256:${digest(await readFile(asset))}`;
@@ -59,10 +81,11 @@ for (const asset of values.assets ?? []) {
       state: classifyAttestationState(JSON.parse(response.stdout), subjectDigest)
     });
   } catch (error) {
-    throw new Error(
-      `Could not prove attestation absence for ${asset} (${subjectDigest}): ${error.message}`,
-      { cause: error }
-    );
+    attestations.push({
+      asset,
+      subjectDigest,
+      state: classifyAttestationLookupFailure(error, repositoryVisibility)
+    });
   }
 }
 if (attestations.length > 0) assertNoExistingAttestations(attestations);

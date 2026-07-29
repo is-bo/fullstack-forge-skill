@@ -78,6 +78,32 @@ export function classifyAttestationState(response, subjectDigest) {
     : "missing";
 }
 
+export function classifyAttestationLookupFailure(error, repositoryVisibility) {
+  let response;
+  try {
+    response =
+      typeof error?.stdout === "string" && error.stdout.length > 0
+        ? JSON.parse(error.stdout)
+        : undefined;
+  } catch {
+    response = undefined;
+  }
+  if (
+    repositoryVisibility === "public" &&
+    error?.code === 1 &&
+    response !== null &&
+    typeof response === "object" &&
+    response.message === "Not Found" &&
+    String(response.status) === "404" &&
+    typeof response.documentation_url === "string" &&
+    response.documentation_url.startsWith("https://docs.github.com/rest/repos/attestations")
+  )
+    return "missing";
+  throw new Error("GitHub attestation lookup failed; attestation absence is unproven.", {
+    cause: error
+  });
+}
+
 export function assertNoExistingAttestations(results) {
   if (!Array.isArray(results) || results.length === 0)
     throw new Error("No candidate attestation states were proved; refusing publication.");

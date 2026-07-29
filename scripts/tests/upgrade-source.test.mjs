@@ -22,17 +22,17 @@ test("historical upgrade fixtures reject mutable or malformed release references
 });
 
 test("documented current-release installs use the same public archive transport", async () => {
-  const documented = ["README.md", "docs/GETTING_STARTED.md", "docs/MIGRATION_v0.2.1.md"];
+  const documented = ["README.md", "docs/GETTING_STARTED.md", "docs/MIGRATION_v0.2.2.md"];
   for (const relativePath of documented) {
     const content = await readFile(join(projectRoot, relativePath), "utf8");
     assert.match(
       content,
-      /https:\/\/codeload\.github\.com\/is-bo\/fullstack-forge-skill\/tar\.gz\/refs\/tags\/v0\.2\.1/u,
+      /https:\/\/codeload\.github\.com\/is-bo\/fullstack-forge-skill\/tar\.gz\/refs\/tags\/v0\.2\.2/u,
       relativePath
     );
     assert.doesNotMatch(
       content,
-      /git\+https:\/\/github\.com\/is-bo\/fullstack-forge-skill\.git#v0\.2\.1/u,
+      /git\+https:\/\/github\.com\/is-bo\/fullstack-forge-skill\.git#v0\.2\.2/u,
       relativePath
     );
   }

@@ -8,6 +8,7 @@ import {
   assertNoExistingAttestations,
   assertReleasePreconditions,
   assertUniqueAssetNames,
+  classifyAttestationLookupFailure,
   classifyAttestationState,
   classifyReleaseState,
   digest,
@@ -90,6 +91,28 @@ test("release retry refuses an existing attestation for any candidate digest", (
     /already has an attestation/u
   );
   assert.equal(digest(Buffer.from("candidate")), digest(Buffer.from("candidate")));
+});
+
+test("a public repository's exact attestation 404 proves that digest is absent", () => {
+  const missing = Object.assign(new Error("gh api failed"), {
+    code: 1,
+    stdout: JSON.stringify({
+      message: "Not Found",
+      documentation_url: "https://docs.github.com/rest/repos/attestations#list-attestations",
+      status: "404"
+    }),
+    stderr: "gh: Not Found (HTTP 404)\n"
+  });
+  assert.equal(classifyAttestationLookupFailure(missing, "public"), "missing");
+  assert.throws(() => classifyAttestationLookupFailure(missing, "private"), /absence is unproven/u);
+  assert.throws(
+    () =>
+      classifyAttestationLookupFailure(
+        Object.assign(new Error("network failure"), { code: 1, stdout: "", stderr: "timeout" }),
+        "public"
+      ),
+    /absence is unproven/u
+  );
 });
 
 test("tagged verification must keep remote publication pending", () => {
