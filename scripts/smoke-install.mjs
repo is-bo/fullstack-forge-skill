@@ -1,4 +1,4 @@
-import { lstat, mkdtemp, mkdir, readFile, readdir, rm, stat } from "node:fs/promises";
+import { lstat, mkdtemp, mkdir, readFile, readdir, realpath, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { projectRoot } from "./project.mjs";
@@ -122,7 +122,7 @@ try {
     !Array.isArray(compositionResult.compositions) ||
     compositionResult.compositions.length === 0 ||
     compositionResult.compositions.some((entry) => entry.missing?.length !== 0) ||
-    resolve(compositionResult.runtime_root) !== resolve(installedPackageRoot)
+    (await realpath(compositionResult.runtime_root)) !== (await realpath(installedPackageRoot))
   )
     throw new Error(
       `packed upstream composition verification failed:\n${composition.stderr}\n${composition.stdout}`
