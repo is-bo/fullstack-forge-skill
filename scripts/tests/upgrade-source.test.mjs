@@ -21,7 +21,7 @@ test("historical upgrade fixtures reject mutable or malformed release references
     assert.throws(() => publicReleaseArchive(tag), /stable semantic version/u);
 });
 
-test("documented candidate installs use the exact future release artifact", async () => {
+test("documented installs use the exact release artifact", async () => {
   const documented = ["README.md", "docs/GETTING_STARTED.md", "docs/MIGRATION_v0.3.0.md"];
   for (const relativePath of documented) {
     const content = await readFile(join(projectRoot, relativePath), "utf8");
@@ -35,6 +35,6 @@ test("documented candidate installs use the exact future release artifact", asyn
       /https:\/\/codeload\.github\.com\/is-bo\/fullstack-forge-skill\/tar\.gz\/refs\/tags\/v0\.3\.0/u,
       relativePath
     );
-    assert.match(content, /NOT YET AVAILABLE.*v0\.3\.0 GitHub Release/iu, relativePath);
+    assert.doesNotMatch(content, /NOT YET AVAILABLE.*v0\.3\.0 GitHub Release/iu, relativePath);
   }
 });
