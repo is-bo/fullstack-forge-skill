@@ -1,42 +1,60 @@
 # Release process
 
-`v0.2.2` is the release candidate for the first published upstream-powered release. It is not a
-supported public release until the GitHub Release exists and its downloaded assets have been
-verified. `v0.2.0` is a tagged but unpublished historical state. The immutable `v0.2.1` tag's
-workflow stopped before draft creation because its preflight mishandled GitHub's no-attestation 404
-response. Do not move, delete, rewrite, or retry publication under either historical tag. npm
-publication remains unconfigured.
+The public update channel is GitHub Releases, not Git tags. `v0.2.0` and `v0.2.1` are tagged but
+unpublished historical states and must never be moved, deleted, or republished. `v0.2.2` is the
+current immutable public release and must not be moved, replaced, or republished. `v0.3.0` is the
+current candidate and is not public until its GitHub Release and downloaded evidence are directly
+observed. Keep every historical version-stamped note and verification record intact; new evidence
+belongs in new v0.3.0 files. npm registry publication remains unconfigured.
+
+`fullstack-forge-skill@0.3.0` is unpublished; any future registry publication remains `NOT_VERIFIED`
+until independently observed.
 
 ## Candidate gate
 
-1. Confirm `0.2.2` in package, lockfile, skill metadata, CLI constant, changelog, docs, archive
-   names, and tests.
-2. Run focused composition, managed-instruction, proportional-workflow, finding-ingestion,
-   report-consistency, generation, version, packaging, installation, upgrade, and retry tests.
-3. Run the complete matrix in `AGENTS.md`, followed by `npx forge ship --allow-run --json` on a
-   clean candidate.
-4. Package twice and compare archive/checksum bytes. Inspect npm pack contents and verify fresh,
-   update, uninstall, clean-room, and offline installation.
-5. Wait for Windows, Ubuntu, macOS, dependency-review, and CodeQL results. Local checks do not prove
-   remote CI.
+1. Update every version-bearing source and add version-stamped release notes and candidate
+   verification. Do not rewrite historical evidence.
+2. Run the focused tests for the changed surfaces, then the complete checks in `AGENTS.md`,
+   coverage, dependency audit, package validation, exact-artifact smoke install, genuine upgrades
+   from the initial supported `v0.1.0` and current public `v0.2.2` releases, and offline install.
+3. Generate the release bundle once with `npm run package:platforms`. It contains nine deterministic
+   platform ZIPs, the exact npm-pack `.tgz`, a deterministic SPDX 2.3 SBOM, `SHA256SUMS.txt`, and
+   `manifest.json`. The package generator produces npm pack twice and refuses unequal bytes.
+4. Inspect the npm inventory and SBOM. The package must contain the CLI and canonical skill, exclude
+   local/private material, and bind runtime npm dependencies plus vendored providers to checksums
+   and provenance.
+5. Merge through a protected pull request. Required protection must include the three platform CI
+   checks, dependency review, and CodeQL. The approving-review requirement observed while preparing
+   this candidate is `0`, so branch protection does not currently prove human approval and must not
+   be described as doing so. Dependency review is pull-request evidence and cannot be reconstructed
+   from a later tag run.
 
 ## Publication
 
-Only after every candidate gate passes:
+1. Create an annotated `vX.Y.Z` tag on the exact verified main commit. Never move a release tag.
+2. Before enabling the tag workflow, provision the repository secret `RELEASE_ADMIN_TOKEN` with
+   read-only **Administration** permission for this repository. GitHub's immutable-release settings
+   endpoint does not accept the ordinary `GITHUB_TOKEN`; the workflow fails closed before creating a
+   draft when this secret is missing or under-scoped. Keep the secret limited to the release
+   environment and rotate it through the repository's normal credential process.
+3. The tag workflow makes a one-shot GitHub Actions lookup for that exact commit and requires
+   completed successful push runs named `CI` and `CodeQL` before it creates attestations or a draft.
+   There is no polling: if either run is missing, pending, malformed, or failed, the release stops.
+4. Release preflight inventories all releases (including drafts), assets, and attestations and fails
+   closed on existing or ambiguous state. Investigate a partial run; never clobber or replace
+   assets.
+5. The workflow regenerates and validates the bundle, installs the exact generated `.tgz`, attests
+   every file under `dist/`, and uploads that same byte set to a new draft release.
+6. It downloads the draft into a clean directory, compares every checksummed payload byte-for-byte,
+   extracts the Codex archive, and generates separately attested final evidence.
+7. Only then does it publish the draft once, require GitHub release immutability, verify every asset
+   attestation, and confirm that the remote tag still resolves to the candidate commit.
 
-1. Inventory all GitHub Releases, including drafts, tags, assets, and attestations. As of the
-   candidate audit, no v0.2.0 draft remains; do not infer that this is still true at publication
-   time.
-2. Preserve the v0.2.0 and v0.2.1 tags unchanged. Never retry publication under either tag or
-   recreate a release for them.
-3. Require preflight to fail closed if any release, draft, duplicate asset, or candidate attestation
-   already exists for v0.2.2. Investigate a partial run instead of replacing it.
-4. Create annotated `v0.2.2` on the exact verified main merge commit.
-5. Publish **Fullstack Forge v0.2.2** with verified archives, checksums, attestations, and truthful
-   notes that v0.2.0 and v0.2.1 remain tagged but unpublished historical states.
-6. Download and verify published assets before reporting success.
-7. The README's conditional installation guidance calls v0.2.2 current only when that immutable
-   release can actually be observed.
+Candidate and final evidence attestations are verified against the exact release workflow signer;
+repository/source matching alone is not sufficient provenance.
 
-Never publish after a failed or missing local or remote gate. Never report a remote result that was
-not directly observed.
+The tag workflow's exact-SHA gate supplements repository rules; it does not replace branch
+protection. Required status checks apply to administrators, but human approval remains
+`NOT_VERIFIED` while the required approving-review count is `0`. Changing that hosted policy is a
+separate administrative action. Never report a remote result that was not directly observed. See
+[RELEASE_CHANNEL.md](RELEASE_CHANNEL.md) for the client-facing discovery contract.

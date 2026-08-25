@@ -3,17 +3,17 @@
 Run the most useful safe default:
 
 ```bash
-npx forge audit
+npx --no-install forge audit
 ```
 
 Forge uses changed scope only when Git provides a reliable base revision. Otherwise it says that it
 is auditing the full applicable project. To choose explicitly:
 
 ```bash
-npx forge audit all
-npx forge audit security
-npx forge audit "the login system"
-npx forge audit "uploads and file storage"
+npx --no-install forge audit all
+npx --no-install forge audit security
+npx --no-install forge audit "the login system"
+npx --no-install forge audit "uploads and file storage"
 ```
 
 Natural-language areas map to existing specialist modules only when the mapping is clear. An

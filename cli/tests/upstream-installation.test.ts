@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { readFile, readdir, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readFile, readdir, stat } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 import { install, readInstallManifest, uninstall } from "../src/installer.js";
+import { runFile } from "../src/utils.js";
 import { withTemporaryProject } from "./helpers.js";
 
 async function exists(path: string): Promise<boolean> {
@@ -22,6 +23,49 @@ async function walk(directory: string): Promise<string[]> {
     else out.push(full);
   }
   return out;
+}
+
+function canonicalCompositionCommand(
+  playbook: string,
+  playbookPath: string,
+  repositoryRoot: string
+): { runner: string; args: string[] } {
+  const pointer = /Resolve `([^`]*composition-entry\.js)` relative to this `SKILL\.md`/u.exec(
+    playbook
+  );
+  const command =
+    /^`node "<resolved-absolute-runner-path>" ([a-z-]+) compose --workflow ([a-z]+) --root "<repository-root>" --dry-run --json`$/mu.exec(
+      playbook
+    );
+  assert.ok(
+    pointer?.[1] !== undefined &&
+      command !== null &&
+      command[1] !== undefined &&
+      command[2] !== undefined,
+    "canonical playbook must contain one location-aware composition command"
+  );
+  return {
+    runner: resolve(dirname(playbookPath), pointer[1]),
+    args: [
+      command[1],
+      "compose",
+      "--workflow",
+      command[2],
+      "--root",
+      repositoryRoot,
+      "--dry-run",
+      "--json"
+    ]
+  };
+}
+
+async function runAdapterCompositionCommand(
+  command: { runner: string; args: string[] },
+  cwd: string
+): Promise<unknown> {
+  const result = await runFile(process.execPath, [command.runner, ...command.args], cwd, 60_000);
+  assert.equal(result.exitCode, 0, result.stderr || result.stdout);
+  return JSON.parse(result.stdout) as unknown;
 }
 
 test("installation delivers the compiled upstream tree and the composition manifests", async () => {
@@ -75,24 +119,57 @@ test("the installed automatic host path reaches the deterministic composition ru
       join(root, ".fullstack-forge", "skills", "fullstack-forge", "SKILL.md"),
       "utf8"
     );
-    const module = await readFile(
-      join(root, ".fullstack-forge", "skills", "forge-observability", "SKILL.md"),
-      "utf8"
-    );
-    const adapter = await readFile(
-      join(root, ".claude", "skills", "forge-observability", "SKILL.md"),
-      "utf8"
-    );
+    const modulePath = join(root, ".fullstack-forge", "skills", "forge-observability", "SKILL.md");
+    const module = await readFile(modulePath, "utf8");
+    const adapterPath = join(root, ".claude", "skills", "forge-observability", "SKILL.md");
+    const adapter = await readFile(adapterPath, "utf8");
 
     assert.match(
       orchestrator,
-      /\.fullstack-forge\/skills\/forge-<module>\/SKILL\.md/u,
-      "the automatic orchestrator must name the canonical module path"
+      /\.\.\/forge-<module>\/SKILL\.md/u,
+      "the automatic orchestrator must name the location-relative canonical module path"
     );
-    assert.match(orchestrator, /composition-entry\.js/u);
-    assert.match(module, /composition-entry\.js observability compose/u);
-    assert.match(adapter, /composition-entry\.js observability compose/u);
-    assert.match(module, /load only the ordered\s+`selected` runtime paths/u);
+    assert.match(orchestrator, /plugin cache/u);
+    assert.match(module, /Resolve `\.\.\/\.\.\/runtime\/cli\/src\/composition-entry\.js`/u);
+    assert.match(
+      module,
+      /^`node "<resolved-absolute-runner-path>" observability compose --workflow audit --root "<repository-root>" --dry-run --json`$/mu
+    );
+    assert.match(adapter, /canonical playbook owns any deterministic composition step/u);
+    assert.doesNotMatch(adapter, /composition-entry\.js/u);
+    assert.match(
+      module,
+      /Read `eager\[\]\.runtimePath`[\s\S]*load only `deferred\[\]\.runtimePath`/u
+    );
+
+    const command = canonicalCompositionCommand(module, modulePath, root);
+    const nested = join(root, "packages", "nested");
+    await mkdir(nested, { recursive: true });
+    for (const cwd of [root, nested]) {
+      const output = (await runAdapterCompositionCommand(command, cwd)) as {
+        dry_run?: boolean;
+        runtime_root?: string;
+        composition_artifact?: string;
+        compositions?: Array<{
+          module?: string;
+          workflow?: string;
+          eager?: Array<{ runtimePath?: string }>;
+          deferred?: Array<{ runtimePath?: string }>;
+          missing?: string[];
+        }>;
+      };
+      assert.equal(output.dry_run, true);
+      assert.equal(resolve(output.runtime_root ?? ""), resolve(root));
+      assert.equal(output.composition_artifact, undefined);
+      const composition = output.compositions?.[0];
+      assert.ok(composition !== undefined);
+      assert.equal(composition.module, "observability");
+      assert.equal(composition.workflow, "audit");
+      assert.ok(composition.eager?.every((source) => typeof source.runtimePath === "string"));
+      assert.ok(composition.deferred?.every((source) => typeof source.runtimePath === "string"));
+      assert.deepEqual(composition.missing, []);
+      assert.equal(await exists(join(cwd, ".forge")), false, "dry-run composition must not write");
+    }
   });
 });
 

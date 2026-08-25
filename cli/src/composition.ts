@@ -15,6 +15,10 @@ import type { Confidence, ProfileRecord, ProjectProfile } from "./types.js";
 
 export type CompositionMode = "forge-native" | "hybrid" | "upstream-powered";
 
+/** Intent controls which progressive procedure and provider sources are admissible. */
+export const COMPOSITION_WORKFLOWS = ["build", "audit", "fix", "verify", "ship"] as const;
+export type CompositionWorkflow = (typeof COMPOSITION_WORKFLOWS)[number];
+
 export type OutputClassification =
   "finding" | "finding-or-advisory" | "advisory" | "profile" | "specification" | "report" | "gate";
 
@@ -64,6 +68,8 @@ export type CompositionSource = {
   commands?: string[];
   /** Higher values win only after sequence and activation strength are equal. */
   priority?: number;
+  /** Workflows in which this source may be selected; omission keeps the legacy tier policy. */
+  workflows?: CompositionWorkflow[];
   when: ActivationCondition;
 };
 
@@ -78,6 +84,8 @@ export type ModuleComposition = {
   mode: CompositionMode;
   designation: string;
   forgeContract: string;
+  /** Optional per-workflow Forge contract paths; build falls back to `forgeContract`. */
+  forgeContracts?: Partial<Record<CompositionWorkflow, string>>;
   primary: CompositionSource[];
   overlays: CompositionSource[];
   supplemental?: CompositionSource[];
@@ -91,8 +99,103 @@ export type ModuleComposition = {
 export type CompositionManifest = {
   schemaVersion: number;
   defaultContextBudget: ContextBudget;
+  /** Generic workflow references used when a module has no per-workflow override. */
+  workflowContracts?: Partial<Record<CompositionWorkflow, string>>;
   modules: ModuleComposition[];
 };
+
+/** One canonical dependency declaration retained for selection provenance. */
+export type ModuleDependencyEdge = {
+  /** Module whose declaration introduced this dependency. */
+  parent: string;
+  /** Module the parent requires. */
+  dependency: string;
+  /** Stable human-readable explanation suitable for module-decision evidence. */
+  reason: string;
+};
+
+/**
+ * Deterministic dependency closure for one or more explicitly selected roots.
+ *
+ * `modules` is breadth-first: de-duplicated roots first, then dependencies in each parent's
+ * canonical declaration order. `edges` retains every reachable parent/dependency relationship,
+ * including diamond joins and the edge that closes a cycle, so callers can explain why a module
+ * was considered without attempting graph traversal themselves.
+ */
+export type ModuleDependencyClosure = {
+  roots: string[];
+  modules: string[];
+  edges: ModuleDependencyEdge[];
+};
+
+/**
+ * Validates and resolves the Forge-module dependency graph.
+ *
+ * Validation covers the complete manifest, not only the requested subgraph. A damaged registry
+ * must fail closed even when the bad declaration is not reachable from this particular request.
+ * Traversal is queue-based and marks a module when it is enqueued, so cycles terminate and diamond
+ * dependencies appear only once in `modules` while all distinct explanatory edges remain visible.
+ */
+export function resolveModuleDependencyClosure(
+  manifest: CompositionManifest,
+  requestedModules: readonly string[]
+): ModuleDependencyClosure {
+  const declarations = new Map<string, ModuleComposition>();
+  for (const declaration of manifest.modules) {
+    const module = declaration.module.trim();
+    if (module.length === 0) throw new Error("Composition manifest contains an empty module name");
+    if (declarations.has(module))
+      throw new Error(`Composition manifest declares module '${module}' more than once`);
+    declarations.set(module, declaration);
+  }
+
+  for (const declaration of declarations.values()) {
+    for (const dependency of declaration.dependsOn) {
+      if (!declarations.has(dependency))
+        throw new Error(
+          `Composition manifest module '${declaration.module}' depends on unknown module '${dependency}'`
+        );
+    }
+  }
+
+  const roots: string[] = [];
+  const seen = new Set<string>();
+  for (const requested of requestedModules) {
+    if (!declarations.has(requested)) throw new Error(`Unknown Forge module: ${requested}`);
+    if (seen.has(requested)) continue;
+    seen.add(requested);
+    roots.push(requested);
+  }
+
+  const modules = [...roots];
+  const queue = [...roots];
+  const edges: ModuleDependencyEdge[] = [];
+  const seenEdges = new Set<string>();
+  for (let index = 0; index < queue.length; index += 1) {
+    const parent = queue[index];
+    if (parent === undefined) continue;
+    const declaration = declarations.get(parent);
+    if (declaration === undefined)
+      throw new Error(`Composition manifest lost module '${parent}' during dependency traversal`);
+    for (const dependency of declaration.dependsOn) {
+      const edgeKey = `${parent}\u0000${dependency}`;
+      if (!seenEdges.has(edgeKey)) {
+        seenEdges.add(edgeKey);
+        edges.push({
+          parent,
+          dependency,
+          reason: `Module '${parent}' declares '${dependency}' as a dependency.`
+        });
+      }
+      if (seen.has(dependency)) continue;
+      seen.add(dependency);
+      modules.push(dependency);
+      queue.push(dependency);
+    }
+  }
+
+  return { roots, modules, edges };
+}
 
 export type SelectionTier = "forge-contract" | "primary" | "overlay" | "supplemental";
 
@@ -113,10 +216,15 @@ export type SuppressedSource = {
 
 export type CompositionResult = {
   module: string;
+  workflow?: CompositionWorkflow;
   mode: CompositionMode;
   outputClassification: OutputClassification;
   /** Ordered load list. Index 0 is always the Forge contract. */
   selected: SelectedSource[];
+  /** Sources to read when entering the module: Forge contract plus primary procedure. */
+  eager?: SelectedSource[];
+  /** Selected sources available on demand after the task reaches their concern. */
+  deferred?: SelectedSource[];
   suppressed: SuppressedSource[];
   budget: ContextBudget;
   conflicts: { with: string; rule: string }[];
@@ -128,6 +236,8 @@ export type CompositionResult = {
 /** Evidence the engine matches conditions against. Built from discovery plus the request. */
 export type CompositionEvidence = {
   profile?: ProjectProfile;
+  /** Explicit task intent. Undefined preserves the historical build composition. */
+  workflow?: CompositionWorkflow;
   /** Providers or technologies the user asked for by name. */
   requested?: string[];
   /** Risk surfaces Forge proved for this task, e.g. `frontend`, `api`, `payments`. */
@@ -172,7 +282,7 @@ type ActivationMatch = {
   strength: number;
   /** True only when the source was selected by a direct user request. */
   explicit: boolean;
-  /** Exclusion-only clauses prove applicability without changing positive-evidence rank. */
+  /** Exclusion clauses filter positive evidence without changing its activation strength. */
   neutral: boolean;
 };
 
@@ -202,9 +312,81 @@ const CONFIDENCE_RANK: Readonly<Record<Confidence, number>> = Object.freeze({
 });
 
 /**
+ * Activation conditions come from the generated registry, so an unknown key is a registry error,
+ * not an opt-in signal. Keep the allowlist here instead of relying on TypeScript's static shape:
+ * runtime JSON can contain keys the compiler never saw, including keys nested under `not`.
+ */
+const ACTIVATION_CONDITION_KEYS = new Set<string>([
+  "always",
+  ...Object.keys(PROFILE_DIMENSIONS),
+  "requested",
+  "riskSurfaces",
+  ...COMPOSITION_TASK_FLAGS,
+  "minimumConfidence",
+  "allOf",
+  "anyOf",
+  "not"
+]);
+
+const ACTIVATION_ARRAY_KEYS = new Set<string>([
+  ...Object.keys(PROFILE_DIMENSIONS),
+  "requested",
+  "riskSurfaces"
+]);
+
+/**
+ * Validates the recursive activation shape before evaluating it. This is deliberately a boolean
+ * fail-closed check: returning `undefined` for an invalid child must not be mistaken for a valid
+ * non-match by a parent `not` clause. In particular, `{ not: { typo: ... } }` must suppress the
+ * source rather than turning a registry typo into a neutral positive match.
+ */
+function hasInvalidActivationShape(value: unknown): boolean {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return true;
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).some((key) => !ACTIVATION_CONDITION_KEYS.has(key))) return true;
+
+  if (
+    [...ACTIVATION_ARRAY_KEYS].some((key) => {
+      const candidate = record[key];
+      return (
+        candidate !== undefined &&
+        (!Array.isArray(candidate) || candidate.some((entry) => typeof entry !== "string"))
+      );
+    })
+  )
+    return true;
+
+  if (record.always !== undefined && typeof record.always !== "boolean") return true;
+  if (
+    COMPOSITION_TASK_FLAGS.some(
+      (flag) => record[flag] !== undefined && typeof record[flag] !== "boolean"
+    )
+  )
+    return true;
+  if (
+    record.minimumConfidence !== undefined &&
+    (typeof record.minimumConfidence !== "string" ||
+      !Object.prototype.hasOwnProperty.call(CONFIDENCE_RANK, record.minimumConfidence))
+  )
+    return true;
+
+  for (const key of ["allOf", "anyOf"] as const) {
+    const candidate = record[key];
+    if (
+      candidate !== undefined &&
+      (!Array.isArray(candidate) || candidate.some(hasInvalidActivationShape))
+    )
+      return true;
+  }
+  if (record.not !== undefined && hasInvalidActivationShape(record.not)) return true;
+  return false;
+}
+
+/**
  * Evaluates one activation condition. Returns the reason it matched, or `undefined` when the
- * condition is not satisfied. A source with no satisfiable key never activates: absence of
- * evidence suppresses provider guidance rather than defaulting it on.
+ * condition is not satisfied. A source with no positive satisfiable key never activates: absence
+ * of evidence suppresses provider guidance rather than defaulting it on. `not` is an exclusion
+ * filter only; it cannot establish applicability by itself.
  */
 export function evaluateActivation(
   when: ActivationCondition,
@@ -217,13 +399,26 @@ function evaluateActivationMatch(
   when: ActivationCondition,
   evidence: CompositionEvidence
 ): ActivationMatch | undefined {
-  if (when.not !== undefined && evaluateActivationMatch(when.not, evidence) !== undefined)
+  if (hasInvalidActivationShape(when)) return undefined;
+  const result = evaluateActivationMatchUnchecked(when, evidence);
+  // A neutral match is useful as an exclusion filter inside an allOf/anyOf expression, but it
+  // is not positive applicability evidence when the whole source consists only of `not`.
+  return result?.neutral === true ? undefined : result;
+}
+
+function evaluateActivationMatchUnchecked(
+  when: ActivationCondition,
+  evidence: CompositionEvidence
+): ActivationMatch | undefined {
+  if (when.not !== undefined && evaluateActivationMatchUnchecked(when.not, evidence) !== undefined)
     return undefined;
 
   const compound: ActivationMatch[] = [];
   if (when.allOf !== undefined) {
     if (when.allOf.length === 0) return undefined;
-    const matches = when.allOf.map((condition) => evaluateActivationMatch(condition, evidence));
+    const matches = when.allOf.map((condition) =>
+      evaluateActivationMatchUnchecked(condition, evidence)
+    );
     if (matches.some((match) => match === undefined)) return undefined;
     const proven = matches as ActivationMatch[];
     const ranked = proven.filter((match) => !match.neutral);
@@ -243,7 +438,7 @@ function evaluateActivationMatch(
   if (when.anyOf !== undefined) {
     if (when.anyOf.length === 0) return undefined;
     const matches = when.anyOf
-      .map((condition) => evaluateActivationMatch(condition, evidence))
+      .map((condition) => evaluateActivationMatchUnchecked(condition, evidence))
       .filter((match): match is ActivationMatch => match !== undefined)
       .sort(compareActivationMatches);
     const strongest = matches[0];
@@ -401,6 +596,8 @@ export type ResolveOptions = {
   manifest: CompositionManifest;
   module: string;
   evidence: CompositionEvidence;
+  /** Overrides `evidence.workflow`; omitted means the legacy build composition. */
+  workflow?: CompositionWorkflow;
   /** Runtime paths the installation actually contains, for damaged-installation detection. */
   availableRuntimePaths?: ReadonlySet<string>;
   /** Resolves a manifest source to its compiled runtime path. */
@@ -416,14 +613,21 @@ export function resolveComposition(options: ResolveOptions): CompositionResult {
   const declaration = manifest.modules.find((entry) => entry.module === module);
   if (declaration === undefined) throw new Error(`Unknown Forge module: ${module}`);
 
+  const workflow = options.workflow ?? evidence.workflow ?? "build";
+  assertCompositionWorkflow(workflow);
+
   const budget = declaration.contextBudget ?? manifest.defaultContextBudget;
+  const contractPath = forgeContractPath(manifest, declaration, workflow);
   const selected: SelectedSource[] = [
     {
       tier: "forge-contract",
       provider: "fullstack-forge",
       skill: declaration.module,
-      runtimePath: declaration.forgeContract,
-      reason: "Forge module contract always loads first and is never overridden"
+      runtimePath: contractPath,
+      reason:
+        workflow === "build"
+          ? "Forge module contract always loads first and is never overridden"
+          : `Forge ${workflow} contract always loads first; build-only guidance is excluded`
     }
   ];
   const suppressed: SuppressedSource[] = [];
@@ -441,8 +645,9 @@ export function resolveComposition(options: ResolveOptions): CompositionResult {
       const exactRequest = exactSourceRequest(source, evidence.requested ?? []);
       return {
         source,
-        match:
-          exactRequest === undefined
+        match: hasInvalidActivationShape(source.when)
+          ? undefined
+          : exactRequest === undefined
             ? evaluateActivationMatch(source.when, evidence)
             : {
                 reason: `explicitly requested exact source: ${exactRequest}`,
@@ -453,6 +658,15 @@ export function resolveComposition(options: ResolveOptions): CompositionResult {
       };
     });
     for (const { source, match } of orderSources(evaluated)) {
+      if (!sourceAllowedForWorkflow(source, tier, workflow)) {
+        suppressed.push({
+          tier,
+          provider: source.provider,
+          skill: source.skill,
+          reason: `source is not declared for the ${workflow} workflow`
+        });
+        continue;
+      }
       if (match === undefined) {
         suppressed.push({
           tier,
@@ -497,17 +711,59 @@ export function resolveComposition(options: ResolveOptions): CompositionResult {
     }
   }
 
+  const eager = selected.filter(
+    (source) => source.tier === "forge-contract" || source.tier === "primary"
+  );
+  const deferred = selected.filter(
+    (source) => source.tier === "overlay" || source.tier === "supplemental"
+  );
   return {
     module: declaration.module,
+    workflow,
     mode: declaration.mode,
     outputClassification: declaration.outputClassification,
     selected,
+    eager,
+    deferred,
     suppressed,
     budget,
     conflicts: declaration.conflicts,
     forgeAuthority: declaration.forgeAuthority,
     missing
   };
+}
+
+function assertCompositionWorkflow(value: string): asserts value is CompositionWorkflow {
+  if (!(COMPOSITION_WORKFLOWS as readonly string[]).includes(value))
+    throw new Error(
+      `Unknown composition workflow '${value}'. Expected one of: ${COMPOSITION_WORKFLOWS.join(", ")}.`
+    );
+}
+
+function forgeContractPath(
+  manifest: CompositionManifest,
+  declaration: ModuleComposition,
+  workflow: CompositionWorkflow
+): string {
+  if (workflow === "build") return declaration.forgeContract;
+  const modulePath = declaration.forgeContracts?.[workflow];
+  if (modulePath !== undefined) return modulePath;
+  const genericPath = manifest.workflowContracts?.[workflow];
+  if (genericPath !== undefined) return genericPath;
+  // Older manifests have no workflow map. The canonical installation always carries these
+  // references, and selecting them keeps non-build runs free of build briefs.
+  return `references/workflows/${workflow}.md`;
+}
+
+function sourceAllowedForWorkflow(
+  source: CompositionSource,
+  tier: SelectionTier,
+  workflow: CompositionWorkflow
+): boolean {
+  if (source.workflows !== undefined) return source.workflows.includes(workflow);
+  // Existing primary entries are implementation/build procedures. Keep overlays and
+  // supplementals available to formal inspection and release workflows unless narrowed.
+  return tier !== "primary" || workflow === "build";
 }
 
 function exactSourceRequest(

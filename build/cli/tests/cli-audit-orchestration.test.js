@@ -9,6 +9,8 @@ const cli = join(PACKAGE_ROOT, "build", "cli", "src", "index.js");
 /** A project whose only scripts are safe, fast, and deterministic. */
 async function seedProject(root, scripts = {}) {
     await writeFile(join(root, "package.json"), `${JSON.stringify({ name: "orchestration-fixture", version: "0.0.0", private: true, scripts }, null, 2)}\n`, "utf8");
+    // Keep command-orchestration assertions independent of unsupported-analyzer coverage.
+    await writeFile(join(root, "app.ts"), "export const ready = true;\n", "utf8");
 }
 async function audit(root, args) {
     const result = await runFile(process.execPath, [cli, ...args, "--root", root, "--json"], root);
@@ -24,7 +26,42 @@ test("a static-only security audit executes no project command", async () => {
     await withTemporaryProject("cli-audit-static", async (root) => {
         await seedProject(root, { lint: 'node -e "process.exit(0)"' });
         const { exitCode, parsed } = await audit(root, ["security", "audit"]);
-        assert.equal(exitCode, 0);
+        assert.equal(exitCode, 2);
+        assert.equal(parsed.evidence_complete, true);
+        assert.ok(parsed.report.findings.some((finding) => finding.section === "security" && finding.status === "NOT_VERIFIED"));
+        assert.equal(parsed.report.execution.length, 0);
+        const lint = parsed.check_outcomes.find((outcome) => outcome.id === "command:lint");
+        assert.equal(lint?.status, "NOT_RUN");
+        assert.equal(lint.cause, "unauthorized");
+    });
+});
+test("a broad audit cannot exit successfully when every selected inspection is unverified", async () => {
+    await withTemporaryProject("cli-audit-empty-all", async (root) => {
+        const { exitCode, parsed } = await audit(root, ["all", "audit", "--dry-run"]);
+        assert.equal(exitCode, 2);
+        assert.ok(parsed.report.findings.some((finding) => finding.status === "NOT_VERIFIED"), "the report must retain the missing-evidence finding");
+    });
+});
+test("an audit cannot override its workflow with build composition", async () => {
+    await withTemporaryProject("cli-audit-workflow-override", async (root) => {
+        await seedProject(root);
+        const result = await runFile(process.execPath, [cli, "code", "audit", "--workflow", "build", "--root", root, "--dry-run", "--json"], root);
+        assert.equal(result.exitCode, 1);
+        assert.match(result.stderr, /--workflow.*only valid.*compose/iu);
+        assert.equal(result.stdout, "");
+    });
+});
+test("an explicitly selected command without authorization fails closed", async () => {
+    await withTemporaryProject("cli-audit-explicit-unauthorized", async (root) => {
+        await seedProject(root, { lint: 'node -e "process.exit(0)"' });
+        const { exitCode, parsed } = await audit(root, [
+            "security",
+            "audit",
+            "--check",
+            "command:lint"
+        ]);
+        assert.equal(exitCode, 2);
+        assert.equal(parsed.evidence_complete, false);
         assert.equal(parsed.report.execution.length, 0);
         const lint = parsed.check_outcomes.find((outcome) => outcome.id === "command:lint");
         assert.equal(lint?.status, "NOT_RUN");
@@ -43,7 +80,8 @@ test("--allow-run executes the authorized project command and records it", async
             "--check",
             "command:lint"
         ]);
-        assert.equal(exitCode, 0);
+        assert.equal(exitCode, 2);
+        assert.ok(parsed.report.findings.some((finding) => finding.section === "security" && finding.status === "NOT_VERIFIED"));
         assert.equal(parsed.report.execution.length, 1);
         assert.equal(parsed.report.execution[0]?.exitCode, 0);
         const lint = parsed.check_outcomes.find((outcome) => outcome.id === "command:lint");
@@ -75,10 +113,29 @@ test("offline blocks a network-dependent command without spawning it", async () 
             "--allow-run",
             "--offline"
         ]);
-        assert.equal(exitCode, 0);
+        assert.equal(exitCode, 2);
         assert.equal(parsed.report.execution.length, 0);
         const outcome = parsed.check_outcomes.find((entry) => entry.id === "command:audit:dependencies");
         assert.equal(outcome?.cause, "offline-policy");
+    });
+});
+test("an explicitly selected command blocked by offline policy fails closed", async () => {
+    await withTemporaryProject("cli-audit-explicit-offline", async (root) => {
+        await seedProject(root, { "audit:dependencies": "npm audit --ignore-scripts" });
+        const { exitCode, parsed } = await audit(root, [
+            "security",
+            "audit",
+            "--allow-run",
+            "--offline",
+            "--check",
+            "command:audit:dependencies"
+        ]);
+        assert.equal(exitCode, 2);
+        assert.equal(parsed.evidence_complete, false);
+        assert.equal(parsed.report.execution.length, 0);
+        const outcome = parsed.check_outcomes.find((entry) => entry.id === "command:audit:dependencies");
+        assert.equal(outcome?.status, "NOT_RUN");
+        assert.equal(outcome.cause, "offline-policy");
     });
 });
 test("--skip-check excludes a check that would otherwise run", async () => {
@@ -91,10 +148,29 @@ test("--skip-check excludes a check that would otherwise run", async () => {
             "--skip-check",
             "command:lint"
         ]);
-        assert.equal(exitCode, 0);
+        assert.equal(exitCode, 2);
         assert.equal(parsed.report.execution.length, 0);
         const outcome = parsed.check_outcomes.find((entry) => entry.id === "command:lint");
         assert.equal(outcome?.cause, "deselected");
+    });
+});
+test("the same check cannot be both explicitly selected and skipped", async () => {
+    await withTemporaryProject("cli-audit-contradictory-selection", async (root) => {
+        await seedProject(root, { lint: 'node -e "process.exit(0)"' });
+        const result = await runFile(process.execPath, [
+            cli,
+            "security",
+            "audit",
+            "--root",
+            root,
+            "--check",
+            "command:lint",
+            "--skip-check",
+            "command:lint",
+            "--json"
+        ], root);
+        assert.equal(result.exitCode, 1);
+        assert.ok(result.stderr.includes("cannot be both selected and skipped"));
     });
 });
 test("an unknown --check value is rejected", async () => {
@@ -157,9 +233,29 @@ test("a dry-run audit plans checks without executing or writing", async () => {
             "--allow-run",
             "--dry-run"
         ]);
-        assert.equal(exitCode, 0);
+        assert.equal(exitCode, 2);
         assert.equal(parsed.report.execution.length, 0);
         assert.ok(parsed.planned_checks.some((check) => check.id === "command:lint"));
+    });
+});
+test("an explicitly selected command in dry-run mode remains incomplete", async () => {
+    await withTemporaryProject("cli-audit-explicit-dry", async (root) => {
+        await seedProject(root, { lint: 'node -e "process.exit(0)"' });
+        const { exitCode, parsed } = await audit(root, [
+            "security",
+            "audit",
+            "--allow-run",
+            "--dry-run",
+            "--check",
+            "command:lint"
+        ]);
+        assert.equal(exitCode, 2);
+        assert.equal(parsed.evidence_complete, false);
+        assert.equal(parsed.report.execution.length, 0);
+        const outcome = parsed.check_outcomes.find((entry) => entry.id === "command:lint");
+        assert.equal(outcome?.status, "NOT_RUN");
+        assert.equal(outcome.cause, "deselected");
+        assert.ok(outcome.reason?.includes("dry run"));
     });
 });
 test("planned-check order is stable across repeated audits", async () => {
@@ -182,12 +278,12 @@ test("a UI audit and an all-module audit both produce a planned-check ledger", a
     await withTemporaryProject("cli-audit-modules", async (root) => {
         await seedProject(root);
         const ui = await audit(root, ["ui", "audit"]);
-        assert.equal(ui.exitCode, 0);
+        assert.equal(ui.exitCode, 2);
         assert.deepEqual(ui.parsed.planned_checks
             .filter((check) => check.kind === "module-inspection")
-            .map((c) => c.id), ["module:ui"]);
+            .map((c) => c.id), ["module:performance", "module:testing", "module:ui"], "UI audit should plan the explicit module plus only its directly applicable dependencies");
         const all = await audit(root, ["all", "audit"]);
-        assert.equal(all.exitCode, 0);
+        assert.equal(all.exitCode, 2);
         assert.ok(all.parsed.planned_checks.filter((check) => check.kind === "module-inspection").length > 1);
     });
 });

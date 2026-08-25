@@ -9,6 +9,7 @@ node_modules/
 .claude/
 .cursor/
 .fullstack-forge/
+skills/
 .gemini/
 .github/skills/
 docs/TRACEABILITY_MATRIX.md

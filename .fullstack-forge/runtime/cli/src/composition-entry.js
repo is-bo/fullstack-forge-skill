@@ -7,10 +7,12 @@
 import { realpathSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { compositionEvidenceFor, resolveRuntimeComposition, writeCompositionArtifact } from "./composition-runtime.js";
-import { COMPOSITION_TASK_FLAGS } from "./composition.js";
+import { compositionEvidenceFor, explicitGreenfieldDependenciesFor, resolveRuntimeCompositionWithRoot, writeCompositionArtifact } from "./composition-runtime.js";
+import { COMPOSITION_TASK_FLAGS, COMPOSITION_WORKFLOWS } from "./composition.js";
 import { MODULE_SLUGS } from "./constants.js";
+import { expandApplicableDependencies } from "./dependency-expansion.js";
 import { discoverProject } from "./discovery.js";
+import { decideModules } from "./scope.js";
 import { canonicalDirectory } from "./utils.js";
 export function isDirectExecution(argumentPath, modulePath = fileURLToPath(import.meta.url), canonicalize = realpathSync) {
     if (argumentPath === undefined)
@@ -27,18 +29,27 @@ export function isDirectExecution(argumentPath, modulePath = fileURLToPath(impor
 export async function runCompositionEntry(argv) {
     const parsed = parseArguments(argv);
     const root = await canonicalDirectory(parsed.root);
-    const runtimeRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
+    const packageRuntimeRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
     const profile = await discoverProject(root);
-    const compositions = await resolveRuntimeComposition(root, [parsed.module], compositionEvidenceFor(profile, {
+    const expanded = await expandApplicableDependencies(root, profile, decideModules({ candidates: [parsed.module], profile, explicit: true }), [parsed.module], {
+        explicitIntentDependencies: explicitGreenfieldDependenciesFor(profile, [parsed.module])
+    }, packageRuntimeRoot);
+    const resolution = await resolveRuntimeCompositionWithRoot(root, expanded.selected, compositionEvidenceFor(profile, {
+        workflow: parsed.workflow,
         requested: parsed.requested,
         taskFlags: parsed.taskFlags,
-        riskSurfaces: parsed.riskSurfaces
-    }), runtimeRoot);
+        riskSurfaces: parsed.riskSurfaces,
+        modules: [parsed.module]
+    }), packageRuntimeRoot);
+    const { compositions } = resolution;
     const compositionArtifact = parsed.dryRun
         ? undefined
-        : await writeCompositionArtifact(root, compositions);
+        : await writeCompositionArtifact(root, resolution);
     const result = {
         compositions,
+        runtime_root: resolution.runtimeRoot,
+        module_decisions: expanded.decisions,
+        dependency_edges: expanded.dependencyEdges,
         ...(compositionArtifact === undefined ? {} : { composition_artifact: compositionArtifact }),
         dry_run: parsed.dryRun
     };
@@ -46,11 +57,11 @@ export async function runCompositionEntry(argv) {
         console.log(JSON.stringify(result, null, 2));
     else {
         console.log([
-            `Resolved ${parsed.module} composition with ${compositions[0]?.selected.length ?? 0} ordered source(s).`,
+            `Resolved ${compositions.length} applicable composition(s) with ${compositions.reduce((total, composition) => total + composition.selected.length, 0)} ordered source(s).`,
             ...(compositionArtifact === undefined
                 ? ["Dry run: no composition artifact was written."]
                 : [`Composition artifact: ${compositionArtifact}`]),
-            ...(compositions[0]?.missing ?? []).map((path) => `Missing required content: ${path}`)
+            ...compositions.flatMap((composition) => composition.missing.map((path) => `Missing required content: ${path}`))
         ].join("\n"));
     }
     return compositions.some((composition) => composition.missing.length > 0) ? 2 : 0;
@@ -61,6 +72,7 @@ function parseArguments(argv) {
     const taskFlags = [];
     const riskSurfaces = [];
     let root = process.cwd();
+    let workflow = "build";
     let json = false;
     let dryRun = false;
     for (let index = 0; index < argv.length; index += 1) {
@@ -73,7 +85,8 @@ function parseArguments(argv) {
             value === "--cwd" ||
             value === "--request" ||
             value === "--condition" ||
-            value === "--risk-surface") {
+            value === "--risk-surface" ||
+            value === "--workflow") {
             const next = argv[index + 1];
             if (next === undefined)
                 throw new Error(`Option '${value}' requires a value`);
@@ -84,6 +97,8 @@ function parseArguments(argv) {
                 taskFlags.push(parseTaskFlag(next));
             else if (value === "--risk-surface")
                 riskSurfaces.push(parseRiskSurface(next));
+            else if (value === "--workflow")
+                workflow = parseWorkflow(next);
             else
                 root = next;
         }
@@ -93,6 +108,8 @@ function parseArguments(argv) {
             taskFlags.push(parseTaskFlag(value.slice("--condition=".length)));
         else if (value.startsWith("--risk-surface="))
             riskSurfaces.push(parseRiskSurface(value.slice("--risk-surface=".length)));
+        else if (value.startsWith("--workflow="))
+            workflow = parseWorkflow(value.slice("--workflow=".length));
         else if (value.startsWith("--root="))
             root = value.slice("--root=".length);
         else if (value.startsWith("--cwd="))
@@ -108,10 +125,11 @@ function parseArguments(argv) {
         ["all", "discover", "ship"].includes(module))
         throw new Error(`Composition requires one concrete Forge module, got '${module ?? ""}'`);
     if (mode !== "compose" || extra.length > 0)
-        throw new Error("Usage: composition-entry <module> compose [--request value] [--condition name] [--risk-surface name] [--root path]");
+        throw new Error("Usage: composition-entry <module> compose [--workflow build|audit|fix|verify|ship] [--request value] [--condition name] [--risk-surface name] [--root path]");
     return {
         module: module,
         root: resolve(root),
+        workflow,
         requested: [...new Set(requested.map((value) => value.trim()).filter(Boolean))],
         taskFlags: [...new Set(taskFlags)],
         riskSurfaces: [...new Set(riskSurfaces)],
@@ -123,6 +141,11 @@ function parseTaskFlag(value) {
     if (COMPOSITION_TASK_FLAGS.includes(value))
         return value;
     throw new Error(`Unknown composition condition '${value}'. Expected one of: ${COMPOSITION_TASK_FLAGS.join(", ")}.`);
+}
+function parseWorkflow(value) {
+    if (COMPOSITION_WORKFLOWS.includes(value))
+        return value;
+    throw new Error(`Unknown composition workflow '${value}'. Expected one of: ${COMPOSITION_WORKFLOWS.join(", ")}.`);
 }
 function parseRiskSurface(value) {
     const normalized = value.trim().toLowerCase();

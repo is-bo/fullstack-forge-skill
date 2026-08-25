@@ -3,6 +3,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { PACKAGE_ROOT, VERSION } from "../src/constants.js";
+import { discoverProject } from "../src/discovery.js";
+import { createReport, writeReport } from "../src/report.js";
 import { runFile, sha256, workingTreeRevision } from "../src/utils.js";
 import { copyFixture, withTemporaryProject } from "./helpers.js";
 const cli = join(PACKAGE_ROOT, "build", "cli", "src", "index.js");
@@ -15,6 +17,13 @@ test("compiled CLI exposes version, list, and blocked command execution", async 
     const parsed = JSON.parse(list.stdout);
     assert.equal(parsed.modules.length, 42);
     assert.equal(parsed.tools.length, 27);
+    assert.deepEqual(parsed.tool_availability.source_checkout_only, [
+        "sync-platform-assets",
+        "check-platform-assets",
+        "package-platforms",
+        "smoke-install"
+    ]);
+    assert.equal(parsed.tool_availability.installed_runtime.includes("validate-skill"), true);
 });
 test("compiled CLI ingests validated agent findings into both official report formats", async () => {
     await withTemporaryProject("agent-findings", async (root) => {
@@ -141,6 +150,49 @@ test("compose is a first-class module entry and the archive-equivalent runner us
         assert.deepEqual(archiveParsed.compositions, parsed.compositions);
     });
 });
+test("composition loads only direct dependencies reachable through observed applicability", async () => {
+    await withTemporaryProject("cli-compose-applicable-dependencies", async (root) => {
+        await writeFile(join(root, "package.json"), JSON.stringify({
+            name: "frontend-dependency-fixture",
+            private: true,
+            dependencies: { react: "19.0.0" }
+        }), "utf8");
+        await writeFile(join(root, "App.tsx"), "export function App() { return <main><button>Save</button></main>; }\n", "utf8");
+        const result = await runFile(process.execPath, [cli, "frontend", "compose", "--root", root, "--dry-run", "--json"], root);
+        assert.equal(result.exitCode, 0, result.stderr);
+        assert.ok(result.stdout.length < 32_000, `bounded composition output unexpectedly grew to ${result.stdout.length} bytes`);
+        const parsed = JSON.parse(result.stdout);
+        const selected = new Set(parsed.compositions.map((composition) => composition.module));
+        for (const expected of ["frontend", "ui", "ux", "accessibility", "performance", "testing"])
+            assert.ok(selected.has(expected), `expected applicable ${expected} dependency`);
+        for (const excluded of ["database", "auth", "payments", "ship"])
+            assert.equal(selected.has(excluded), false, `did not expect unrelated ${excluded} context`);
+        assert.equal(parsed.module_decisions.some((decision) => decision.module === "database"), false, "compact dependency provenance must not emit unrelated transitive decisions");
+        assert.ok(parsed.dependency_edges.some((edge) => edge.parent === "frontend"));
+        assert.ok(parsed.dependency_edges.every((edge) => edge.parent === "frontend"));
+        assert.equal(parsed.composition_artifact, undefined);
+    });
+});
+test("explicit greenfield frontend composition includes the complete experience team", async () => {
+    await withTemporaryProject("cli-compose-greenfield-frontend", async (root) => {
+        const args = ["frontend", "compose", "--root", root, "--dry-run", "--json"];
+        const result = await runFile(process.execPath, [cli, ...args], root);
+        assert.equal(result.exitCode, 0, result.stderr);
+        const parsed = JSON.parse(result.stdout);
+        const selected = new Map(parsed.compositions.map((composition) => [composition.module, composition]));
+        for (const expected of ["frontend", "ui", "ux", "accessibility"])
+            assert.ok(selected.has(expected), `expected explicit greenfield ${expected} composition`);
+        assert.ok(selected
+            .get("ui")
+            ?.selected.some((source) => source.provider === "impeccable" && source.skill === "impeccable"), "greenfield UI composition must include Impeccable");
+        for (const excluded of ["database", "auth", "payments", "ship"])
+            assert.equal(selected.has(excluded), false, `did not expect unrelated ${excluded} context`);
+        const standalone = join(PACKAGE_ROOT, ".fullstack-forge", "runtime", "cli", "src", "composition-entry.js");
+        const archiveEquivalent = await runFile(process.execPath, [standalone, ...args], root);
+        assert.equal(archiveEquivalent.exitCode, 0, archiveEquivalent.stderr);
+        assert.deepEqual(JSON.parse(archiveEquivalent.stdout).compositions, parsed.compositions);
+    });
+});
 test("the production runner accepts proven task conditions and rejects invented ones", async () => {
     await withTemporaryProject("cli-compose-task-condition", async (root) => {
         const standalone = join(PACKAGE_ROOT, ".fullstack-forge", "runtime", "cli", "src", "composition-entry.js");
@@ -174,7 +226,7 @@ test("unsupported language audit reports a precise NOT_VERIFIED adapter boundary
     await withTemporaryProject("cli-unsupported", async (root) => {
         await writeFile(join(root, "app.py"), "print('hello')\n", "utf8");
         const result = await runFile(process.execPath, [cli, "security", "audit", "--root", root, "--json"], root);
-        assert.equal(result.exitCode, 0, result.stderr);
+        assert.equal(result.exitCode, 2, result.stderr);
         const findings = JSON.parse(result.stdout).report.findings;
         const [finding] = findings;
         assert.ok(finding);
@@ -238,7 +290,7 @@ test("high-risk all audit and verify route through applicable focused modules", 
         // isolate risk exclusion instead of accidentally testing a capability that does not exist.
         await writeFile(join(root, "package.json"), `${JSON.stringify({ name: "risk-fixture", private: true, dependencies: { react: "19.0.0" } }, null, 2)}\n`, "utf8");
         const audit = await runFile(process.execPath, [cli, "all", "audit", "--risk", "high", "--root", root, "--json"], root);
-        assert.equal(audit.exitCode, 0, audit.stderr);
+        assert.equal(audit.exitCode, 2, "selected high-risk modules with remaining NOT_VERIFIED evidence must keep Audit incomplete");
         const audited = JSON.parse(audit.stdout);
         assert.ok(audited.report.findings.some((finding) => finding.section === "security"));
         // A risk filter narrows what is audited; it never proves anything about what it skipped.
@@ -260,6 +312,35 @@ test("high-risk all audit and verify route through applicable focused modules", 
         assert.ok(!verified.report.findings.some((finding) => finding.section === "all"));
     });
 });
+test("section Verify exit status ignores unrelated carried findings while all remains global", async () => {
+    await withTemporaryProject("cli-verify-section-exit", async (root) => {
+        await writeFile(join(root, "app.ts"), "export const ready = true;\n", "utf8");
+        const profile = await discoverProject(root);
+        const revision = await workingTreeRevision(root);
+        const finding = (section, status) => ({
+            id: `FF-${section.toUpperCase()}-EXIT-001`,
+            section,
+            title: `${section} verification fixture`,
+            severity: status === "FAIL" ? "HIGH" : "INFO",
+            confidence: "HIGH",
+            status,
+            location: [{ path: "app.ts", line: 1 }],
+            evidence: [`${section} fixture evidence.`],
+            impact: `${section} fixture impact.`,
+            recommendation: `Review the ${section} fixture.`,
+            safe_fix: false,
+            verification: [`Verify the ${section} fixture.`],
+            standards: ["Fullstack Forge verification scope"]
+        });
+        await writeReport(createReport(root, profile, [finding("security", "PASS"), finding("payments", "FAIL")], "mixed fixture", [], [], [], undefined, [], [], revision));
+        const scoped = await runFile(process.execPath, [cli, "security", "verify", "--root", root, "--json"], root);
+        assert.equal(scoped.exitCode, 0, scoped.stderr);
+        const scopedFindings = JSON.parse(scoped.stdout).report.findings;
+        assert.ok(scopedFindings.some((candidate) => candidate.section === "payments" && candidate.status === "FAIL"), "section Verify must preserve unrelated history without letting it determine the exit code");
+        const global = await runFile(process.execPath, [cli, "all", "verify", "--root", root, "--json"], root);
+        assert.equal(global.exitCode, 2, "unscoped Verify must still reflect the whole carried report");
+    });
+});
 test("ship remains blocked without a prior audit and detected release gates", async () => {
     await withTemporaryProject("cli-ship", async (root) => {
         const result = await runFile(process.execPath, [cli, "ship", "--allow-run", "--root", root, "--json"], root);
@@ -272,7 +353,7 @@ test("ship report preserves the prior audit findings", async () => {
     await withTemporaryProject("cli-ship-preserve", async (root) => {
         await writeFile(join(root, "app.py"), "print('hello')\n", "utf8");
         const audit = await runFile(process.execPath, [cli, "security", "audit", "--root", root, "--json"], root);
-        assert.equal(audit.exitCode, 0, audit.stderr);
+        assert.equal(audit.exitCode, 2, audit.stderr);
         const priorIds = JSON.parse(audit.stdout).report.findings.map((finding) => finding.id);
         const ship = await runFile(process.execPath, [cli, "ship", "--root", root, "--json"], root);
         assert.equal(ship.exitCode, 2, ship.stderr);

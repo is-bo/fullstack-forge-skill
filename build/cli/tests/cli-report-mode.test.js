@@ -11,7 +11,9 @@ const cli = join(PACKAGE_ROOT, "build", "cli", "src", "index.js");
 async function seedReport(root) {
     await writeFile(join(root, "package.json"), `${JSON.stringify({ name: "report-mode-fixture", version: "0.0.0", private: true }, null, 2)}\n`, "utf8");
     const audit = await runFile(process.execPath, [cli, "security", "audit", "--root", root, "--json"], root);
-    assert.equal(audit.exitCode, 0, audit.stderr);
+    // An empty project cannot prove the requested security evidence. The audit still writes a real
+    // report, but fail-closed orchestration surfaces that gap as exit 2 rather than claiming PASS.
+    assert.ok([0, 2].includes(audit.exitCode), audit.stderr);
 }
 test("report mode renders Markdown to stdout without re-running the audit", async () => {
     await withTemporaryProject("cli-report-md", async (root) => {

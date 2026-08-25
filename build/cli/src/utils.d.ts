@@ -18,6 +18,8 @@ export declare function walkFiles(root: string, options?: {
     maxFiles?: number;
     maxTotalBytes?: number;
     maxDepth?: number;
+    /** Fail closed instead of silently skipping symlinked source entries. */
+    rejectSymlinks?: boolean;
 }): Promise<string[]>;
 export declare function readTextIfPresent(path: string): Promise<string | undefined>;
 export declare function runFile(executable: string, args: string[], cwd: string, timeout?: number): Promise<{

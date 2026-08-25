@@ -12,6 +12,9 @@ const manifestRoot = join(projectRoot, ".fullstack-forge", "manifests");
 
 const registry = JSON.parse(readFileSync(join(manifestRoot, "upstream-registry.json"), "utf8"));
 const composition = JSON.parse(readFileSync(join(manifestRoot, "module-composition.json"), "utf8"));
+const canonicalComposition = JSON.parse(
+  readFileSync(join(projectRoot, "config", "module-composition.json"), "utf8")
+);
 const transforms = JSON.parse(readFileSync(join(manifestRoot, "upstream-transforms.json"), "utf8"));
 const uiCommands = JSON.parse(
   readFileSync(join(projectRoot, "config", "ui-commands.json"), "utf8")
@@ -374,6 +377,18 @@ test("every composition source resolves to a file that exists in the runtime tre
         `${module.module} -> ${source.runtimePath} is missing`
       );
     }
+  }
+});
+
+test("the generated composition registry preserves workflow contract declarations", () => {
+  assert.deepEqual(composition.workflowContracts, canonicalComposition.workflowContracts);
+  const generatedByModule = new Map(composition.modules.map((module) => [module.module, module]));
+  for (const canonicalModule of canonicalComposition.modules) {
+    assert.deepEqual(
+      generatedByModule.get(canonicalModule.module)?.forgeContracts,
+      canonicalModule.forgeContracts,
+      canonicalModule.module
+    );
   }
 });
 

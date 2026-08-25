@@ -104,9 +104,9 @@ test("Forge Codex metadata and icon reach every host through the canonical layou
   for (const platform of platformTargets) {
     const generatedRoot = join(projectRoot, ...platform.path.split("/"), "forge");
     // Codex reads openai.yaml with ordinary tooling rather than by following a prose pointer, so
-    // `agents/` and `assets/` are the documented verbatim exception. Every other host is adapters
-    // only and must not re-duplicate those bytes.
-    if (platform.id === "agents") {
+    // the generic Agent Skills root and package-local Codex plugin root carry the documented
+    // verbatim exception. Every other host is adapters only and must not re-duplicate those bytes.
+    if (platform.id === "agents" || platform.id === "codex-plugin") {
       assert.deepEqual(
         await readFile(join(generatedRoot, "agents", "openai.yaml")),
         canonicalMetadata,

@@ -326,6 +326,11 @@ export function decideModules(input: ModuleDecisionInput): ModuleDecision[] {
       reasons.push(
         "The module was not selected because the bounded scan observed no matching risk surface."
       );
+    } else if (applicability === "APPLICABLE_UNPROVEN") {
+      selection = "NOT_REQUESTED";
+      reasons.push(
+        "The module was not loaded automatically because applicability is unproven. It remains available for explicit invocation, and the missing proof is recorded as NOT_VERIFIED."
+      );
     } else if (changedExcluded) {
       selection = "OUT_OF_CHANGED_SCOPE";
       reasons.push(
@@ -428,7 +433,8 @@ export async function analyzeChangedScope(
   expandPolicyAndRouteImpact(sourceFiles, changed, reasons);
   expandTestsAndGeneratedImpact(sourceFiles, reasons);
 
-  const modules = moduleImpact(changed, reasons);
+  const impact = moduleImpact(profile, changed, reasons);
+  const modules = impact.modules;
   assertImpactBudget(profile.applications.length, reasons.size, "application mapping");
   const affectedApplications = profile.applications.flatMap((application) => {
     const appRoot = normalizeRoot(application.root);
@@ -473,9 +479,10 @@ export async function analyzeChangedScope(
       included_files: includedFiles,
       excluded_applications: excludedApplications,
       affected_applications: affectedApplications,
-      affected_modules: [...modules]
-        .sort()
-        .map((section) => ({ section, reasons: moduleReasons(section, changed, reasons) }))
+      affected_modules: [...modules].sort().map((section) => ({
+        section,
+        reasons: [...(impact.reasons.get(section) ?? [])].slice(0, 12)
+      }))
     }
   };
 }
@@ -798,47 +805,209 @@ function expandTestsAndGeneratedImpact(files: string[], reasons: Map<string, Set
   }
 }
 
+type ModuleImpact = {
+  modules: Set<ModuleSlug>;
+  reasons: Map<ModuleSlug, Set<string>>;
+};
+
+const PATH_TOKEN_MODULES: ReadonlyArray<{
+  tokens: ReadonlySet<string>;
+  modules: readonly ModuleSlug[];
+}> = [
+  {
+    tokens: new Set(["a11y", "accessibility"]),
+    modules: ["accessibility", "frontend", "ui", "ux"]
+  },
+  {
+    tokens: new Set(["api", "route", "routes", "controller", "controllers", "handler", "handlers"]),
+    modules: ["api"]
+  },
+  {
+    tokens: new Set(["auth", "authentication", "login", "oauth", "session", "sessions"]),
+    modules: ["auth", "authorization"]
+  },
+  {
+    tokens: new Set([
+      "authorization",
+      "permission",
+      "permissions",
+      "policy",
+      "policies",
+      "role",
+      "roles"
+    ]),
+    modules: ["authorization"]
+  },
+  {
+    tokens: new Set(["tenant", "tenancy", "organization", "organizations"]),
+    modules: ["tenancy"]
+  },
+  {
+    tokens: new Set(["upload", "uploads", "multipart"]),
+    modules: ["uploads"]
+  },
+  {
+    tokens: new Set(["storage"]),
+    modules: ["storage"]
+  },
+  {
+    tokens: new Set(["database", "db", "migration", "migrations", "prisma", "schema"]),
+    modules: ["database", "queries"]
+  },
+  {
+    tokens: new Set(["query", "queries", "repository", "repositories"]),
+    modules: ["queries"]
+  },
+  {
+    tokens: new Set(["cache", "redis"]),
+    modules: ["cache"]
+  },
+  {
+    tokens: new Set([
+      "deploy",
+      "deployment",
+      "docker",
+      "netlify",
+      "vercel",
+      "workflow",
+      "workflows"
+    ]),
+    modules: ["deployment"]
+  },
+  {
+    tokens: new Set(["infrastructure", "k8s", "kubernetes", "pulumi", "serverless", "terraform"]),
+    modules: ["infrastructure"]
+  },
+  {
+    tokens: new Set(["ai", "anthropic", "llm", "openai"]),
+    modules: ["ai"]
+  },
+  {
+    tokens: new Set([
+      "billing",
+      "checkout",
+      "invoice",
+      "invoices",
+      "payment",
+      "payments",
+      "stripe"
+    ]),
+    modules: ["payments"]
+  },
+  {
+    tokens: new Set([
+      "callback",
+      "callbacks",
+      "integration",
+      "integrations",
+      "webhook",
+      "webhooks"
+    ]),
+    modules: ["integrations"]
+  }
+];
+
+const FRONTEND_EXTENSIONS = new Set([".astro", ".html", ".jsx", ".svelte", ".tsx", ".vue"]);
+
 function moduleImpact(
+  profile: ProjectProfile,
   changed: Map<string, ChangedFileEvidence>,
   reasons: Map<string, Set<string>>
-): Set<ModuleSlug> {
-  const modules = new Set<ModuleSlug>(
-    [...ALWAYS_APPLICABLE].filter((section) => !["discover", "all", "ship"].includes(section))
+): ModuleImpact {
+  const impactReasons = new Map<ModuleSlug, Set<string>>();
+  const addImpact = (section: ModuleSlug, reason: string): void => {
+    const current = impactReasons.get(section) ?? new Set<string>();
+    current.add(reason);
+    impactReasons.set(section, current);
+  };
+  for (const section of ALWAYS_APPLICABLE)
+    if (!["discover", "all", "ship"].includes(section))
+      addImpact(section, "required always-applicable module for changed scope");
+
+  const affectedPaths = new Set(
+    [...new Set([...changed.keys(), ...reasons.keys()])]
+      .map((path) => safeEvidencePath(path))
+      .filter((path): path is string => path !== undefined)
   );
-  const corpus = [...new Set([...changed.keys(), ...reasons.keys()])].join("\n").toLowerCase();
-  const mappings: Array<[ModuleSlug, RegExp]> = [
-    ["accessibility", /a11y|accessib|\.tsx|\.jsx/u],
-    ["api", /route|controller|handler|api/u],
-    ["auth", /auth|login|session|oauth/u],
-    ["authorization", /auth|authoriz|permission|policy|role/u],
-    ["tenancy", /tenant|organization/u],
-    ["uploads", /upload|multipart|storage/u],
-    ["database", /schema|migration|prisma|database/u],
-    ["queries", /query|repository|prisma|database/u],
-    ["cache", /cache|redis/u],
-    ["deployment", /deploy|docker|vercel|netlify|workflow/u],
-    ["infrastructure", /terraform|pulumi|serverless|kubernetes/u],
-    ["ai", /ai|model|openai|anthropic/u],
-    ["payments", /payment|stripe|invoice|checkout/u],
-    ["integrations", /webhook|integration/u]
-  ];
-  for (const [section, pattern] of mappings) if (pattern.test(corpus)) modules.add(section);
-  return modules;
+
+  for (const assessment of profile.capability_assessments ?? []) {
+    if (assessment.status !== "PRESENT") continue;
+    const workspace = safeEvidenceRoot(assessment.workspace);
+    if (workspace === undefined) continue;
+    const sections = capabilityModules(assessment.capability);
+    if (sections.length === 0) continue;
+    for (const evidence of assessment.evidence) {
+      if (!Number.isFinite(evidence.activation_weight) || evidence.activation_weight <= 0) continue;
+      const path = safeEvidencePath(evidence.path);
+      const evidenceWorkspace = safeEvidenceRoot(evidence.workspace);
+      if (
+        path === undefined ||
+        evidenceWorkspace !== workspace ||
+        !under(path, workspace) ||
+        !affectedPaths.has(path)
+      )
+        continue;
+      for (const section of sections)
+        addImpact(
+          section,
+          `affected path ${path} has activating '${assessment.capability}' capability evidence in workspace '${workspace}'`
+        );
+    }
+  }
+
+  for (const evidence of profile.risk_evidence ?? []) {
+    const path = safeEvidencePath(evidence.path);
+    if (path === undefined || !affectedPaths.has(path)) continue;
+    for (const section of evidence.modules)
+      addImpact(section, `affected path ${path} has '${evidence.risk}' risk evidence`);
+  }
+
+  for (const path of affectedPaths) {
+    if (FRONTEND_EXTENSIONS.has(extname(path).toLowerCase()))
+      for (const section of ["accessibility", "frontend", "ui", "ux"] as const)
+        addImpact(section, `affected frontend source path ${path}`);
+    const tokens = new Set(
+      path
+        .toLowerCase()
+        .split("/")
+        .flatMap((segment) => segment.split(/[._-]+/u))
+        .filter(Boolean)
+    );
+    for (const mapping of PATH_TOKEN_MODULES)
+      for (const token of mapping.tokens)
+        if (tokens.has(token)) {
+          for (const section of mapping.modules)
+            addImpact(section, `affected path ${path} contains bounded path token '${token}'`);
+          break;
+        }
+  }
+
+  return { modules: new Set(impactReasons.keys()), reasons: impactReasons };
 }
 
-function moduleReasons(
-  section: ModuleSlug,
-  changed: Map<string, ChangedFileEvidence>,
-  reasons: Map<string, Set<string>>
-): string[] {
-  if (ALWAYS_APPLICABLE.has(section))
-    return ["required always-applicable module for changed scope"];
-  const relevant = [...new Set([...changed.keys(), ...reasons.keys()])]
-    .filter((path) => path.toLowerCase().includes(section.replace("authorization", "auth")))
-    .slice(0, 8);
-  return relevant.length > 0
-    ? relevant.map((path) => `affected path ${path}`)
-    : ["capability impact mapping"];
+function capabilityModules(capability: string): ModuleSlug[] {
+  const output: ModuleSlug[] = [];
+  for (const [section, required] of Object.entries(SECTION_CAPABILITY) as Array<
+    [ModuleSlug, string]
+  >)
+    if (required === capability) output.push(section);
+  return output;
+}
+
+function safeEvidencePath(value: string): string | undefined {
+  const normalized = value.replaceAll("\\", "/").replace(/^\.\//u, "");
+  try {
+    assertSafeRelative(normalized);
+    return normalized;
+  } catch {
+    return undefined;
+  }
+}
+
+function safeEvidenceRoot(value: string): string | undefined {
+  const normalized = normalizeRoot(value);
+  if (normalized === ".") return normalized;
+  return safeEvidencePath(normalized);
 }
 
 function nearestWorkspace(path: string, files: string[]): string {

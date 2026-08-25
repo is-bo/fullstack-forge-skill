@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { access, lstat, readFile, readdir } from "node:fs/promises";
+import { join, relative, sep } from "node:path";
 import { MODULE_SLUGS, PACKAGE_ROOT, TOOL_NAMES, type ToolName } from "./constants.js";
 import { detectProjectCommands, discoverProject, writeProjectArtifacts } from "./discovery.js";
 import { assertAgentFindings, assertFindings, validateFinding } from "./finding.js";
@@ -19,6 +19,13 @@ import {
 } from "./utils.js";
 
 export type ToolResponse = { value: unknown; exitCode: number };
+
+export const SOURCE_CHECKOUT_ONLY_TOOL_NAMES = [
+  "sync-platform-assets",
+  "check-platform-assets",
+  "package-platforms",
+  "smoke-install"
+] as const satisfies readonly ToolName[];
 
 export async function runTool(
   nameInput: string,
@@ -208,6 +215,19 @@ export async function runTool(
   };
   const script = scripts[nameInput];
   if (script !== undefined) {
+    const missing = await missingSourceCheckoutInputs(script);
+    if (missing.length > 0)
+      return {
+        value: {
+          tool: nameInput,
+          status: "BLOCKED",
+          availability: "source-checkout-only",
+          missing,
+          recovery:
+            "Run this maintainer tool from a complete Fullstack Forge source checkout; installed npm packages intentionally omit development-only sources and scripts."
+        },
+        exitCode: 2
+      };
     const scriptArgs = options.dryRun
       ? [join(PACKAGE_ROOT, "scripts", script), "--dry-run"]
       : [join(PACKAGE_ROOT, "scripts", script)];
@@ -237,40 +257,16 @@ export async function validateBundledSkills(): Promise<{
   errors: string[];
 }> {
   const errors: string[] = [];
-  const catalog = JSON.parse(
-    await readFile(join(PACKAGE_ROOT, "config", "modules.json"), "utf8")
-  ) as Array<{ slug?: unknown }>;
-  const rawCriteria = JSON.parse(
-    await readFile(join(PACKAGE_ROOT, "config", "module-criteria.json"), "utf8")
-  ) as unknown;
-  const criteriaBySlug =
-    typeof rawCriteria === "object" && rawCriteria !== null && !Array.isArray(rawCriteria)
-      ? (rawCriteria as Record<string, unknown>)
-      : {};
   const expected = [...TOOL_NAMES];
   if (new Set(expected).size !== expected.length)
     errors.push("tool catalog contains duplicate names");
-  const slugs = catalog.map((entry) => entry.slug);
-  if (slugs.some((slug) => typeof slug !== "string"))
-    errors.push("module catalog contains an invalid slug");
-  if (JSON.stringify(slugs) !== JSON.stringify(MODULE_SLUGS))
-    errors.push("module catalog does not match the authoritative module set");
-  if (JSON.stringify(Object.keys(criteriaBySlug)) !== JSON.stringify(MODULE_SLUGS))
-    errors.push("inspection criteria do not match the authoritative module set");
-  const paths = [join(PACKAGE_ROOT, "src", "fullstack-forge", "SKILL.md")];
-  for (const slug of slugs) {
-    if (typeof slug === "string")
-      paths.push(
-        join(PACKAGE_ROOT, "src", "fullstack-forge", "commands", `forge-${slug}`, "SKILL.md")
-      );
-  }
-  // Product-router and Build-mode command skills carry the generic contract checks but have no
-  // per-slug inspection criteria, so they are appended after the audit set.
-  for (const workflowCommand of ["forge", "forge-new", "forge-feature"]) {
-    paths.push(
-      join(PACKAGE_ROOT, "src", "fullstack-forge", "commands", workflowCommand, "SKILL.md")
-    );
-  }
+  const managed = await validateBundledManagedLayout();
+  errors.push(...managed.errors);
+  const canonicalRoot = join(PACKAGE_ROOT, ".fullstack-forge", "skills");
+  const paths = [join(canonicalRoot, "fullstack-forge", "SKILL.md")];
+  for (const slug of MODULE_SLUGS) paths.push(join(canonicalRoot, `forge-${slug}`, "SKILL.md"));
+  for (const workflowCommand of ["forge", "forge-new", "forge-feature"])
+    paths.push(join(canonicalRoot, workflowCommand, "SKILL.md"));
   for (const [index, path] of paths.entries()) {
     let content: string;
     try {
@@ -291,32 +287,131 @@ export async function validateBundledSkills(): Promise<{
     ) {
       errors.push(`${path}: missing completion contract`);
     }
-    if (index > 0 && index - 1 < slugs.length) {
-      const slug = slugs[index - 1];
-      const criteria = typeof slug === "string" ? criteriaBySlug[slug] : undefined;
-      if (
-        !Array.isArray(criteria) ||
-        criteria.length === 0 ||
-        criteria.some(
-          (value) =>
-            typeof value !== "string" ||
-            value.trim().length === 0 ||
-            value !== value.trim() ||
-            /[\r\n]/u.test(value)
-        ) ||
-        new Set(criteria).size !== criteria.length
-      ) {
-        errors.push(`${path}: invalid or duplicate inspection criteria`);
-      } else {
-        if (!content.includes("## Missing-control checks"))
-          errors.push(`${path}: missing missing-control checks heading`);
-        for (const criterion of criteria)
-          if (!content.includes(`- ${criterion}`))
-            errors.push(`${path}: missing inspection criterion ${criterion}`);
-      }
-    }
+    if (index > 0 && index <= MODULE_SLUGS.length && !content.includes("## Missing-control checks"))
+      errors.push(`${path}: missing missing-control checks heading`);
   }
   return { valid: errors.length === 0, skills: paths.length, errors };
+}
+
+export async function validateBundledManagedLayout(): Promise<{
+  valid: boolean;
+  roots: number;
+  files: number;
+  errors: string[];
+}> {
+  const definitions = [
+    [".agents/skills", "agents"],
+    ["skills", "codex-plugin"],
+    [".claude/skills", "claude"],
+    [".cursor/skills", "cursor"],
+    [".gemini/skills", "gemini"],
+    [".github/skills", "github"],
+    [".windsurf/skills", "windsurf"],
+    [".fullstack-forge/skills", "canonical"],
+    [".fullstack-forge/upstream", "upstream"],
+    [".fullstack-forge/manifests", "manifests"],
+    [".fullstack-forge/runtime", "runtime"]
+  ] as const;
+  const errors: string[] = [];
+  let files = 0;
+  for (const [relativeRoot, platform] of definitions) {
+    const root = join(PACKAGE_ROOT, ...relativeRoot.split("/"));
+    const markerPath = join(root, ".fullstack-forge-generated.json");
+    let marker: unknown;
+    try {
+      if ((await lstat(markerPath)).isSymbolicLink()) throw new Error("manifest is a symlink");
+      marker = JSON.parse(await readFile(markerPath, "utf8")) as unknown;
+    } catch (error) {
+      errors.push(`${relativeRoot}: missing or invalid ownership manifest (${String(error)})`);
+      continue;
+    }
+    if (!isOwnershipManifest(marker, platform)) {
+      errors.push(`${relativeRoot}: unsupported ownership metadata`);
+      continue;
+    }
+    const actual = new Map<string, string>();
+    try {
+      for (const path of await walkRegularFiles(root)) {
+        const rel = relative(root, path).split(sep).join("/");
+        if (rel === ".fullstack-forge-generated.json") continue;
+        actual.set(rel, sha256(await readFile(path)));
+      }
+    } catch (error) {
+      errors.push(`${relativeRoot}: ${String(error)}`);
+      continue;
+    }
+    for (const [path, hash] of Object.entries(marker.files)) {
+      let safePath: string;
+      try {
+        safePath = resolveInside(root, path);
+      } catch (error) {
+        errors.push(`${relativeRoot}: unsafe ownership path ${path} (${String(error)})`);
+        continue;
+      }
+      if (relative(root, safePath).split(sep).join("/") !== path) {
+        errors.push(`${relativeRoot}: non-canonical ownership path ${path}`);
+        continue;
+      }
+      if (!/^[a-f0-9]{64}$/u.test(hash)) {
+        errors.push(`${relativeRoot}: invalid ownership hash for ${path}`);
+        continue;
+      }
+      const actualHash = actual.get(path);
+      if (actualHash === undefined) errors.push(`${relativeRoot}: missing owned file ${path}`);
+      else if (actualHash !== hash) errors.push(`${relativeRoot}: modified owned file ${path}`);
+    }
+    for (const path of actual.keys())
+      if (!(path in marker.files)) errors.push(`${relativeRoot}: unowned file ${path}`);
+    files += actual.size;
+  }
+  return { valid: errors.length === 0, roots: definitions.length, files, errors };
+}
+
+async function missingSourceCheckoutInputs(script: string): Promise<string[]> {
+  const required = [
+    `scripts/${script}`,
+    "scripts/project.mjs",
+    "src/fullstack-forge/SKILL.md",
+    "config/modules.json",
+    "package-lock.json"
+  ];
+  const missing: string[] = [];
+  for (const path of required) {
+    try {
+      await access(join(PACKAGE_ROOT, ...path.split("/")));
+    } catch {
+      missing.push(path);
+    }
+  }
+  return missing;
+}
+
+async function walkRegularFiles(root: string): Promise<string[]> {
+  const output: string[] = [];
+  for (const entry of await readdir(root, { withFileTypes: true })) {
+    const path = join(root, entry.name);
+    if (entry.isSymbolicLink()) throw new Error(`symlink is forbidden: ${path}`);
+    if (entry.isDirectory()) output.push(...(await walkRegularFiles(path)));
+    else if (entry.isFile()) output.push(path);
+    else throw new Error(`unsupported filesystem entry: ${path}`);
+  }
+  return output;
+}
+
+function isOwnershipManifest(
+  value: unknown,
+  platform: string
+): value is { files: Record<string, string> } {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    candidate.schemaVersion === 1 &&
+    candidate.generator === "fullstack-forge" &&
+    candidate.platform === platform &&
+    typeof candidate.files === "object" &&
+    candidate.files !== null &&
+    !Array.isArray(candidate.files)
+  );
 }
 
 async function loadOrDiscoverProfile(root: string): Promise<ProjectProfile> {

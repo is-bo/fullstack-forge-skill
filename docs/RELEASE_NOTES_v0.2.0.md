@@ -13,8 +13,8 @@ understand.
 
 ```bash
 npm install --save-dev "https://codeload.github.com/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v0.2.0"
-npx forge init
-npx forge doctor
+npx --no-install forge init
+npx --no-install forge doctor
 ```
 
 Then ask for the software change directly, exactly as before.
@@ -95,9 +95,10 @@ Fullstack Forge.
 
 ## Upgrading from v0.1.0
 
-Run `npm install` for the new version, then `npx forge init` to refresh the installation and
-`npx forge doctor` to confirm it. Nothing you previously typed changes. See
-`docs/MIGRATION_v0.2.0.md` for the details, including the one behavioural change to be aware of.
+Run `npm install` for the new version, then `npx --no-install forge init` to refresh the
+installation and `npx --no-install forge doctor` to confirm it. Nothing you previously typed
+changes. See `docs/MIGRATION_v0.2.0.md` for the details, including the one behavioural change to be
+aware of.
 
 ## Known limitations
 

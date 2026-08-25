@@ -6,17 +6,17 @@ their scripts were not run. Fullstack Forge uses original prose, code, examples,
 
 ## Repository map before the change
 
-| Surface                                                  | Previous role                              | Constraint retained                                                           |
-| -------------------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------- |
-| `src/fullstack-forge/SKILL.md`                           | Agent-first production workflow            | Remains the top-level authority and evidence contract                         |
-| `commands/forge/SKILL.md`                                | Plain-language and explicit command router | Remains the single user-facing router                                         |
-| `forge-frontend`                                         | Generated frontend audit module            | Becomes the concise experience orchestrator without creating a second catalog |
-| `forge-ui` / `forge-ux`                                  | Generated specialist audits                | Remain separate visual and journey owners                                     |
-| Accessibility, i18n, SEO, performance, offline, security | Specialist modules                         | Keep canonical ownership; frontend guidance composes them                     |
-| `config/modules.json`, criteria, procedures              | Generated module source                    | Remain canonical generation inputs                                            |
-| `cli/src/build-applicability.ts`                         | Build discipline selection                 | Receives deterministic natural-language interface routing                     |
-| Finding schema and reports                               | Official evidence interchange              | Gains rendered-review provenance without weakening statuses                   |
-| Six platform roots                                       | Generated distribution copies              | Continue to be produced only by `npm run generate`                            |
+| Surface                                                  | Previous role                              | Constraint retained                                                             |
+| -------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------- |
+| `src/fullstack-forge/SKILL.md`                           | Agent-first production workflow            | Remains the top-level authority and evidence contract                           |
+| `commands/forge/SKILL.md`                                | Plain-language and explicit command router | Remains the single user-facing router                                           |
+| `forge-frontend`                                         | Generated frontend audit module            | Becomes the concise experience orchestrator without creating a second catalog   |
+| `forge-ui` / `forge-ux`                                  | Generated specialist audits                | Remain separate visual and journey owners                                       |
+| Accessibility, i18n, SEO, performance, offline, security | Specialist modules                         | Keep canonical ownership; frontend guidance composes them                       |
+| `config/modules.json`, criteria, procedures              | Generated module source                    | Remain canonical generation inputs                                              |
+| `cli/src/build-applicability.ts`                         | Build discipline selection                 | Receives deterministic natural-language interface routing                       |
+| Finding schema and reports                               | Official evidence interchange              | Gains rendered-review provenance without weakening statuses                     |
+| Six project-host roots                                   | Generated distribution adapters            | Remain generator-owned; the later Codex plugin adds a seventh thin-adapter root |
 
 The prior system already had strong evidence semantics, safe-fix boundaries, installation ownership,
 and three relevant modules. It lacked creation-oriented frontend routing, focused references,

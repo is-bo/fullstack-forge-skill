@@ -1,6 +1,6 @@
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join, relative } from "node:path";
-import { assessProjectCapabilities, discoverRiskEvidence } from "./discovery-evidence.js";
+import { assessProjectCapabilities, buildEvidence, classifyEvidencePath, decideCapability, discoverRiskEvidence, isWeakContext, workspaceForPath } from "./discovery-evidence.js";
 import { inventoryRepository } from "./repository-inventory.js";
 import { assertNoSymlinkPath, canonicalDirectory, readTextIfPresent, runFile, toPosix, utcNow } from "./utils.js";
 const RULES = [
@@ -24,6 +24,12 @@ const RULES = [
         name: "Java/Kotlin",
         confidence: "HIGH",
         fileNames: /\.(?:java|kt|kts)$/u
+    },
+    {
+        category: "language",
+        name: "C/C++",
+        confidence: "HIGH",
+        fileNames: /\.(?:c|cc|cpp|cxx)$/iu
     },
     {
         category: "framework",
@@ -249,9 +255,21 @@ export async function discoverProjectWithInventory(rootInput, options = {}) {
     });
     const inspectedEntries = inventory.entries.filter((entry) => entry.status === "INSPECTED" && entry.content !== undefined);
     const files = inspectedEntries.map((entry) => entry.absolute_path);
+    const candidateActiveFiles = files.filter((file) => {
+        const path = toPosix(relative(root, file));
+        return ["manifest", "implementation", "configuration", "route", "schema"].includes(classifyEvidencePath(path).evidence_class);
+    });
     const contentByFile = new Map(inspectedEntries.map((entry) => [entry.absolute_path, entry.content]));
+    const manifestCandidates = loadPackageManifests(root, candidateActiveFiles, contentByFile);
+    const declaredWorkspaces = loadDeclaredWorkspaces(root, manifestCandidates, contentByFile);
+    const isCapabilityPath = capabilityPathPredicate(manifestCandidates, declaredWorkspaces);
+    const activeFiles = candidateActiveFiles.filter((file) => isCapabilityPath(toPosix(relative(root, file))));
+    const capabilityInventory = {
+        ...inventory,
+        entries: inventory.entries.filter((entry) => isCapabilityPath(entry.path))
+    };
     const evidenceByRule = new Map();
-    for (const file of files) {
+    for (const file of activeFiles) {
         const rel = toPosix(relative(root, file));
         const name = basename(file);
         const candidateRules = RULES.filter((rule) => rule.fileNames?.test(name));
@@ -261,7 +279,9 @@ export async function discoverProjectWithInventory(rootInput, options = {}) {
         if (text === undefined)
             continue;
         for (const rule of RULES) {
-            if (rule.content?.test(text))
+            if (rule.content === undefined)
+                continue;
+            if (hasActiveContentMatch(rule.content, text, classifyEvidencePath(rel).evidence_class))
                 addEvidence(evidenceByRule, rule, rel);
         }
     }
@@ -285,7 +305,7 @@ export async function discoverProjectWithInventory(rootInput, options = {}) {
                 current.evidence = [...new Set([...current.evidence, ...detection.evidence])].slice(0, 12);
         }
     }
-    if (files.some((file) => /\.(?:ts|tsx|js|jsx|py|go|rs|java|kt)$/u.test(file))) {
+    if (activeFiles.some((file) => /\.(?:ts|tsx|js|jsx|c|cc|cpp|cxx|py|go|rs|java|kt)$/iu.test(file))) {
         capabilities.runtime = {
             name: "Executable runtime",
             confidence: "HIGH",
@@ -302,10 +322,27 @@ export async function discoverProjectWithInventory(rootInput, options = {}) {
             evidence: ["One or more external runtime providers were detected"]
         };
     }
-    const structured = await buildStructuredProfile(root, files, capabilities, contentByFile);
+    const structured = await buildStructuredProfile(root, activeFiles, capabilities, contentByFile, files, candidateActiveFiles);
+    const structuredApiPaths = modeledApiPaths(structured);
+    if (structuredApiPaths.length > 0) {
+        const modeledApi = {
+            name: "Modeled API boundary",
+            confidence: "HIGH",
+            evidence: structuredApiPaths.slice(0, 12)
+        };
+        detections.push(modeledApi);
+        const current = capabilities.api;
+        if (current === undefined)
+            capabilities.api = modeledApi;
+        else
+            current.evidence = [...new Set([...current.evidence, ...modeledApi.evidence])].slice(0, 12);
+    }
     // Capability weighting consumes the same bounded inventory as primary discovery. Neutral trees
     // are represented without a second repository walk.
-    const capabilityAssessments = await assessProjectCapabilities(root, structured.workspaces.map((workspace) => workspace.root ?? "."), inventory);
+    const workspaceRoots = structured.workspaces
+        .filter((workspace) => workspace.type === "package-workspace")
+        .map((workspace) => workspace.root ?? ".");
+    const capabilityAssessments = reconcileModeledApiAssessment(await assessProjectCapabilities(root, workspaceRoots, capabilityInventory), structured, workspaceRoots);
     const profile = {
         schema_version: 2,
         root,
@@ -313,12 +350,76 @@ export async function discoverProjectWithInventory(rootInput, options = {}) {
         detections: deduplicateDetections(detections),
         capabilities,
         capability_assessments: capabilityAssessments,
-        risk_evidence: discoverRiskEvidence(inventory),
-        tenancy: inferTenancyProfile(inventory),
+        risk_evidence: discoverRiskEvidence(capabilityInventory, structured.routes),
+        tenancy: inferTenancyProfile(capabilityInventory),
         inventory: inventory.diagnostics,
         ...structured
     };
     return { profile, inventory };
+}
+function modeledApiPaths(profile) {
+    const paths = new Set();
+    for (const route of profile.routes)
+        if (route.location !== undefined)
+            paths.add(route.location);
+    for (const framework of profile.frameworks) {
+        if (framework.type !== "backend-framework")
+            continue;
+        for (const path of framework.evidence) {
+            const evidenceClass = classifyEvidencePath(path).evidence_class;
+            if (["implementation", "route"].includes(evidenceClass))
+                paths.add(path);
+        }
+    }
+    return [...paths].sort();
+}
+function reconcileModeledApiAssessment(assessments, profile, workspaceRoots) {
+    const byWorkspace = new Map();
+    const add = (path, line, detail) => {
+        const workspace = workspaceForPath(path, workspaceRoots);
+        const current = byWorkspace.get(workspace) ?? [];
+        current.push(buildEvidence({
+            path,
+            workspaceRoots,
+            ...(line === undefined ? {} : { line }),
+            detail
+        }));
+        byWorkspace.set(workspace, current);
+    };
+    for (const route of profile.routes) {
+        if (route.location === undefined)
+            continue;
+        const line = route.evidence
+            .map((item) => /:(\d+)$/u.exec(item))
+            .find((match) => match !== null)?.[1];
+        add(route.location, line === undefined ? undefined : Number(line), "API capability from a structured route adapter");
+    }
+    for (const framework of profile.frameworks) {
+        if (framework.type !== "backend-framework")
+            continue;
+        for (const path of framework.evidence) {
+            const evidenceClass = classifyEvidencePath(path).evidence_class;
+            if (!["implementation", "route"].includes(evidenceClass))
+                continue;
+            add(path, 1, `API capability from modeled backend framework '${framework.name}'`);
+        }
+    }
+    return assessments.map((assessment) => {
+        if (assessment.capability !== "api")
+            return assessment;
+        const combined = [...assessment.evidence, ...(byWorkspace.get(assessment.workspace) ?? [])];
+        const strongestByPathAndClass = new Map();
+        for (const item of combined) {
+            const key = `${item.path}\u0000${item.evidence_class}`;
+            const current = strongestByPathAndClass.get(key);
+            if (current === undefined ||
+                item.activation_weight > current.activation_weight ||
+                (item.activation_weight === current.activation_weight &&
+                    (item.line ?? 0) < (current.line ?? 0)))
+                strongestByPathAndClass.set(key, item);
+        }
+        return decideCapability("api", assessment.workspace, [...strongestByPathAndClass.values()]);
+    });
 }
 const TENANCY_KEY_NAMES = [
     "tenantId",
@@ -350,7 +451,7 @@ function structuralOwnershipCandidates(inventory) {
     for (const entry of inventory.entries) {
         if (entry.status !== "INSPECTED" || entry.content === undefined)
             continue;
-        if (["documentation", "example", "fixture", "generated", "test"].includes(entry.evidence_class))
+        if (classifyEvidencePath(entry.path).evidence_class !== "schema")
             continue;
         const models = [...entry.content.matchAll(/\bmodel\s+([A-Za-z_$][\w$]*)\s*\{([\s\S]*?)\}/gu)];
         for (const model of models) {
@@ -390,12 +491,13 @@ function inferTenancyProfile(inventory) {
     for (const entry of inventory.entries) {
         if (entry.status !== "INSPECTED" || entry.content === undefined)
             continue;
-        if (["documentation", "example", "fixture", "generated", "test"].includes(entry.evidence_class))
+        const evidenceClass = classifyEvidencePath(entry.path).evidence_class;
+        if (!["implementation", "route", "schema"].includes(evidenceClass))
             continue;
         for (const key of candidateKeys) {
             const snake = key.replace(/Id$/u, "_id");
             const pattern = new RegExp(`\\b(?:${key}|${snake})\\b`, "gu");
-            const matches = entry.content.match(pattern) ?? [];
+            const matches = [...entry.content.matchAll(pattern)].filter((match) => !isWeakContext(entry.content, match.index, evidenceClass));
             if (matches.length === 0)
                 continue;
             const current = scores.get(key) ?? { score: 0, evidence: [], models: new Set() };
@@ -408,7 +510,7 @@ function inferTenancyProfile(inventory) {
             }
             else {
                 current.score += Math.min(3, matches.length);
-                if (new RegExp(`(?:session\\.user|auth\\.user|req\\.(?:session\\.user|auth|user))\\.${key}`, "u").test(entry.content))
+                if (hasActiveContentMatch(new RegExp(`(?:session\\.user|auth\\.user|req\\.(?:session\\.user|auth|user))\\.${key}`, "u"), entry.content, evidenceClass))
                     current.score += 3;
             }
             current.evidence.push(`${entry.path}: observed ${key} ownership/session evidence`);
@@ -607,9 +709,9 @@ function deduplicateDetections(detections) {
     }
     return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
-async function buildStructuredProfile(root, files, capabilities, contentByFile) {
-    const relativeFiles = files.map((file) => toPosix(relative(root, file)));
-    const manifests = loadPackageManifests(root, files, contentByFile);
+async function buildStructuredProfile(root, files, capabilities, contentByFile, allFiles = files, manifestFiles = files) {
+    const relativeFiles = allFiles.map((file) => toPosix(relative(root, file)));
+    const manifests = loadPackageManifests(root, manifestFiles, contentByFile);
     const repositoryName = manifests.find((manifest) => manifest.path === "package.json")?.name ?? basename(root);
     // `.git` is excluded from the walked file set, so it can never appear in `relativeFiles`.
     // Ask Git directly instead of testing a path that is guaranteed absent.
@@ -640,18 +742,20 @@ async function buildStructuredProfile(root, files, capabilities, contentByFile) 
                 : [manifest.path, declaration]
         });
     });
-    const applications = manifests.map((manifest) => applicationRecord(manifest));
+    const applications = manifests
+        .filter((manifest) => manifest.directory === "." || declaredWorkspaces.has(manifest.directory))
+        .map((manifest) => applicationRecord(manifest));
     const languages = languageRecords(root, files);
     const frameworks = contentRecords(root, files, contentByFile, [
         ["Next.js", "frontend-framework", /["']next["']\s*:/u],
         ["React", "frontend-framework", /["']react["']\s*:/u],
         ["Vue", "frontend-framework", /["']vue["']\s*:/u],
         ["Svelte", "frontend-framework", /["']svelte["']\s*:/u],
-        ["Express", "backend-framework", /["']express["']\s*:/u],
+        ["Express", "backend-framework", /(?:from\s+|require\s*\(\s*)["']express["']\s*\)?/u],
         ["FastAPI", "backend-framework", /(?:from|import)\s+fastapi/u],
-        ["Django", "backend-framework", /(?:from|import)\s+django|\bDjango\b|["']django["']\s*:/u],
+        ["Django", "backend-framework", /(?:from\s+django(?:\.|\s+import\b)|import\s+django\b)/u],
         ["WebSocket", "realtime-framework", /\b(?:WebSocket|socket\.io|EventSource)\b/u]
-    ]);
+    ], false, ["implementation", "route"]);
     const packageManagers = packageManagerRecords(relativeFiles);
     const databases = capabilityRecords(capabilities, [["database", "database"]]);
     const orms = contentRecords(root, files, contentByFile, [
@@ -773,6 +877,24 @@ async function buildStructuredProfile(root, files, capabilities, contentByFile) 
         critical_workflows: criticalWorkflows
     };
 }
+/**
+ * Treats the nearest nested package boundary as active only when the root project declares it.
+ * Repositories without a root package manifest keep their nested packages, because no parent
+ * workspace contract exists against which those roots could be undeclared.
+ */
+function capabilityPathPredicate(manifests, declaredWorkspaces) {
+    if (!manifests.some((manifest) => manifest.path === "package.json"))
+        return () => true;
+    const nestedRoots = manifests
+        .filter((manifest) => manifest.directory !== ".")
+        .map((manifest) => manifest.directory)
+        .sort((left, right) => right.length - left.length || left.localeCompare(right));
+    return (path) => {
+        const normalized = toPosix(path).replace(/^\.\//u, "");
+        const nearest = nestedRoots.find((root) => normalized === root || normalized.startsWith(`${root}/`));
+        return nearest === undefined || declaredWorkspaces.has(nearest);
+    };
+}
 async function isInsideGitWorkTree(root) {
     try {
         const result = await runFile("git", ["rev-parse", "--is-inside-work-tree"], root, 10_000);
@@ -799,11 +921,16 @@ function loadDeclaredWorkspaces(root, manifests, contentByFile) {
             : [];
     for (const pattern of rootPatterns)
         if (typeof pattern === "string")
-            patterns.push({ pattern, evidence: "package.json workspaces" });
+            patterns.push({ pattern, evidence: "package.json workspaces", include: true });
     const pnpm = contentByFile.get(join(root, "pnpm-workspace.yaml"));
     if (pnpm !== undefined) {
-        for (const match of pnpm.matchAll(/^\s*-\s*["']?([^"'\n#]+?)["']?\s*$/gmu))
-            patterns.push({ pattern: (match[1] ?? "").trim(), evidence: "pnpm-workspace.yaml" });
+        for (const match of pnpm.matchAll(/^\s*-\s*["']?([^"'\n#]+?)["']?\s*$/gmu)) {
+            const raw = (match[1] ?? "").trim();
+            const include = !raw.startsWith("!");
+            const pattern = include ? raw : raw.slice(1);
+            if (pattern.length > 0)
+                patterns.push({ pattern, evidence: "pnpm-workspace.yaml", include });
+        }
     }
     for (const [file, key] of [
         ["lerna.json", "packages"],
@@ -818,13 +945,14 @@ function loadDeclaredWorkspaces(root, manifests, contentByFile) {
             if (!isRecord(parsed))
                 continue;
             const values = parsed[key];
-            if (Array.isArray(values))
+            if (Array.isArray(values)) {
                 for (const value of values)
                     if (typeof value === "string")
-                        patterns.push({ pattern: value, evidence: file });
-                    else if (isRecord(values))
-                        for (const value of Object.keys(values))
-                            patterns.push({ pattern: value, evidence: file });
+                        patterns.push({ pattern: value, evidence: file, include: true });
+            }
+            else if (isRecord(values))
+                for (const value of Object.keys(values))
+                    patterns.push({ pattern: value, evidence: file, include: true });
         }
         catch {
             // A malformed workspace declaration is evidence for other analyzers, not a crash here.
@@ -833,12 +961,14 @@ function loadDeclaredWorkspaces(root, manifests, contentByFile) {
     for (const manifest of manifests) {
         if (manifest.directory === ".")
             continue;
-        for (const { pattern, evidence } of patterns) {
+        let matchedEvidence;
+        for (const { pattern, evidence, include } of patterns) {
             if (matchesWorkspacePattern(manifest.directory, pattern)) {
-                declared.set(manifest.directory, `declared by ${evidence} pattern '${pattern}'`);
-                break;
+                matchedEvidence = include ? `declared by ${evidence} pattern '${pattern}'` : undefined;
             }
         }
+        if (matchedEvidence !== undefined)
+            declared.set(manifest.directory, matchedEvidence);
     }
     return declared;
 }
@@ -915,6 +1045,10 @@ function languageRecords(root, files) {
         ".jsx": "JavaScript",
         ".mjs": "JavaScript",
         ".cjs": "JavaScript",
+        ".c": "C",
+        ".cc": "C++",
+        ".cpp": "C++",
+        ".cxx": "C++",
         ".py": "Python",
         ".go": "Go",
         ".rs": "Rust",
@@ -957,15 +1091,21 @@ function packageManagerRecords(files) {
         ? [record(name, "package-manager", { confidence: "HIGH", evidence: [path] })]
         : []);
 }
-function contentRecords(root, files, contentByFile, patterns, matchPath = false) {
+function contentRecords(root, files, contentByFile, patterns, matchPath = false, evidenceClasses) {
     const output = [];
     for (const [name, type, pattern] of patterns) {
         const evidence = [];
         for (const file of files) {
             const path = toPosix(relative(root, file));
+            const evidenceClass = classifyEvidencePath(path).evidence_class;
+            if (!matchPath && evidenceClasses !== undefined && !evidenceClasses.includes(evidenceClass))
+                continue;
             const content = matchPath ? path : contentByFile.get(file);
-            pattern.lastIndex = 0;
-            if (content !== undefined && pattern.test(content) && evidence.length < 12)
+            const matched = content !== undefined &&
+                (matchPath
+                    ? new RegExp(pattern.source, pattern.flags.replace(/g/gu, "")).test(content)
+                    : hasActiveContentMatch(pattern, content, evidenceClass));
+            if (matched && evidence.length < 12)
                 evidence.push(path);
         }
         if (evidence.length > 0)
@@ -981,10 +1121,12 @@ function detectNamedValues(root, files, contentByFile, type, pattern) {
             continue;
         pattern.lastIndex = 0;
         for (const match of content.matchAll(pattern)) {
+            const path = toPosix(relative(root, file));
+            if (isWeakContext(content, match.index, classifyEvidencePath(path).evidence_class))
+                continue;
             const name = match[1];
             if (name === undefined)
                 continue;
-            const path = toPosix(relative(root, file));
             const current = values.get(name) ?? [];
             if (!current.includes(path))
                 current.push(path);
@@ -1002,9 +1144,11 @@ function routeRecords(root, files, contentByFile) {
             continue;
         pattern.lastIndex = 0;
         for (const match of content.matchAll(pattern)) {
+            const path = toPosix(relative(root, file));
+            if (isWeakContext(content, match.index, classifyEvidencePath(path).evidence_class))
+                continue;
             const method = match[1]?.toUpperCase() ?? "ROUTE";
             const route = match[2] ?? "unknown";
-            const path = toPosix(relative(root, file));
             const afterDeclaration = content.slice(match.index + match[0].length);
             const nextRoute = afterDeclaration.search(/\b(?:app|router)\.(?:get|post|put|patch|delete|use)\s*\(/u);
             const contextEnd = nextRoute === -1
@@ -1012,9 +1156,9 @@ function routeRecords(root, files, contentByFile) {
                 : match.index + match[0].length + nextRoute;
             const context = content.slice(match.index, contextEnd);
             let visibility = "unknown";
-            if (/\b(?:requireRole\s*\(\s*["']admin|isAdmin|role\s*===?\s*["']admin)/iu.test(context))
+            if (hasActiveContentMatch(/\b(?:requireRole\s*\(\s*["']admin|isAdmin|role\s*===?\s*["']admin)/iu, context, classifyEvidencePath(path).evidence_class))
                 visibility = "admin";
-            else if (/\b(?:requireAuth|authenticate|getServerSession|session\.user|auth\.user)/u.test(context))
+            else if (hasActiveContentMatch(/\b(?:requireAuth|authenticate|getServerSession|session\.user|auth\.user)/u, context, classifyEvidencePath(path).evidence_class))
                 visibility = "authenticated";
             // Name-based visibility is an explicit low-confidence heuristic, never proof. A route is
             // not public merely because its path contains "login", "health", or "public".
@@ -1047,6 +1191,16 @@ function routeRecords(root, files, contentByFile) {
     output.push(...frameworkRouteRecords(root, files, contentByFile));
     return output;
 }
+function hasActiveContentMatch(pattern, content, evidenceClass) {
+    return firstActiveContentMatch(pattern, content, evidenceClass) !== undefined;
+}
+function firstActiveContentMatch(pattern, content, evidenceClass) {
+    const global = new RegExp(pattern.source, `${pattern.flags.replace(/g/gu, "")}g`);
+    for (const match of content.matchAll(global))
+        if (!isWeakContext(content, match.index, evidenceClass))
+            return match;
+    return undefined;
+}
 /**
  * Bounded route adapters for frameworks whose routes are not literal Express registrations.
  * Each adapter states which adapter produced the record so coverage is auditable. Middleware
@@ -1060,36 +1214,63 @@ function frameworkRouteRecords(root, files, contentByFile) {
         if (content === undefined)
             continue;
         const path = toPosix(relative(root, file));
+        const evidenceClass = classifyEvidencePath(path).evidence_class;
         // Next.js App Router: app/**/route.ts exporting HTTP method handlers.
-        if (/(?:^|\/)app\/.*\/route\.[cm]?[jt]sx?$/iu.test(path)) {
+        if (/(?:^|\/)app\/(?:.*\/)?route\.[cm]?[jt]sx?$/iu.test(path)) {
             const segment = path
                 .replace(/^.*?(?:^|\/)app\//iu, "/")
                 .replace(/\/route\.[cm]?[jt]sx?$/iu, "")
                 .replace(/\/\((?:[^/]+)\)/gu, "");
-            for (const match of content.matchAll(new RegExp(`export\\s+(?:async\\s+)?function\\s+(${methods})\\b`, "gu")))
+            for (const match of content.matchAll(new RegExp(`export\\s+(?:(?:async\\s+)?function\\s+|const\\s+)(${methods})\\b`, "gu"))) {
+                if (isWeakContext(content, match.index, evidenceClass))
+                    continue;
                 output.push(frameworkRoute(`${match[1]} ${segment || "/"}`, path, content, match.index, "nextjs-app-router"));
+            }
         }
         // Next.js Pages Router: pages/api/**.ts default-exported handler.
-        if (/(?:^|\/)pages\/api\/.*\.[cm]?[jt]sx?$/iu.test(path) && /export\s+default/u.test(content)) {
+        const pagesExport = firstActiveContentMatch(/export\s+default/u, content, evidenceClass);
+        if (/(?:^|\/)pages\/api\/.*\.[cm]?[jt]sx?$/iu.test(path) && pagesExport !== undefined) {
             const segment = path
                 .replace(/^.*?(?:^|\/)pages\//iu, "/")
                 .replace(/\.[cm]?[jt]sx?$/iu, "")
                 .replace(/\/index$/u, "");
-            output.push(frameworkRoute(`ROUTE ${segment || "/"}`, path, content, 0, "nextjs-pages-router"));
+            output.push(frameworkRoute(`ROUTE ${segment || "/"}`, path, content, pagesExport.index, "nextjs-pages-router"));
         }
         // NestJS controller decorators.
-        const controller = /@Controller\s*\(\s*["'`]([^"'`]*)["'`]/u.exec(content);
-        if (controller !== null) {
+        const controller = firstActiveContentMatch(/@Controller\s*\(\s*["'`]([^"'`]*)["'`]/u, content, evidenceClass);
+        if (controller !== undefined) {
             const base = `/${(controller[1] ?? "").replace(/^\/+|\/+$/gu, "")}`;
             for (const match of content.matchAll(/@(Get|Post|Put|Patch|Delete|Head|Options)\s*\(\s*(?:["'`]([^"'`]*)["'`])?\s*\)/gu)) {
+                if (isWeakContext(content, match.index, evidenceClass))
+                    continue;
                 const suffix = (match[2] ?? "").replace(/^\/+/u, "");
                 const route = `${base === "/" ? "" : base}/${suffix}`.replace(/\/+$/u, "") || "/";
                 output.push(frameworkRoute(`${(match[1] ?? "ROUTE").toUpperCase()} ${route}`, path, content, match.index, "nestjs-decorators"));
             }
         }
         // Fastify object-form route registration.
-        for (const match of content.matchAll(/\.route\s*\(\s*\{[^}]*?method\s*:\s*["'`]([A-Za-z]+)["'`][^}]*?url\s*:\s*["'`]([^"'`]+)["'`]/gsu))
+        for (const match of content.matchAll(/\.route\s*\(\s*\{[^}]*?method\s*:\s*["'`]([A-Za-z]+)["'`][^}]*?url\s*:\s*["'`]([^"'`]+)["'`]/gsu)) {
+            if (isWeakContext(content, match.index, evidenceClass))
+                continue;
             output.push(frameworkRoute(`${(match[1] ?? "ROUTE").toUpperCase()} ${match[2] ?? "unknown"}`, path, content, match.index, "fastify-route-object"));
+        }
+    }
+    // Django URLconfs expose request boundaries even though HTTP methods live in the target view.
+    for (const file of files.filter((candidate) => /\.py$/iu.test(candidate))) {
+        const content = contentByFile.get(file);
+        if (content === undefined)
+            continue;
+        const path = toPosix(relative(root, file));
+        if (!/(?:^|\/)urls\.py$/iu.test(path))
+            continue;
+        const evidenceClass = classifyEvidencePath(path).evidence_class;
+        for (const match of content.matchAll(/\b(?:path|re_path)\s*\(\s*r?["']([^"']+)["']/gu)) {
+            if (isWeakContext(content, match.index, evidenceClass))
+                continue;
+            const declared = (match[1] ?? "").replace(/^\^/u, "").replace(/\$$/u, "");
+            const route = `/${declared}`.replace(/\/{2,}/gu, "/") || "/";
+            output.push(frameworkRoute("ROUTE " + route, path, content, match.index, "django-urlconf"));
+        }
     }
     return output;
 }

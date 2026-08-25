@@ -18,6 +18,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         node: [20, 22, 24]
+        include:
+          - os: ubuntu-latest
+            node: "20.19.0"
+          - os: ubuntu-latest
+            node: "22.13.0"
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,20 +43,27 @@ jobs:
       - name: Fail on stale generated output
         run:
           git diff --exit-code -- build/ .fullstack-forge/ THIRD_PARTY_NOTICES.md .agents/ .claude/
-          .cursor/ .gemini/ .github/skills/ .windsurf/
+          .cursor/ .gemini/ .github/skills/ .windsurf/ skills/
       - name: Report test coverage
         run: npm run test:coverage
       - name: Audit locked dependencies
         run: npm audit --ignore-scripts
       - name: Build deterministic platform archives
         run: npm run package:platforms
-      - name: Smoke-install the packed npm artifact
-        run: npm run smoke:install
+      - name: Smoke-install the exact packed npm artifact
+        shell: bash
+        run: |
+          candidate="dist/fullstack-forge-skill-v$(node -p "require('./package.json').version").tgz"
+          node scripts/smoke-install.mjs --package "$candidate"
       - name: Verify development-preview update and uninstall
         run: npm run smoke:upgrade
-      - name: Verify genuine v0.1.0-to-candidate upgrade
+      - name: Verify genuine supported-release upgrades to the exact candidate
         if: matrix.os == 'ubuntu-latest' && matrix.node == 24
-        run: node scripts/upgrade-install.mjs v0.1.0
+        shell: bash
+        run: |
+          candidate="dist/fullstack-forge-skill-v$(node -p "require('./package.json').version").tgz"
+          node scripts/upgrade-install.mjs v0.1.0 --package "$candidate"
+          node scripts/upgrade-install.mjs v0.2.2 --package "$candidate"
       - name: Verify offline installation from bundled assets
         run: npm run offline:install
       - name: Upload release candidates
@@ -61,6 +73,8 @@ jobs:
           name: fullstack-forge-dist
           path: |
             dist/*.zip
+            dist/*.tgz
+            dist/*.spdx.json
             dist/SHA256SUMS.txt
             dist/manifest.json
           if-no-files-found: error

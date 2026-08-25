@@ -156,6 +156,11 @@ for (const testCase of cases) {
       runtimePathFor: (source) =>
         `.fullstack-forge/upstream/${source.provider}/${runtimePathFor(source.path, overlays[source.provider])}`
     });
+    const eagerKeys = new Set(
+      (result.eager ?? []).map(
+        (entry) => `${entry.tier}\u0000${entry.provider}\u0000${entry.skill}`
+      )
+    );
     for (const entry of result.selected) {
       if (entry.tier === "forge-contract") {
         // Baseline cost: the Forge contract and module playbook, which both versions load.
@@ -168,7 +173,8 @@ for (const testCase of cases) {
       active.add(`${entry.provider}/${entry.skill}`);
       const bytes = await sizeOf(entry.runtimePath);
       availableUpstreamBytes += bytes;
-      if (entry.tier === "primary") eagerUpstreamBytes += bytes;
+      if (eagerKeys.has(`${entry.tier}\u0000${entry.provider}\u0000${entry.skill}`))
+        eagerUpstreamBytes += bytes;
     }
     for (const entry of result.suppressed) suppressed.add(`${entry.provider}/${entry.skill}`);
     if (testCase.saturation !== undefined && module === testCase.saturation.module) {

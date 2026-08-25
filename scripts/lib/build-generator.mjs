@@ -82,7 +82,7 @@ export function renderCommandSkill(entry) {
   const body = parts.join("\n");
   return `---
 name: ${entry.name}
-description: ${entry.description}
+description: ${JSON.stringify(entry.description)}
 ---
 
 # ${entry.name}: ${entry.title}

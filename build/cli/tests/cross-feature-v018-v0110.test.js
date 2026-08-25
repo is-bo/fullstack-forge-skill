@@ -66,7 +66,7 @@ test("one workspace proving PRESENT is enough for the whole project", () => {
 test("only a proven-absent capability yields NOT_APPLICABLE downstream", () => {
     const cases = [
         ["ABSENT", "NOT_APPLICABLE"],
-        ["UNKNOWN", "SELECTED"]
+        ["UNKNOWN", "NOT_VERIFIED"]
     ];
     for (const [status, expected] of cases) {
         const decisions = decideModules({
@@ -92,7 +92,7 @@ test("documentation-, test-, fixture- and generated-only signals cannot activate
     assert.ok(decision);
     assert.notEqual(decision.capability_status, "PRESENT");
     assert.notEqual(decision.capability_status, "ABSENT");
-    assert.equal(decisionFindingStatus(decision), "SELECTED");
+    assert.equal(decisionFindingStatus(decision), "NOT_VERIFIED");
 });
 test("a profile without assessments still uses the legacy presence map", () => {
     const legacy = {
@@ -102,19 +102,21 @@ test("a profile without assessments still uses the legacy presence map", () => {
     };
     assert.equal(capabilityStatusFor("auth", legacy).status, "PRESENT");
 });
-test("a capability the evidence layer does not model falls back to the legacy presence map", () => {
-    // `frontend` has no capability rule in the v0.1.10 evidence layer. Treating the resulting
-    // silence as an assessment would report UNKNOWN forever and permanently disable every module
-    // gated on it, so those capabilities must still consult the legacy map.
+test("a modeled capability with no current assessment stays unverified", () => {
+    // Frontend is modeled by the current evidence layer. A legacy presence-map entry must not
+    // silently substitute for a missing current assessment, or an unverified surface could look
+    // proven present.
     assert.equal(MODELED_CAPABILITIES.has("authentication"), true);
-    assert.equal(MODELED_CAPABILITIES.has("frontend"), false);
+    assert.equal(MODELED_CAPABILITIES.has("frontend"), true);
     const withFrontend = {
         root: "/p",
         generated_at: "2026-07-20T00:00:00.000Z",
         capabilities: { frontend: { confidence: "HIGH", evidence: ["src/App.tsx"] } },
         capability_assessments: [assessment("authentication", "PRESENT")]
     };
-    assert.equal(capabilityStatusFor("ui", withFrontend).status, "PRESENT");
-    // The modeled capability still comes from the assessment layer in the same profile.
+    // Frontend is now modeled by the evidence layer. A legacy presence-map entry cannot override
+    // the missing current assessment, because doing so would turn an unverified surface into PASS.
+    assert.equal(capabilityStatusFor("ui", withFrontend).status, "UNKNOWN");
+    // The separately modeled capability still comes from the assessment layer in the same profile.
     assert.equal(capabilityStatusFor("auth", withFrontend).status, "PRESENT");
 });

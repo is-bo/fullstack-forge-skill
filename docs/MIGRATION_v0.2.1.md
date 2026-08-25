@@ -7,8 +7,8 @@ After publication, upgrade with:
 
 ```bash
 npm install --save-dev "https://codeload.github.com/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v0.2.1"
-npx forge update
-npx forge doctor
+npx --no-install forge update
+npx --no-install forge doctor
 ```
 
 Bare `forge update` now touches only hosts recorded in the installation manifest. Use an explicit

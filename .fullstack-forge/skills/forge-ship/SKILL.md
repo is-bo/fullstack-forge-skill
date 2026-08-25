@@ -1,6 +1,6 @@
 ---
 name: forge-ship
-description: Enforce a fail-closed release gate across project checks, findings, generated assets, packages, licenses, and installation. Activate automatically for a candidate release or deployment when that concern is relevant to a software-engineering request.
+description: "Enforce a fail-closed release gate across project checks, findings, generated assets, packages, licenses, and installation."
 ---
 
 # forge-ship: Release readiness
@@ -13,9 +13,10 @@ Enforce a fail-closed release gate across project checks, findings, generated as
 
 
 
-Read `fullstack-forge/references/shared/module-contract.md` (applicability, execution, mutation,
-verification, completion) and `fullstack-forge/references/shared/evidence-rules.md` (statuses,
-standards, tools, findings via `fullstack-forge/references/PROTOCOL.md`) before reporting.
+Resolve and read `../fullstack-forge/references/shared/module-contract.md` (applicability,
+execution, mutation, verification, completion) and
+`../fullstack-forge/references/shared/evidence-rules.md` (statuses, standards, tools, findings via
+`../fullstack-forge/references/PROTOCOL.md`) relative to this module `SKILL.md` before reporting.
 
 Never hide failed checks or claim that an operation ran when it did not.
 

@@ -61,6 +61,11 @@ export const platformTargets = Object.freeze([
     label: "Codex, Antigravity project, and generic Agent Skills",
     path: ".agents/skills"
   },
+  {
+    id: "codex-plugin",
+    label: "Codex plugin bundle (thin adapters)",
+    path: "skills"
+  },
   { id: "claude", label: "Claude Code", path: ".claude/skills" },
   { id: "cursor", label: "Cursor", path: ".cursor/skills" },
   { id: "gemini", label: "Gemini CLI", path: ".gemini/skills" },

@@ -1,0 +1,28 @@
+{
+  "name": "fullstack-forge",
+  "version": "0.3.0",
+  "description": "Production-focused engineering workflows for full-stack coding agents.",
+  "author": {
+    "name": "is-bo",
+    "url": "https://github.com/is-bo"
+  },
+  "homepage": "https://github.com/is-bo/fullstack-forge-skill#readme",
+  "repository": "https://github.com/is-bo/fullstack-forge-skill",
+  "license": "Apache-2.0",
+  "keywords": ["fullstack", "software-engineering", "security", "testing", "agent-skills"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Fullstack Forge",
+    "shortDescription": "Production engineering workflows for full-stack coding agents",
+    "longDescription": "Fullstack Forge coordinates repository discovery, architecture, security, data, APIs, frontend, testing, reliability, performance, and release evidence through the existing Agent Skills adapters.",
+    "developerName": "is-bo",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": [
+      "Review this change for production risks.",
+      "Plan and implement this full-stack feature safely."
+    ],
+    "websiteURL": "https://github.com/is-bo/fullstack-forge-skill",
+    "brandColor": "#2563EB"
+  }
+}

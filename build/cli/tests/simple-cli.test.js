@@ -128,6 +128,7 @@ test("plain fix output distinguishes preview from application", () => {
         changed_files: [],
         blocked_findings: [],
         execution: [],
+        command_ledger: [],
         report_paths: []
     };
     const preview = renderPlainFix(result, false);
@@ -153,6 +154,9 @@ test("install output gives first commands and labels evidence-based agent recomm
     assert.match(recommended, /Cursor: project:\.cursor \(selector 'cursor'\)/u);
     assert.match(recommended, /Forge activates automatically/u);
     assert.match(recommended, /Optional explicit workflows/u);
+    assert.match(recommended, /npx --no-install forge audit security/u);
+    assert.match(recommended, /npx --no-install forge verify/u);
+    assert.doesNotMatch(recommended, /^\s*\/forge\b/mu);
     const noMarkers = renderInstallResult("init", "all", false, true, actions, []);
     assert.match(noMarkers, /no existing agent-specific configuration/u);
     assert.match(noMarkers, /generic Agent Skills host was installed/u);

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "generator": "fullstack-forge",
+  "platform": "runtime",
+  "files": {
+    "cli/package.json": "f69ed17eea98f49ee075f676bae79df9cb779e54d5887b94d94313d34511170c",
+    "cli/src/build-migration-journal.js": "b57b9c48a7186cb1ecfa2bb6563c7719e9a66c92f427f76333b9ee36f7e8dab3",
+    "cli/src/build-producers.js": "cf680c9085acf88f2f4d9a0d5e5eef2f3ddc18ec1912f606b72bd12b7f5a56a9",
+    "cli/src/build-state.js": "742b1bac84141187d28eca6cb0e1f0ffbe70e77b31a483924f8fad14d7e0f86e",
+    "cli/src/composition-entry.js": "11d22eedf1b7877d363a8ddbf2e5c6a8fce6289337232afacf5c93e1822f2b25",
+    "cli/src/composition-runtime.js": "868f40e651ee80cff56665ff7259f7a7104682ba6563c818d574fbccd907291a",
+    "cli/src/composition.js": "c928da040ddc8d14f08c7089cd0e913718f30d2f18cb12a8f868fb0a3a9d5079",
+    "cli/src/constants.js": "ecce0f65418ac22370994dde223da21c3a20a2a799569c129c429380ec04cdfa",
+    "cli/src/dependency-expansion.js": "be0deb09475394a50c7e1c922c9b7c1e8a07d78d6369f396e68723cfa3c86b10",
+    "cli/src/discovery-evidence.js": "4aaf2db4877176133790ccf62eb5d7d247d03c60b417e9844192b0e365fa93b1",
+    "cli/src/discovery.js": "146f33ac071284f9ebccd2423ad97f8fa0b4729eb3f65c3cb7e6b260e4608cf8",
+    "cli/src/evidence-envelope.js": "34655b56763940207bb99919cc5419efe0e20c40bb1f4825f61e7c23fdf5ce79",
+    "cli/src/ledger.js": "fbc3b56937bc741df5d9e3d62aa92a79bb594c5cb95b8ade12add0f91aae11fb",
+    "cli/src/net-policy.js": "932c8fd5a09092d334662db9ce2018753d24c6bcd2d61aa4dbbad5ea51881875",
+    "cli/src/offline-policy.js": "fa68bd6c1117f3a99fce70adcc5effa7f623403d0dbe468c09598cba189ec78a",
+    "cli/src/redaction.js": "53104c2979bf3631805511324c380e983b55ff94aa341ac620663beb5885078e",
+    "cli/src/repository-inventory.js": "3f1080b1a7d38a52877f37a00a3f0ecfffefa47da300dd62ae524112130a1b49",
+    "cli/src/scope.js": "b9564b1d67732a6256a47014e654c6968dec5fec3e1e49782ec6d8f40b36a0f5",
+    "cli/src/types.js": "9e0009a55c950284e3d3987a7002f25f042630d5909b1f41e1764e2001ee4346",
+    "cli/src/utils.js": "6d8cd7b22d51d169cf8dfc7bde7ed395ccc70c614b19f105a43a0994d68b5115",
+    "README.md": "ab9c5a24be410e01db1f3ec1bb5b00c33db3bac7de624e8570d2f9e0fb2b98c8"
+  }
+}

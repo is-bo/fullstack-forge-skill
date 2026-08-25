@@ -4,7 +4,7 @@ Start with ordinary language. You do not need to choose a slug, risk tier, engin
 evidence format.
 
 ```bash
-npx forge build "add appointment reminders"
+npx --no-install forge build "add appointment reminders"
 ```
 
 Forge records the original request, derives a safe feature ID, discovers relevant project signals,
@@ -14,7 +14,7 @@ sensitive signals still raise the risk tier; simple wording never lowers a gate.
 Continue the only unfinished feature with:
 
 ```bash
-npx forge continue
+npx --no-install forge continue
 ```
 
 If several features are unfinished, an interactive terminal asks which one to continue. A
@@ -28,5 +28,5 @@ Build phases are guidance plus enforced checks. A frame or plan is not proof. Co
 requires current evidence from registered producers, and Build evidence can never approve
 `forge ship`.
 
-Use `npx forge status` at any time. Expert users can still use `forge new`,
+Use `npx --no-install forge status` at any time. Expert users can still use `forge new`,
 `forge feature <slug> ...`, `forge resume`, and `forge migrate build`.

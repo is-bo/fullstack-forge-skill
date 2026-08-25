@@ -1,0 +1,10 @@
+interface:
+  display_name: "Fullstack Forge — Agent-first Engineering"
+  short_description: "Automatic production engineering for app changes"
+  icon_small: "./assets/fullstack-forge-icon.png"
+  icon_large: "./assets/fullstack-forge-icon.png"
+  brand_color: "#2563EB"
+  default_prompt:
+    "Use $fullstack-forge automatically for software-engineering work in this repository. Apply the
+    proportional agent-first workflow and relevant specialist playbooks; explicit Forge commands are
+    optional."

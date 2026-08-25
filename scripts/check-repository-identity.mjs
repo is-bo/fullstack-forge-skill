@@ -47,16 +47,17 @@ for (const required of [
   if (!readme.includes(required))
     errors.push(`README.md is missing canonical identity: ${required}`);
 }
-const canonicalInstallPattern = new RegExp(
-  `npm install --save-dev "https://codeload\\.github\\.com/${repository}/tar\\.gz/refs/tags/v\\d+\\.\\d+\\.\\d+"`,
-  "u"
-);
-if (!canonicalInstallPattern.test(readme))
-  errors.push("README.md is missing a versioned canonical repository installation example");
+const currentTag = `v${packageJson.version}`;
+const currentPackageArtifact = `fullstack-forge-skill-${currentTag}.tgz`;
+const currentInstall = `npm install --save-dev "https://github.com/${repository}/releases/download/${currentTag}/${currentPackageArtifact}"`;
+if (!readme.includes(currentInstall))
+  errors.push("README.md is missing the exact current-version GitHub Release package install");
 
 const gettingStarted = await readFile(join(projectRoot, "docs", "GETTING_STARTED.md"), "utf8");
-if (!canonicalInstallPattern.test(gettingStarted))
-  errors.push("Getting started installation example is not canonical");
+if (!gettingStarted.includes(currentInstall))
+  errors.push(
+    "Getting started is missing the exact current-version GitHub Release package install"
+  );
 
 const releaseWorkflow = await readFile(
   join(projectRoot, ".github", "workflows", "release.yml"),
@@ -70,6 +71,7 @@ if (!releaseWorkflow.includes("GITHUB_REPOSITORY"))
 const generatedPrefixes = [
   ".fullstack-forge/skills/",
   ".agents/skills/",
+  "skills/",
   ".claude/skills/",
   ".cursor/skills/",
   ".gemini/skills/",

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "experts": [
+    {
+      "id": "taste",
+      "displayName": "Taste",
+      "repository": "https://github.com/Leonxlnx/taste-skill",
+      "revision": "e988add20dab0fa97d7a76781c48961c8184288e",
+      "skillPath": "skills/taste-skill/SKILL.md",
+      "sha256": "aa194351b246b8b4799099d4ed7b033d29eab6e6e3d58d8d2172978be7b3ec89",
+      "license": "MIT",
+      "classification": "OPTIONAL_EXTERNAL",
+      "activation": "EXPLICIT_ONLY",
+      "authority": "ADVISORY",
+      "bundled": false,
+      "modules": ["frontend", "ui", "ux"],
+      "constraints": [
+        "Use only after the user explicitly requests Taste and the host exposes a separately installed, revision- or hash-verified copy.",
+        "Load the upstream skill without paraphrasing or merging its full text into Forge.",
+        "Run it as an isolated advisory comparison; it cannot authorize edits, dependency installation, network access, image generation, or completion claims.",
+        "Repository evidence, established brand and design-system constraints, accessibility, measured performance, and Forge verification retain precedence."
+      ]
+    }
+  ]
+}

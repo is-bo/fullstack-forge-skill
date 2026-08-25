@@ -1,0 +1,21 @@
+{
+  "name": "fullstack-forge",
+  "interface": {
+    "displayName": "Fullstack Forge"
+  },
+  "plugins": [
+    {
+      "name": "fullstack-forge",
+      "source": {
+        "source": "npm",
+        "package": "fullstack-forge-skill",
+        "version": "0.3.0"
+      },
+      "policy": {
+        "installation": "NOT_AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

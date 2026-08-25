@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { PACKAGE_ROOT } from "../src/constants.js";
@@ -41,5 +41,26 @@ test("repository walks never ingest private local audit state", async () => {
         }
         const files = await walkFiles(root);
         assert.deepEqual(files.map((path) => path.slice(root.length + 1)), ["app.ts"]);
+    });
+});
+test("bundled-source walks can fail closed on symlinked roots and entries", async (context) => {
+    await withTemporaryProject("walk-symlink", async (root) => {
+        const outside = join(root, "outside");
+        const linked = join(root, "linked");
+        await mkdir(outside);
+        await writeFile(join(outside, "payload.txt"), "payload\n", "utf8");
+        try {
+            await symlink(outside, linked, process.platform === "win32" ? "junction" : "dir");
+        }
+        catch (error) {
+            const code = error.code;
+            if (["EACCES", "EPERM", "ENOTSUP"].includes(code ?? "")) {
+                context.skip(`symlinks unavailable: ${code}`);
+                return;
+            }
+            throw error;
+        }
+        await assert.rejects(walkFiles(root, { rejectSymlinks: true }), /refused a symlink/u);
+        await assert.rejects(walkFiles(linked, { rejectSymlinks: true }), /refused a symlinked root/u);
     });
 });

@@ -33,13 +33,21 @@ test("renderCommandSkill is a pure, deterministic function", () => {
   assert.equal(first, second);
   assert.match(
     first,
-    /^---\nname: forge-sample\ndescription: Sample build command for testing\.\n---\n/u
+    /^---\nname: forge-sample\ndescription: "Sample build command for testing\."\n---\n/u
   );
   for (const heading of buildRequiredHeadings) assert.ok(first.includes(heading), heading);
   assert.ok(
     first.includes("Never hide failed checks or claim that an operation ran when it did not."),
     "completion contract trailer sentence must be present"
   );
+});
+
+test("renderCommandSkill emits a YAML-safe description scalar", () => {
+  const rendered = renderCommandSkill({
+    ...sampleEntry,
+    description: "Routes work safely: build, verify, and ship."
+  });
+  assert.match(rendered, /description: "Routes work safely: build, verify, and ship\."/u);
 });
 
 test("validateCommandCatalog rejects a catalog out of order or with the wrong name set", () => {

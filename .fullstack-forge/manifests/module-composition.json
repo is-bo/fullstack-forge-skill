@@ -6,6 +6,12 @@
     "maxOverlays": 2,
     "maxSupplemental": 3
   },
+  "workflowContracts": {
+    "audit": "references/workflows/audit.md",
+    "fix": "references/workflows/fix.md",
+    "verify": "references/workflows/verify.md",
+    "ship": "references/workflows/ship.md"
+  },
   "modes": {
     "forge-native": "Forge owns the whole workflow and takes no upstream primary; evidence-gated overlays or supplemental references may add specialist depth.",
     "hybrid": "Forge contract drives while evidence-gated upstream primary procedures, overlays, or supplemental references add specialist depth.",
@@ -26,6 +32,9 @@
           "skill": "source-driven-development",
           "path": "skills/source-driven-development/SKILL.md",
           "role": "methodology",
+          "workflows": [
+            "build"
+          ],
           "when": {
             "always": true
           }
@@ -91,6 +100,9 @@
           "skill": "planning-and-task-breakdown",
           "path": "skills/planning-and-task-breakdown/SKILL.md",
           "sequence": 4,
+          "workflows": [
+            "build"
+          ],
           "when": {
             "always": true
           }
@@ -174,6 +186,9 @@
           "provider": "addy-agent-skills",
           "skill": "planning-and-task-breakdown",
           "path": "skills/planning-and-task-breakdown/SKILL.md",
+          "workflows": [
+            "build"
+          ],
           "when": {
             "always": true
           }
@@ -268,6 +283,11 @@
           "provider": "addy-agent-skills",
           "skill": "code-simplification",
           "path": "skills/code-simplification/SKILL.md",
+          "workflows": [
+            "build",
+            "fix",
+            "verify"
+          ],
           "when": {
             "always": true
           }
@@ -276,6 +296,10 @@
           "provider": "addy-agent-skills",
           "skill": "git-workflow-and-versioning",
           "path": "skills/git-workflow-and-versioning/SKILL.md",
+          "workflows": [
+            "build",
+            "ship"
+          ],
           "when": {
             "always": true
           }
@@ -811,7 +835,10 @@
       "dependsOn": [
         "authorization",
         "security",
-        "docs"
+        "docs",
+        "testing",
+        "reliability",
+        "observability"
       ],
       "outputClassification": "finding",
       "forgeAuthority": [
@@ -944,6 +971,9 @@
           "provider": "addy-agent-skills",
           "skill": "source-driven-development",
           "path": "skills/source-driven-development/SKILL.md",
+          "workflows": [
+            "build"
+          ],
           "when": {
             "always": true
           }
@@ -1045,7 +1075,11 @@
       "dependsOn": [
         "authorization",
         "security",
-        "privacy"
+        "privacy",
+        "api",
+        "database",
+        "frontend",
+        "testing"
       ],
       "outputClassification": "finding",
       "forgeAuthority": [
@@ -1607,7 +1641,11 @@
       "dependsOn": [
         "queries",
         "tenancy",
-        "recovery"
+        "recovery",
+        "performance",
+        "security",
+        "architecture",
+        "api"
       ],
       "outputClassification": "finding",
       "contextBudget": {
@@ -1917,6 +1955,11 @@
           "provider": "addy-agent-skills",
           "skill": "testing-patterns",
           "path": "references/testing-patterns.md",
+          "workflows": [
+            "build",
+            "audit",
+            "verify"
+          ],
           "when": {
             "always": true
           }
@@ -1925,6 +1968,11 @@
           "provider": "wshobson-agents",
           "skill": "e2e-testing-patterns",
           "path": "plugins/developer-essentials/skills/e2e-testing-patterns/SKILL.md",
+          "workflows": [
+            "build",
+            "audit",
+            "verify"
+          ],
           "when": {
             "riskSurfaces": [
               "frontend"
@@ -2777,6 +2825,10 @@
           "provider": "addy-agent-skills",
           "skill": "shipping-and-launch",
           "path": "skills/shipping-and-launch/SKILL.md",
+          "workflows": [
+            "build",
+            "ship"
+          ],
           "when": {
             "always": true
           }
@@ -3012,6 +3064,10 @@
           "provider": "addy-agent-skills",
           "skill": "shipping-and-launch",
           "path": "skills/shipping-and-launch/SKILL.md",
+          "workflows": [
+            "build",
+            "ship"
+          ],
           "when": {
             "always": true
           }
@@ -3020,6 +3076,10 @@
           "provider": "addy-agent-skills",
           "skill": "git-workflow-and-versioning",
           "path": "skills/git-workflow-and-versioning/SKILL.md",
+          "workflows": [
+            "build",
+            "ship"
+          ],
           "when": {
             "always": true
           }
@@ -4065,6 +4125,10 @@
           "provider": "addy-agent-skills",
           "skill": "shipping-and-launch",
           "path": "skills/shipping-and-launch/SKILL.md",
+          "workflows": [
+            "build",
+            "ship"
+          ],
           "when": {
             "always": true
           }
@@ -4081,6 +4145,10 @@
           "provider": "addy-agent-skills",
           "skill": "git-workflow-and-versioning",
           "path": "skills/git-workflow-and-versioning/SKILL.md",
+          "workflows": [
+            "build",
+            "ship"
+          ],
           "when": {
             "always": true
           }
@@ -4089,6 +4157,10 @@
           "provider": "addy-agent-skills",
           "skill": "definition-of-done",
           "path": "references/definition-of-done.md",
+          "workflows": [
+            "build",
+            "ship"
+          ],
           "when": {
             "always": true
           }

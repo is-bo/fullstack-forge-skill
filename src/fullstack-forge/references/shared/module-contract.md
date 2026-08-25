@@ -44,8 +44,9 @@ by themselves prove production, provider, human-policy, or unsupported framework
 ## Composed specialist expertise
 
 Specialist procedure for a module is composed by Forge, never announced by an upstream skill. The
-Forge module contract always loads first; a primary upstream workflow and any evidence-gated
-provider overlay load after it and never override it.
+Forge workflow contract always loads first; a build brief is selected only for Build intent. A
+primary upstream workflow and any evidence-gated provider overlay load after it and never override
+the active contract.
 
 - `fullstack-forge/references/shared/composition-precedence.md` — the load order, the nine-level
   conflict precedence, and what vendored content may never do.

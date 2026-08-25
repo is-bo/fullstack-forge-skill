@@ -7,8 +7,8 @@ After v0.2.2 is published, upgrade with:
 
 ```bash
 npm install --save-dev "https://codeload.github.com/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v0.2.2"
-npx forge update
-npx forge doctor
+npx --no-install forge update
+npx --no-install forge doctor
 ```
 
 The behavioral migration is unchanged from v0.2.1: deterministic composition runs in production,

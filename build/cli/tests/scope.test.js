@@ -46,6 +46,64 @@ test("changed database schema includes migrations, queries, dependent applicatio
         assert.ok(scope.modules.has("queries"));
     });
 });
+test("changed React source includes frontend, UI, UX, and accessibility modules", async () => {
+    await withGitProject("scope-react", async (root) => {
+        await writeFile(join(root, "apps", "one", "App.tsx"), "export function App() { return <main><button>Save</button></main>; }\n", "utf8");
+        const scope = await analyzeChangedScope(root, await discoverProject(root), "main");
+        for (const section of ["frontend", "ui", "ux", "accessibility"])
+            assert.ok(scope.modules.has(section), `expected ${section} for changed React source`);
+        assert.ok(scope.evidence.affected_modules
+            .find((module) => module.section === "frontend")
+            ?.reasons.some((reason) => reason.includes("apps/one/App.tsx")));
+    });
+});
+test("changed generic server source includes API from local discovery evidence", async () => {
+    await withGitProject("scope-server", async (root) => {
+        await writeFile(join(root, "apps", "one", "server.ts"), "const app = express();\napp.get('/health', (_request, response) => response.send('ok'));\n", "utf8");
+        const scope = await analyzeChangedScope(root, await discoverProject(root), "main");
+        assert.ok(scope.modules.has("api"));
+        assert.ok(scope.evidence.affected_modules
+            .find((module) => module.section === "api")
+            ?.reasons.some((reason) => reason.includes("apps/one/server.ts")));
+    });
+});
+test("changed generic service source includes payments from local Stripe evidence", async () => {
+    await withGitProject("scope-payments", async (root) => {
+        await writeFile(join(root, "apps", "one", "service.ts"), "export async function checkout() { return stripe.checkout.sessions.create({ mode: 'payment' }); }\n", "utf8");
+        const scope = await analyzeChangedScope(root, await discoverProject(root), "main");
+        assert.ok(scope.modules.has("payments"));
+        assert.ok(scope.evidence.affected_modules
+            .find((module) => module.section === "payments")
+            ?.reasons.some((reason) => reason.includes("apps/one/service.ts")));
+    });
+});
+test("generic filenames containing ai or model do not activate the AI module", async () => {
+    await withGitProject("scope-ai-boundaries", async (root) => {
+        for (const name of ["main.ts", "email.ts", "details.ts", "model.ts"])
+            await writeFile(join(root, "apps", "one", name), "export const value = true;\n", "utf8");
+        const scope = await analyzeChangedScope(root, await discoverProject(root), "main");
+        assert.equal(scope.modules.has("ai"), false);
+    });
+});
+test("an exact AI path token remains a bounded changed-scope fallback", async () => {
+    await withGitProject("scope-ai-token", async (root) => {
+        await mkdir(join(root, "apps", "one", "ai"), { recursive: true });
+        await writeFile(join(root, "apps", "one", "ai", "client.ts"), "export const client = {};\n", "utf8");
+        const scope = await analyzeChangedScope(root, await discoverProject(root), "main");
+        assert.ok(scope.modules.has("ai"));
+        assert.ok(scope.evidence.affected_modules
+            .find((module) => module.section === "ai")
+            ?.reasons.some((reason) => reason.includes("bounded path token 'ai'")));
+    });
+});
+test("capability evidence from an unaffected workspace does not expand changed modules", async () => {
+    await withGitProject("scope-workspace-local", async (root) => {
+        await writeFile(join(root, "apps", "one", "service.ts"), "export const changedService = true;\n", "utf8");
+        const scope = await analyzeChangedScope(root, await discoverProject(root), "main");
+        for (const section of ["frontend", "ui", "ux", "accessibility"])
+            assert.equal(scope.modules.has(section), false, `${section} evidence from apps/two must not leak into apps/one`);
+    });
+});
 test("renames and deletions are recorded without unsafe path expansion", async () => {
     await withGitProject("scope-rename", async (root) => {
         await git(root, ["mv", "apps/one/old.ts", "apps/one/new.ts"]);

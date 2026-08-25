@@ -21,19 +21,20 @@ test("historical upgrade fixtures reject mutable or malformed release references
     assert.throws(() => publicReleaseArchive(tag), /stable semantic version/u);
 });
 
-test("documented current-release installs use the same public archive transport", async () => {
-  const documented = ["README.md", "docs/GETTING_STARTED.md", "docs/MIGRATION_v0.2.2.md"];
+test("documented candidate installs use the exact future release artifact", async () => {
+  const documented = ["README.md", "docs/GETTING_STARTED.md", "docs/MIGRATION_v0.3.0.md"];
   for (const relativePath of documented) {
     const content = await readFile(join(projectRoot, relativePath), "utf8");
     assert.match(
       content,
-      /https:\/\/codeload\.github\.com\/is-bo\/fullstack-forge-skill\/tar\.gz\/refs\/tags\/v0\.2\.2/u,
+      /https:\/\/github\.com\/is-bo\/fullstack-forge-skill\/releases\/download\/v0\.3\.0\/fullstack-forge-skill-v0\.3\.0\.tgz/u,
       relativePath
     );
     assert.doesNotMatch(
       content,
-      /git\+https:\/\/github\.com\/is-bo\/fullstack-forge-skill\.git#v0\.2\.2/u,
+      /https:\/\/codeload\.github\.com\/is-bo\/fullstack-forge-skill\/tar\.gz\/refs\/tags\/v0\.3\.0/u,
       relativePath
     );
+    assert.match(content, /NOT YET AVAILABLE.*v0\.3\.0 GitHub Release/iu, relativePath);
   }
 });

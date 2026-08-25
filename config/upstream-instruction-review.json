@@ -1,5 +1,5 @@
 {
-  "$comment": "Reviewed dangerous-instruction findings in vendored upstream content. `npm run upstream:verify` fails when a hard-deny rule matches a vendored file that is not acknowledged here, so newly imported content cannot introduce an unreviewed instruction. Acknowledging a finding records why it cannot subvert a Forge contract; it does not grant the instruction any authority. Vendored Markdown is inert reference text and Forge ships no upstream executable runtime.",
+  "$comment": "Reviewed dangerous-instruction findings in vendored upstream content. `node scripts/upstream-verify.mjs` fails when a hard-deny rule matches a vendored file that is not acknowledged here, so newly imported content cannot introduce an unreviewed instruction. Acknowledging a finding records why it cannot subvert a Forge contract; it does not grant the instruction any authority. Vendored Markdown is inert reference text and Forge ships no upstream executable runtime.",
   "acknowledged": [
     {
       "provider": "addy-agent-skills",

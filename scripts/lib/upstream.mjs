@@ -202,8 +202,8 @@ export function screenFile({ path, buffer, provider, documentFileExtensions }) {
 /**
  * Instructions that would let vendored guidance step outside Forge's approval boundaries. A hit is
  * not automatically fatal — plenty of legitimate guidance discusses deploying or publishing — so
- * this returns findings for the maintainer's review record rather than throwing. `upstream:verify`
- * fails only on the categories that can never be advisory, which `HARD_DENY` marks.
+ * this returns findings for the maintainer's review record rather than throwing. The upstream
+ * verifier fails only on the categories that can never be advisory, which `HARD_DENY` marks.
  */
 export const DANGEROUS_INSTRUCTION_RULES = Object.freeze([
   {

@@ -1,6 +1,6 @@
 ---
 name: forge-discover
-description: Build an evidence-backed application profile and architecture map before any specialized audit begins. Activate automatically for every repository audit when that concern is relevant to a software-engineering request.
+description: "Build an evidence-backed application profile and architecture map before any specialized audit begins."
 ---
 
 # forge-discover: Project discovery
@@ -13,9 +13,10 @@ Build an evidence-backed application profile and architecture map before any spe
 
 
 
-Read `fullstack-forge/references/shared/module-contract.md` (applicability, execution, mutation,
-verification, completion) and `fullstack-forge/references/shared/evidence-rules.md` (statuses,
-standards, tools, findings via `fullstack-forge/references/PROTOCOL.md`) before reporting.
+Resolve and read `../fullstack-forge/references/shared/module-contract.md` (applicability,
+execution, mutation, verification, completion) and
+`../fullstack-forge/references/shared/evidence-rules.md` (statuses, standards, tools, findings via
+`../fullstack-forge/references/PROTOCOL.md`) relative to this module `SKILL.md` before reporting.
 
 Never hide failed checks or claim that an operation ran when it did not.
 

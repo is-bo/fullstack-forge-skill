@@ -23,21 +23,70 @@ projects, but you never install, invoke, update, or need to understand any of th
 Requires Node.js 20.19+, 22.13+, or 24+.
 
 Use the newest immutable release shown on the
-[GitHub Releases page](https://github.com/is-bo/fullstack-forge-skill/releases). If v0.2.2 is
-published there, install it with:
+[GitHub Releases page](https://github.com/is-bo/fullstack-forge-skill/releases). v0.2.2 is the
+current supported public release:
 
 ```bash
 npm install --save-dev "https://codeload.github.com/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v0.2.2"
-npx forge init
-npx forge doctor
+npx --no-install forge init
+npx --no-install forge doctor
 ```
 
-Until that release exists, v0.1.0 remains the supported public release. Do not install the
-unpublished historical v0.2.0 tag.
+This source tree is the v0.3.0 candidate. Only after its immutable GitHub Release exists, install
+the exact release package with:
+
+```bash
+# NOT YET AVAILABLE — use only after the v0.3.0 GitHub Release is observed
+npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz"
+npx --no-install forge update all
+npx --no-install forge doctor
+```
+
+Do not install the unpublished historical v0.2.0 or v0.2.1 tags.
 
 Restart or reopen your AI coding agent only if it does not refresh installed project skills
 automatically. `forge init` installs skills and ownership-managed project instructions for detected
 hosts; use `forge init all` only when you intentionally want every bundled platform.
+
+### Codex plugin distribution
+
+The repository also carries a Codex plugin manifest and repo marketplace. The marketplace is
+fail-closed as `NOT_AVAILABLE` while its pinned `fullstack-forge-skill` npm package is unpublished.
+The plugin's `skills/` root contains generated thin adapters; the generic `.agents/skills/` host
+root remains available in the same package, and both point at the one canonical
+`.fullstack-forge/skills/` playbook tree. Full playbooks are never duplicated into the plugin
+adapter root. After the matching version is published to npm, its registry artifact is verified, and
+the marketplace policy is changed to `AVAILABLE`, register and install it with the current Codex CLI
+commands:
+
+```bash
+codex plugin marketplace add https://github.com/is-bo/fullstack-forge-skill
+codex plugin add fullstack-forge@fullstack-forge
+```
+
+A plugin-only install does not add a `forge` executable to the target repository. Use the installed
+agent skills and their package-cache composition runner. If you also want the terminal CLI, install
+the exact Fullstack Forge release package in the project and use `npx --no-install forge ...`; never
+run bare `npx forge` from a plugin-only project because the public npm package named `forge` is a
+different product.
+
+After a verified catalog version change, refresh and reinstall explicitly:
+
+```bash
+codex plugin marketplace upgrade fullstack-forge
+codex plugin remove fullstack-forge@fullstack-forge
+codex plugin add fullstack-forge@fullstack-forge
+```
+
+To uninstall the plugin, run `codex plugin remove fullstack-forge@fullstack-forge`. Remove the
+marketplace separately with `codex plugin marketplace remove fullstack-forge` only when you no
+longer want that catalog configured.
+
+The checked-in v0.3.0 marketplace entry is intentionally version-pinned and disabled because the npm
+package is not published. A GitHub Release does not publish it to npm. Verify
+`npm view fullstack-forge-skill@0.3.0 version` before attempting plugin installation; until that
+separate publication and the `AVAILABLE` policy are both observed, use the project installation
+above.
 
 ## How to use it
 
@@ -73,7 +122,7 @@ The installed skill name is `forge`; host syntax differs:
 ```text
 Agent Skills form where supported:  $forge audit cache
 Slash form where the host exposes skills as commands:  /forge audit cache
-Terminal and CI:  npx forge audit cache
+Project-package terminal and CI:  npx --no-install forge audit cache
 ```
 
 The terminal form is the stable executable interface. See
@@ -193,6 +242,20 @@ Installation is manifest-owned, path-contained, and symlink-free. Updates preser
 user-authored instructions; uninstall removes only unchanged Forge-owned content. See
 [getting started](docs/GETTING_STARTED.md) and [platform support](docs/PLATFORM_SUPPORT.md).
 
+OpenCode and Roo Code can consume the generic `.agents/skills/` adapters; Forge does not generate
+new `.opencode/` or `.roo/` roots. Cline support is best-effort through the existing
+`.claude/skills/` adapters while its Skills feature remains experimental; no `.cline/` tree is
+generated or treated as a verified target.
+
+The reviewed ecosystem opportunities and license decisions are tracked in
+[research sources](research/SOURCES.md). Stars are discovery signals only and were captured from
+public repository metadata on 2026-08-10; they are not quality or security guarantees.
+
+Separately installed expert packs can be supplied explicitly as user-managed advisory context; they
+are not bundled or automatically composed by Forge. A host may still activate a separately installed
+pack under that pack's own rules, but its advice cannot satisfy or override Forge evidence and
+safety contracts. See [external experts](docs/EXTERNAL_EXPERTS.md).
+
 ## Evidence and limitations
 
 Forge is not a standalone universal scanner and does not guarantee that an application is
@@ -227,12 +290,13 @@ See [development](docs/DEVELOPMENT.md), [contributing](CONTRIBUTING.md), and
 
 ## Version policy
 
-This source tree is the `v0.2.2` release candidate. It becomes the current supported public release
-only when its immutable GitHub Release is published and verified. `v0.2.0` and `v0.2.1` remain
-fetchable historical tags without GitHub Releases; neither will be moved, rewritten, or republished.
+This source tree is the `v0.3.0` release candidate. `v0.2.2` remains the current supported immutable
+public release until v0.3.0 is published and directly verified. `v0.2.0` and `v0.2.1` remain
+fetchable historical tags without GitHub Releases; none of those tags will be moved or rewritten.
+The npm package remains unpublished.
 
 Preparing to test the candidate after publication? See
-[the v0.2.2 migration notes](docs/MIGRATION_v0.2.2.md).
+[the v0.3.0 migration notes](docs/MIGRATION_v0.3.0.md).
 
 ## License
 

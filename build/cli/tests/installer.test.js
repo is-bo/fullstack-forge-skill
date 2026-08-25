@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { mkdir, readFile, stat, symlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import test from "node:test";
+import { PROJECT_INSTRUCTIONS, extractManagedSection } from "../src/automatic-activation.js";
 import { PACKAGE_ROOT, VERSION } from "../src/constants.js";
 import { install, normalizePlatforms, readInstallManifest, uninstall } from "../src/installer.js";
-import { sha256 } from "../src/utils.js";
+import { runFile, sha256 } from "../src/utils.js";
 import { withTemporaryProject } from "./helpers.js";
 test("dry-run, install, update, and uninstall honor ownership", async () => {
     await withTemporaryProject("lifecycle", async (root) => {
@@ -17,6 +18,8 @@ test("dry-run, install, update, and uninstall honor ownership", async () => {
         assert.match(await readFile(master, "utf8"), /# Fullstack Forge/u);
         const manifest = await readInstallManifest(root);
         assert.ok(manifest !== undefined && Object.keys(manifest.files).length > 40);
+        assert.equal(Object.keys(manifest.files).some((path) => path.endsWith(".fullstack-forge-generated.json")), false);
+        await assert.rejects(stat(join(root, ".fullstack-forge", "upstream", ".fullstack-forge-generated.json")), { code: "ENOENT" });
         assert.equal(manifest.agent_first, true);
         assert.equal(manifest.automatic_activation, true);
         assert.match(await readFile(join(root, "AGENTS.md"), "utf8"), /automatic activation/u);
@@ -27,7 +30,7 @@ test("dry-run, install, update, and uninstall honor ownership", async () => {
         await assert.rejects(stat(master), { code: "ENOENT" });
     });
 });
-test("update retires stale canonical files and preserves modified stale canonical files", async () => {
+test("update rejects stale canonical paths outside the bundled inventory", async () => {
     await withTemporaryProject("stale-canonical", async (root) => {
         await install(root, "generic", { global: false, dryRun: false });
         const manifest = await readInstallManifest(root);
@@ -54,14 +57,9 @@ test("update retires stale canonical files and preserves modified stale canonica
         await writeFile(join(root, ".fullstack-forge", "install-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
         const userBytes = Buffer.from("user changed retired canonical\n", "utf8");
         await writeFile(join(root, ...modifiedRelative.split("/")), userBytes);
-        const actions = await install(root, "generic", { global: false, dryRun: false });
-        assert.ok(actions.some((action) => action.path === cleanRelative && action.action === "remove"));
-        assert.ok(actions.some((action) => action.path === modifiedRelative && action.action === "preserve-modified"));
-        await assert.rejects(stat(join(root, ...cleanRelative.split("/"))), { code: "ENOENT" });
+        await assert.rejects(install(root, "generic", { global: false, dryRun: false }), /outside Fullstack Forge managed paths/u);
+        assert.deepEqual(await readFile(join(root, ...cleanRelative.split("/"))), cleanBytes);
         assert.deepEqual(await readFile(join(root, ...modifiedRelative.split("/"))), userBytes);
-        const updated = await readInstallManifest(root);
-        assert.equal(updated?.files[cleanRelative], undefined);
-        assert.equal(updated?.files[modifiedRelative], undefined);
     });
 });
 test("managed project instructions preserve user content across install, update, and uninstall", async () => {
@@ -201,6 +199,146 @@ test("manifest traversal is rejected", async () => {
         await assert.rejects(uninstall(root, "generic", { global: false, dryRun: false }), /Unsafe manifest path/u);
     });
 });
+test("schema-1 manifests retain only exact legacy instruction ownership", async () => {
+    await withTemporaryProject("legacy-instruction-manifest", async (root) => {
+        const agentsInstruction = PROJECT_INSTRUCTIONS.agents;
+        const claudeInstruction = PROJECT_INSTRUCTIONS.claude;
+        assert.ok(agentsInstruction && claudeInstruction);
+        const agentsSection = extractManagedSection(agentsInstruction.content);
+        const claudeSection = extractManagedSection(claudeInstruction.content);
+        assert.ok(agentsSection && claudeSection);
+        await writeFile(join(root, "AGENTS.md"), agentsInstruction.content, "utf8");
+        await writeFile(join(root, "CLAUDE.md"), claudeInstruction.content, "utf8");
+        await mkdir(join(root, ".fullstack-forge"), { recursive: true });
+        await writeFile(join(root, ".fullstack-forge", "install-manifest.json"), `${JSON.stringify({
+            schemaVersion: 1,
+            packageVersion: "0.1.0",
+            root,
+            installedAt: new Date().toISOString(),
+            agent_first: true,
+            automatic_activation: true,
+            files: {
+                "AGENTS.md": {
+                    hash: sha256(agentsSection),
+                    platform: "agents",
+                    owned: true,
+                    management: "section"
+                },
+                "CLAUDE.md": {
+                    hash: sha256(claudeSection),
+                    platform: "claude",
+                    owned: true,
+                    management: "section"
+                }
+            }
+        }, null, 2)}\n`, "utf8");
+        await install(root, "codex", { global: false, dryRun: false });
+        const migrated = await readInstallManifest(root);
+        assert.equal(migrated?.schemaVersion, 2);
+        assert.equal(migrated.files["AGENTS.md"].kind, "instructions");
+        assert.equal(migrated.files["CLAUDE.md"].kind, "instructions");
+        await install(root, "claude", { global: false, dryRun: false });
+    });
+});
+test("schema-1 global manifests retain an exact adapter host for bare update", async () => {
+    await withTemporaryProject("legacy-global-host", async (root) => {
+        await install(root, "claude", { global: true, home: root, dryRun: false });
+        const manifestPath = join(root, ".fullstack-forge", "install-manifest.json");
+        const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+        manifest.schemaVersion = 1;
+        for (const record of Object.values(manifest.files)) {
+            delete record.kind;
+            delete record.platforms;
+        }
+        await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+        const cli = join(PACKAGE_ROOT, "build", "cli", "src", "index.js");
+        const previousHome = process.env.HOME;
+        const previousUserProfile = process.env.USERPROFILE;
+        process.env.HOME = root;
+        process.env.USERPROFILE = root;
+        let updated;
+        try {
+            updated = await runFile(process.execPath, [cli, "update", "--global", "--root", root, "--json"], root);
+        }
+        finally {
+            if (previousHome === undefined)
+                delete process.env.HOME;
+            else
+                process.env.HOME = previousHome;
+            if (previousUserProfile === undefined)
+                delete process.env.USERPROFILE;
+            else
+                process.env.USERPROFILE = previousUserProfile;
+        }
+        assert.equal(updated.exitCode, 0, updated.stderr);
+        assert.equal(JSON.parse(updated.stdout).selector, "claude");
+    });
+});
+test("a forged manifest cannot claim and delete arbitrary project files", async () => {
+    for (const operation of ["update", "uninstall"]) {
+        for (const fixture of [
+            { relative: "package.json", schemaVersion: 2, kind: "adapter" },
+            { relative: "AGENTS.md", schemaVersion: 2, kind: "adapter" },
+            { relative: ".agents/skills/user-owned/SKILL.md", schemaVersion: 2, kind: "adapter" },
+            {
+                relative: ".fullstack-forge/skills/fullstack-forge/forged.txt",
+                schemaVersion: 2,
+                kind: "canonical"
+            },
+            {
+                relative: ".fullstack-forge/upstream/forged.txt",
+                schemaVersion: 2,
+                kind: "canonical"
+            },
+            {
+                relative: ".fullstack-forge/skills/fullstack-forge/SKILL.md",
+                schemaVersion: 2,
+                kind: "canonical"
+            },
+            {
+                relative: ".fullstack-forge/upstream/addy-agent-skills/UPSTREAM-SOURCE.md",
+                schemaVersion: 2,
+                kind: "canonical"
+            },
+            { relative: ".agents/skills/forge/SKILL.md", schemaVersion: 2, kind: "adapter" },
+            {
+                relative: ".agents/skills/fullstack-forge/references/forged.txt",
+                schemaVersion: 1
+            }
+        ]) {
+            const { relative, schemaVersion, kind } = fixture;
+            await withTemporaryProject(`forged-ownership-${operation}-${relative.replace(/[^a-z]+/giu, "-")}`, async (root) => {
+                const bytes = Buffer.from(`user-owned ${relative}\n`, "utf8");
+                const target = join(root, ...relative.split("/"));
+                await mkdir(dirname(target), { recursive: true });
+                await writeFile(target, bytes);
+                await mkdir(join(root, ".fullstack-forge"), { recursive: true });
+                await writeFile(join(root, ".fullstack-forge", "install-manifest.json"), `${JSON.stringify({
+                    schemaVersion,
+                    packageVersion: "0.2.2",
+                    root,
+                    installedAt: new Date().toISOString(),
+                    agent_first: true,
+                    automatic_activation: true,
+                    files: {
+                        [relative]: {
+                            hash: sha256(bytes),
+                            platform: "agents",
+                            owned: true,
+                            management: "file",
+                            ...(kind === undefined ? {} : { kind })
+                        }
+                    }
+                }, null, 2)}\n`, "utf8");
+                const action = operation === "update"
+                    ? install(root, "generic", { global: false, dryRun: false })
+                    : uninstall(root, "generic", { global: false, dryRun: false });
+                await assert.rejects(action, /outside Fullstack Forge managed paths|hash does not match bundled managed content/u);
+                assert.deepEqual(await readFile(target), bytes);
+            });
+        }
+    }
+});
 test("installer refuses a symlinked destination component", async (t) => {
     await withTemporaryProject("symlink", async (root) => {
         const outside = join(root, "outside");
@@ -216,6 +354,24 @@ test("installer refuses a symlinked destination component", async (t) => {
             throw error;
         }
         await assert.rejects(install(root, "generic", { global: false, dryRun: false }), /symlinked install destination/u);
+    });
+});
+test("installer refuses a symlinked ownership manifest", async (t) => {
+    await withTemporaryProject("manifest-symlink", async (root) => {
+        const outside = join(root, "outside-manifest.json");
+        await writeFile(outside, "{}", "utf8");
+        await mkdir(join(root, ".fullstack-forge"), { recursive: true });
+        try {
+            await symlink(outside, join(root, ".fullstack-forge", "install-manifest.json"));
+        }
+        catch (error) {
+            if (error.code === "EPERM") {
+                t.skip("Creating a test symlink requires OS privilege");
+                return;
+            }
+            throw error;
+        }
+        await assert.rejects(readInstallManifest(root), /symlinked install destination/u);
     });
 });
 test("Antigravity and Gemini project/global destinations remain product-specific", async () => {
@@ -321,11 +477,11 @@ test("an interrupted previous-release update resumes from either the old or new 
         const relative = ".agents/skills/fullstack-forge/SKILL.md";
         const target = join(root, ...relative.split("/"));
         const manifestPath = join(root, ".fullstack-forge", "install-manifest.json");
-        const previousBytes = Buffer.from("# Fullstack Forge\n\nprevious release fixture\n", "utf8");
+        const previousBytes = await readFile(join(PACKAGE_ROOT, ".fullstack-forge", "skills", "fullstack-forge", "SKILL.md"));
         await writeFile(target, previousBytes);
         const previous = await readInstallManifest(root);
         assert.ok(previous !== undefined);
-        previous.packageVersion = "0.3.0";
+        previous.packageVersion = "0.2.2";
         previous.files[relative] = {
             hash: sha256(previousBytes),
             platform: "agents",
@@ -338,8 +494,11 @@ test("an interrupted previous-release update resumes from either the old or new 
             interruptAfter: 1
         }), /interruption after 1 managed write/u);
         assert.match(await readFile(target, "utf8"), /# Fullstack Forge/u);
-        assert.doesNotMatch(await readFile(target, "utf8"), /previous release fixture/u);
-        assert.equal((await readInstallManifest(root))?.packageVersion, "0.3.0");
+        assert.match(await readFile(target, "utf8"), /fullstack-forge:managed-adapter/u);
+        // The interrupted update touched an existing file, so its old manifest remains authoritative
+        // until the retry reaches the final atomic manifest write. Recovery must accept that old
+        // package version rather than claiming the upgrade completed before it did.
+        assert.equal((await readInstallManifest(root))?.packageVersion, "0.2.2");
         const resumed = await install(root, "generic", { global: false, dryRun: false });
         assert.ok(resumed.some((action) => action.path === relative && action.action === "preserve-identical"));
         const completed = await readInstallManifest(root);

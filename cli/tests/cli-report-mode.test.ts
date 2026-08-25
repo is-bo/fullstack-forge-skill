@@ -21,7 +21,9 @@ async function seedReport(root: string): Promise<void> {
     [cli, "security", "audit", "--root", root, "--json"],
     root
   );
-  assert.equal(audit.exitCode, 0, audit.stderr);
+  // An empty project cannot prove the requested security evidence. The audit still writes a real
+  // report, but fail-closed orchestration surfaces that gap as exit 2 rather than claiming PASS.
+  assert.ok([0, 2].includes(audit.exitCode), audit.stderr);
 }
 
 test("report mode renders Markdown to stdout without re-running the audit", async () => {

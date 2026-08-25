@@ -4,14 +4,23 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, posix } from "node:path";
 import { validateArchiveBytes } from "./lib/archive-validation.mjs";
+import { assertDistributionInventory } from "./lib/dist-safety.mjs";
 import { assertNoSymlinkPath, assertRegularFile } from "./lib/fs-safety.mjs";
 import { CANONICAL_ROOT_POSIX, readAdapterMarker } from "./lib/managed-layout.mjs";
+import { GENERATED_BUILD_RUNTIME_PATHS } from "./lib/package-policy.mjs";
+import { loadPackageOwnership } from "./lib/package-ownership.mjs";
+import {
+  loadTrustedNpmInputHashes,
+  releaseArtifactNames,
+  validateNpmPackageArchive,
+  validateSpdxSbom
+} from "./lib/release-bundle.mjs";
 import { platformTargets, projectRoot } from "./project.mjs";
 
 const distRoot = join(projectRoot, "dist");
 await assertNoSymlinkPath(projectRoot, distRoot);
 const version = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8")).version;
-const expected = [
+const expectedArchives = [
   "all",
   "antigravity",
   "claude",
@@ -22,6 +31,15 @@ const expected = [
   "github",
   "windsurf"
 ].map((platform) => `fullstack-forge-${platform}-v${version}.zip`);
+const releaseNames = releaseArtifactNames(version);
+const expectedPayloads = [...expectedArchives, releaseNames.package, releaseNames.sbom];
+const expectedDistNames = new Set([
+  ...expectedPayloads,
+  "SHA256SUMS.txt",
+  "manifest.json",
+  ".fullstack-forge-dist-manifest.json"
+]);
+await assertDistributionInventory(projectRoot, distRoot, expectedDistNames);
 const requiredEntries = [
   "README.md",
   "LICENSE",
@@ -32,6 +50,7 @@ const requiredEntries = [
   "docs/GETTING_STARTED.md",
   "docs/REPOSITORY_INVENTORY.md",
   "docs/REPORT_SCHEMA.md",
+  "docs/RELEASE_CHANNEL.md",
   "docs/TRACEABILITY.md",
   "docs/TRACEABILITY_MATRIX.md",
   "research/SOURCES.md",
@@ -49,21 +68,25 @@ const requiredManagedEntries = [
 await assertRegularFile(join(distRoot, "manifest.json"), "distribution manifest");
 await assertRegularFile(join(distRoot, "SHA256SUMS.txt"), "checksum file");
 const manifest = JSON.parse(await readFile(join(distRoot, "manifest.json"), "utf8"));
-if (manifest.schemaVersion !== 1 || manifest.version !== version || manifest.deterministic !== true)
+if (manifest.schemaVersion !== 2 || manifest.version !== version || manifest.deterministic !== true)
   throw new Error("Distribution manifest metadata is invalid");
 const manifestNames = Object.keys(manifest.archives ?? {}).sort();
-if (JSON.stringify(manifestNames) !== JSON.stringify([...expected].sort()))
+if (JSON.stringify(manifestNames) !== JSON.stringify([...expectedArchives].sort()))
   throw new Error("Distribution manifest archive set is incomplete or contains extras");
+const artifactNames = Object.keys(manifest.artifacts ?? {}).sort();
+if (JSON.stringify(artifactNames) !== JSON.stringify([...expectedPayloads].sort()))
+  throw new Error("Distribution manifest artifact set is incomplete or contains extras");
 
 const checksumText = await readFile(join(distRoot, "SHA256SUMS.txt"), "utf8");
 const checksums = new Map();
 for (const line of checksumText.trim().split(/\r?\n/u)) {
   const match = /^([a-f0-9]{64}) {2}([^/\\]+)$/u.exec(line);
   if (match === null) throw new Error(`Invalid SHA256SUMS line: ${line}`);
+  if (checksums.has(match[2])) throw new Error(`Duplicate SHA256SUMS entry: ${match[2]}`);
   checksums.set(match[2], match[1]);
 }
-if (JSON.stringify([...checksums.keys()].sort()) !== JSON.stringify([...expected].sort()))
-  throw new Error("SHA256SUMS archive set is incomplete or contains extras");
+if (JSON.stringify([...checksums.keys()].sort()) !== JSON.stringify([...expectedPayloads].sort()))
+  throw new Error("SHA256SUMS artifact set is incomplete or contains extras");
 
 /**
  * Resolves every host adapter inside one archive the way an agent on that host would.
@@ -231,12 +254,62 @@ async function run(command, args, cwd) {
 
 let totalEntries = 0;
 let totalResolvedAdapters = 0;
-for (const name of expected) {
+for (const name of expectedPayloads) {
+  await assertRegularFile(join(distRoot, name), "distribution artifact");
+  const bytes = await readFile(join(distRoot, name));
+  const hash = createHash("sha256").update(bytes).digest("hex");
+  if (checksums.get(name) !== hash || manifest.artifacts[name]?.sha256 !== hash)
+    throw new Error(`Checksum mismatch for ${name}`);
+  if (manifest.artifacts[name]?.bytes !== bytes.length)
+    throw new Error(`Byte count mismatch for ${name}`);
+}
+
+const packageBytes = await readFile(join(distRoot, releaseNames.package));
+if (manifest.npmPackage?.name !== releaseNames.package)
+  throw new Error("Distribution manifest does not identify the exact npm package artifact");
+if (manifest.sbom?.name !== releaseNames.sbom || manifest.sbom?.format !== "SPDX-2.3")
+  throw new Error("Distribution manifest does not identify the SPDX release SBOM");
+const [packageLock, packageOwnership, registry, sbomBytes] = await Promise.all([
+  readFile(join(projectRoot, "package-lock.json"), "utf8").then(JSON.parse),
+  loadPackageOwnership(projectRoot),
+  readFile(
+    join(projectRoot, ".fullstack-forge", "manifests", "upstream-registry.json"),
+    "utf8"
+  ).then(JSON.parse),
+  readFile(join(distRoot, releaseNames.sbom))
+]);
+const trustedPackageHashes = await loadTrustedNpmInputHashes(
+  projectRoot,
+  version,
+  packageOwnership
+);
+const npmArchive = validateNpmPackageArchive(
+  packageBytes,
+  version,
+  packageOwnership.paths,
+  GENERATED_BUILD_RUNTIME_PATHS,
+  trustedPackageHashes
+);
+if (
+  manifest.npmPackage?.entryCount !== npmArchive.entryCount ||
+  manifest.npmPackage?.unpackedBytes !== npmArchive.unpackedBytes ||
+  manifest.npmPackage?.inventorySha256 !== npmArchive.inventorySha256
+)
+  throw new Error("Distribution manifest npm inventory does not match the package archive bytes");
+validateSpdxSbom(sbomBytes, {
+  version,
+  packageBytes,
+  packageLock,
+  registry,
+  sourceRevision: manifest.source?.revision,
+  created: manifest.source?.created
+});
+
+for (const name of expectedArchives) {
   await assertRegularFile(join(distRoot, name), "distribution archive");
   const bytes = await readFile(join(distRoot, name));
   const hash = createHash("sha256").update(bytes).digest("hex");
-  if (checksums.get(name) !== hash || manifest.archives[name]?.sha256 !== hash)
-    throw new Error(`Checksum mismatch for ${name}`);
+  if (manifest.archives[name]?.sha256 !== hash) throw new Error(`Checksum mismatch for ${name}`);
   if (manifest.archives[name]?.bytes !== bytes.length)
     throw new Error(`Byte count mismatch for ${name}`);
   const entries = validateArchiveBytes(bytes, name, version);
@@ -256,7 +329,8 @@ console.log(
     {
       valid: true,
       version,
-      archives: expected.length,
+      archives: expectedArchives.length,
+      artifacts: expectedPayloads.length,
       entries: totalEntries,
       resolved_adapters: totalResolvedAdapters
     },

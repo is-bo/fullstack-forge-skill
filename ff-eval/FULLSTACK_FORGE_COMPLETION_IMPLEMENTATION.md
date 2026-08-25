@@ -1,7 +1,12 @@
 # Fullstack Forge — completion implementation report
 
-**Status: the five planned workstreams are implemented, integrated and verified.** The external
-corpus benchmark and release-readiness scoring were **deliberately descoped** and were not
+> Archived implementation snapshot from the v0.1.0 development line. It is retained as engineering
+> history, not as current release, branch, coverage, or completion evidence. Current product and
+> release claims live in `README.md`, `docs/ARCHITECTURE.md`, and the versioned release-verification
+> record.
+
+**Historical status: the five planned workstreams were implemented, integrated and verified.** The
+external corpus benchmark and release-readiness scoring were **deliberately descoped** and were not
 performed; see [Descoped work](#descoped-work). Nothing here is estimated or inferred, and no claim
 is made about a check that was not run.
 

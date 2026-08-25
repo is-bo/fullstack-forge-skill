@@ -115,6 +115,37 @@ test("authorized project regression tests are recorded and failures roll fixes b
         });
     }
 });
+test("offline safe fix blocks an unknown project regression command before writing", async () => {
+    await withTemporaryProject("fix-offline-command", async (temporary) => {
+        const root = join(temporary, "project");
+        await copyFixture(join(PACKAGE_ROOT, "fixtures", "safe-fixes"), root);
+        await writeFile(join(root, "package.json"), `${JSON.stringify({
+            name: "fix-offline-command",
+            private: true,
+            dependencies: { react: "0.0.0-fixture" },
+            scripts: {
+                test: `node -e "require('node:fs').writeFileSync('offline-sentinel','ran')"`
+            }
+        }, null, 2)}\n`, "utf8");
+        const audit = await runFile(process.execPath, [cli, "all", "audit", "--root", root, "--json"], root);
+        assert.equal(audit.exitCode, 1, audit.stderr);
+        const linkPath = join(root, "Link.tsx");
+        const before = await readFile(linkPath, "utf8");
+        const fix = await runFile(process.execPath, [cli, "all", "fix", "--safe", "--allow-run", "--offline", "--root", root, "--json"], root);
+        assert.equal(fix.exitCode, 2, fix.stderr);
+        const result = JSON.parse(fix.stdout);
+        assert.equal(result.status, "BLOCKED");
+        assert.deepEqual(result.changed_files, []);
+        assert.deepEqual(result.execution, []);
+        assert.deepEqual(result.command_ledger.map((record) => ({
+            disposition: record.disposition,
+            offline: record.offline,
+            network_policy: record.network_policy
+        })), [{ disposition: "BLOCKED", offline: true, network_policy: "UNKNOWN" }]);
+        assert.equal(await readFile(linkPath, "utf8"), before);
+        await assert.rejects(readFile(join(root, "offline-sentinel"), "utf8"), /ENOENT/u);
+    });
+});
 test("same-rule safe fixes remain instance-specific within one file", async () => {
     await withTemporaryProject("instance-safe-fixes", async (root) => {
         await writeFile(join(root, "package.json"), JSON.stringify({

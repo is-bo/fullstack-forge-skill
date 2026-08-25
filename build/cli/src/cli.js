@@ -9,8 +9,9 @@ import { detectAgentRecommendations } from "./agent-detection.js";
 import { listFeatures, loadFeature, loadProject } from "./build-state.js";
 import { ReportAuditLedger, orchestrateAudit } from "./audit-orchestration.js";
 import { detectProjectCommands, discoverProject, discoverProjectWithInventory, writeProjectArtifacts } from "./discovery.js";
-import { compositionEvidenceFor, resolveRuntimeComposition, writeCompositionArtifact } from "./composition-runtime.js";
-import { COMPOSITION_TASK_FLAGS } from "./composition.js";
+import { compositionEvidenceFor, explicitGreenfieldDependenciesFor, resolveRuntimeCompositionWithRoot, writeCompositionArtifact } from "./composition-runtime.js";
+import { COMPOSITION_TASK_FLAGS, COMPOSITION_WORKFLOWS } from "./composition.js";
+import { expandApplicableDependencies } from "./dependency-expansion.js";
 import { inspectRenderedUi } from "./rendered-ui.js";
 import { writeReportOutput } from "./report-output.js";
 import { executeFixes } from "./fixes.js";
@@ -22,7 +23,7 @@ import { redactToString } from "./redaction.js";
 import { captureEnvironment, createReport, readReport, renderMarkdown, writeReport } from "./report.js";
 import { analyzeChangedScope, decideModules, decisionFindingStatus } from "./scope.js";
 import { coverageForProfile } from "./support.js";
-import { isForgePackageRoot, runTool } from "./tools.js";
+import { isForgePackageRoot, runTool, SOURCE_CHECKOUT_ONLY_TOOL_NAMES, validateBundledManagedLayout } from "./tools.js";
 import { parseInspectionBudget } from "./repository-inventory.js";
 import { assertNoSymlinkPath, canonicalDirectory, countManagedSkills, resolveInside, runFile, workingTreeRevision } from "./utils.js";
 import { verifyFindings } from "./verification.js";
@@ -124,11 +125,19 @@ export async function runCli(argv) {
         console.log(VERSION);
         return 0;
     }
+    if (options.compositionWorkflow !== undefined &&
+        (!isModuleSlug(command) || command === "ship" || positionals[0] !== "compose"))
+        throw new Error("Option '--workflow' is only valid with an explicit '<module> compose' command. Audit, fix, verify, and ship select their own workflow contract.");
     if (command === "list") {
         printValue({
             version: VERSION,
             modules: MODULE_SLUGS,
             tools: TOOL_NAMES,
+            tool_availability: {
+                installed_runtime: TOOL_NAMES.filter((tool) => !SOURCE_CHECKOUT_ONLY_TOOL_NAMES.includes(tool)),
+                source_checkout_only: SOURCE_CHECKOUT_ONLY_TOOL_NAMES,
+                source_checkout_recovery: "Run maintainer packaging and synchronization tools from a complete Fullstack Forge source checkout."
+            },
             platform_destinations: PLATFORM_CONFIG,
             platform_aliases: PLATFORM_ALIASES
         }, options.json);
@@ -244,27 +253,34 @@ export async function runCli(argv) {
 async function composeModule(section, options) {
     const root = await canonicalDirectory(options.cwd);
     const profile = await discoverProject(root, inventoryOptions(options));
-    const compositions = await resolveRuntimeComposition(root, [section], compositionEvidenceFor(profile, {
+    const expanded = await expandApplicableDependencies(root, profile, decideModules({ candidates: [section], profile, explicit: true }), [section], { explicitIntentDependencies: explicitGreenfieldDependenciesFor(profile, [section]) });
+    const resolution = await resolveRuntimeCompositionWithRoot(root, expanded.selected, compositionEvidenceFor(profile, {
+        workflow: options.compositionWorkflow ?? "build",
         requested: options.requestedSources,
         taskFlags: options.compositionConditions,
-        riskSurfaces: options.compositionRiskSurfaces
+        riskSurfaces: options.compositionRiskSurfaces,
+        modules: [section]
     }));
+    const { compositions } = resolution;
     const compositionArtifact = options.dryRun
         ? undefined
-        : await writeCompositionArtifact(root, compositions);
+        : await writeCompositionArtifact(root, resolution);
     const response = {
         compositions,
+        runtime_root: resolution.runtimeRoot,
+        module_decisions: expanded.decisions,
+        dependency_edges: expanded.dependencyEdges,
         ...(compositionArtifact === undefined ? {} : { composition_artifact: compositionArtifact }),
         dry_run: options.dryRun
     };
     printValue(options.json
         ? response
         : [
-            `Resolved ${section} composition with ${compositions[0]?.selected.length ?? 0} ordered source(s).`,
+            `Resolved ${compositions.length} applicable composition(s) rooted at ${section}.`,
             ...(compositionArtifact === undefined
                 ? ["Dry run: no composition artifact was written."]
                 : [`Composition artifact: ${compositionArtifact}`]),
-            ...(compositions[0]?.missing ?? []).map((path) => `Missing required content: ${path}`)
+            ...compositions.flatMap((composition) => composition.missing.map((path) => `Missing required content: ${path}`))
         ].join("\n"), options.json);
     return compositions.some((composition) => composition.missing.length > 0) ? 2 : 0;
 }
@@ -277,6 +293,8 @@ async function runModule(section, mode, options, requestedSections) {
             dryRun: options.dryRun,
             safe: options.safe,
             allowRun: options.allowRun,
+            offline: options.offline,
+            forgeOwned: await isForgePackageRoot(root),
             ...(options.severity === undefined ? {} : { severity: options.severity })
         });
         printValue(options.simple && !options.json
@@ -306,7 +324,7 @@ async function runModule(section, mode, options, requestedSections) {
     let changedScope;
     if (section === "all" && options.scope === "changed")
         changedScope = await analyzeChangedScope(root, profile, options.base);
-    const decisions = decideModules({
+    let decisions = decideModules({
         candidates: requestedSections ?? candidateSections(section),
         profile,
         explicit: section !== "all" || requestedSections !== undefined,
@@ -318,14 +336,25 @@ async function runModule(section, mode, options, requestedSections) {
     let selected = decisions
         .filter((decision) => decision.selection_status === "SELECTED")
         .map((decision) => decision.module);
-    const compositions = await resolveRuntimeComposition(root, selected, compositionEvidenceFor(profile, {
+    const dependencyExpansion = await expandApplicableDependencies(root, profile, decisions, selected, {
+        ...(section === "all" && options.risk === "high"
+            ? { riskAllowed: HIGH_RISK_MODULES, riskLabel: "high" }
+            : {}),
+        ...(changedScope === undefined ? {} : { changedModules: changedScope.modules })
+    });
+    decisions = dependencyExpansion.decisions;
+    selected = dependencyExpansion.selected;
+    const resolution = await resolveRuntimeCompositionWithRoot(root, selected, compositionEvidenceFor(profile, {
+        workflow: options.compositionWorkflow ?? (mode === "audit" ? "audit" : "build"),
         requested: options.requestedSources,
         taskFlags: options.compositionConditions,
-        riskSurfaces: options.compositionRiskSurfaces
+        riskSurfaces: options.compositionRiskSurfaces,
+        modules: selected
     }));
+    const { compositions } = resolution;
     const compositionArtifact = options.dryRun
         ? undefined
-        : await writeCompositionArtifact(root, compositions);
+        : await writeCompositionArtifact(root, resolution);
     if (!options.dryRun)
         await writeProjectArtifacts(profile);
     // Orchestration decides what this audit is authorized to do before any of it happens, so the
@@ -403,6 +432,7 @@ async function runModule(section, mode, options, requestedSections) {
             planned_checks: orchestration.planned,
             check_outcomes: orchestration.outcomes,
             runtime_evidence: orchestration.runtime_evidence,
+            runtime_root: resolution.runtimeRoot,
             composition_artifact: compositionArtifact,
             evidence_complete: orchestration.evidence_complete && profile.inventory?.status !== "PARTIAL",
             dry_run: options.dryRun
@@ -414,6 +444,10 @@ async function runModule(section, mode, options, requestedSections) {
     // not be collected exits 2: nothing failed, but the run did not prove what it was asked to prove.
     if (report.findings.some((finding) => finding.status === "FAIL"))
         return 1;
+    const auditedModules = new Set(selected);
+    if (report.findings.some((finding) => auditedModules.has(finding.section) &&
+        (finding.status === "BLOCKED" || finding.status === "NOT_VERIFIED")))
+        return 2;
     return orchestration.evidence_complete &&
         profile.inventory?.status !== "PARTIAL" &&
         compositions.every((composition) => composition.missing.length === 0)
@@ -480,6 +514,9 @@ async function verifySection(section, root, profile, options, inventory) {
     const result = await verifyFindings(root, section, profile, {
         allowRun: options.allowRun,
         dryRun: options.dryRun,
+        offline: options.offline,
+        forgeOwned: await isForgePackageRoot(root),
+        environment: reportEnvironment(options),
         inventory
     });
     printValue(options.json
@@ -487,9 +524,12 @@ async function verifySection(section, root, profile, options, inventory) {
         : options.simple && !options.details
             ? renderPlainReport(result.report, "verify")
             : renderMarkdown(result.report), options.json);
-    if (result.report.findings.some((finding) => finding.status === "FAIL"))
+    const exitFindings = section === "all"
+        ? result.report.findings
+        : result.report.findings.filter((finding) => finding.section === section);
+    if (exitFindings.some((finding) => finding.status === "FAIL"))
         return 1;
-    if (result.report.findings.some((finding) => finding.status === "BLOCKED" || finding.status === "NOT_VERIFIED"))
+    if (exitFindings.some((finding) => finding.status === "BLOCKED" || finding.status === "NOT_VERIFIED"))
         return 2;
     return 0;
 }
@@ -640,7 +680,7 @@ async function doctor(options) {
         ? await checkUpdateAvailability(root, options.offline)
         : {
             status: "WARNING",
-            evidence: "not checked by default; use --check-updates to permit the remote release-tag lookup",
+            evidence: "not checked by default; use --check-updates to permit the remote immutable-release lookup",
             unavailable: true
         };
     checks.push({
@@ -660,12 +700,14 @@ async function doctor(options) {
                 : {
                     recovery: options.global
                         ? `Run 'npm install --global ${publicReleaseArchive(update.latestVersion)}', then 'forge update all --global'.`
-                        : `Run 'npm install --save-dev ${publicReleaseArchive(update.latestVersion)}', then 'npx forge update all'.`
+                        : `Run 'npm install --save-dev ${publicReleaseArchive(update.latestVersion)}', then 'npx --no-install forge update all'.`
                 })
     });
     for (const path of [
-        "src/fullstack-forge/SKILL.md",
-        "config/modules.json",
+        ".fullstack-forge/skills/fullstack-forge/SKILL.md",
+        ".fullstack-forge/skills/forge/SKILL.md",
+        ".fullstack-forge/manifests/module-composition.json",
+        ".fullstack-forge/manifests/upstream-registry.json",
         ".agents/skills/fullstack-forge/SKILL.md",
         ".agents/skills/forge/SKILL.md",
         ".fullstack-forge/runtime/cli/src/composition-entry.js"
@@ -692,15 +734,14 @@ async function doctor(options) {
             ? {}
             : { recovery: "Reinstall the complete Fullstack Forge bundle; do not copy a partial tree." })
     });
-    const generatedCopies = await runFile(process.execPath, [join(PACKAGE_ROOT, "scripts", "check-platform-assets.mjs")], PACKAGE_ROOT, 120_000);
+    const generatedCopies = await validateBundledManagedLayout();
     checks.push({
         name: "bundled generated copies",
-        status: generatedCopies.exitCode === 0 ? "PASS" : "FAIL",
-        evidence: redactToString(generatedCopies.stdout || generatedCopies.stderr)
-            .replace(/\s+/gu, " ")
-            .trim()
-            .slice(0, 500) || `exit ${generatedCopies.exitCode}`,
-        ...(generatedCopies.exitCode === 0
+        status: generatedCopies.valid ? "PASS" : "FAIL",
+        evidence: generatedCopies.valid
+            ? `${generatedCopies.files} files across ${generatedCopies.roots} ownership roots`
+            : generatedCopies.errors.join("; ").slice(0, 500),
+        ...(generatedCopies.valid
             ? {}
             : {
                 recovery: "Reinstall Fullstack Forge from a verified release; bundled generated copies are inconsistent."
@@ -1171,7 +1212,8 @@ function parseArguments(argv) {
         "--platform": "platform",
         "--output": "output",
         "--url": "url",
-        "--evidence-dir": "evidenceDir"
+        "--evidence-dir": "evidenceDir",
+        "--workflow": "compositionWorkflow"
     };
     const listFlags = {
         "--check": "checks",
@@ -1255,6 +1297,10 @@ function parseArguments(argv) {
         options.excludes = [...new Set(options.excludes)];
     if (options.requestedSources !== undefined)
         options.requestedSources = [...new Set(options.requestedSources)];
+    if (options.compositionWorkflow !== undefined) {
+        if (!COMPOSITION_WORKFLOWS.includes(options.compositionWorkflow))
+            throw new Error(`Unknown composition workflow '${options.compositionWorkflow}'. Expected one of: ${COMPOSITION_WORKFLOWS.join(", ")}.`);
+    }
     if (options.compositionConditions !== undefined) {
         options.compositionConditions = [...new Set(options.compositionConditions)];
         const allowed = new Set(COMPOSITION_TASK_FLAGS);

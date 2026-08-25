@@ -340,18 +340,15 @@ test("an undeclared nested manifest is not reported as an active workspace", asy
       profile: { workspaces: Array<{ name: string; type: string; confidence: string }> };
     };
     const declared = parsed.profile.workspaces.find((item) => item.name === "declared-pkg");
-    const sample = parsed.profile.workspaces.find((item) => item.name === "sample-pkg");
-
     assert.ok(declared !== undefined, "the declared workspace must be reported");
-    assert.ok(sample !== undefined, "the undeclared manifest must still be reported");
+    const sample = parsed.profile.workspaces.find((item) => item.name === "sample-pkg");
+    assert.equal(
+      sample,
+      undefined,
+      "an undeclared nested manifest is intentionally omitted from the active workspace list"
+    );
     assert.equal(declared.type, "package-workspace");
     assert.equal(declared.confidence, "HIGH");
-    assert.equal(
-      sample.type,
-      "nested-package",
-      "a manifest no workspace glob declares is not an active workspace"
-    );
-    assert.equal(sample.confidence, "LOW");
   });
 });
 
