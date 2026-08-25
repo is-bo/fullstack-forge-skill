@@ -30,6 +30,7 @@ link for the current `v0.3.0` release is:
 
 ```bash
 npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz"
+# NOT YET AVAILABLE until the v0.3.0 GitHub Release is published.
 npx --no-install forge init
 npx --no-install forge doctor
 ```
@@ -40,6 +41,7 @@ download, install, and health check from the exact release URL:
 ```bash
 Install Fullstack Forge in this project from this exact verified release:
 https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz
+# NOT YET AVAILABLE until the v0.3.0 GitHub Release is published.
 Use only that URL (do not use a different npm package or an unpinned npx command), install it as a
 development dependency, run `npx --no-install forge init`, then run `npx --no-install forge doctor`.
 Report the installed version and any verification failure.
@@ -49,6 +51,7 @@ For an existing installation, update from the same immutable package:
 
 ```bash
 npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz"
+# NOT YET AVAILABLE until the v0.3.0 GitHub Release is published.
 npx --no-install forge update all
 npx --no-install forge doctor
 ```

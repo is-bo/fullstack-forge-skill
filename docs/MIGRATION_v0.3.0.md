@@ -7,6 +7,7 @@ Upgrade from the exact release package:
 
 ```bash
 npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz"
+# NOT YET AVAILABLE until the v0.3.0 GitHub Release is published.
 npx --no-install forge update all
 npx --no-install forge doctor
 ```
