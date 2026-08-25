@@ -8,19 +8,27 @@
 
 ## Install in a project
 
-v0.2.2 is the current supported immutable release. Install it from its preserved tag snapshot:
+Install the current downloadable `v0.3.0` release from its immutable GitHub asset:
 
 ```bash
-npm install --save-dev "https://codeload.github.com/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v0.2.2"
+npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz"
 npx --no-install forge init
 npx --no-install forge doctor
 ```
 
-This source tree is the v0.3.0 candidate. After its immutable release is published and directly
-verified, upgrade using the exact release package:
+You can also ask your AI agent to do this by sending:
 
 ```bash
-# NOT YET AVAILABLE — use only after the v0.3.0 GitHub Release is observed
+Install Fullstack Forge from this exact release URL:
+https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz
+Install it as a development dependency, run `npx --no-install forge init`, then run
+`npx --no-install forge doctor`. Do not substitute another package or an unpinned npx command.
+Report the installed version and any verification failure.
+```
+
+For an existing installation, update using the same exact release package:
+
+```bash
 npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz"
 npx --no-install forge update all
 npx --no-install forge doctor
@@ -44,9 +52,9 @@ detected hosts are installed together without copying unrelated platform bundles
 ## Codex plugin distribution
 
 The repository marketplace entry is version-pinned to `fullstack-forge-skill@0.3.0` and its install
-policy is `NOT_AVAILABLE`. That npm package is not published, and publishing the GitHub Release does
-not publish it. Only after npm publication is independently observed, its artifact is verified, and
-the marketplace policy becomes `AVAILABLE` should you register the marketplace and install the
+policy is `NOT_AVAILABLE` because that npm package is not published. Publishing the GitHub Release
+does not publish it. Only after npm publication is independently observed, its artifact is verified,
+and the marketplace policy becomes `AVAILABLE` should you register the marketplace and install the
 plugin:
 
 ```bash
