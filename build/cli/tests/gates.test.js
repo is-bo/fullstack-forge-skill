@@ -49,10 +49,12 @@ test("missing project commands and applicable high-risk evidence block release",
         const profile = await discoverProject(root);
         const previous = createReport(root, profile, [], "audit");
         const result = await runShipGates(root, profile, previous, [], false);
+        // The current upload inspection also reports a concrete unsafe flow, so the aggregate remains
+        // FAIL; the missing tenant/upload evaluation evidence itself stays explicitly unverified.
         assert.equal(result.status, "FAIL");
         assert.equal(gateById(result.gates, "FF-GATE-PROJECT-NONE").status, "BLOCKED");
         assert.equal(gateById(result.gates, "FF-GATE-TENANT-EVAL").status, "NOT_VERIFIED");
-        assert.equal(gateById(result.gates, "FF-GATE-UPLOAD-EVAL").status, "FAIL");
+        assert.equal(gateById(result.gates, "FF-GATE-UPLOAD-EVAL").status, "NOT_VERIFIED");
     });
 });
 test("security evaluation is required even when no optional capability was discovered", async () => {

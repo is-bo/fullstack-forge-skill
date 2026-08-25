@@ -1,6 +1,6 @@
 ---
 name: forge-new
-description: Guide the new-project foundation workflow that frames product, users, business rules, risk class, stack rationale, non-goals, design direction, and an initial feature list. Use for starting a new product or codebase in build mode.
+description: "Guide the new-project foundation workflow that frames product, users, business rules, risk class, stack rationale, non-goals, design direction, and an initial feature list. Use for starting a new product or codebase in build mode."
 ---
 
 <!-- fullstack-forge:managed-adapter v1 skill=forge-new canonical=../../../.fullstack-forge/skills/forge-new/SKILL.md -->
@@ -20,17 +20,10 @@ That path is relative to this file. From the installation root it is
 (`fullstack-forge/references/...`, `fullstack-forge/schemas/...`,
 `fullstack-forge/templates/...`, `fullstack-forge/profiles/...`) resolves relative to
 `.fullstack-forge/skills/`.
-
-**Resolve the runtime composition before loading specialist guidance:**
-
-`node ../../../.fullstack-forge/runtime/cli/src/composition-entry.js new compose --root <repository-root> --json`
-
-Pass repeatable `--request`, `--condition`, or `--risk-surface` values only for
-explicit requests and directly proven task facts.
-
-Then load only the ordered `selected` paths in `.forge/composition.json`. Stop and
-report the installation as damaged if `missing` is non-empty; suppressed sources are not
-fallback instructions.
+The canonical playbook owns any deterministic composition step; perform that step exactly
+once. This adapter never adds a second workflow or composition command.
 
 Do not edit this adapter; edit the canonical playbook instead. If the canonical file is
-missing or unreadable the installation is damaged: run `forge doctor`, then `forge update all`.
+missing or unreadable the installation is damaged. Report it and repair through the same
+project-package, archive, or plugin mechanism that installed this adapter. Never fall back to
+an unpinned `npx forge`, which may resolve an unrelated public package.

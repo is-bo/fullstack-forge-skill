@@ -16,7 +16,7 @@ const checksums = parseChecksums(
   await readFile(resolve(args["asset-dir"], "SHA256SUMS.txt"), "utf8")
 );
 const assets = {
-  archives: [...checksums.keys()].sort(),
+  payloads: [...checksums.keys()].sort(),
   checksums: Object.fromEntries([...checksums.entries()])
 };
 const output = resolve(args.output);

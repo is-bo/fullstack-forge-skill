@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { cp, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
-import { PRECEDENCE, evaluateActivation, precedenceRank, resolveComposition, resolveConflict } from "../src/composition.js";
+import { PACKAGE_ROOT } from "../src/constants.js";
+import { PRECEDENCE, evaluateActivation, precedenceRank, resolveComposition, resolveConflict, resolveModuleDependencyClosure } from "../src/composition.js";
+import { compositionEvidenceFor, explicitGreenfieldDependenciesFor, resolveRuntimeCompositionWithRoot, resolveRuntimeModuleDependencyClosure } from "../src/composition-runtime.js";
+import { expandApplicableDependencies } from "../src/dependency-expansion.js";
+import { decideModules } from "../src/scope.js";
+import { runFile } from "../src/utils.js";
+import { withTemporaryProject } from "./helpers.js";
 // Tests run from the repository root, and the compiled test lives under `build/`, so the canonical
 // registry is read from the working directory rather than relative to this file.
 const projectRoot = process.cwd();
@@ -65,6 +72,29 @@ function resolve(module, evidence) {
 function providers(result) {
     return result.selected.filter((entry) => entry.tier !== "forge-contract").map((e) => e.provider);
 }
+function dependencyManifest(entries) {
+    const modules = entries.map(([module, dependsOn]) => ({
+        module,
+        mode: "forge-native",
+        designation: "dependency-test",
+        forgeContract: `references/build/${module}.md`,
+        primary: [],
+        overlays: [],
+        conflicts: [],
+        dependsOn: [...dependsOn],
+        outputClassification: "finding",
+        forgeAuthority: []
+    }));
+    return {
+        schemaVersion: 2,
+        defaultContextBudget: {
+            maxPrimarySkills: 0,
+            maxOverlays: 0,
+            maxSupplemental: 0
+        },
+        modules
+    };
+}
 test("the Forge contract is always first in the load order for every module", () => {
     for (const declaration of manifest.modules) {
         const result = resolve(declaration.module, {});
@@ -73,10 +103,124 @@ test("the Forge contract is always first in the load order for every module", ()
         assert.equal(first(result.selected).runtimePath, declaration.forgeContract);
     }
 });
+test("workflow-aware composition excludes build briefs and primary build procedures from Audit", () => {
+    const build = resolve("architecture", {});
+    assert.equal(build.workflow, "build");
+    assert.match(first(build.selected).runtimePath, /references\/build\/architecture\.md/u);
+    assert.ok(build.selected.some((source) => source.tier === "primary"));
+    assert.deepEqual(build.eager?.map((source) => source.tier), ["forge-contract", "primary"]);
+    const audit = resolve("architecture", { workflow: "audit" });
+    assert.equal(audit.workflow, "audit");
+    assert.equal(first(audit.selected).runtimePath, "references/workflows/audit.md");
+    assert.ok(audit.selected.every((source) => !source.runtimePath.includes("references/build/")), "Audit must never expose a build brief");
+    assert.equal(audit.selected.some((source) => source.tier === "primary"), false);
+    assert.ok(audit.suppressed.some((source) => source.skill === "spec-driven-development" && /not declared/u.test(source.reason)));
+    assert.deepEqual(audit.eager?.map((source) => source.tier), ["forge-contract"], "the Audit contract is eager while unavailable build procedures stay suppressed");
+    assert.deepEqual(audit.deferred?.map((source) => source.tier), audit.selected.filter((source) => source.tier !== "forge-contract").map((source) => source.tier));
+});
+test("an explicitly workflow-scoped source cannot be forced into another workflow", () => {
+    const custom = {
+        schemaVersion: 2,
+        defaultContextBudget: { maxPrimarySkills: 1, maxOverlays: 1, maxSupplemental: 1 },
+        modules: [
+            {
+                module: "fixture",
+                mode: "forge-native",
+                designation: "fixture",
+                forgeContract: "references/build/fixture.md",
+                primary: [
+                    {
+                        provider: "fixture",
+                        skill: "build-only",
+                        path: "build-only.md",
+                        workflows: ["build"],
+                        when: { always: true }
+                    }
+                ],
+                overlays: [],
+                conflicts: [],
+                dependsOn: [],
+                outputClassification: "finding",
+                forgeAuthority: []
+            }
+        ]
+    };
+    const audit = resolveComposition({
+        manifest: custom,
+        module: "fixture",
+        evidence: { workflow: "audit" },
+        runtimePathFor: (source) => source.path
+    });
+    assert.equal(audit.selected.length, 1);
+    assert.match(audit.selected[0]?.runtimePath ?? "", /references\/workflows\/audit\.md/u);
+    assert.match(audit.suppressed[0]?.reason ?? "", /not declared for the audit workflow/u);
+});
 test("every one of the 42 public modules is declared exactly once", () => {
     const slugs = manifest.modules.map((module) => module.module);
     assert.equal(slugs.length, 42);
     assert.equal(new Set(slugs).size, 42);
+});
+test("module dependency closure is transitive, ordered, and de-duplicated", () => {
+    const graph = dependencyManifest([
+        ["root", ["left", "right"]],
+        ["left", ["shared"]],
+        ["right", ["shared", "leaf"]],
+        ["shared", ["leaf"]],
+        ["leaf", []]
+    ]);
+    const closure = resolveModuleDependencyClosure(graph, ["root", "root"]);
+    assert.deepEqual(closure.roots, ["root"]);
+    assert.deepEqual(closure.modules, ["root", "left", "right", "shared", "leaf"]);
+    assert.deepEqual(closure.edges.map(({ parent, dependency }) => [parent, dependency]), [
+        ["root", "left"],
+        ["root", "right"],
+        ["left", "shared"],
+        ["right", "shared"],
+        ["right", "leaf"],
+        ["shared", "leaf"]
+    ]);
+    assert.ok(closure.edges.every((edge) => edge.reason === `Module '${edge.parent}' declares '${edge.dependency}' as a dependency.`));
+});
+test("high-value task roots declare the cross-domain team they coordinate directly", () => {
+    const expected = {
+        frontend: ["ui", "ux", "accessibility", "performance", "testing"],
+        auth: ["authorization", "security", "privacy", "api", "database", "frontend", "testing"],
+        database: ["queries", "tenancy", "recovery", "performance", "security", "architecture", "api"]
+    };
+    for (const [root, dependencies] of Object.entries(expected)) {
+        const direct = manifest.modules.find((module) => module.module === root)?.dependsOn;
+        assert.deepEqual(direct, dependencies, `${root} direct coordination team drifted`);
+    }
+});
+test("module dependency closure terminates cycles and retains the closing edge", () => {
+    const graph = dependencyManifest([
+        ["a", ["b"]],
+        ["b", ["c"]],
+        ["c", ["a"]]
+    ]);
+    const first = resolveModuleDependencyClosure(graph, ["a"]);
+    const second = resolveModuleDependencyClosure(graph, ["a"]);
+    assert.deepEqual(first, second, "the same cyclic graph must resolve deterministically");
+    assert.deepEqual(first.modules, ["a", "b", "c"]);
+    assert.deepEqual(first.edges.map(({ parent, dependency }) => [parent, dependency]), [
+        ["a", "b"],
+        ["b", "c"],
+        ["c", "a"]
+    ]);
+});
+test("module dependency closure rejects unknown roots and unknown dependency targets", () => {
+    const valid = dependencyManifest([["known", []]]);
+    assert.throws(() => resolveModuleDependencyClosure(valid, ["missing"]), /Unknown Forge module: missing/u);
+    const damaged = dependencyManifest([
+        ["root", []],
+        ["unrelated", ["missing"]]
+    ]);
+    assert.throws(() => resolveModuleDependencyClosure(damaged, ["root"]), /module 'unrelated' depends on unknown module 'missing'/u);
+});
+test("the installed runtime manifest exposes the same dependency closure without writing", async () => {
+    const expected = resolveModuleDependencyClosure(manifest, ["frontend"]);
+    const actual = await resolveRuntimeModuleDependencyClosure(projectRoot, ["frontend"], projectRoot);
+    assert.deepEqual(actual, expected);
 });
 test("an empty repository activates no provider content at all", () => {
     for (const declaration of manifest.modules) {
@@ -91,6 +235,32 @@ test("an empty repository activates no provider content at all", () => {
             ].find((candidate) => candidate.skill === entry.skill);
             assert.ok(source?.when.always === true, `${declaration.module} loaded ${entry.provider}/${entry.skill} with no evidence`);
         }
+    }
+});
+test("composition evidence distinguishes backend frameworks from frontend and honors explicit greenfield intent", () => {
+    const backend = compositionEvidenceFor(profile({ frameworks: [record("Express")] }));
+    assert.ok(!backend.riskSurfaces?.includes("frontend"));
+    const frontend = compositionEvidenceFor(profile({}), { modules: ["frontend"] });
+    assert.ok(frontend.riskSurfaces?.includes("frontend"));
+    const testing = compositionEvidenceFor(profile({}), { modules: ["testing"] });
+    assert.equal(testing.flags?.testingApplicable, true);
+});
+test("greenfield intent is an explicit bounded override, not automatic applicability evidence", async () => {
+    const empty = profile({});
+    const initial = decideModules({ candidates: ["frontend"], profile: empty, explicit: true });
+    const automatic = await expandApplicableDependencies(projectRoot, empty, initial, ["frontend"], {}, projectRoot);
+    for (const dependency of ["ui", "ux", "accessibility"])
+        assert.equal(automatic.selected.includes(dependency), false, `${dependency} must remain evidence-gated without explicit greenfield policy`);
+    const explicit = await expandApplicableDependencies(projectRoot, empty, initial, ["frontend"], {
+        explicitIntentDependencies: explicitGreenfieldDependenciesFor(empty, ["frontend"])
+    }, projectRoot);
+    for (const dependency of ["ui", "ux", "accessibility"]) {
+        assert.ok(explicit.selected.includes(dependency), `expected bounded ${dependency} intent`);
+        const decision = explicit.decisions.find((candidate) => candidate.module === dependency);
+        assert.ok(decision);
+        assert.equal(decision.selection_status, "SELECTED");
+        assert.notEqual(decision.risk_status, "PRESENT", "explicit greenfield intent must not be relabeled as repository evidence");
+        assert.ok(decision.reasons.some((reason) => reason.includes("not automatic")));
     }
 });
 test("React overlays activate for React and stay suppressed for Vue", () => {
@@ -455,6 +625,120 @@ test("missing upstream content is reported as a damaged installation, never as c
     assert.ok(result.missing.length > 0);
     assert.ok(result.suppressed.some((entry) => entry.reason.includes("missing from this installation")));
 });
+test("runtime manifests cannot elevate repository files outside Forge-owned subtrees", async () => {
+    const manifestFor = (input) => ({
+        schemaVersion: 2,
+        defaultContextBudget: { maxPrimarySkills: 0, maxOverlays: 1, maxSupplemental: 0 },
+        workflowContracts: { audit: input.auditContract },
+        modules: [
+            {
+                module: "observability",
+                mode: "hybrid",
+                designation: "fixture",
+                forgeContract: "references/build/observability.md",
+                primary: [],
+                overlays: input.sourceRuntimePath === undefined
+                    ? []
+                    : [
+                        {
+                            provider: "fixture",
+                            skill: "repository-file",
+                            path: "fixture/SKILL.md",
+                            when: { always: true }
+                        }
+                    ],
+                supplemental: [],
+                conflicts: [],
+                dependsOn: [],
+                outputClassification: "finding",
+                forgeAuthority: [],
+                resolvedSources: input.sourceRuntimePath === undefined
+                    ? []
+                    : [
+                        {
+                            provider: "fixture",
+                            skill: "repository-file",
+                            runtimePath: input.sourceRuntimePath
+                        }
+                    ]
+            }
+        ]
+    });
+    for (const scenario of [
+        {
+            name: "contract-traversal",
+            manifest: manifestFor({ auditContract: "../../../README.md" }),
+            expected: /contract.*path is unsafe/iu
+        },
+        {
+            name: "repository-source",
+            manifest: manifestFor({
+                auditContract: "references/workflows/audit.md",
+                sourceRuntimePath: "README.md"
+            }),
+            expected: /source.*path must stay inside '\.fullstack-forge\/upstream'/iu
+        }
+    ]) {
+        await withTemporaryProject(`composition-owned-path-${scenario.name}`, async (root) => {
+            const manifestRoot = join(root, ".fullstack-forge", "manifests");
+            await mkdir(manifestRoot, { recursive: true });
+            await writeFile(join(root, "README.md"), "# repository-controlled text\n", "utf8");
+            await writeFile(join(manifestRoot, "module-composition.json"), `${JSON.stringify(scenario.manifest, null, 2)}\n`, "utf8");
+            await assert.rejects(resolveRuntimeCompositionWithRoot(root, ["observability"], { workflow: "audit" }, root), scenario.expected);
+        });
+    }
+});
+test("a directory at a declared runtime source is damaged content, not available content", async () => {
+    await withTemporaryProject("composition-directory-source", async (root) => {
+        const runtimeSource = join(PACKAGE_ROOT, ".fullstack-forge", "runtime", "cli");
+        const runtimeDestination = join(root, ".fullstack-forge", "runtime", "cli");
+        await cp(runtimeSource, runtimeDestination, { recursive: true });
+        const manifestRoot = join(root, ".fullstack-forge", "manifests");
+        await mkdir(manifestRoot, { recursive: true });
+        const sourceRuntimePath = ".fullstack-forge/upstream/fixture/fixture/PLAYBOOK.md";
+        await writeFile(join(manifestRoot, "module-composition.json"), `${JSON.stringify({
+            schemaVersion: 2,
+            defaultContextBudget: { maxPrimarySkills: 0, maxOverlays: 1, maxSupplemental: 0 },
+            workflowContracts: { build: "references/workflows/build.md" },
+            modules: [
+                {
+                    module: "observability",
+                    mode: "hybrid",
+                    designation: "fixture",
+                    forgeContract: "references/build/observability.md",
+                    primary: [],
+                    overlays: [
+                        {
+                            provider: "fixture",
+                            skill: "fixture",
+                            path: "fixture/SKILL.md",
+                            when: { always: true }
+                        }
+                    ],
+                    supplemental: [],
+                    conflicts: [],
+                    dependsOn: [],
+                    outputClassification: "finding",
+                    forgeAuthority: [],
+                    resolvedSources: [
+                        { provider: "fixture", skill: "fixture", runtimePath: sourceRuntimePath }
+                    ]
+                }
+            ]
+        }, null, 2)}\n`, "utf8");
+        const contractPath = join(root, ".fullstack-forge", "skills", "fullstack-forge", "references", "build", "observability.md");
+        await mkdir(join(contractPath, ".."), { recursive: true });
+        await writeFile(contractPath, "# fixture contract\n", "utf8");
+        await mkdir(join(root, ".fullstack-forge", "upstream", "fixture", "fixture", "PLAYBOOK.md"), {
+            recursive: true
+        });
+        const runner = join(runtimeDestination, "src", "composition-entry.js");
+        const result = await runFile(process.execPath, [runner, "observability", "compose", "--root", root, "--dry-run", "--json"], root);
+        assert.equal(result.exitCode, 2, result.stderr || result.stdout);
+        const parsed = JSON.parse(result.stdout);
+        assert.ok(parsed.compositions[0]?.missing.includes(sourceRuntimePath));
+    });
+});
 test("forge-all keeps its own routing and takes no upstream primary", () => {
     const declaration = manifest.modules.find((module) => module.module === "all");
     assert.ok(declaration);
@@ -489,6 +773,54 @@ test("an unknown activation key can never activate a source", () => {
         profile: profile({ frameworks: [record("react")] })
     });
     assert.equal(reason, undefined);
+});
+test("an unknown activation key nested under not fails closed", () => {
+    const reason = evaluateActivation({ not: { unknownDimension: ["react"] } }, {
+        profile: profile({ frameworks: [record("react")] })
+    });
+    assert.equal(reason, undefined);
+    const result = resolveComposition({
+        manifest: {
+            schemaVersion: 2,
+            defaultContextBudget: { maxPrimarySkills: 0, maxOverlays: 1, maxSupplemental: 0 },
+            modules: [
+                {
+                    module: "fixture",
+                    mode: "hybrid",
+                    designation: "fixture",
+                    forgeContract: "references/build/fixture.md",
+                    primary: [],
+                    overlays: [
+                        {
+                            provider: "fixture-provider",
+                            skill: "typoed-exclusion",
+                            path: "typoed-exclusion.md",
+                            when: { not: { unknownDimension: ["react"] } }
+                        }
+                    ],
+                    supplemental: [],
+                    conflicts: [],
+                    dependsOn: [],
+                    outputClassification: "finding",
+                    forgeAuthority: []
+                }
+            ]
+        },
+        module: "fixture",
+        evidence: {
+            profile: profile({ frameworks: [record("react")] }),
+            requested: ["fixture-provider/typoed-exclusion"]
+        },
+        runtimePathFor: (source) => source.path
+    });
+    assert.equal(result.selected.some((source) => source.skill === "typoed-exclusion"), false);
+    assert.equal(result.suppressed.find((source) => source.skill === "typoed-exclusion")?.reason, "no activation evidence");
+});
+test("an exclusion-only condition cannot establish applicability", () => {
+    assert.equal(evaluateActivation({ not: { frameworks: ["react"] } }, {}), undefined, "missing evidence must not make a negative-only provider condition active");
+    assert.equal(evaluateActivation({
+        allOf: [{ frameworks: ["vue"] }, { not: { frameworks: ["react"] } }]
+    }, { profile: profile({ frameworks: [record("vue")] }) })?.startsWith("all conditions matched"), true, "not remains a filter when positive applicability evidence is present");
 });
 test("conflict precedence puts Forge contracts above every upstream workflow", () => {
     assert.equal(PRECEDENCE.length, 9);

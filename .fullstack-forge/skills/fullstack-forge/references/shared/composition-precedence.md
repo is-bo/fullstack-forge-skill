@@ -8,18 +8,20 @@ This file is the contract that resolves any disagreement between them. It is aut
 
 ## What loads, and in what order
 
-For every module Forge loads, in order:
+For every module Forge composes, the workflow is explicit (`build`, `audit`, `fix`, `verify`, or
+`ship`). The selected set is resolved in this order:
 
-1. the Forge module contract for that module;
+1. the Forge workflow contract for that module (the build brief only in `build` mode);
 2. at most one primary upstream workflow, when its activation evidence holds;
 3. conditional provider overlays, when repository evidence or an explicit request proves the
    provider is in use;
 4. supplemental references, on demand only.
 
-The Forge contract is never skipped, never summarised away, and never overridden. Upstream content
-is compiled into `.fullstack-forge/upstream/` as `PLAYBOOK.md` files with their activation
-frontmatter removed: no agent host can discover or trigger them, and they carry no routing authority
-of their own.
+The Forge contract is never skipped, never summarised away, and never overridden. Build-oriented
+primary sources are excluded from non-build workflows unless their manifest entry explicitly lists
+that workflow. Upstream content is compiled into `.fullstack-forge/upstream/` as `PLAYBOOK.md` files
+with their activation frontmatter removed: no agent host can discover or trigger them, and they
+carry no routing authority of their own.
 
 If a module's manifest names upstream content that the installation does not contain, that is a
 damaged installation. Report `NOT_VERIFIED` and say the installation is incomplete. Never continue
@@ -97,8 +99,9 @@ surface, and finally generic `always` applicability. A larger declared source pr
 remaining tie; provider and skill names are the final deterministic tie-break only. If explicit
 requests exceed a tier budget, the report names the conflict instead of silently dropping the
 request. Agents pass an explicit provider or stack request to the CLI with repeatable
-`--request <name>` flags. Every module audit records the resulting selected, suppressed, and missing
-sources in `.forge/composition.json` and the report composition ledger. Task-shaped conditions that
-cannot be discovered from the repository use repeatable `--condition <name>` or
-`--risk-surface <name>` flags, but only after the agent directly proves that fact from the request
-and affected boundary.
+`--request <name>` flags. Every module run records the resulting selected, suppressed, eager,
+deferred, and missing sources in `.forge/composition.json` and the report composition ledger.
+`selected` is the complete availability/provenance set; agents read `eager` at entry and load
+`deferred` only when the task reaches that concern. Task-shaped conditions that cannot be discovered
+from the repository use repeatable `--condition <name>` or `--risk-surface <name>` flags, but only
+after the agent directly proves that fact from the request and affected boundary.

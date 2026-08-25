@@ -18,8 +18,9 @@ $forge help
 
 These are Agent Skills forms where `$skill` selection is supported. A host that exposes installed
 skills as slash commands can use the equivalent `/forge audit security`; other hosts use a skill
-manager or mention. Terminal equivalents use `npx forge`. See
-[platform support](PLATFORM_SUPPORT.md) rather than assuming every host has identical syntax.
+manager or mention. Project-package terminal equivalents use `npx --no-install forge`; a plugin-only
+install does not add the CLI. See [platform support](PLATFORM_SUPPORT.md) rather than assuming every
+host has identical syntax.
 
 Explicit commands force, narrow, or expand scope while preserving evidence and approval rules.
 
@@ -70,7 +71,8 @@ $forge ux verify
 `review` uses the audit evidence contract. `improve` begins with the same bounded preview as `fix`.
 `build` selects the agent-led UNDERSTAND → INSPECT → SELECT → DEFINE → IMPLEMENT → RENDER → VALIDATE
 → REFINE → REPORT workflow; the CLI route itself does not claim that code or visual checks ran.
-Terminal equivalents use `npx forge frontend build`, `npx forge ui review`, and so on.
+Project-package terminal equivalents use `npx --no-install forge frontend build`,
+`npx --no-install forge ui review`, and so on.
 
 ## Findings tools
 

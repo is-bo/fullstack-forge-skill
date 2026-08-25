@@ -3,7 +3,10 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { projectRoot } from "./project.mjs";
 
-const dryRun = process.argv.includes("--dry-run");
+const { dryRun, packageInput } = parseArguments(process.argv.slice(2));
+const expectedVersion = JSON.parse(
+  await readFile(join(projectRoot, "package.json"), "utf8")
+).version;
 if (dryRun) {
   console.log(
     JSON.stringify(
@@ -11,8 +14,11 @@ if (dryRun) {
         dry_run: true,
         checks: [
           "npm pack",
+          "optional exact dist npm package input",
           "local package install with pinned runtime dependencies",
           "CLI version",
+          "installed list, validate, doctor, and composition commands",
+          "source-checkout-only tool boundary",
           "init/update/uninstall ownership smoke",
           "Antigravity project and global destinations",
           "Gemini project destination",
@@ -35,17 +41,31 @@ try {
   await mkdir(packageRoot);
   await mkdir(consumerRoot);
   const npmCli = await resolveNpmCli();
-  const pack = await run(
-    process.execPath,
-    [npmCli, "pack", "--json", "--pack-destination", packageRoot],
-    projectRoot,
-    10 * 60_000
-  );
-  if (pack.code !== 0) throw new Error(`npm pack failed:\n${pack.stderr}\n${pack.stdout}`);
-  const parsed = JSON.parse(pack.stdout);
-  const filename = parsed?.[0]?.filename;
-  if (typeof filename !== "string") throw new Error("npm pack did not report an archive filename");
-  const archive = join(packageRoot, filename);
+  let archive;
+  let filename;
+  if (packageInput === undefined) {
+    const pack = await run(
+      process.execPath,
+      [npmCli, "pack", "--ignore-scripts", "--json", "--pack-destination", packageRoot],
+      projectRoot,
+      10 * 60_000
+    );
+    if (pack.code !== 0) throw new Error(`npm pack failed:\n${pack.stderr}\n${pack.stdout}`);
+    const parsed = JSON.parse(pack.stdout);
+    filename = parsed?.[0]?.filename;
+    if (typeof filename !== "string")
+      throw new Error("npm pack did not report an archive filename");
+    archive = join(packageRoot, filename);
+  } else {
+    filename = `fullstack-forge-skill-v${expectedVersion}.tgz`;
+    archive = resolve(projectRoot, packageInput);
+    const expectedArchive = resolve(projectRoot, "dist", filename);
+    if (archive !== expectedArchive)
+      throw new Error(`--package must identify the exact release artifact ${expectedArchive}`);
+    const info = await lstat(archive);
+    if (!info.isFile() || info.isSymbolicLink())
+      throw new Error("--package must identify a regular, non-symlink file");
+  }
   await stat(archive);
 
   await (
@@ -72,26 +92,54 @@ try {
     "src",
     "index.js"
   );
-  const expectedVersion = JSON.parse(
-    await readFile(join(projectRoot, "package.json"), "utf8")
-  ).version;
   const version = await run(process.execPath, [cli, "--version"], consumerRoot);
   if (version.code !== 0 || version.stdout.trim() !== expectedVersion)
     throw new Error(
       `CLI version smoke failed: expected ${expectedVersion}, got ${version.stdout} ${version.stderr}`
     );
   const installedPackageRoot = join(consumerRoot, "node_modules", "fullstack-forge-skill");
-  const upstreamVerify = await run(
-    process.execPath,
-    [join(installedPackageRoot, "scripts", "upstream-verify.mjs")],
-    installedPackageRoot
-  );
+  const list = await run(process.execPath, [cli, "list", "--json"], consumerRoot);
+  const listResult = parseJsonResult(list, "installed list");
   if (
-    upstreamVerify.code !== 0 ||
-    !upstreamVerify.stdout.includes("Shipped upstream runtime verification passed")
+    list.code !== 0 ||
+    !Array.isArray(listResult.tools) ||
+    !listResult.tools.includes("check-platform-assets") ||
+    !listResult.tool_availability?.source_checkout_only?.includes("check-platform-assets")
+  )
+    throw new Error(`installed list is incomplete:\n${list.stderr}\n${list.stdout}`);
+  const validate = await run(process.execPath, [cli, "validate", "--json"], consumerRoot);
+  const validateResult = parseJsonResult(validate, "installed validate");
+  if (validate.code !== 0 || validateResult.valid !== true || validateResult.skills !== 46)
+    throw new Error(`installed validation failed:\n${validate.stderr}\n${validate.stdout}`);
+  const composition = await run(
+    process.execPath,
+    [cli, "security", "compose", "--root", consumerRoot, "--dry-run", "--json"],
+    consumerRoot
+  );
+  const compositionResult = parseJsonResult(composition, "installed composition");
+  if (
+    composition.code !== 0 ||
+    !Array.isArray(compositionResult.compositions) ||
+    compositionResult.compositions.length === 0 ||
+    compositionResult.compositions.some((entry) => entry.missing?.length !== 0) ||
+    resolve(compositionResult.runtime_root) !== resolve(installedPackageRoot)
   )
     throw new Error(
-      `packed upstream runtime verification failed:\n${upstreamVerify.stderr}\n${upstreamVerify.stdout}`
+      `packed upstream composition verification failed:\n${composition.stderr}\n${composition.stdout}`
+    );
+  const sourceOnly = await run(
+    process.execPath,
+    [cli, "tool", "check-platform-assets", "--json"],
+    consumerRoot
+  );
+  const sourceOnlyResult = parseJsonResult(sourceOnly, "installed source-only tool");
+  if (
+    sourceOnly.code !== 2 ||
+    sourceOnlyResult.status !== "BLOCKED" ||
+    sourceOnlyResult.availability !== "source-checkout-only"
+  )
+    throw new Error(
+      `source-checkout-only tool did not fail closed:\n${sourceOnly.stderr}\n${sourceOnly.stdout}`
     );
 
   const dryInit = await run(
@@ -152,6 +200,22 @@ try {
   );
   if (update.code !== 0 || !update.stdout.includes("preserve-identical"))
     throw new Error(`idempotent update failed: ${update.stderr}`);
+  const projectDoctor = await run(
+    process.execPath,
+    [cli, "doctor", "--offline", "--root", consumerRoot, "--json"],
+    consumerRoot
+  );
+  const projectDoctorResult = parseJsonResult(projectDoctor, "installed project doctor");
+  if (
+    projectDoctor.code !== 0 ||
+    projectDoctorResult.ready !== true ||
+    !projectDoctorResult.checks?.some(
+      (check) => check.name === "bundled generated copies" && check.status === "PASS"
+    )
+  )
+    throw new Error(
+      `installed project doctor failed:\n${projectDoctor.stderr}\n${projectDoctor.stdout}`
+    );
   const uninstallDry = await run(
     process.execPath,
     [cli, "uninstall", "generic", "--root", consumerRoot, "--dry-run", "--json"],
@@ -277,6 +341,35 @@ try {
 } finally {
   validateTemporary(temporary);
   await rm(temporary, { recursive: true });
+}
+
+function parseArguments(args) {
+  let dryRun = false;
+  let packageInput;
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (argument === "--dry-run") {
+      dryRun = true;
+      continue;
+    }
+    if (argument === "--package" && packageInput === undefined) {
+      packageInput = args[index + 1];
+      if (packageInput === undefined || packageInput.startsWith("--"))
+        throw new Error("--package requires one path");
+      index += 1;
+      continue;
+    }
+    throw new Error(`Unknown or repeated smoke-install argument: ${argument}`);
+  }
+  return { dryRun, packageInput };
+}
+
+function parseJsonResult(execution, label) {
+  try {
+    return JSON.parse(execution.stdout);
+  } catch {
+    throw new Error(`${label} did not return JSON:\n${execution.stderr}\n${execution.stdout}`);
+  }
 }
 
 function validateTemporary(path) {

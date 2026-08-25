@@ -124,24 +124,155 @@ export function assertNoExistingAttestations(results) {
   }
 }
 
+function markdownLinesOutsideFences(markdown) {
+  const lines = [];
+  let fence;
+
+  for (const line of markdown.split(/\r?\n/u)) {
+    const fenceMatch = /^\s*(`{3,}|~{3,})(.*)$/u.exec(line);
+    if (fence !== undefined) {
+      if (
+        fenceMatch !== null &&
+        fenceMatch[1][0] === fence.character &&
+        fenceMatch[1].length >= fence.length &&
+        fenceMatch[2].trim().length === 0
+      )
+        fence = undefined;
+      continue;
+    }
+    if (fenceMatch !== null) {
+      fence = { character: fenceMatch[1][0], length: fenceMatch[1].length };
+      continue;
+    }
+    lines.push(line);
+  }
+
+  return lines;
+}
+
+function fieldValues(lines, label) {
+  const prefix = `${label}:`;
+  return lines
+    .filter((line) => line.startsWith(prefix))
+    .map((line) => line.slice(prefix.length).trim());
+}
+
+function parseRequiredEvidenceSections(lines, errors) {
+  const sections = new Map();
+  let activeSection;
+
+  for (const line of lines) {
+    const heading = /^##(?!#)\s+(.+?)(?:\s+#+)?\s*$/u.exec(line);
+    if (heading !== null) {
+      const name = heading[1].trim().toLowerCase();
+      activeSection =
+        name === "required local evidence"
+          ? "local"
+          : name === "required remote evidence"
+            ? "remote"
+            : undefined;
+      if (activeSection !== undefined) {
+        if (sections.has(activeSection))
+          errors.push(
+            `verification record contains duplicate required ${activeSection} evidence sections`
+          );
+        else sections.set(activeSection, { lines: [], checklist: [] });
+      }
+      continue;
+    }
+    if (/^#(?!#)\s+/u.test(line)) {
+      activeSection = undefined;
+      continue;
+    }
+
+    const section = activeSection === undefined ? undefined : sections.get(activeSection);
+    if (section === undefined) continue;
+    section.lines.push(line);
+    const checklist = /^\s*(?:>\s*)*(?:[-*+]|\d+[.)])\s+\[([ xX])\](?:\s+.*?)?\s*$/u.exec(line);
+    if (checklist !== null) section.checklist.push({ checked: checklist[1].toLowerCase() === "x" });
+  }
+
+  for (const name of ["local", "remote"])
+    if (!sections.has(name))
+      errors.push(`verification record must contain one ## Required ${name} evidence section`);
+
+  return sections;
+}
+
+function hasContradictoryLocalPendingProse(lines) {
+  const localSubject =
+    "(?:local(?:\\s+candidate)?\\s+(?:validation|verification|evidence|checks?|gates?)|(?:validation|verification|evidence|checks?|gates?)\\s+for\\s+the\\s+local\\s+candidate)";
+  const paragraphs = [];
+  let paragraph = [];
+  const flush = () => {
+    if (paragraph.length > 0) paragraphs.push(paragraph.join(" "));
+    paragraph = [];
+  };
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0 || /^#{1,6}\s+/u.test(trimmed)) {
+      flush();
+      continue;
+    }
+    if (
+      /^(?:Verification stage|Local validation status|Remote publication status):/u.test(trimmed)
+    ) {
+      flush();
+      paragraphs.push(trimmed);
+      continue;
+    }
+    if (/^(?:>\s*)*(?:[-*+]|\d+[.)])\s+/u.test(trimmed)) flush();
+    paragraph.push(trimmed);
+  }
+  flush();
+  const prose = paragraphs
+    .join("\n")
+    .replace(/[*_~`]/gu, "")
+    .replace(/[\t ]+/gu, " ");
+  const pendingAfterLocal = new RegExp(
+    `\\b${localSubject}\\b\\s*(?:(?:status\\s*)?(?:is|are|:)|remains?|stays?|continues?\\s+to\\s+be)\\s+(?:still\\s+|currently\\s+)?pending\\b`,
+    "iu"
+  );
+  const localAfterPending = new RegExp(
+    `\\bpending\\b\\s*(?:status\\s+)?(?:for\\s+|on\\s+)?${localSubject}\\b`,
+    "iu"
+  );
+  return pendingAfterLocal.test(prose) || localAfterPending.test(prose);
+}
+
 export function validateTaggedReleaseDocuments({ tag, notes, verification }) {
   const errors = [];
+  const lines = markdownLinesOutsideFences(verification);
   if (!notes.includes(tag)) errors.push(`release notes do not name ${tag}`);
   if (!verification.includes(tag)) errors.push(`verification record does not name ${tag}`);
-  if (!/^Verification stage:\s*CANDIDATE_LOCAL\s*$/mu.test(verification))
+  const stages = fieldValues(lines, "Verification stage");
+  if (stages.length !== 1 || stages[0] !== "CANDIDATE_LOCAL")
     errors.push("verification stage must be CANDIDATE_LOCAL");
-  if (!/^Local validation status:\s*PASS\s*$/mu.test(verification))
+  const localStatuses = fieldValues(lines, "Local validation status");
+  if (localStatuses.length !== 1 || localStatuses[0] !== "PASS")
     errors.push("tagged verification must record complete local validation as PASS");
-  if (!/^Remote publication status:\s*PENDING\s*$/mu.test(verification))
+  const remoteStatuses = fieldValues(lines, "Remote publication status");
+  if (remoteStatuses.length !== 1 || remoteStatuses[0] !== "PENDING")
     errors.push("remote publication status must be PENDING in tagged source");
-  if (/^Remote publication status:\s*(?:PASS|COMPLETE|COMPLETED)\s*$/imu.test(verification))
+  if (remoteStatuses.some((status) => /^(?:PASS|COMPLETE|COMPLETED)$/iu.test(status)))
     errors.push("tagged source claims future remote publication completed");
-  if (
-    /^\s*[-*]\s*\[x\].*\b(?:CI|release|publish(?:ed|ing)?|provenance|immutable)\b/imu.test(
-      verification
-    )
-  )
-    errors.push("tagged source marks a future remote step complete");
+  const sections = parseRequiredEvidenceSections(lines, errors);
+  const local = sections.get("local");
+  if (local !== undefined) {
+    if (local.checklist.length === 0)
+      errors.push("required local evidence section contains no checklist items");
+    else if (local.checklist.some((item) => !item.checked))
+      errors.push("tagged local validation PASS requires every local checklist item to be checked");
+  }
+  if (hasContradictoryLocalPendingProse(lines))
+    errors.push("tagged local validation PASS contradicts PENDING local-validation prose");
+  const remote = sections.get("remote");
+  if (remote !== undefined) {
+    if (remote.checklist.length === 0)
+      errors.push("required remote evidence section contains no checklist items");
+    else if (remote.checklist.some((item) => item.checked))
+      errors.push("tagged source marks a future remote checklist item complete");
+  }
   if (/final post-release verification(?: is|:) (?:complete|passed|published)/iu.test(notes))
     errors.push("release notes claim the post-release record already exists");
   if (!/pending/iu.test(verification))
@@ -158,9 +289,11 @@ export async function verifyPublishedAssets(localDirectory, publishedDirectory) 
     .filter((entry) => entry.isFile())
     .map((entry) => entry.name)
     .sort();
-  const publishedNames = publishedFiles.filter((name) => name.endsWith(".zip"));
+  const publishedNames = [...checksums.keys()].sort();
   assertUniqueAssetNames(publishedNames);
-  if (publishedNames.length === 0) throw new Error("No published ZIP assets were downloaded.");
+  for (const suffix of [".zip", ".tgz", ".spdx.json"])
+    if (!publishedNames.some((name) => name.endsWith(suffix)))
+      throw new Error(`Published checksum list contains no ${suffix} release artifact.`);
   const expectedFiles = [...publishedNames, "SHA256SUMS.txt", "manifest.json"].sort();
   if (JSON.stringify(publishedFiles) !== JSON.stringify(expectedFiles))
     throw new Error(
@@ -185,7 +318,7 @@ export async function verifyPublishedAssets(localDirectory, publishedDirectory) 
   if (!publishedManifest.equals(localManifest))
     throw new Error("Published manifest.json differs from the locally validated candidate.");
   return {
-    archives: publishedNames.sort(),
+    payloads: publishedNames,
     checksums: Object.fromEntries([...checksums.entries()].sort())
   };
 }
@@ -203,7 +336,7 @@ export function parseChecksums(text) {
 }
 
 export function renderFinalVerification({ tag, commit, runUrl, releaseUrl, assets, generatedAt }) {
-  const assetLines = assets.archives
+  const assetLines = assets.payloads
     .map((name) => `- \`${name}\`: \`${assets.checksums[name]}\``)
     .join("\n");
   return `# Fullstack Forge ${tag} final release evidence asset
@@ -229,10 +362,10 @@ ${assetLines}
 - Tagged source checks, tests, coverage enforcement, dependency audit, packaging, smoke install,
   and offline install completed in the linked workflow.
 - The remote draft contained no pre-existing release and no asset name was duplicated or replaced.
-- Downloaded release archives matched the locally validated candidates byte-for-byte.
-- SHA256SUMS.txt matched the downloaded archives.
+- Downloaded release payloads matched the locally validated candidates byte-for-byte.
+- SHA256SUMS.txt matched every downloaded platform archive, exact npm package, and SPDX SBOM.
 - The Codex archive was extracted into an empty directory and its canonical skill was readable.
-- Build-provenance attestations were requested for archives and this final evidence bundle.
+- Build-provenance attestations were requested for all release payloads and this final evidence bundle.
 - All assets and this record were attached to the draft before the one-way immutable publish step.
 
 After this asset is attached, the workflow publishes the draft exactly once. GitHub release

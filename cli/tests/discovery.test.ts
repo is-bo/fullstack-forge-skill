@@ -138,6 +138,75 @@ test("discovery records provider identities instead of relying on evidence-path 
   });
 });
 
+test("Django URLconfs reconcile backend framework, route, API assessment, and request risk", async () => {
+  await withTemporaryProject("profile-django-route", async (root) => {
+    const project = join(root, "project");
+    await mkdir(project, { recursive: true });
+    await writeFile(
+      join(project, "urls.py"),
+      `from django.urls import path
+from . import views
+
+urlpatterns = [path("patients/", views.patients)]
+`,
+      "utf8"
+    );
+    const profile = await discoverProject(root);
+    assert.ok(profile.frameworks.some((framework) => framework.name === "Django"));
+    assert.ok(
+      profile.routes.some(
+        (route) =>
+          route.name === "ROUTE /patients/" &&
+          route.evidence.some((item) => item === "adapter: django-urlconf")
+      )
+    );
+    assert.equal(
+      profile.capability_assessments?.find(
+        (assessment) => assessment.capability === "api" && assessment.workspace === "."
+      )?.status,
+      "PRESENT"
+    );
+    assert.ok(
+      profile.risk_evidence?.some(
+        (risk) => risk.risk === "request-boundary" && risk.path === "project/urls.py"
+      )
+    );
+  });
+});
+
+test("Next.js DELETE handlers produce modeled API and destructive-route evidence", async () => {
+  await withTemporaryProject("profile-next-delete", async (root) => {
+    const routeDirectory = join(root, "app", "api", "users", "[id]");
+    await mkdir(routeDirectory, { recursive: true });
+    await writeFile(
+      join(root, "package.json"),
+      `${JSON.stringify({ name: "next-api", dependencies: { next: "0.0.0-fixture" } })}\n`,
+      "utf8"
+    );
+    await writeFile(
+      join(routeDirectory, "route.ts"),
+      `export async function DELETE() {
+  return new Response(null, { status: 204 });
+}
+`,
+      "utf8"
+    );
+    const profile = await discoverProject(root);
+    assert.ok(profile.routes.some((route) => route.name === "DELETE /api/users/[id]"));
+    assert.equal(
+      profile.capability_assessments?.find(
+        (assessment) => assessment.capability === "api" && assessment.workspace === "."
+      )?.status,
+      "PRESENT"
+    );
+    for (const risk of ["request-boundary", "destructive-or-administrative-route"])
+      assert.ok(
+        profile.risk_evidence?.some((item) => item.risk === risk),
+        risk
+      );
+  });
+});
+
 test("project profile schema v2 records applications, routes, boundaries, and old-profile regeneration", async () => {
   await withTemporaryProject("profile-v2", async (root) => {
     await writeFile(

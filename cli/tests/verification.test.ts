@@ -4,7 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { runAnalyzers } from "../src/analyzers.js";
 import { discoverProject } from "../src/discovery.js";
-import { createReport, writeReport } from "../src/report.js";
+import { createReport, writeReport, type ReportLedgers } from "../src/report.js";
 import type { Finding, GateEvidence } from "../src/types.js";
 import { workingTreeRevision } from "../src/utils.js";
 import { verifyFindings } from "../src/verification.js";
@@ -108,6 +108,60 @@ test("verification blocks an unapproved project command", async () => {
   });
 });
 
+test("offline verification blocks an unknown project command without spawning it", async () => {
+  await withTemporaryProject("verify-offline-command", async (root) => {
+    await writeFile(
+      join(root, "package.json"),
+      `${JSON.stringify({
+        name: "verify-offline-command",
+        private: true,
+        scripts: {
+          test: `node -e "require('node:fs').writeFileSync('offline-sentinel','ran')"`
+        }
+      })}\n`,
+      "utf8"
+    );
+    const profile = await discoverProject(root);
+    const finding: Finding = {
+      id: "FF-TEST-OFFLINE-001",
+      section: "testing",
+      title: "Offline verification must not execute unknown project scripts",
+      severity: "HIGH",
+      confidence: "HIGH",
+      status: "FAIL",
+      location: [{ path: "package.json", line: 1 }],
+      evidence: ["The original audit requires a targeted project test."],
+      impact: "An unclassified script could access the network despite an offline claim.",
+      recommendation: "Keep the command blocked while offline.",
+      safe_fix: false,
+      verification: ["Prove the command was blocked before process creation."],
+      standards: ["Fullstack Forge offline execution policy"],
+      verification_plan: {
+        actions: [{ type: "project-command", command: "test", required: true }]
+      }
+    };
+    await writeReport(createReport(root, profile, [finding], "test audit"));
+
+    const result = await verifyFindings(root, "testing", profile, {
+      allowRun: true,
+      dryRun: false,
+      offline: true,
+      forgeOwned: false
+    });
+    assert.equal(result.report.findings[0]?.status, "BLOCKED");
+    assert.deepEqual(result.report.execution, []);
+    assert.deepEqual(
+      result.command_ledger.map((record) => ({
+        disposition: record.disposition,
+        offline: record.offline,
+        network_policy: record.network_policy
+      })),
+      [{ disposition: "BLOCKED", offline: true, network_policy: "UNKNOWN" }]
+    );
+    await assert.rejects(readFile(join(root, "offline-sentinel"), "utf8"), /ENOENT/u);
+  });
+});
+
 test("verification detects a regressed finding that was previously marked PASS", async () => {
   await withTemporaryProject("verify-regressed", async (root) => {
     await writeFile(
@@ -178,6 +232,122 @@ test("verification preserves typed gate evidence and analyzer coverage", async (
     assert.deepEqual(result.report.gate_evidence, [evidence]);
     assert.equal(result.report.analyzer_coverage[0]?.analyzer_id, "js-ts-security");
     assert.equal(result.report.revision, revision);
+  });
+});
+
+test("verification preserves report provenance ledgers and environment", async () => {
+  await withTemporaryProject("verify-provenance", async (root) => {
+    await writeFile(join(root, "server.ts"), sqlFixture, "utf8");
+    const finding = await analyzerFinding(root, "security", "FF-SEC-SQL-001");
+    const profile = await discoverProject(root);
+    const revision = await workingTreeRevision(root);
+    const ledgers: ReportLedgers = {
+      tools: [
+        {
+          tool_id: "forge-test-analyzer",
+          name: "Forge test analyzer",
+          ownership: "forge-owned",
+          trust: "trusted",
+          version: "test",
+          version_source: "declared",
+          invocation: ["forge", "security", "audit"],
+          limitations: ["Fixture-only provenance record."]
+        }
+      ],
+      planned_checks: [
+        {
+          check_id: "forge-test-check",
+          module: "security",
+          command: ["forge", "security", "audit"],
+          source: "verification fixture",
+          status: "RUN",
+          requires_authorization: false,
+          network_policy: "OFFLINE_SAFE"
+        }
+      ],
+      runtime_evidence: [
+        {
+          evidence_id: "forge-test-runtime",
+          evidence_type: "fixture",
+          status: "PASS",
+          revision,
+          artifact_paths: ["evidence.json"],
+          hashes: [`sha256:${"0".repeat(64)}`],
+          limitations: ["Synthetic fixture evidence."]
+        }
+      ],
+      module_decisions: [
+        {
+          module: "security",
+          risk_status: "PRESENT",
+          control_status: "UNKNOWN",
+          applicability_status: "APPLICABLE",
+          analyzer_support: "EXECUTABLE",
+          capability_status: "PRESENT",
+          selection_status: "SELECTED",
+          reasons: ["Explicit verification fixture."],
+          evidence: ["server.ts"]
+        }
+      ],
+      compositions: [
+        {
+          module: "security",
+          mode: "forge-native",
+          outputClassification: "finding",
+          selected: [
+            {
+              tier: "forge-contract",
+              provider: "fullstack-forge",
+              skill: "forge-security",
+              runtimePath: "src/fullstack-forge/modules/security.md",
+              reason: "Forge retains finding authority."
+            }
+          ],
+          suppressed: [],
+          budget: { maxPrimarySkills: 1, maxOverlays: 1, maxSupplemental: 1 },
+          conflicts: [],
+          forgeAuthority: ["finding status"],
+          missing: []
+        }
+      ]
+    };
+    const environment = {
+      operating_system: "fixture-os",
+      platform: "fixture-platform",
+      architecture: "fixture-arch",
+      node: "fixture-node",
+      forge: "fixture-forge",
+      offline: true,
+      allow_run: false
+    };
+    await writeReport(
+      createReport(
+        root,
+        profile,
+        [finding],
+        "test audit",
+        [],
+        [],
+        [],
+        undefined,
+        [],
+        [],
+        revision,
+        environment,
+        ledgers
+      )
+    );
+
+    const result = await verifyFindings(root, "security", profile, {
+      allowRun: false,
+      dryRun: false
+    });
+    assert.deepEqual(result.report.tools, ledgers.tools);
+    assert.deepEqual(result.report.planned_checks, ledgers.planned_checks);
+    assert.deepEqual(result.report.runtime_evidence, ledgers.runtime_evidence);
+    assert.deepEqual(result.report.module_decisions, ledgers.module_decisions);
+    assert.deepEqual(result.report.compositions, ledgers.compositions);
+    assert.deepEqual(result.report.environment, environment);
   });
 });
 

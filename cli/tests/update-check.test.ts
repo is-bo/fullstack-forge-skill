@@ -1,65 +1,134 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  UPSTREAM_GIT_URL,
+  RELEASES_API_URL,
   checkUpdateAvailability,
-  parseReleaseTags,
-  publicReleaseArchive
+  parseReleaseChannel,
+  publicReleaseArchive,
+  type ReleaseChannelReader
 } from "../src/update-check.js";
 
-const hash = "a".repeat(40);
+const platformIds = [
+  "all",
+  "antigravity",
+  "claude",
+  "codex",
+  "cursor",
+  "gemini",
+  "generic",
+  "github",
+  "windsurf"
+];
 
-test("release-tag parsing accepts stable canonical refs and ignores hostile noise", () => {
-  const output = [
-    `${hash}\trefs/tags/v0.4.0`,
-    `${hash}\trefs/tags/v1.0.0`,
-    `${hash}\trefs/tags/v0.10.2`,
-    `${hash}\trefs/tags/v1.0.0^{}`,
-    `${hash}\trefs/tags/v01.2.3`,
-    `${hash}\trefs/tags/v2.0.0-beta.1`,
-    "\u001b[31mrefs/tags/v999.0.0\u001b[0m"
-  ].join("\n");
-  assert.deepEqual(parseReleaseTags(output), ["0.4.0", "0.10.2", "1.0.0"]);
+function releasePayload(
+  version: string,
+  overrides: Record<string, unknown> = {}
+): Record<string, unknown> {
+  const tag = `v${version}`;
+  const names = [
+    ...platformIds.map((platform) => `fullstack-forge-${platform}-${tag}.zip`),
+    "SHA256SUMS.txt",
+    "manifest.json",
+    ...(version === "0.2.2"
+      ? []
+      : [`fullstack-forge-skill-${tag}.tgz`, `fullstack-forge-skill-${tag}.spdx.json`])
+  ];
+  return {
+    tag_name: tag,
+    draft: false,
+    prerelease: false,
+    immutable: true,
+    published_at: "2026-08-10T12:00:00Z",
+    assets: names.map((name) => ({
+      name,
+      state: "uploaded",
+      size: 1024,
+      browser_download_url: `https://github.com/is-bo/fullstack-forge-skill/releases/download/${tag}/${name}`
+    })),
+    ...overrides
+  };
+}
+
+function readerFor(payload: unknown, statusCode = 200): ReleaseChannelReader {
+  return () => Promise.resolve({ statusCode, body: JSON.stringify(payload) });
+}
+
+test("release-channel parsing accepts immutable legacy and modern published releases", () => {
+  assert.equal(parseReleaseChannel(JSON.stringify(releasePayload("0.2.2"))).version, "0.2.2");
+  const modern = parseReleaseChannel(JSON.stringify(releasePayload("1.3.0")));
+  assert.equal(modern.version, "1.3.0");
+  assert.equal(modern.packageArtifact, "fullstack-forge-skill-v1.3.0.tgz");
+  assert.equal(modern.sbomArtifact, "fullstack-forge-skill-v1.3.0.spdx.json");
 });
 
-test("published release installation uses an immutable credential-free archive", () => {
-  const archive = new URL(publicReleaseArchive("1.3.0"));
-  assert.equal(archive.protocol, "https:");
-  assert.equal(archive.hostname, "codeload.github.com");
-  assert.equal(archive.username, "");
-  assert.equal(archive.password, "");
-  assert.equal(archive.pathname, "/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v1.3.0");
+test("release-channel parsing rejects drafts, prereleases, and mutable releases", () => {
+  assert.throws(
+    () => parseReleaseChannel(JSON.stringify(releasePayload("1.3.0", { draft: true }))),
+    /draft/u
+  );
+  assert.throws(
+    () => parseReleaseChannel(JSON.stringify(releasePayload("1.3.0", { prerelease: true }))),
+    /prerelease/u
+  );
+  assert.throws(
+    () => parseReleaseChannel(JSON.stringify(releasePayload("1.3.0", { immutable: false }))),
+    /immutable/u
+  );
+});
+
+test("release-channel parsing rejects malformed, incomplete, duplicate, and misdirected assets", () => {
+  assert.throws(() => parseReleaseChannel("not-json"), /valid JSON/u);
+  assert.throws(
+    () => parseReleaseChannel(JSON.stringify(releasePayload("1.3.0", { assets: [] }))),
+    /required release asset/u
+  );
+
+  const duplicate = releasePayload("1.3.0");
+  const duplicateAssets = duplicate.assets as Array<Record<string, unknown>>;
+  duplicate.assets = [...duplicateAssets, { ...duplicateAssets[0] }];
+  assert.throws(() => parseReleaseChannel(JSON.stringify(duplicate)), /duplicate/u);
+
+  const wrongHost = releasePayload("1.3.0");
+  const wrongHostAssets = wrongHost.assets as Array<Record<string, unknown>>;
+  wrongHostAssets[0] = {
+    ...wrongHostAssets[0],
+    browser_download_url: "https://example.invalid/forged.zip"
+  };
+  assert.throws(() => parseReleaseChannel(JSON.stringify(wrongHost)), /download URL/u);
+
+  const incomplete = releasePayload("1.3.0");
+  incomplete.assets = (incomplete.assets as Array<Record<string, unknown>>).filter(
+    (asset) => asset.name !== "fullstack-forge-skill-v1.3.0.spdx.json"
+  );
+  assert.throws(() => parseReleaseChannel(JSON.stringify(incomplete)), /SBOM/u);
+});
+
+test("published release installation uses the exact modern package artifact", () => {
+  const modern = new URL(publicReleaseArchive("1.3.0"));
+  assert.equal(modern.protocol, "https:");
+  assert.equal(modern.hostname, "github.com");
+  assert.equal(modern.username, "");
+  assert.equal(modern.password, "");
+  assert.equal(
+    modern.pathname,
+    "/is-bo/fullstack-forge-skill/releases/download/v1.3.0/fullstack-forge-skill-v1.3.0.tgz"
+  );
+
+  const legacy = new URL(publicReleaseArchive("0.2.2"));
+  assert.equal(legacy.hostname, "codeload.github.com");
+  assert.equal(legacy.pathname, "/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v0.2.2");
   assert.throws(() => publicReleaseArchive("v1.3.0"), /stable semantic version/u);
   assert.throws(() => publicReleaseArchive("main"), /stable semantic version/u);
 });
 
-test("update lookup uses a fixed argument vector and reports a newer release", async () => {
-  const calls: Array<{
-    executable: string;
-    args: string[];
-    cwd: string;
-    timeout: number | undefined;
-  }> = [];
-  const result = await checkUpdateAvailability(
-    "/project",
-    false,
-    "1.2.0",
-    (executable, args, cwd, timeout) => {
-      calls.push({ executable, args, cwd, timeout });
-      return Promise.resolve({
-        exitCode: 0,
-        stdout: `${hash}\trefs/tags/v1.2.0\n${hash}\trefs/tags/v1.3.0\n`,
-        stderr: ""
-      });
-    }
-  );
+test("update lookup uses the fixed GitHub Releases channel and reports a newer release", async () => {
+  const calls: Array<{ url: string; root: string; timeoutMs: number; maxBytes: number }> = [];
+  const result = await checkUpdateAvailability("/project", false, "1.2.0", (request) => {
+    calls.push(request);
+    return Promise.resolve({ statusCode: 200, body: JSON.stringify(releasePayload("1.3.0")) });
+  });
   assert.deepEqual(calls, [
-    {
-      executable: "git",
-      args: ["ls-remote", "--tags", "--refs", UPSTREAM_GIT_URL, "refs/tags/v*"],
-      cwd: "/project",
-      timeout: 10_000
-    }
+    { url: RELEASES_API_URL, root: "/project", timeoutMs: 10_000, maxBytes: 512 * 1024 }
   ]);
   assert.deepEqual(result, {
     status: "WARNING",
@@ -68,39 +137,42 @@ test("update lookup uses a fixed argument vector and reports a newer release", a
   });
 });
 
-test("offline and failed update checks stay explicit warnings rather than passes", async () => {
+test("offline, unavailable, and malformed release checks stay warnings rather than passes", async () => {
   let invoked = false;
   const offline = await checkUpdateAvailability("/project", true, "0.4.0", () => {
     invoked = true;
-    return Promise.resolve({ exitCode: 0, stdout: "", stderr: "" });
+    return Promise.resolve({ statusCode: 200, body: "{}" });
   });
   assert.equal(invoked, false);
   assert.equal(offline.status, "WARNING");
   assert.equal(offline.unavailable, true);
 
-  const failed = await checkUpdateAvailability("/project", false, "0.4.0", () =>
-    Promise.resolve({
-      exitCode: 1,
-      stdout: "",
-      stderr: "\u001b[31mapi_key=FixtureCredentialValue12345678901234567890\u001b[0m"
-    })
+  const failed = await checkUpdateAvailability(
+    "/project",
+    false,
+    "0.4.0",
+    readerFor({ api_key: "FixtureCredentialValue12345678901234567890" }, 503)
   );
   assert.equal(failed.status, "WARNING");
   assert.equal(failed.unavailable, true);
   assert.doesNotMatch(failed.evidence, /FixtureCredentialValue/u);
-  assert.equal(failed.evidence.includes("\u001b"), false);
+
+  const malformed = await checkUpdateAvailability(
+    "/project",
+    false,
+    "0.4.0",
+    readerFor(releasePayload("1.3.0", { draft: true }))
+  );
+  assert.equal(malformed.status, "WARNING");
+  assert.equal(malformed.unavailable, true);
+  assert.equal(malformed.latestVersion, undefined);
 });
 
 test("current and development-ahead versions are distinguished", async () => {
-  const runner = () =>
-    Promise.resolve({
-      exitCode: 0,
-      stdout: `${hash}\trefs/tags/v0.4.0\n`,
-      stderr: ""
-    });
-  assert.equal((await checkUpdateAvailability("/project", false, "0.4.0", runner)).status, "PASS");
+  const reader = readerFor(releasePayload("0.4.0"));
+  assert.equal((await checkUpdateAvailability("/project", false, "0.4.0", reader)).status, "PASS");
   assert.match(
-    (await checkUpdateAvailability("/project", false, "1.3.0", runner)).evidence,
+    (await checkUpdateAvailability("/project", false, "1.3.0", reader)).evidence,
     /newer than the latest public release/u
   );
 });

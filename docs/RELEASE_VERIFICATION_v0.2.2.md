@@ -1,5 +1,9 @@
 # Fullstack Forge v0.2.2 release verification
 
+> Historical candidate record. v0.2.2 was subsequently published as an immutable GitHub Release on
+> 2026-07-29. The statuses and counts below intentionally preserve the evidence available before
+> publication; use `docs/RELEASE.md` for the current release state.
+
 Verification stage: CANDIDATE_LOCAL
 
 Local validation status: PASS

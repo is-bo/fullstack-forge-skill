@@ -145,6 +145,9 @@ export async function orchestrateAudit(input) {
         byName.set(check.name, check.id);
     const select = resolveSelectors(input.select, known, byName, "--check");
     const skip = resolveSelectors(input.skip, known, byName, "--skip-check");
+    const contradictory = [...select].filter((id) => skip.has(id)).sort();
+    if (contradictory.length > 0)
+        throw new Error(`The same check cannot be both selected and skipped: ${contradictory.join(", ")}. Remove it from either --check or --skip-check.`);
     for (const check of planned)
         input.ledger.planCheck(check);
     const outcomes = [];
@@ -152,7 +155,6 @@ export async function orchestrateAudit(input) {
     const runtimeEvidence = [];
     const runCommand = input.runCommand ?? defaultCommandRunner;
     const collect = input.collectRuntimeEvidence;
-    let evidenceComplete = true;
     for (const check of planned) {
         if (skip.has(check.id)) {
             outcomes.push(record(input.ledger, check, "explicitly skipped with --skip-check", "deselected"));
@@ -176,15 +178,12 @@ export async function orchestrateAudit(input) {
             outcomes.push(record(input.ledger, check, check.kind === "project-command"
                 ? "project-command execution requires explicit --allow-run after reviewing the local script definition"
                 : "runtime evidence collection requires explicit --allow-run", "unauthorized"));
-            evidenceComplete = evidenceComplete && check.kind !== "runtime-evidence";
             continue;
         }
         if (input.offline && check.network_policy !== "OFFLINE_SAFE") {
             outcomes.push(record(input.ledger, check, check.network_policy === "NETWORK_REQUIRED"
                 ? `offline mode refuses '${check.name}' because its definition demonstrably reaches the network`
                 : `offline mode refuses '${check.name}' because its network behaviour is UNKNOWN. Fullstack Forge implements no operating-system network isolation, so an arbitrary audited-project command can never be proven offline-safe by inspecting its text.`, "offline-policy"));
-            if (check.kind === "runtime-evidence")
-                evidenceComplete = false;
             continue;
         }
         if (check.kind === "project-command") {
@@ -216,7 +215,6 @@ export async function orchestrateAudit(input) {
         // Runtime evidence.
         if (collect === undefined || input.url === undefined) {
             outcomes.push(record(input.ledger, check, "no runtime-evidence collector is available in this build", "unavailable"));
-            evidenceComplete = false;
             continue;
         }
         const collected = await collect({
@@ -258,10 +256,22 @@ export async function orchestrateAudit(input) {
         else {
             // Fail closed: requested runtime evidence that came back incomplete is recorded as not run,
             // and the whole audit is marked as having unproven evidence.
-            evidenceComplete = false;
             outcomes.push(record(input.ledger, check, `rendered evidence is ${evidence.status}: ${evidence.limitations[0] ?? "no usable capture was produced"}`, "failed-closed"));
         }
     }
+    // Completeness is derived from terminal outcomes, never toggled opportunistically inside one
+    // branch. `--check` makes the selected checks required. A supplied runtime URL likewise requests
+    // rendered evidence. Explicitly skipped checks are deliberate deselections and are not required;
+    // overlap between selection and skipping is rejected above instead of silently weakening scope.
+    const required = new Set();
+    if (select.size > 0)
+        for (const id of select)
+            if (!skip.has(id))
+                required.add(id);
+    if (input.url !== undefined && !skip.has("runtime:rendered-ui"))
+        required.add("runtime:rendered-ui");
+    const terminal = new Map(outcomes.map((outcome) => [outcome.id, outcome]));
+    const evidenceComplete = [...required].every((id) => terminal.get(id)?.status === "EXECUTED");
     return {
         planned,
         outcomes,

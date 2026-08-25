@@ -120,15 +120,15 @@ test("tagged verification must keep remote publication pending", () => {
     tag: "v1.2.3",
     notes: "# v1.2.3\nFinal remote verification is pending.\n",
     verification:
-      "# v1.2.3\nVerification stage: CANDIDATE_LOCAL\nLocal validation status: PASS\nRemote publication status: PENDING\n\n- [ ] CI pending\n"
+      "# v1.2.3\nVerification stage: CANDIDATE_LOCAL\nLocal validation status: PASS\nRemote publication status: PENDING\n\n## Required local evidence\n\n- [x] release packaging completed\n- [x] exact-artifact installation passed\n\n## Required remote evidence\n\n- [ ] CI pending\n- [ ] release publication pending\n"
   };
   assert.doesNotThrow(() => validateTaggedReleaseDocuments(safe));
   assert.doesNotThrow(() =>
     validateTaggedReleaseDocuments({
       ...safe,
       verification: safe.verification.replace(
-        "- [ ] CI pending",
-        "- [x] explicit-request behavior passed\n- [ ] CI pending"
+        "- [x] release packaging completed",
+        "- [x] release packaging completed\n- [x] explicit-request behavior passed"
       )
     })
   );
@@ -153,6 +153,84 @@ test("tagged verification must keep remote publication pending", () => {
   );
 });
 
+test("tagged local PASS requires complete local evidence without pending contradictions", () => {
+  const safe = {
+    tag: "v1.2.3",
+    notes: "# v1.2.3\nFinal remote verification is pending.\n",
+    verification:
+      "# v1.2.3\nVerification stage: CANDIDATE_LOCAL\nLocal validation status: PASS\nRemote publication status: PENDING\n\n## Required local evidence\n\n- [x] local gates passed\n- [x] package installation passed\n\n## Required remote evidence\n\n- [ ] CI pending\n"
+  };
+  assert.doesNotThrow(() =>
+    validateTaggedReleaseDocuments({
+      ...safe,
+      verification: `${safe.verification}\n## Current limitations\n\n- Local candidate validation passed, while remote publication remains PENDING.\n`
+    })
+  );
+  assert.throws(
+    () =>
+      validateTaggedReleaseDocuments({
+        ...safe,
+        verification: safe.verification.replace(
+          "- [x] local gates passed",
+          "- [ ] local gates pending"
+        )
+      }),
+    /every local checklist item/u
+  );
+  assert.throws(
+    () =>
+      validateTaggedReleaseDocuments({
+        ...safe,
+        verification: `${safe.verification}\n## Current limitations\n\n- Local candidate validation is\n  PENDING the final gate.\n`
+      }),
+    /contradicts PENDING local-validation prose/u
+  );
+  assert.throws(
+    () =>
+      validateTaggedReleaseDocuments({
+        ...safe,
+        verification: safe.verification
+          .replace("## Required local evidence", "## Local evidence mentioned in prose")
+          .replace("## Required remote evidence", "## Remote evidence mentioned in prose")
+      }),
+    /must contain one ## Required local evidence section/u
+  );
+  assert.throws(
+    () =>
+      validateTaggedReleaseDocuments({
+        ...safe,
+        verification: safe.verification.replace(
+          "Local validation status: PASS",
+          "Local validation status: PASS\nLocal validation status: PENDING"
+        )
+      }),
+    /record complete local validation as PASS/u
+  );
+});
+
+test("tagged remote evidence rejects every checked row regardless of keyword formatting", () => {
+  const verification =
+    "# v1.2.3\nVerification stage: CANDIDATE_LOCAL\nLocal validation status: PASS\nRemote publication status: PENDING\n\n## Required local evidence\n\n- [x] local gates passed\n\n## Required remote evidence\n\n- [x] C**I**, re**lease**, pub**lishing**, prove**nance**, and immut**able** checks complete\n- [ ] later remote step pending\n";
+  assert.throws(
+    () =>
+      validateTaggedReleaseDocuments({
+        tag: "v1.2.3",
+        notes: "# v1.2.3\nFinal remote verification is pending.\n",
+        verification
+      }),
+    /future remote checklist item complete/u
+  );
+  assert.throws(
+    () =>
+      validateTaggedReleaseDocuments({
+        tag: "v1.2.3",
+        notes: "# v1.2.3\nFinal remote verification is pending.\n",
+        verification: verification.replace("- [x] C**I**", "> - [x] C**I**")
+      }),
+    /future remote checklist item complete/u
+  );
+});
+
 test("published asset verification rejects changed bytes", async () => {
   const root = await mkdtemp(join(tmpdir(), "forge-release-assets-"));
   const local = join(root, "local");
@@ -162,15 +240,16 @@ test("published asset verification rejects changed bytes", async () => {
     await mkdir(published);
     const bytes = Buffer.from("candidate");
     const hash = (await import("node:crypto")).createHash("sha256").update(bytes).digest("hex");
-    const sums = `${hash}  artifact.zip\n`;
-    const manifest = `${JSON.stringify({ archives: { "artifact.zip": { sha256: hash } } })}\n`;
-    await writeFile(join(local, "artifact.zip"), bytes);
+    const names = ["artifact.zip", "artifact.tgz", "artifact.spdx.json"];
+    const sums = names.map((name) => `${hash}  ${name}`).join("\n") + "\n";
+    const manifest = `${JSON.stringify({ artifacts: Object.fromEntries(names.map((name) => [name, { sha256: hash }])) })}\n`;
+    for (const name of names) await writeFile(join(local, name), bytes);
     await writeFile(join(local, "SHA256SUMS.txt"), sums);
     await writeFile(join(local, "manifest.json"), manifest);
-    await writeFile(join(published, "artifact.zip"), bytes);
+    for (const name of names) await writeFile(join(published, name), bytes);
     await writeFile(join(published, "SHA256SUMS.txt"), sums);
     await writeFile(join(published, "manifest.json"), manifest);
-    assert.equal((await verifyPublishedAssets(local, published)).archives.length, 1);
+    assert.equal((await verifyPublishedAssets(local, published)).payloads.length, 3);
     await writeFile(join(published, "artifact.zip"), "changed");
     await assert.rejects(() => verifyPublishedAssets(local, published), /digest mismatch/u);
     await writeFile(join(published, "artifact.zip"), bytes);
@@ -187,7 +266,7 @@ test("final verification states that it was generated after the tag", () => {
     commit: "a".repeat(40),
     runUrl: "https://github.test/run/1",
     releaseUrl: "https://github.test/releases/v1.2.3",
-    assets: { archives: ["a.zip"], checksums: { "a.zip": "b".repeat(64) } },
+    assets: { payloads: ["a.zip"], checksums: { "a.zip": "b".repeat(64) } },
     generatedAt: "2026-01-01T00:00:00.000Z"
   });
   assert.match(document, /FINAL_DRAFT_EVIDENCE/u);

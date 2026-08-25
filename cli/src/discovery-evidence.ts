@@ -1,6 +1,6 @@
 import { basename, relative } from "node:path";
 import type { ModuleSlug } from "./constants.js";
-import type { Confidence } from "./types.js";
+import type { Confidence, RouteRecord } from "./types.js";
 import { inventoryRepository, type RepositoryInventory } from "./repository-inventory.js";
 import { canonicalDirectory, readTextIfPresent, toPosix } from "./utils.js";
 
@@ -78,24 +78,24 @@ export function capabilityKindFor(capability: string): CapabilityKind {
  * threshold produces `UNKNOWN` so that a pile of weak signals cannot masquerade as proof.
  */
 export const ACTIVATION_WEIGHTS: Readonly<Record<EvidenceClass, number>> = Object.freeze({
-  manifest: 1,
+  manifest: 0,
   implementation: 1,
   route: 1,
   schema: 1,
   configuration: 0.5,
-  example: 0.15,
+  example: 0,
   test: 0,
   documentation: 0,
   fixture: 0,
   generated: 0,
-  unknown: 0.2
+  unknown: 0
 });
 
 /** Score at which a capability is reported as `PRESENT`. */
 export const ACTIVATION_THRESHOLD = 1;
 
 /** Multiplier applied when a match sits inside a comment or a passive string literal. */
-export const WEAK_CONTEXT_MULTIPLIER = 0.2;
+export const WEAK_CONTEXT_MULTIPLIER = 0;
 
 const CLASS_CONFIDENCE: Readonly<Record<EvidenceClass, Confidence>> = Object.freeze({
   manifest: "HIGH",
@@ -124,7 +124,10 @@ const GENERATED_DIRECTORIES = [
   ".gemini/skills",
   ".github/skills",
   ".windsurf/skills",
-  "src/fullstack-forge"
+  "skills",
+  ".fullstack-forge",
+  "src/fullstack-forge",
+  "third_party"
 ];
 
 const GENERATED_SEGMENTS = new Set([
@@ -150,7 +153,9 @@ const FIXTURE_SEGMENTS = new Set([
   "mocks",
   "stubs",
   "test-data",
-  "testdata"
+  "testdata",
+  "eval",
+  "evals"
 ]);
 
 const TEST_SEGMENTS = new Set([
@@ -178,6 +183,8 @@ const EXAMPLE_SEGMENTS = new Set([
 
 const DOCUMENTATION_SEGMENTS = new Set(["doc", "docs", "documentation", "website"]);
 
+const REPOSITORY_META_DIRECTORIES = [".github/ISSUE_TEMPLATE", ".github/PULL_REQUEST_TEMPLATE"];
+
 const MANIFEST_FILES = new Set([
   "build.gradle",
   "build.gradle.kts",
@@ -192,11 +199,14 @@ const MANIFEST_FILES = new Set([
 ]);
 
 const IMPLEMENTATION_EXTENSIONS =
-  /\.(?:[cm]?[jt]sx?|py|go|rs|java|kt|kts|rb|php|cs|swift|scala|ex|exs)$/iu;
+  /\.(?:[cm]?[jt]sx?|c|cc|cpp|cxx|astro|html?|svelte|vue|py|go|rs|java|kt|kts|rb|php|cs|swift|scala|ex|exs)$/iu;
 
 const DOCUMENTATION_EXTENSIONS = /\.(?:md|mdx|rst|adoc|txt)$/iu;
 
-const CONFIGURATION_EXTENSIONS = /\.(?:ya?ml|toml|ini|json|jsonc|conf|properties|env)$/iu;
+const CONFIGURATION_EXTENSIONS = /\.(?:ya?ml|toml|ini|json|jsonc|conf|properties|env|tf|tfvars)$/iu;
+
+const CONCRETE_CONFIGURATION_FILES =
+  /^(?:dockerfile|procfile|compose\.ya?ml|docker-compose\.ya?ml|vercel\.json|netlify\.toml|fly\.toml|render\.ya?ml|pulumi\.ya?ml|serverless\.ya?ml|robots\.txt|sitemap\.(?:xml|[cm]?[jt]s)|manifest\.webmanifest)$/iu;
 
 /**
  * Classifies a repository-relative POSIX path into a single evidence class.
@@ -216,6 +226,12 @@ export function classifyEvidencePath(path: string): Classification {
       return {
         evidence_class: "generated",
         reason: `generated Forge or platform copy under '${directory}'`
+      };
+  for (const directory of REPOSITORY_META_DIRECTORIES)
+    if (normalized === directory || normalized.startsWith(`${directory}/`))
+      return {
+        evidence_class: "documentation",
+        reason: `repository collaboration metadata under '${directory}'`
       };
   const generatedSegment = directorySegments.find((segment) => GENERATED_SEGMENTS.has(segment));
   if (generatedSegment !== undefined)
@@ -247,7 +263,16 @@ export function classifyEvidencePath(path: string): Classification {
   const documentationSegment = directorySegments.find((segment) =>
     DOCUMENTATION_SEGMENTS.has(segment)
   );
-  if (documentationSegment !== undefined || DOCUMENTATION_EXTENSIONS.test(name))
+  if (documentationSegment !== undefined)
+    return { evidence_class: "documentation", reason: "prose documentation, not executable code" };
+
+  if (CONCRETE_CONFIGURATION_FILES.test(name))
+    return {
+      evidence_class: "configuration",
+      reason: "recognized deployment, infrastructure, or public-web configuration file"
+    };
+
+  if (DOCUMENTATION_EXTENSIONS.test(name))
     return { evidence_class: "documentation", reason: "prose documentation, not executable code" };
 
   if (MANIFEST_FILES.has(name) || name === "pnpm-workspace.yaml")
@@ -264,6 +289,7 @@ export function classifyEvidencePath(path: string): Classification {
   if (
     /(?:^|\/)app\/(?:.*\/)?route\.[cm]?[jt]sx?$/iu.test(normalized) ||
     /(?:^|\/)pages\/api\//iu.test(normalized) ||
+    /(?:^|\/)urls\.py$/iu.test(normalized) ||
     directorySegments.includes("routes") ||
     directorySegments.includes("controllers") ||
     /\.(?:route|routes|controller)\.[cm]?[jt]sx?$/iu.test(name)
@@ -304,11 +330,26 @@ export function workspaceForPath(path: string, workspaceRoots: readonly string[]
 
 type CapabilityRule = {
   capability: string;
+  /** Matches a concrete production file shape after path classification. */
+  fileNames?: RegExp;
   /** Matches dependency names and imports inside manifests. */
   manifest?: RegExp;
   /** Matches implementation, route, schema, and configuration content. */
   content?: RegExp;
+  /** Content-bearing evidence classes permitted to activate this rule. */
+  contentClasses?: readonly EvidenceClass[];
 };
+
+const DEFAULT_CONTENT_CLASSES: readonly EvidenceClass[] = ["implementation", "route", "schema"];
+
+const NEUTRAL_CONTENT_CLASSES: ReadonlySet<EvidenceClass> = new Set([
+  "documentation",
+  "example",
+  "fixture",
+  "generated",
+  "test",
+  "unknown"
+]);
 
 /**
  * Independent capability signatures. These deliberately favour concrete provider names and
@@ -316,6 +357,62 @@ type CapabilityRule = {
  * README prose and test fixtures.
  */
 export const CAPABILITY_RULES: readonly CapabilityRule[] = Object.freeze([
+  {
+    capability: "frontend",
+    manifest:
+      /["'](?:next|react|react-dom|vue|svelte|@angular\/core|solid-js|astro|@builder\.io\/qwik)["']\s*:/iu,
+    content:
+      /\b(?:ReactDOM\.createRoot|createApp|createRoot|hydrateRoot)\s*\(|<(?:a|html|main|nav|form|button|input|section)\b/iu
+  },
+  {
+    capability: "public-web",
+    fileNames: /^(?:robots\.txt|sitemap\.(?:xml|[cm]?[jt]s)|manifest\.webmanifest)$/iu,
+    content: /\b(?:generateMetadata|metadataBase|schema\.org|rel=["']canonical["'])\b/iu
+  },
+  {
+    capability: "api",
+    manifest:
+      /["'](?:express|fastify|@fastify\/[^"']+|@nestjs\/core|hono|koa|@koa\/router)["']\s*:/iu,
+    content:
+      /\b(?:app|router)\.(?:get|post|put|patch|delete|use)\s*\(|\b(?:FastAPI|APIRouter)\s*\(|@(?:Get|Post|Put|Patch|Delete)\s*\(|(?:from\s+django(?:\.|\s+import\b)|import\s+django\b)/u
+  },
+  {
+    capability: "integrations",
+    manifest:
+      /["'](?:axios|got|undici|@supabase\/[^"']+|firebase|firebase-admin|@octokit\/[^"']+)["']\s*:/iu,
+    content:
+      /\b(?:fetch|axios\.(?:get|post|put|patch|delete)|request)\s*\(|\b(?:app|router)\.(?:post|put)\s*\(\s*["'`][^"'`]*(?:webhooks?|callbacks?)[^"'`]*["'`]/iu
+  },
+  {
+    capability: "personal-data",
+    content:
+      /\b(?:email|phone|address|dateOfBirth|date_of_birth|diagnosis|prescription|medicalRecord|nationalId|personal_data)\b/iu
+  },
+  {
+    capability: "runtime",
+    fileNames:
+      /\.(?:[cm]?[jt]sx?|c|cc|cpp|cxx|astro|html?|svelte|vue|py|go|rs|java|kt|kts|rb|php|cs|swift|scala|ex|exs)$/iu
+  },
+  {
+    capability: "deployment",
+    fileNames:
+      /^(?:Dockerfile|compose\.ya?ml|docker-compose\.ya?ml|vercel\.json|netlify\.toml|fly\.toml|render\.ya?ml|Procfile)$/iu,
+    content: /\b(?:apiVersion:\s*(?:apps\/v1|v1)|services:|builds:|deploy(?:ment)?\s*:)/iu,
+    contentClasses: ["configuration"]
+  },
+  {
+    capability: "infrastructure",
+    fileNames: /\.(?:tf|tfvars)$|^(?:Pulumi\.ya?ml|serverless\.ya?ml)$/iu,
+    content: /\b(?:resource|module)\s+["'][^"']+["']\s+["'][^"']+["']\s*\{/u,
+    contentClasses: ["configuration"]
+  },
+  {
+    capability: "paid-services",
+    manifest:
+      /["'](?:stripe|@stripe\/[^"']+|braintree|@paypal\/[^"']+|openai|@anthropic-ai\/sdk|@google\/gener\w+-ai|@sentry\/[^"']+|dd-trace|newrelic)["']\s*:/iu,
+    content:
+      /\b(?:stripe\.(?:checkout|paymentIntents|subscriptions)|openai\.(?:chat|responses)|anthropic\.messages|Sentry\.init)\b/u
+  },
   {
     capability: "authentication",
     manifest:
@@ -355,7 +452,8 @@ export const CAPABILITY_RULES: readonly CapabilityRule[] = Object.freeze([
   {
     capability: "cache",
     manifest: /["'](?:redis|ioredis|@upstash\/redis|memcached|node-cache|lru-cache)["']\s*:/iu,
-    content: /\bredis:\/\/|\bnew\s+Redis\s*\(|\bcache\.(?:get|set)\s*\(/u
+    content: /\bredis:\/\/|\bnew\s+Redis\s*\(|\bcache\.(?:get|set)\s*\(/u,
+    contentClasses: [...DEFAULT_CONTENT_CLASSES, "configuration"]
   },
   {
     capability: "jobs",
@@ -411,29 +509,151 @@ export const CAPABILITY_RULES: readonly CapabilityRule[] = Object.freeze([
   }
 ]);
 
-const COMMENT_LINE = /^\s*(?:\/\/|#|\*|\/\*|<!--|--)/u;
-
 /**
- * Reports whether a match sits inside a comment or a passive string literal. Manifests are
- * exempt because every JSON dependency name is legitimately a string literal.
+ * Reports whether a match sits inside a comment, passive string/template literal, or JavaScript
+ * regular-expression literal. Manifests are exempt because JSON dependency names are legitimate
+ * strings. Configuration strings are active values, but comments in configuration remain weak.
+ *
+ * This intentionally scans from the start of the bounded file rather than reasoning from a whole
+ * line. That preserves real calls after inline comments, closed multiline examples, and detector
+ * regex declarations without requiring a language-specific parser for every supported runtime.
  */
 export function isWeakContext(
   content: string,
   index: number,
   evidenceClass: EvidenceClass
 ): boolean {
-  if (evidenceClass === "manifest" || evidenceClass === "configuration") return false;
-  const lineStart = content.lastIndexOf("\n", index - 1) + 1;
-  const lineEndRaw = content.indexOf("\n", index);
-  const lineEnd = lineEndRaw === -1 ? content.length : lineEndRaw;
-  const line = content.slice(lineStart, lineEnd);
-  if (COMMENT_LINE.test(line)) return true;
-  const before = content.slice(lineStart, index);
-  for (const quote of ['"', "'", "`"]) {
-    let count = 0;
-    for (let position = 0; position < before.length; position += 1)
-      if (before[position] === quote && before[position - 1] !== "\\") count += 1;
-    if (count % 2 === 1) return true;
+  if (evidenceClass === "manifest") return false;
+  const context = lexicalContextAt(content, index);
+  return evidenceClass === "configuration" ? context === "comment" : context !== "code";
+}
+
+type LexicalContext = "code" | "comment" | "regex" | "string" | "template";
+
+function lexicalContextAt(content: string, index: number): LexicalContext {
+  let context: LexicalContext = "code";
+  let delimiter = "";
+  let escaped = false;
+  let regexCharacterClass = false;
+
+  for (let position = 0; position < index && position < content.length; position += 1) {
+    const character = content[position] ?? "";
+    const next = content[position + 1] ?? "";
+
+    if (context === "comment") {
+      if (delimiter === "\n" && character === "\n") {
+        context = "code";
+        delimiter = "";
+      } else if (delimiter === "*/" && character === "*" && next === "/") {
+        context = "code";
+        delimiter = "";
+        position += 1;
+      } else if (delimiter === "-->" && content.startsWith("-->", position)) {
+        context = "code";
+        delimiter = "";
+        position += 2;
+      }
+      continue;
+    }
+
+    if (context === "string" || context === "template") {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (character === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (delimiter.length === 3 && content.startsWith(delimiter, position)) {
+        context = "code";
+        position += 2;
+      } else if (delimiter.length === 1 && character === delimiter) {
+        context = "code";
+      }
+      continue;
+    }
+
+    if (context === "regex") {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (character === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (character === "[") regexCharacterClass = true;
+      else if (character === "]") regexCharacterClass = false;
+      else if (character === "/" && !regexCharacterClass) context = "code";
+      continue;
+    }
+
+    if (character === "/" && next === "/") {
+      context = "comment";
+      delimiter = "\n";
+      position += 1;
+      continue;
+    }
+    if (character === "/" && next === "*") {
+      context = "comment";
+      delimiter = "*/";
+      position += 1;
+      continue;
+    }
+    if (content.startsWith("<!--", position)) {
+      context = "comment";
+      delimiter = "-->";
+      position += 3;
+      continue;
+    }
+    const previous = content[position - 1];
+    if (
+      (character === "#" || (character === "-" && next === "-")) &&
+      (previous === undefined || previous === "\n" || /\s/u.test(previous))
+    ) {
+      context = "comment";
+      delimiter = "\n";
+      if (character === "-") position += 1;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      const triple = content.startsWith(character.repeat(3), position);
+      context = "string";
+      delimiter = triple ? character.repeat(3) : character;
+      if (triple) position += 2;
+      continue;
+    }
+    if (character === "`") {
+      context = "template";
+      delimiter = "`";
+      continue;
+    }
+    if (character === "/" && isRegexLiteralStart(content, position)) {
+      context = "regex";
+      regexCharacterClass = false;
+    }
+  }
+  return context;
+}
+
+function isRegexLiteralStart(content: string, opening: number): boolean {
+  const lineStart = content.lastIndexOf("\n", opening - 1) + 1;
+  const prefix = content.slice(lineStart, opening).trimEnd();
+  if (
+    prefix.length > 0 &&
+    !/[=(:,!&|?{[;>]$/u.test(prefix) &&
+    !/(?:^|\s)(?:return|case|throw|yield)\s*$/u.test(prefix)
+  )
+    return false;
+  let characterClass = false;
+  for (let closing = opening + 1; closing < content.length; closing += 1) {
+    const character = content[closing];
+    if (character === "\n" || character === "\r") return false;
+    if (character === "\\") closing += 1;
+    else if (character === "[") characterClass = true;
+    else if (character === "]") characterClass = false;
+    else if (character === "/" && !characterClass) return true;
   }
   return false;
 }
@@ -456,16 +676,19 @@ export function buildEvidence(options: {
   line?: number;
   weak?: boolean;
   detail?: string;
+  activationWeight?: number;
 }): DiscoveryEvidence {
   const path = toPosix(options.path).replace(/^\.\//u, "");
   const { evidence_class, reason } = classifyEvidencePath(path);
-  const base = activationWeightFor(evidence_class);
+  const base = options.activationWeight ?? activationWeightFor(evidence_class);
   const weak = options.weak === true;
   const weight = weak ? round(base * WEAK_CONTEXT_MULTIPLIER) : base;
   const confidence = weak
     ? weakerConfidence(CLASS_CONFIDENCE[evidence_class])
     : CLASS_CONFIDENCE[evidence_class];
-  const suffix = weak ? "; match sits in a comment or passive string literal" : "";
+  const suffix = weak
+    ? "; match sits in a comment, passive string or template literal, or regular-expression literal"
+    : "";
   return {
     evidence_class,
     path,
@@ -557,6 +780,8 @@ function decide(
       reasons.push(`${neutralized} evidence carries zero activation weight by policy.`);
   if (classes.includes("example"))
     reasons.push("Example applications are separated from active applications.");
+  if (classes.includes("manifest"))
+    reasons.push("Dependency declarations identify available packages, not active runtime use.");
   return { capability, kind, workspace, status, score, evidence: [...evidence], reasons };
 }
 
@@ -593,26 +818,129 @@ export async function assessProjectCapabilities(
   const contentByFile = new Map(
     inspectedEntries.map((entry) => [entry.absolute_path, entry.content as string])
   );
-  const roots = [...new Set([...workspaceRoots, ...inferWorkspaceRoots(root, files)])];
-  const evidence = await collectEvidence(root, files, roots, contentByFile);
+  const scope = capabilityWorkspaceScope(root, files, contentByFile, workspaceRoots);
+  const scopedFiles = files.filter((file) => scope.includes(toPosix(relative(root, file))));
+  const evidence = await collectEvidence(root, scopedFiles, scope.roots, contentByFile);
   return assessCapabilities(
     evidence,
     CAPABILITY_RULES.map((rule) => rule.capability),
-    roots
+    scope.roots
   );
 }
 
-function inferWorkspaceRoots(root: string, files: string[]): string[] {
-  const roots: string[] = [];
-  for (const file of files) {
-    if (basename(file) !== "package.json") continue;
-    const path = toPosix(relative(root, file));
-    const { evidence_class } = classifyEvidencePath(path);
-    if (evidence_class !== "manifest") continue;
-    const directory = path.split("/").slice(0, -1).join("/");
-    if (directory.length > 0) roots.push(directory);
+function capabilityWorkspaceScope(
+  root: string,
+  files: readonly string[],
+  contentByFile: ReadonlyMap<string, string>,
+  explicitRoots: readonly string[]
+): { roots: string[]; includes: (path: string) => boolean } {
+  const relativeContent = new Map(
+    files.map((file) => [toPosix(relative(root, file)), contentByFile.get(file) ?? ""])
+  );
+  const packageRoots = [...relativeContent.keys()]
+    .filter(
+      (path) =>
+        basename(path).toLowerCase() === "package.json" &&
+        classifyEvidencePath(path).evidence_class === "manifest"
+    )
+    .map((path) => path.split("/").slice(0, -1).join("/") || ".");
+  const nestedRoots = packageRoots
+    .filter((directory) => directory !== ".")
+    .sort((left, right) => right.length - left.length || left.localeCompare(right));
+  const active = new Set(
+    explicitRoots
+      .map((directory) => toPosix(directory).replace(/^\.\//u, "").replace(/\/+$/u, ""))
+      .filter((directory) => directory.length > 0 && directory !== ".")
+  );
+  if (!packageRoots.includes(".")) for (const directory of nestedRoots) active.add(directory);
+  else {
+    const patterns = declaredWorkspacePatterns(relativeContent);
+    for (const directory of nestedRoots) {
+      let included = active.has(directory);
+      for (const pattern of patterns)
+        if (matchesWorkspaceDeclaration(directory, pattern.pattern)) included = pattern.include;
+      if (included) active.add(directory);
+      else active.delete(directory);
+    }
   }
-  return roots.sort();
+  return {
+    roots: [...active].sort(),
+    includes: (path: string): boolean => {
+      const normalized = toPosix(path).replace(/^\.\//u, "");
+      const nearest = nestedRoots.find(
+        (directory) => normalized === directory || normalized.startsWith(`${directory}/`)
+      );
+      return nearest === undefined || active.has(nearest);
+    }
+  };
+}
+
+function declaredWorkspacePatterns(
+  contentByPath: ReadonlyMap<string, string>
+): Array<{ pattern: string; include: boolean }> {
+  const patterns: Array<{ pattern: string; include: boolean }> = [];
+  const add = (value: string): void => {
+    const normalized = value.trim();
+    const include = !normalized.startsWith("!");
+    const pattern = include ? normalized : normalized.slice(1);
+    if (pattern.length > 0) patterns.push({ pattern, include });
+  };
+  const rootManifest = contentByPath.get("package.json");
+  if (rootManifest !== undefined)
+    try {
+      const parsed = JSON.parse(rootManifest) as unknown;
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+        const workspaces = (parsed as Record<string, unknown>).workspaces;
+        const values = Array.isArray(workspaces)
+          ? workspaces
+          : typeof workspaces === "object" &&
+              workspaces !== null &&
+              !Array.isArray(workspaces) &&
+              Array.isArray((workspaces as Record<string, unknown>).packages)
+            ? ((workspaces as Record<string, unknown>).packages as unknown[])
+            : [];
+        for (const value of values) if (typeof value === "string") add(value);
+      }
+    } catch {
+      // Invalid manifests cannot declare an active nested workspace.
+    }
+  const pnpm = contentByPath.get("pnpm-workspace.yaml");
+  if (pnpm !== undefined)
+    for (const match of pnpm.matchAll(/^\s*-\s*["']?([^"'\n#]+?)["']?\s*$/gmu)) add(match[1] ?? "");
+  for (const [path, key] of [
+    ["lerna.json", "packages"],
+    ["nx.json", "projects"],
+    ["turbo.json", "workspaces"]
+  ] as const) {
+    const content = contentByPath.get(path);
+    if (content === undefined) continue;
+    try {
+      const parsed = JSON.parse(content) as unknown;
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) continue;
+      const values = (parsed as Record<string, unknown>)[key];
+      if (Array.isArray(values)) {
+        for (const value of values) if (typeof value === "string") add(value);
+      } else if (typeof values === "object" && values !== null)
+        for (const value of Object.keys(values)) add(value);
+    } catch {
+      // Malformed workspace configuration contributes no activation authority.
+    }
+  }
+  return patterns;
+}
+
+function matchesWorkspaceDeclaration(directory: string, pattern: string): boolean {
+  const normalized = pattern.replace(/^\.\//u, "").replace(/\/+$/u, "");
+  if (normalized.length === 0) return false;
+  const expression = normalized
+    .split("/")
+    .map((segment) =>
+      segment === "**"
+        ? "[^\\0]*"
+        : segment.replace(/[.+^${}()|[\]\\]/gu, "\\$&").replace(/\*/gu, "[^/]*")
+    )
+    .join("/");
+  return new RegExp(`^${expression}$`, "u").test(directory);
 }
 
 /** Collects classified, capability-tagged evidence for a file list. Deterministic by path. */
@@ -629,16 +957,35 @@ export async function collectEvidence(
     const content = contentByFile?.get(file) ?? (await readTextIfPresent(file));
     if (content === undefined) continue;
     for (const rule of CAPABILITY_RULES) {
+      if (rule.fileNames !== undefined) rule.fileNames.lastIndex = 0;
+      if (rule.fileNames?.test(basename(path))) {
+        const activeFileShape = ["configuration", "implementation", "route", "schema"].includes(
+          evidence_class
+        );
+        evidence.push({
+          capability: rule.capability,
+          evidence: buildEvidence({
+            path,
+            workspaceRoots,
+            line: 1,
+            detail: `capability '${rule.capability}' from a concrete file shape`,
+            ...(activeFileShape ? { activationWeight: ACTIVATION_THRESHOLD } : {})
+          })
+        });
+      }
       const pattern = evidence_class === "manifest" ? rule.manifest : rule.content;
       if (pattern === undefined) continue;
+      if (
+        evidence_class !== "manifest" &&
+        !NEUTRAL_CONTENT_CLASSES.has(evidence_class) &&
+        !(rule.contentClasses ?? DEFAULT_CONTENT_CLASSES).includes(evidence_class)
+      )
+        continue;
       const global = new RegExp(pattern.source, `${pattern.flags.replace(/g/gu, "")}g`);
       let seenWeak = false;
       let seenStrong = false;
       for (const match of content.matchAll(global)) {
-        const weak =
-          isWeakContext(content, match.index, evidence_class) ||
-          (capabilityKindFor(rule.capability) === "control" &&
-            isControlDeclaration(content, match.index));
+        const weak = isWeakContext(content, match.index, evidence_class);
         if (weak ? seenWeak : seenStrong) continue;
         if (weak) seenWeak = true;
         else seenStrong = true;
@@ -663,12 +1010,6 @@ export async function collectEvidence(
   );
 }
 
-function isControlDeclaration(content: string, index: number): boolean {
-  const lineStart = content.lastIndexOf("\n", index - 1) + 1;
-  const prefix = content.slice(lineStart, index);
-  return /\b(?:function|class)\s+|\b(?:const|let|var)\s+$/u.test(prefix);
-}
-
 type RiskRule = {
   risk: string;
   pattern: RegExp;
@@ -676,6 +1017,9 @@ type RiskRule = {
   confidence: Confidence;
   reason: string;
 };
+
+const FINANCIAL_BEHAVIOR_PATTERN =
+  /\bstripe\.(?:checkout|paymentIntents|subscriptions|refunds|charges|invoices|webhooks\.constructEvent)\b|\b(?:createPayment|capturePayment|confirmPayment|refundPayment|voidPayment|createInvoice|createSubscription)\s*\(/iu;
 
 const RISK_RULES: readonly RiskRule[] = [
   {
@@ -693,6 +1037,14 @@ const RISK_RULES: readonly RiskRule[] = [
     modules: ["authorization", "security", "observability"],
     confidence: "HIGH",
     reason: "destructive HTTP method or administrative route segment"
+  },
+  {
+    risk: "identity-or-session-boundary",
+    pattern:
+      /\b(?:getServerSession|createSession|destroySession|refreshSession|verifySession|verifyPassword|hashPassword)\s*\(|\bpassport\.authenticate\s*\(|\b(?:req|request)\.(?:session|user)\b|\b(?:session|auth)\.user\b|\bjwt\.verify\s*\(/u,
+    modules: ["auth", "security"],
+    confidence: "HIGH",
+    reason: "recognizable identity verification or session boundary"
   },
   {
     risk: "object-access",
@@ -720,22 +1072,22 @@ const RISK_RULES: readonly RiskRule[] = [
   {
     risk: "webhook-or-callback",
     pattern:
-      /["'`]\/[^"'`]*(?:webhooks?|hooks|callback)[^"'`]*["'`]|\b(?:signature|x-signature|providerEvent)\b/iu,
+      /\b(?:app|router)\.(?:post|put)\s*\(\s*["'`][^"'`]*(?:webhooks?|callbacks?)[^"'`]*["'`]|\b(?:stripe\.)?webhooks?\.constructEvent\s*\(|\bverifyWebhookSignature\s*\(|\b(?:headers?\.get\s*\(\s*|req\.headers\s*\[\s*)["'](?:stripe-signature|x-signature|x-hub-signature(?:-256)?)["']/iu,
     modules: ["integrations", "security"],
     confidence: "HIGH",
     reason: "webhook, callback, or provider-signature boundary"
   },
   {
     risk: "financial-behaviour",
-    pattern: /\b(?:amount|currency|price|invoice|charge|refund|payment|subscription|deposit)\b/iu,
+    pattern: FINANCIAL_BEHAVIOR_PATTERN,
     modules: ["payments", "security", "observability"],
     confidence: "MEDIUM",
-    reason: "financial amount, transaction, invoice, or subscription behavior"
+    reason: "recognizable provider payment, refund, invoice, or subscription operation"
   },
   {
     risk: "background-execution",
     pattern:
-      /\bnew\s+(?:Queue|Worker)\s*\(|\bcron\.schedule\s*\(|\bdefineJob\s*\(|\b(?:job|worker|queue|scheduled)\w*\s*(?:=|\()/iu,
+      /\bnew\s+(?:Queue|Worker)\s*\(|\bcron\.schedule\s*\(|\bdefineJob\s*\(|\b(?:queue|worker)\.(?:add|process|consume)\s*\(|\bscheduleJob\s*\(|@(?:shared_task|app\.task)\b/iu,
     modules: ["jobs", "reliability"],
     confidence: "HIGH",
     reason: "queue, worker, cron, or scheduled execution boundary"
@@ -758,25 +1110,30 @@ const RISK_RULES: readonly RiskRule[] = [
   }
 ];
 
-/** Derives bounded risk-surface evidence from the inventory used by project discovery. */
-export function discoverRiskEvidence(inventory: RepositoryInventory): RiskEvidence[] {
+/** Derives bounded risk-surface evidence from inventory plus already-modeled framework routes. */
+export function discoverRiskEvidence(
+  inventory: RepositoryInventory,
+  structuredRoutes: readonly RouteRecord[] = []
+): RiskEvidence[] {
   const evidence: RiskEvidence[] = [];
   for (const entry of inventory.entries) {
     if (entry.status !== "INSPECTED" || entry.content === undefined) continue;
-    if (["documentation", "example", "fixture", "generated", "test"].includes(entry.evidence_class))
-      continue;
+    const { evidence_class } = classifyEvidencePath(entry.path);
+    if (!["implementation", "route", "schema"].includes(evidence_class)) continue;
     for (const rule of RISK_RULES) {
-      const match = rule.pattern.exec(entry.content);
-      if (match === null) continue;
+      const match = firstActiveMatch(rule.pattern, entry.content, evidence_class);
+      if (match === undefined) continue;
       const modules = [...rule.modules];
-      const hasTenant =
-        /\b(?:tenant|clinic|cabinet|practice|hospital|account|merchant|school|workspace|org|organization|company|site|store|project)(?:Id|_id)\b/iu.test(
-          entry.content
-        );
-      const hasSensitive =
-        /\b(?:email|phone|address|dateOfBirth|diagnosis|prescription|medicalRecord|nationalId)\b/iu.test(
-          entry.content
-        );
+      const hasTenant = hasActiveMatch(
+        /\b(?:tenant|clinic|cabinet|practice|hospital|account|merchant|school|workspace|org|organization|company|site|store|project)(?:Id|_id)\b/iu,
+        entry.content,
+        evidence_class
+      );
+      const hasSensitive = hasActiveMatch(
+        /\b(?:email|phone|address|dateOfBirth|diagnosis|prescription|medicalRecord|nationalId)\b/iu,
+        entry.content,
+        evidence_class
+      );
       if (
         hasTenant &&
         [
@@ -790,9 +1147,7 @@ export function discoverRiskEvidence(inventory: RepositoryInventory): RiskEviden
       if (hasSensitive && rule.risk === "ai-boundary") modules.push("privacy");
       if (
         rule.risk === "webhook-or-callback" &&
-        /\b(?:amount|currency|price|invoice|charge|refund|payment|subscription)\b/iu.test(
-          entry.content
-        )
+        hasActiveMatch(FINANCIAL_BEHAVIOR_PATTERN, entry.content, evidence_class)
       )
         modules.push("payments");
       evidence.push({
@@ -805,10 +1160,71 @@ export function discoverRiskEvidence(inventory: RepositoryInventory): RiskEviden
       });
     }
   }
-  return evidence.sort(
+  evidence.push(...structuredRouteRiskEvidence(structuredRoutes));
+  const deduplicated = new Map<string, RiskEvidence>();
+  for (const item of evidence) {
+    const key = `${item.risk}\u0000${item.path}\u0000${item.line ?? 0}`;
+    const existing = deduplicated.get(key);
+    if (existing === undefined) deduplicated.set(key, item);
+    else existing.modules = [...new Set([...existing.modules, ...item.modules])].sort();
+  }
+  return [...deduplicated.values()].sort(
     (left, right) =>
       left.path.localeCompare(right.path) ||
       (left.line ?? 0) - (right.line ?? 0) ||
       left.risk.localeCompare(right.risk)
   );
+}
+
+function structuredRouteRiskEvidence(routes: readonly RouteRecord[]): RiskEvidence[] {
+  const evidence: RiskEvidence[] = [];
+  for (const route of routes) {
+    if (route.location === undefined) continue;
+    const separator = route.name.indexOf(" ");
+    const method = (separator === -1 ? route.name : route.name.slice(0, separator)).toUpperCase();
+    const routePath = separator === -1 ? "" : route.name.slice(separator + 1);
+    const lineMatch = route.evidence
+      .map((item) => /:(\d+)$/u.exec(item))
+      .find((match): match is RegExpExecArray => match !== null);
+    const line = lineMatch === undefined ? undefined : Number(lineMatch[1] ?? Number.NaN);
+    evidence.push({
+      risk: "request-boundary",
+      modules: ["api", "security"],
+      path: route.location,
+      ...(line === undefined || !Number.isSafeInteger(line) ? {} : { line }),
+      confidence: route.confidence,
+      reason: "structured route adapter modeled a request-handling boundary"
+    });
+    if (
+      ["DELETE", "PATCH", "PUT"].includes(method) ||
+      /\/(?:admin|internal|manage|ops|sudo)(?:\/|$)/iu.test(routePath)
+    )
+      evidence.push({
+        risk: "destructive-or-administrative-route",
+        modules: ["authorization", "observability", "security"],
+        path: route.location,
+        ...(line === undefined || !Number.isSafeInteger(line) ? {} : { line }),
+        confidence: route.confidence,
+        reason: "structured route adapter modeled a destructive method or administrative path"
+      });
+  }
+  return evidence;
+}
+
+function firstActiveMatch(
+  pattern: RegExp,
+  content: string,
+  evidenceClass: EvidenceClass
+): RegExpExecArray | undefined {
+  const global = new RegExp(pattern.source, `${pattern.flags.replace(/g/gu, "")}g`);
+  for (const match of content.matchAll(global))
+    if (!isWeakContext(content, match.index, evidenceClass)) return match;
+  return undefined;
+}
+
+function hasActiveMatch(pattern: RegExp, content: string, evidenceClass: EvidenceClass): boolean {
+  const global = new RegExp(pattern.source, `${pattern.flags.replace(/g/gu, "")}g`);
+  for (const match of content.matchAll(global))
+    if (!isWeakContext(content, match.index, evidenceClass)) return true;
+  return false;
 }

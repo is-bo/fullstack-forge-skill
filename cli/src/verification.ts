@@ -2,20 +2,22 @@ import { join } from "node:path";
 import { runNamedAnalyzer } from "./analyzers.js";
 import { detectProjectCommands } from "./discovery.js";
 import { inventoryLimitationFinding } from "./inventory-evidence.js";
+import type { CommandLedgerRecord } from "./offline-policy.js";
+import { executeProjectCommand } from "./project-command-execution.js";
 import type { RepositoryInventory } from "./repository-inventory.js";
 import {
   createReport,
   readReport,
   writeReport,
   type AuditReport,
-  type ExecutionRecord
+  type ExecutionRecord,
+  type ReportEnvironment
 } from "./report.js";
 import type { Finding, GateEvidence, ProjectProfile, Status, VerificationAction } from "./types.js";
 import {
   canonicalDirectory,
   readTextIfPresent,
   resolveInside,
-  runFile,
   utcNow,
   workingTreeRevision
 } from "./utils.js";
@@ -23,13 +25,21 @@ import {
 export type VerificationResult = {
   report: AuditReport;
   report_paths: string[];
+  command_ledger: CommandLedgerRecord[];
 };
 
 export async function verifyFindings(
   rootInput: string,
   section: string,
   profile: ProjectProfile,
-  options: { allowRun: boolean; dryRun: boolean; inventory?: RepositoryInventory }
+  options: {
+    allowRun: boolean;
+    dryRun: boolean;
+    offline?: boolean;
+    forgeOwned?: boolean;
+    inventory?: RepositoryInventory;
+    environment?: ReportEnvironment;
+  }
 ): Promise<VerificationResult> {
   const root = await canonicalDirectory(rootInput);
   const previous = await readReport(root, join(root, ".forge", "report.json"));
@@ -40,6 +50,7 @@ export async function verifyFindings(
   const revisionChanged = previousRevision === undefined || previousRevision !== revision;
   const commands = await detectProjectCommands(root);
   const execution: ExecutionRecord[] = [];
+  const commandLedger: CommandLedgerRecord[] = [];
   const findings: Finding[] = [];
   for (const original of previous.findings) {
     if (section !== "all" && original.section !== section) {
@@ -65,7 +76,9 @@ export async function verifyFindings(
     }
     const statuses: Status[] = [];
     for (const action of actions) {
-      statuses.push(await executeAction(action, finding, root, commands, options, execution));
+      statuses.push(
+        await executeAction(action, finding, root, commands, options, execution, commandLedger)
+      );
     }
     finding.status = combineStatuses(statuses);
     findings.push(finding);
@@ -94,10 +107,18 @@ export async function verifyFindings(
         )
       : previous.gate_evidence,
     previous.analyzer_coverage,
-    revision
+    revision,
+    options.environment ?? previous.environment,
+    {
+      tools: previous.tools,
+      planned_checks: previous.planned_checks,
+      runtime_evidence: previous.runtime_evidence,
+      module_decisions: previous.module_decisions,
+      compositions: previous.compositions
+    }
   );
   const reportPaths = options.dryRun ? [] : await writeReport(report);
-  return { report, report_paths: reportPaths };
+  return { report, report_paths: reportPaths, command_ledger: commandLedger };
 }
 
 function markStale(finding: Finding, previousRevision: string | undefined, revision: string): void {
@@ -131,8 +152,9 @@ async function executeAction(
   finding: Finding,
   root: string,
   commands: Awaited<ReturnType<typeof detectProjectCommands>>,
-  options: { allowRun: boolean; dryRun: boolean },
-  execution: ExecutionRecord[]
+  options: { allowRun: boolean; dryRun: boolean; offline?: boolean; forgeOwned?: boolean },
+  execution: ExecutionRecord[],
+  commandLedger: CommandLedgerRecord[]
 ): Promise<Status> {
   const { allowRun, dryRun } = options;
   if (action.type === "analyzer") {
@@ -195,35 +217,25 @@ async function executeAction(
     finding.evidence.push(`${utcNow()}: project command '${action.command}' was not detected.`);
     return action.required ? "BLOCKED" : "NOT_VERIFIED";
   }
-  if (!allowRun) {
-    finding.evidence.push(
-      `${utcNow()}: project command '${action.command}' requires explicit --allow-run after review.`
-    );
-    return "BLOCKED";
-  }
-  if (dryRun) {
-    // A dry run must never execute anything, even when execution is authorized. It reports the
-    // command that would have run and leaves the finding unverified.
-    finding.evidence.push(
-      `${utcNow()}: dry run planned '${command.executable} ${command.args.join(" ")}' but executed nothing.`
-    );
-    return "NOT_VERIFIED";
-  }
-  const started = Date.now();
-  const startedAt = utcNow();
-  const result = await runFile(command.executable, command.args, root, 10 * 60_000);
-  const duration = Date.now() - started;
-  execution.push({
-    command: [command.executable, ...command.args],
-    exitCode: result.exitCode,
-    output: `${result.stdout}\n${result.stderr}`.trim(),
-    started_at: startedAt,
-    duration_ms: duration
+  const result = await executeProjectCommand(root, command, {
+    allowRun,
+    dryRun,
+    offline: options.offline === true,
+    forgeOwned: options.forgeOwned ?? false
   });
+  commandLedger.push(result.ledger);
   finding.evidence.push(
-    `${utcNow()}: ${command.executable} ${command.args.join(" ")} exited ${result.exitCode} after ${duration} ms.`
+    `${utcNow()}: project command '${action.command}' ${result.status}: ${result.ledger.reason}`
   );
-  return result.exitCode === 0 ? "PASS" : "FAIL";
+  if (result.status === "BLOCKED") return "BLOCKED";
+  if (result.status === "NOT_RUN") return allowRun ? "NOT_VERIFIED" : "BLOCKED";
+  if (result.execution === undefined)
+    throw new Error(`Project command '${action.command}' ran without an execution record.`);
+  execution.push(result.execution);
+  finding.evidence.push(
+    `${utcNow()}: ${command.executable} ${command.args.join(" ")} exited ${result.execution.exitCode} after ${result.execution.duration_ms} ms.`
+  );
+  return result.execution.exitCode === 0 ? "PASS" : "FAIL";
 }
 
 function combineStatuses(statuses: Status[]): Status {

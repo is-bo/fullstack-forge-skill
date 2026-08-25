@@ -62,7 +62,7 @@ if (failures > 0) {
   process.exit(1);
 }
 console.log(
-  "\nImport complete. Review `git diff`, then run `npm run upstream:verify` and `npm run generate`.\n" +
+  "\nImport complete. Review `git diff`, then run `node scripts/upstream-verify.mjs` and `npm run generate`.\n" +
     "Nothing has been committed, tagged, or published."
 );
 

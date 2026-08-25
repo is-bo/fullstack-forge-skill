@@ -2,10 +2,10 @@
 
 ## Forge does not activate automatically
 
-Run `npx forge doctor --json`. Confirm the project install manifest reports `agent_first=true` and
-`automatic_activation=true`, the relevant skill root exists, and the platform instruction listed in
-[PLATFORM_SUPPORT.md](PLATFORM_SUPPORT.md) contains the Forge marker. Restart hosts that cache
-skills or instructions.
+Run `npx --no-install forge doctor --json`. Confirm the project install manifest reports
+`agent_first=true` and `automatic_activation=true`, the relevant skill root exists, and the platform
+instruction listed in [PLATFORM_SUPPORT.md](PLATFORM_SUPPORT.md) contains the Forge marker. Restart
+hosts that cache skills or instructions.
 
 ## Installer refuses an instruction file
 

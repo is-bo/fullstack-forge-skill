@@ -1,5 +1,5 @@
 import type { ModuleSlug } from "./constants.js";
-import type { Confidence } from "./types.js";
+import type { Confidence, RouteRecord } from "./types.js";
 import { type RepositoryInventory } from "./repository-inventory.js";
 /**
  * Discovery evidence classification.
@@ -55,7 +55,7 @@ export declare const ACTIVATION_WEIGHTS: Readonly<Record<EvidenceClass, number>>
 /** Score at which a capability is reported as `PRESENT`. */
 export declare const ACTIVATION_THRESHOLD = 1;
 /** Multiplier applied when a match sits inside a comment or a passive string literal. */
-export declare const WEAK_CONTEXT_MULTIPLIER = 0.2;
+export declare const WEAK_CONTEXT_MULTIPLIER = 0;
 export declare function activationWeightFor(evidenceClass: EvidenceClass): number;
 type Classification = {
     evidence_class: EvidenceClass;
@@ -77,10 +77,14 @@ export declare function classifyEvidencePath(path: string): Classification;
 export declare function workspaceForPath(path: string, workspaceRoots: readonly string[]): string;
 type CapabilityRule = {
     capability: string;
+    /** Matches a concrete production file shape after path classification. */
+    fileNames?: RegExp;
     /** Matches dependency names and imports inside manifests. */
     manifest?: RegExp;
     /** Matches implementation, route, schema, and configuration content. */
     content?: RegExp;
+    /** Content-bearing evidence classes permitted to activate this rule. */
+    contentClasses?: readonly EvidenceClass[];
 };
 /**
  * Independent capability signatures. These deliberately favour concrete provider names and
@@ -89,8 +93,13 @@ type CapabilityRule = {
  */
 export declare const CAPABILITY_RULES: readonly CapabilityRule[];
 /**
- * Reports whether a match sits inside a comment or a passive string literal. Manifests are
- * exempt because every JSON dependency name is legitimately a string literal.
+ * Reports whether a match sits inside a comment, passive string/template literal, or JavaScript
+ * regular-expression literal. Manifests are exempt because JSON dependency names are legitimate
+ * strings. Configuration strings are active values, but comments in configuration remain weak.
+ *
+ * This intentionally scans from the start of the bounded file rather than reasoning from a whole
+ * line. That preserves real calls after inline comments, closed multiline examples, and detector
+ * regex declarations without requiring a language-specific parser for every supported runtime.
  */
 export declare function isWeakContext(content: string, index: number, evidenceClass: EvidenceClass): boolean;
 /**
@@ -103,6 +112,7 @@ export declare function buildEvidence(options: {
     line?: number;
     weak?: boolean;
     detail?: string;
+    activationWeight?: number;
 }): DiscoveryEvidence;
 /** Evidence paired with the capability whose signature produced it. */
 export type CapabilityEvidence = {
@@ -128,6 +138,6 @@ export declare function decideCapability(capability: string, workspace: string, 
 export declare function assessProjectCapabilities(rootInput: string, workspaceRoots?: readonly string[], sharedInventory?: RepositoryInventory): Promise<CapabilityAssessment[]>;
 /** Collects classified, capability-tagged evidence for a file list. Deterministic by path. */
 export declare function collectEvidence(root: string, files: readonly string[], workspaceRoots: readonly string[], contentByFile?: ReadonlyMap<string, string>): Promise<CapabilityEvidence[]>;
-/** Derives bounded risk-surface evidence from the inventory used by project discovery. */
-export declare function discoverRiskEvidence(inventory: RepositoryInventory): RiskEvidence[];
+/** Derives bounded risk-surface evidence from inventory plus already-modeled framework routes. */
+export declare function discoverRiskEvidence(inventory: RepositoryInventory, structuredRoutes?: readonly RouteRecord[]): RiskEvidence[];
 export {};

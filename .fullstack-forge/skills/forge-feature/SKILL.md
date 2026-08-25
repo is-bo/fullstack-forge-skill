@@ -1,6 +1,6 @@
 ---
 name: forge-feature
-description: Own the full feature lifecycle (frame, plan, implement, check, done, resume, accept-risk, abandon) with CLI-enforced statuses. Use for building, continuing, or shipping a specific feature in build mode.
+description: "Own the full feature lifecycle (frame, plan, implement, check, done, resume, accept-risk, abandon) with CLI-enforced statuses. Use for building, continuing, or shipping a specific feature in build mode."
 ---
 
 # forge-feature: Feature lifecycle

@@ -4,7 +4,7 @@ The v0.5 simple commands orchestrate the existing trusted engines; they do not r
 the complete built-in reference with:
 
 ```bash
-npx forge help advanced
+npx --no-install forge help advanced
 ```
 
 Expert entry points remain compatible:

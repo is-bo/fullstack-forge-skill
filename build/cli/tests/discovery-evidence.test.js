@@ -27,9 +27,10 @@ test("every evidence class carries a declared activation weight", () => {
     // Non-production material can never activate a capability on its own.
     for (const neutral of ["documentation", "test", "fixture", "generated"])
         assert.equal(ACTIVATION_WEIGHTS[neutral], 0);
-    // Production-bearing material reaches the activation threshold on its own.
-    for (const activating of ["manifest", "implementation", "route", "schema"])
+    // Active behavior reaches the threshold; dependency declarations alone never do.
+    for (const activating of ["implementation", "route", "schema"])
         assert.equal(ACTIVATION_WEIGHTS[activating], ACTIVATION_THRESHOLD);
+    assert.equal(ACTIVATION_WEIGHTS.manifest, 0);
     assert.ok(ACTIVATION_WEIGHTS.configuration < ACTIVATION_THRESHOLD);
     assert.ok(ACTIVATION_WEIGHTS.configuration > 0);
 });
@@ -41,10 +42,14 @@ test("paths are classified by the role the file plays, not by the words it conta
         ["app/api/session/route.ts", "route"],
         ["src/routes/admin.ts", "route"],
         ["pages/api/webhook.ts", "route"],
+        ["project/urls.py", "route"],
         ["prisma/schema.prisma", "schema"],
         ["db/migrations/0001_init.sql", "schema"],
         ["docker-compose.yml", "configuration"],
+        ["infra/main.tf", "configuration"],
+        ["public/robots.txt", "configuration"],
         ["ops/telemetry.yaml", "configuration"],
+        ["src/main.cpp", "implementation"],
         ["cli/tests/upload.test.ts", "test"],
         ["tests/tenant.ts", "test"],
         ["fixtures/bad-upload/upload.js", "fixture"],
@@ -53,7 +58,9 @@ test("paths are classified by the role the file plays, not by the words it conta
         ["docs/SECURITY_MODEL.md", "documentation"],
         ["examples/checkout/pay.ts", "example"],
         [".claude/skills/forge-payments/SKILL.md", "generated"],
+        [".fullstack-forge/skills/forge-payments/SKILL.md", "generated"],
         ["src/fullstack-forge/commands/forge-ai/COMMAND.md", "generated"],
+        ["third_party/agent-skills/provider/content/SKILL.md", "generated"],
         ["build/cli/src/discovery.js", "generated"],
         ["cli/src/types.d.ts", "generated"],
         ["LICENSE", "unknown"]
@@ -63,6 +70,19 @@ test("paths are classified by the role the file plays, not by the words it conta
     // Every classification explains itself.
     for (const [path] of cases)
         assert.ok(classifyEvidencePath(path).reason.length > 0, path);
+});
+test("real JSX structure proves frontend use when a dependency declaration alone cannot", async () => {
+    await withTemporaryProject("discovery-jsx-frontend", async (root) => {
+        await writeProject(root, {
+            "package.json": `${JSON.stringify({ name: "jsx-app", dependencies: { react: "19.0.0" } })}\n`,
+            "Link.tsx": 'export const Link = () => <a href="https://example.com" target="_blank">Docs</a>;\n'
+        });
+        const profile = await discoverProject(root);
+        const frontend = find(profile.capability_assessments ?? [], "frontend");
+        assert.equal(frontend.status, "PRESENT");
+        const decision = decideModules({ candidates: ["frontend"], profile, explicit: false })[0];
+        assert.equal(decision?.selection_status, "SELECTED");
+    });
 });
 test("a manifest inside fixture or generated material is not manifest evidence", () => {
     assert.equal(classifyEvidencePath("fixtures/insecure-api/package.json").evidence_class, "fixture");
@@ -74,14 +94,29 @@ test("workspace attribution prefers the most specific declared root", () => {
     assert.equal(workspaceForPath("packages/api/internal/db.ts", roots), "packages/api/internal");
     assert.equal(workspaceForPath("tools/build.ts", roots), ".");
 });
-test("comments and passive string literals are recognised as weak context", () => {
+test("inline and multiline comments, strings, templates, and regex literals are weak context", () => {
     const source = [
-        "// stripe.checkout is planned",
-        'const label = "stripe.checkout";',
+        "const one = 1; // stripe.checkout is planned",
+        "/* multiline",
+        "stripe.checkout is still only planned",
+        "*/",
+        "const template = `multiline",
+        "stripe.checkout example`;",
+        'const label = "stripe.checkout"; stripe.checkout.sessions.create();',
+        "const detector = /stripe\\.checkout\\.sessions/u;",
         "stripe.checkout.sessions.create();"
     ].join("\n");
-    assert.equal(isWeakContext(source, source.indexOf("stripe.checkout"), "implementation"), true);
-    assert.equal(isWeakContext(source, source.indexOf('"stripe.checkout"') + 1, "implementation"), true);
+    const first = source.indexOf("stripe.checkout");
+    const block = source.indexOf("stripe.checkout", first + 1);
+    const template = source.indexOf("stripe.checkout", block + 1);
+    const string = source.indexOf("stripe.checkout", template + 1);
+    const sameLineCall = source.indexOf("stripe.checkout", string + 1);
+    assert.equal(isWeakContext(source, first, "implementation"), true);
+    assert.equal(isWeakContext(source, block, "implementation"), true);
+    assert.equal(isWeakContext(source, template, "implementation"), true);
+    assert.equal(isWeakContext(source, string, "implementation"), true);
+    assert.equal(isWeakContext(source, sameLineCall, "implementation"), false);
+    assert.equal(isWeakContext(source, source.indexOf("stripe\\.checkout"), "implementation"), true);
     assert.equal(isWeakContext(source, source.lastIndexOf("stripe.checkout"), "implementation"), false);
     // JSON dependency names are legitimately string literals and are never downgraded.
     assert.equal(isWeakContext('{"stripe": "^1"}', 2, "manifest"), false);
@@ -131,7 +166,7 @@ test("example-only payment code stays separated from active applications", async
         });
         const assessment = find(await assessProjectCapabilities(root), "payments");
         assert.equal(assessment.status, "UNKNOWN");
-        assert.ok(assessment.score > 0 && assessment.score < ACTIVATION_THRESHOLD);
+        assert.equal(assessment.score, 0);
         assert.equal(assessment.evidence[0]?.evidence_class, "example");
         assert.ok(assessment.reasons.some((reason) => reason.includes("Example applications")));
     });
@@ -149,6 +184,16 @@ test("a real authentication dependency and route activate the capability", async
         assert.ok(classes.has("manifest"));
         assert.ok(classes.has("route"));
         assert.ok(assessment.evidence.every((item) => typeof item.line === "number"));
+    });
+});
+test("a concrete authentication wrapper declaration is not suppressed as a whole line", async () => {
+    await withTemporaryProject("evidence-auth-wrapper", async (root) => {
+        await writeProject(root, {
+            "src/auth.ts": "export function requireAuth() { return sessionMiddleware; }\n"
+        });
+        const assessment = find(await assessProjectCapabilities(root), "authentication");
+        assert.equal(assessment.status, "PRESENT");
+        assert.equal(assessment.evidence[0]?.activation_weight, ACTIVATION_THRESHOLD);
     });
 });
 test("real upload middleware in application source activates the capability", async () => {
@@ -202,6 +247,88 @@ test("configuration-only evidence stays below the activation threshold", async (
         assert.ok(assessment.score > 0 && assessment.score < ACTIVATION_THRESHOLD);
     });
 });
+test("concrete deployment, Terraform, robots, and sitemap shapes activate only in active trees", async () => {
+    await withTemporaryProject("evidence-concrete-file-shapes", async (root) => {
+        await writeProject(root, {
+            Dockerfile: "FROM node:24-alpine\n",
+            "infra/main.tf": 'resource "aws_s3_bucket" "assets" {}\n',
+            "public/robots.txt": "User-agent: *\nDisallow:\n",
+            "public/sitemap.xml": "<urlset></urlset>\n",
+            "docs/Dockerfile": "FROM scratch\n",
+            "examples/legacy/main.tf": 'resource "example" "demo" {}\n',
+            "fixtures/site/robots.txt": "User-agent: *\n",
+            "tests/Dockerfile": "FROM scratch\n",
+            "skills/site/sitemap.xml": "<urlset></urlset>\n"
+        });
+        const assessments = await assessProjectCapabilities(root);
+        for (const capability of ["deployment", "infrastructure", "public-web"]) {
+            const assessment = find(assessments, capability);
+            assert.equal(assessment.status, "PRESENT", capability);
+            assert.ok(assessment.evidence.some((item) => item.activation_weight >= ACTIVATION_THRESHOLD), capability);
+        }
+        const deployment = find(assessments, "deployment");
+        assert.equal(deployment.evidence.find((item) => item.path === "docs/Dockerfile")?.activation_weight, 0);
+        assert.equal(deployment.evidence.find((item) => item.path === "tests/Dockerfile")?.activation_weight, 0);
+        const infrastructure = find(assessments, "infrastructure");
+        assert.equal(infrastructure.evidence.find((item) => item.path === "examples/legacy/main.tf")
+            ?.activation_weight, 0);
+        const publicWeb = find(assessments, "public-web");
+        assert.equal(publicWeb.evidence.find((item) => item.path === "fixtures/site/robots.txt")
+            ?.activation_weight, 0);
+        assert.equal(publicWeb.evidence.find((item) => item.path === "skills/site/sitemap.xml")?.activation_weight, 0);
+    });
+});
+test("an unused Stripe dependency remains UNKNOWN and does not auto-select payments", async () => {
+    await withTemporaryProject("evidence-unused-stripe", async (root) => {
+        await writeProject(root, {
+            "package.json": `${JSON.stringify({ name: "app", dependencies: { stripe: "0.0.0-fixture" } })}\n`,
+            "src/index.ts": "export const ready = true;\n"
+        });
+        const profile = await discoverProject(root);
+        const payments = find(profile.capability_assessments ?? [], "payments");
+        assert.equal(payments.status, "UNKNOWN");
+        assert.equal(payments.score, 0);
+        assert.deepEqual([...new Set(payments.evidence.map((item) => item.evidence_class))], ["manifest"]);
+        const decision = decideModules({
+            candidates: ["payments"],
+            profile,
+            explicit: false
+        })[0];
+        assert.ok(decision);
+        assert.notEqual(decision.selection_status, "SELECTED");
+        assert.ok(!(profile.risk_evidence ?? []).some((item) => item.modules.includes("payments")));
+    });
+});
+test("an undeclared archived package cannot aggregate React capability or framework evidence", async () => {
+    await withTemporaryProject("evidence-undeclared-archive", async (root) => {
+        await writeProject(root, {
+            "package.json": `${JSON.stringify({ name: "active-root" })}\n`,
+            "src/index.ts": "export const ready = true;\n",
+            "archive/old-ui/package.json": `${JSON.stringify({
+                name: "old-ui",
+                dependencies: { react: "0.0.0-fixture" }
+            })}\n`,
+            "archive/old-ui/src/App.tsx": "ReactDOM.createRoot(document.body).render(<main>Archived</main>);\n"
+        });
+        const directAssessments = await assessProjectCapabilities(root);
+        assert.equal(find(directAssessments, "frontend").status, "ABSENT");
+        assert.ok(!directAssessments.some((item) => item.workspace === "archive/old-ui"));
+        const profile = await discoverProject(root);
+        const frontend = find(profile.capability_assessments ?? [], "frontend");
+        assert.equal(frontend.status, "ABSENT");
+        assert.equal((profile.capability_assessments ?? []).some((item) => item.workspace === "archive/old-ui"), false);
+        assert.equal(profile.frameworks.length, 0);
+        assert.ok(!profile.applications.some((application) => application.root === "archive/old-ui"));
+        assert.ok(profile.workspaces.some((workspace) => workspace.root === "archive/old-ui" && workspace.type === "nested-package"));
+        const decision = decideModules({
+            candidates: ["frontend"],
+            profile,
+            explicit: false
+        })[0];
+        assert.ok(decision);
+        assert.notEqual(decision.selection_status, "SELECTED");
+    });
+});
 test("many weak signals accumulate to UNKNOWN rather than to PRESENT", async () => {
     await withTemporaryProject("evidence-weak-accumulation", async (root) => {
         await writeProject(root, {
@@ -215,7 +342,7 @@ test("many weak signals accumulate to UNKNOWN rather than to PRESENT", async () 
         const assessment = find(await assessProjectCapabilities(root), "payments");
         assert.equal(assessment.status, "UNKNOWN");
         assert.ok(assessment.evidence.length >= 5);
-        assert.ok(assessment.score < ACTIVATION_THRESHOLD);
+        assert.equal(assessment.score, 0);
     });
 });
 test("comments containing capability keywords are weak evidence only", async () => {
@@ -229,9 +356,9 @@ test("comments containing capability keywords are weak evidence only", async () 
         const [evidence] = assessment.evidence;
         assert.ok(evidence);
         assert.equal(evidence.evidence_class, "implementation");
-        assert.ok(evidence.activation_weight < ACTIVATION_THRESHOLD);
+        assert.equal(evidence.activation_weight, 0);
         assert.equal(evidence.confidence, "MEDIUM");
-        assert.ok(evidence.reason.includes("comment or passive string literal"));
+        assert.match(evidence.reason, /comment.*passive string/u);
     });
 });
 test("passive string literals containing capability keywords are weak evidence only", async () => {
@@ -242,7 +369,57 @@ test("passive string literals containing capability keywords are weak evidence o
         });
         const assessment = find(await assessProjectCapabilities(root), "ai");
         assert.equal(assessment.status, "UNKNOWN");
-        assert.ok((assessment.evidence[0]?.activation_weight ?? 1) < ACTIVATION_THRESHOLD);
+        assert.equal(assessment.evidence[0]?.activation_weight, 0);
+    });
+});
+test("many weak implementation files can never accumulate into production capability proof", async () => {
+    await withTemporaryProject("evidence-many-weak-files", async (root) => {
+        const files = {
+            "package.json": `${JSON.stringify({ name: "app" })}\n`
+        };
+        for (let index = 0; index < 12; index += 1)
+            files[`src/plans/plan-${index}.ts`] =
+                `export const planned${index} = "stripe.checkout.sessions.create";\n`;
+        await writeProject(root, files);
+        const assessment = find(await assessProjectCapabilities(root), "payments");
+        assert.equal(assessment.status, "UNKNOWN");
+        assert.equal(assessment.score, 0);
+        assert.equal(assessment.evidence.length, 12);
+    });
+});
+test("a detector implementation cannot activate itself or generated and vendored expertise", async () => {
+    await withTemporaryProject("evidence-self-referential-tool", async (root) => {
+        await writeProject(root, {
+            "package.json": `${JSON.stringify({ name: "scanner" })}\n`,
+            "cli/src/scanner.ts": `
+export const paymentRule = /stripe\\.(?:checkout|paymentIntents|webhooks)/u;
+export const aiRule = /openai\\.(?:chat|responses)|anthropic\\.messages/u;
+export const routeRule = /router\\.(?:post|delete)\\s*\\(/u;
+export const personalDataRule = /email|medicalRecord|nationalId/u;
+`,
+            ".agents/skills/forge-payments/SKILL.md": "Call stripe.checkout.sessions.create and inspect payment webhooks.\n",
+            "third_party/agent-skills/react/package.json": `${JSON.stringify({
+                name: "vendored-react-skill",
+                dependencies: { react: "1.0.0", stripe: "1.0.0" }
+            })}\n`,
+            "examples/web/package.json": `${JSON.stringify({
+                name: "demo",
+                dependencies: { react: "1.0.0" }
+            })}\n`
+        });
+        const profile = await discoverProject(root);
+        for (const capability of ["frontend", "payments", "ai", "personal-data", "api"]) {
+            const assessment = find(profile.capability_assessments ?? [], capability);
+            assert.notEqual(assessment.status, "PRESENT", capability);
+        }
+        assert.equal(profile.frameworks.length, 0);
+        assert.equal(profile.risk_evidence?.length, 0);
+        const decisions = decideModules({
+            candidates: ["frontend", "payments", "ai", "privacy", "api"],
+            profile,
+            explicit: false
+        });
+        assert.ok(decisions.every((decision) => decision.selection_status !== "SELECTED"));
     });
 });
 test("monorepo workspaces are assessed independently and never leak evidence", async () => {
@@ -319,7 +496,7 @@ test("bounded risk discovery activates concerns from behavior even when controls
   await prisma.patient.delete({ where: { id: req.params.id } });
   res.sendStatus(204);
 });`,
-            "unused.ts": "export function requireRole() { return (_req, _res, next) => next(); }"
+            "unused.ts": "export function accessGuard() { return (_req, _res, next) => next(); }"
         });
         const profile = await discoverProject(root);
         const modules = new Set((profile.risk_evidence ?? []).flatMap((evidence) => evidence.modules));
@@ -338,10 +515,76 @@ test("bounded risk discovery activates concerns from behavior even when controls
         assert.equal(authorization.selection_status, "SELECTED");
     });
 });
+test("a real session boundary auto-selects authentication", async () => {
+    await withTemporaryProject("risk-session-boundary", async (root) => {
+        await writeProject(root, {
+            "routes/account.ts": `router.get("/account", async (req, res) => {
+  const session = await getServerSession(req);
+  res.json({ userId: session.user.id });
+});`
+        });
+        const profile = await discoverProject(root);
+        const identity = (profile.risk_evidence ?? []).find((item) => item.risk === "identity-or-session-boundary");
+        assert.ok(identity);
+        assert.ok(identity.modules.includes("auth"));
+        const decision = decideModules({ candidates: ["auth"], profile, explicit: false })[0];
+        assert.ok(decision);
+        assert.equal(decision.risk_status, "PRESENT");
+        assert.equal(decision.selection_status, "SELECTED");
+    });
+});
+test("generic signature, money, and worker identifiers do not create risk boundaries", async () => {
+    await withTemporaryProject("risk-generic-identifiers", async (root) => {
+        await writeProject(root, {
+            "src/labels.ts": `export const signature = "rounded";
+export const headerName = "x-signature";
+export const amount = 3;
+export const currency = "USD";
+export const worker = "employee";
+export const scheduledReport = false;
+`
+        });
+        const profile = await discoverProject(root);
+        const risks = new Set((profile.risk_evidence ?? []).map((item) => item.risk));
+        assert.ok(!risks.has("webhook-or-callback"));
+        assert.ok(!risks.has("financial-behaviour"));
+        assert.ok(!risks.has("background-execution"));
+    });
+});
+test("risk and route scans skip a leading commented route and continue to a real route", async () => {
+    await withTemporaryProject("risk-comment-then-route", async (root) => {
+        await writeProject(root, {
+            "routes/health.ts": `/* Example only:
+router.delete("/admin/users/:id", handler);
+*/
+router.get("/health", handler);
+`
+        });
+        const profile = await discoverProject(root);
+        assert.deepEqual(profile.routes.map((route) => route.name), ["GET /health"]);
+        const risks = profile.risk_evidence ?? [];
+        assert.ok(risks.some((item) => item.risk === "request-boundary" && item.line === 4));
+        assert.ok(!risks.some((item) => item.risk === "destructive-or-administrative-route"));
+        assert.equal(find(profile.capability_assessments ?? [], "api").status, "PRESENT");
+    });
+});
+test("active C and C++ source proves runtime without implying an API", async () => {
+    await withTemporaryProject("runtime-cpp-not-api", async (root) => {
+        await writeProject(root, {
+            "src/main.cpp": "int main() { return 0; }\n",
+            "src/helper.c": "int helper(void) { return 1; }\n"
+        });
+        const profile = await discoverProject(root);
+        assert.ok(profile.capabilities.runtime);
+        assert.equal(find(profile.capability_assessments ?? [], "runtime").status, "PRESENT");
+        assert.equal(find(profile.capability_assessments ?? [], "api").status, "ABSENT");
+        assert.equal(profile.routes.length, 0);
+    });
+});
 test("risk signatures cover payment webhooks, uploads, and tenant background jobs", async () => {
     await withTemporaryProject("risk-signature-matrix", async (root) => {
         await writeProject(root, {
-            "webhook.ts": 'app.post("/webhooks/payment", async (req) => refund(req.body.amount));',
+            "webhook.ts": 'app.post("/webhooks/payment", async (req) => refundPayment(req.body.amount));',
             "upload.ts": 'app.post("/patients/documents", upload.single("file"), handler);',
             "jobs/reminders.ts": "export const reminderJob = defineJob(async (clinicId) => db.patient.findMany({ where: { clinicId } }));"
         });

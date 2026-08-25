@@ -90,18 +90,19 @@ test("a present but unchanged capability is out of changed scope, never inapplic
     assert.notEqual(decisionFindingStatus(ui), "NOT_APPLICABLE");
     assert.equal(decisionFor(decisions, "payments").selection_status, "SELECTED");
 });
-test("an undetermined risk is APPLICABLE_UNPROVEN and runs proportionately", () => {
+test("an undetermined risk remains unverified and is not selected automatically", () => {
     const decisions = decideModules({
         candidates: ["payments"],
         profile: profileWith({}),
-        explicit: false
+        explicit: false,
+        changedModules: new Set(["payments"])
     });
     const payments = decisionFor(decisions, "payments");
     assert.equal(payments.capability_status, "UNKNOWN");
     assert.equal(payments.risk_status, "UNKNOWN");
     assert.equal(payments.applicability_status, "APPLICABLE_UNPROVEN");
-    assert.equal(payments.selection_status, "SELECTED");
-    assert.equal(decisionFindingStatus(payments), "SELECTED");
+    assert.equal(payments.selection_status, "NOT_REQUESTED");
+    assert.equal(decisionFindingStatus(payments), "NOT_VERIFIED");
 });
 test("a risk-filtered module records EXCLUDED_BY_RISK with its capability intact", () => {
     const decisions = decideModules({

@@ -12,7 +12,7 @@ const markdown = execFileSync(
   .filter(Boolean)
   // Vendored upstream content is pristine by contract: Forge neither authors nor edits its links,
   // and importing a reviewed subset of a provider legitimately leaves cross-references to sibling
-  // skills Forge chose not to import. Its integrity is enforced by `npm run upstream:verify`
+  // skills Forge chose not to import. Its integrity is enforced by `node scripts/upstream-verify.mjs`
   // instead, and the composition engine never follows an upstream link. The compiled runtime copy
   // under `.fullstack-forge/upstream/` is excluded for the same reason.
   .filter(

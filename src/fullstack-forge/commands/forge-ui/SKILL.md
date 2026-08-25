@@ -1,6 +1,6 @@
 ---
 name: forge-ui
-description: Use automatically for visual-interface creation and improvement, including direction, typography, color, spacing, layout, systems, states, consistency, motion, and polish while preserving usability, accessibility, and established brand conventions. Activate automatically for web, mobile, or desktop interface creation and review when that concern is relevant to a software-engineering request.
+description: "Use automatically for visual-interface creation and improvement, including direction, typography, color, spacing, layout, systems, states, consistency, motion, and polish while preserving usability, accessibility, and established brand conventions."
 ---
 
 # forge-ui: User interface
@@ -16,19 +16,28 @@ Use automatically for visual-interface creation and improvement, including direc
 
 Before loading any provider procedure, run:
 
-`node .fullstack-forge/runtime/cli/src/composition-entry.js ui compose --root <repository-root> --json`
+Resolve `../../runtime/cli/src/composition-entry.js` relative to this `SKILL.md`, then run:
+
+`node "<resolved-absolute-runner-path>" ui compose --workflow audit --root "<repository-root>" --dry-run --json`
 
 Add one repeatable `--request <provider-or-source>` flag for each explicit user request. Add
 `--condition <task-condition>` or `--risk-surface <surface>` only for a task fact you directly
-proved; never infer one from generic wording. Read `.forge/composition.json`, keep the Forge
-contract at index zero, and load only the ordered `selected` runtime paths. Respect every reported
+proved; never infer one from generic wording. The command above is the default for this
+audit-oriented module; for implementation use `--workflow build`, and for a fix, retest, or
+release gate use `--workflow fix`, `verify`, or `ship` respectively. Read the JSON response,
+keep the Forge contract at index zero, and resolve paths against the absolute `runtime_root`
+reported in that response. Read `eager[].runtimePath` when entering the module. The full
+`selected[]` list is availability/provenance; load only `deferred[].runtimePath` when the task
+reaches that concern, in tier order. Refuse any path that escapes the root. Respect every reported
 suppression and context budget. If `missing` is non-empty, stop and report the installation as
-damaged; do not improvise a prose fallback.
+damaged; do not improvise a prose fallback. The runner and specialist content may live in a plugin
+cache or global installation; never assume they are inside the audited repository.
 
 
-Read `fullstack-forge/references/shared/module-contract.md` (applicability, execution, mutation,
-verification, completion) and `fullstack-forge/references/shared/evidence-rules.md` (statuses,
-standards, tools, findings via `fullstack-forge/references/PROTOCOL.md`) before reporting.
+Resolve and read `../fullstack-forge/references/shared/module-contract.md` (applicability,
+execution, mutation, verification, completion) and
+`../fullstack-forge/references/shared/evidence-rules.md` (statuses, standards, tools, findings via
+`../fullstack-forge/references/PROTOCOL.md`) relative to this module `SKILL.md` before reporting.
 
 Never hide failed checks or claim that an operation ran when it did not.
 
@@ -126,6 +135,18 @@ Accessibility rules remain owned by `forge-accessibility`; localization by `forg
 performance proof by `forge-performance`; public-search behavior by `forge-seo`. Compose those
 owners instead of copying their rules here. Never load mobile, chart, motion, or framework guidance
 without matching evidence.
+
+
+### Explicit external experts
+
+- **Taste** is not bundled and is never automatic. Only when the user explicitly names it, use a separately installed copy pinned to `e988add20dab0fa97d7a76781c48961c8184288e` (`aa194351b246b8b4799099d4ed7b033d29eab6e6e3d58d8d2172978be7b3ec89`). Preserve its upstream workflow instead of paraphrasing it, run it in isolated read-only advisory context, and apply these boundaries: Use only after the user explicitly requests Taste and the host exposes a separately installed, revision- or hash-verified copy. Load the upstream skill without paraphrasing or merging its full text into Forge. Run it as an isolated advisory comparison; it cannot authorize edits, dependency installation, network access, image generation, or completion claims. Repository evidence, established brand and design-system constraints, accessibility, measured performance, and Forge verification retain precedence.
+
+If the host cannot verify or load the pinned external skill, record the advisory as
+`NOT_VERIFIED`; never download it during task execution. Resolve and read
+`../fullstack-forge/references/shared/external-experts.md` relative to this module skill for the
+portable precedence contract. The package's `docs/EXTERNAL_EXPERTS.md` contains user installation
+guidance.
+
 
 
 ## Agent inspection procedure

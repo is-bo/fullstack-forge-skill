@@ -364,6 +364,7 @@ export function renderStatus(snapshot) {
     return lines.join("\n");
 }
 export function renderInstallResult(operation, selector, global, dryRun, actions, recommendations, detectionWarning) {
+    const forgeCommand = global ? "forge" : "npx --no-install forge";
     const counts = new Map();
     for (const action of actions)
         counts.set(action.action, (counts.get(action.action) ?? 0) + 1);
@@ -400,7 +401,7 @@ export function renderInstallResult(operation, selector, global, dryRun, actions
         }
     }
     if (operation !== "uninstall" && !dryRun)
-        lines.push("", "Check the installation:", "  forge doctor", "", "Continue working with your AI agent normally.", "Forge activates automatically for software-engineering tasks.", "", "Optional explicit workflows:", "  /forge audit security", "  /forge verify", "  /forge ship", "  /forge help");
+        lines.push("", "Check the installation:", `  ${forgeCommand} doctor`, "", "Continue working with your AI agent normally.", "Forge activates automatically for software-engineering tasks.", "", "Optional explicit workflows:", `  ${forgeCommand} audit security`, `  ${forgeCommand} verify`, `  ${forgeCommand} ship`, `  ${forgeCommand} help`);
     if (operation === "uninstall" && actions.some((action) => action.action === "preserve-modified"))
         lines.push("", "Modified files were preserved. Review the paths in --json output.");
     return lines.join("\n");

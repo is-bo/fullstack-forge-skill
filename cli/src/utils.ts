@@ -111,17 +111,24 @@ export async function walkFiles(
     maxFiles?: number;
     maxTotalBytes?: number;
     maxDepth?: number;
+    /** Fail closed instead of silently skipping symlinked source entries. */
+    rejectSymlinks?: boolean;
   } = {}
 ): Promise<string[]> {
   const output: string[] = [];
   const exclude = options.exclude ?? new Set<string>();
   const privateLocalDirectories = new Set([".audit", ".audit-work", ".codex"]);
   let totalBytes = 0;
+  if (options.rejectSymlinks && (await lstat(root)).isSymbolicLink())
+    throw new Error(`Repository walk refused a symlinked root: ${root}`);
   async function visit(directory: string, depth: number): Promise<void> {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       if (exclude.has(entry.name) || privateLocalDirectories.has(entry.name)) continue;
       const path = join(directory, entry.name);
-      if (entry.isSymbolicLink()) continue;
+      if (entry.isSymbolicLink()) {
+        if (options.rejectSymlinks) throw new Error(`Repository walk refused a symlink: ${path}`);
+        continue;
+      }
       if (entry.isDirectory()) {
         if (options.maxDepth !== undefined && depth >= options.maxDepth)
           throw new Error(`Repository scan exceeded the maximum depth of ${options.maxDepth}.`);

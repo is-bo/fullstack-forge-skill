@@ -299,6 +299,11 @@ export async function orchestrateAudit(
 
   const select = resolveSelectors(input.select, known, byName, "--check");
   const skip = resolveSelectors(input.skip, known, byName, "--skip-check");
+  const contradictory = [...select].filter((id) => skip.has(id)).sort();
+  if (contradictory.length > 0)
+    throw new Error(
+      `The same check cannot be both selected and skipped: ${contradictory.join(", ")}. Remove it from either --check or --skip-check.`
+    );
 
   for (const check of planned) input.ledger.planCheck(check);
 
@@ -307,8 +312,6 @@ export async function orchestrateAudit(
   const runtimeEvidence: RuntimeEvidenceRecord[] = [];
   const runCommand = input.runCommand ?? defaultCommandRunner;
   const collect = input.collectRuntimeEvidence;
-  let evidenceComplete = true;
-
   for (const check of planned) {
     if (skip.has(check.id)) {
       outcomes.push(
@@ -343,7 +346,6 @@ export async function orchestrateAudit(
           "unauthorized"
         )
       );
-      evidenceComplete = evidenceComplete && check.kind !== "runtime-evidence";
       continue;
     }
     if (input.offline && check.network_policy !== "OFFLINE_SAFE") {
@@ -357,7 +359,6 @@ export async function orchestrateAudit(
           "offline-policy"
         )
       );
-      if (check.kind === "runtime-evidence") evidenceComplete = false;
       continue;
     }
 
@@ -405,7 +406,6 @@ export async function orchestrateAudit(
           "unavailable"
         )
       );
-      evidenceComplete = false;
       continue;
     }
     const collected = await collect({
@@ -445,7 +445,6 @@ export async function orchestrateAudit(
     } else {
       // Fail closed: requested runtime evidence that came back incomplete is recorded as not run,
       // and the whole audit is marked as having unproven evidence.
-      evidenceComplete = false;
       outcomes.push(
         record(
           input.ledger,
@@ -456,6 +455,17 @@ export async function orchestrateAudit(
       );
     }
   }
+
+  // Completeness is derived from terminal outcomes, never toggled opportunistically inside one
+  // branch. `--check` makes the selected checks required. A supplied runtime URL likewise requests
+  // rendered evidence. Explicitly skipped checks are deliberate deselections and are not required;
+  // overlap between selection and skipping is rejected above instead of silently weakening scope.
+  const required = new Set<string>();
+  if (select.size > 0) for (const id of select) if (!skip.has(id)) required.add(id);
+  if (input.url !== undefined && !skip.has("runtime:rendered-ui"))
+    required.add("runtime:rendered-ui");
+  const terminal = new Map(outcomes.map((outcome) => [outcome.id, outcome]));
+  const evidenceComplete = [...required].every((id) => terminal.get(id)?.status === "EXECUTED");
 
   return {
     planned,

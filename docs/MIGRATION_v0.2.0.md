@@ -8,8 +8,8 @@ type still works.
 
 ```bash
 npm install --save-dev "https://codeload.github.com/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v0.2.0"
-npx forge init
-npx forge doctor
+npx --no-install forge init
+npx --no-install forge doctor
 ```
 
 `forge init` refreshes the managed installation in place. It never overwrites a file you have
@@ -90,6 +90,6 @@ Nothing updates automatically. Forge performs no upstream update check and ships
 
 ## If something looks wrong
 
-Run `npx forge doctor`. If a module reports that declared upstream content is missing, the
-installation is damaged rather than merely incomplete — Forge reports `NOT_VERIFIED` instead of a
-clean result. Run `npx forge update all` to repair it.
+Run `npx --no-install forge doctor`. If a module reports that declared upstream content is missing,
+the installation is damaged rather than merely incomplete — Forge reports `NOT_VERIFIED` instead of
+a clean result. Run `npx --no-install forge update all` to repair it.

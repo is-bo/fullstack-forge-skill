@@ -66,6 +66,13 @@ proved from the request and affected boundary. Supported conditions are `ci`, `r
 `divergentExploration`, and `incidentInvestigation`; the current risk surfaces are `frontend`,
 `api`, and `payments`. Unknown conditions fail closed.
 
+Explicit `compose` intent seeds the requested module's own task surface, so greenfield frontend and
+testing work still receives its primary specialist procedure before matching source files exist.
+Cross-module `dependsOn` entries are coordination hints, not hard prerequisites: automatic
+composition considers one direct hop, loads only dependencies with positive repository evidence, and
+returns only the decisions and edges it actually considered. Cycles and merely unknown applicability
+therefore cannot expand a small request into an all-module context load.
+
 ## Tools
 
 Use `forge list --json` for the exact tool catalog. Important agent-first tools include bounded

@@ -1,6 +1,6 @@
 ---
 name: forge-new
-description: Guide the new-project foundation workflow that frames product, users, business rules, risk class, stack rationale, non-goals, design direction, and an initial feature list. Use for starting a new product or codebase in build mode.
+description: "Guide the new-project foundation workflow that frames product, users, business rules, risk class, stack rationale, non-goals, design direction, and an initial feature list. Use for starting a new product or codebase in build mode."
 ---
 
 # forge-new: New project foundation

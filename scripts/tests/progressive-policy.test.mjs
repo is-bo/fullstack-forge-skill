@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { access, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
@@ -42,6 +43,34 @@ test("explicit workflows route to their required progressive protocols", async (
       router.includes(`fullstack-forge/${relative}`),
       `missing explicit route to ${relative}`
     );
+});
+
+test("one concise root router owns automatic engineering activation", async () => {
+  const full = await readFile(join(canonicalRoot, "SKILL.md"), "utf8");
+  const router = await readFile(join(canonicalRoot, "commands", "forge", "SKILL.md"), "utf8");
+  const fullDescription = frontmatterDescription(full);
+  const routerDescription = frontmatterDescription(router);
+  assert.match(fullDescription, /Explicit compatibility entry/u);
+  assert.doesNotMatch(fullDescription, /Use automatically/iu);
+  assert.match(routerDescription, /Use automatically/iu);
+  assert.match(full, /Do not load both root skills independently/u);
+});
+
+test("the complete skill metadata catalog fits the Codex initial index budget", async () => {
+  const files = [
+    join(canonicalRoot, "SKILL.md"),
+    ...(await readdir(join(canonicalRoot, "commands"), { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => join(canonicalRoot, "commands", entry.name, "SKILL.md"))
+  ];
+  let bytes = 0;
+  for (const path of files) {
+    const text = await readFile(path, "utf8");
+    const end = text.indexOf("\n---", 4);
+    assert.ok(end > 0, `${path} has no complete frontmatter`);
+    bytes += Buffer.byteLength(text.slice(0, end + 5));
+  }
+  assert.ok(bytes <= 8_000, `skill frontmatter is ${bytes} bytes; Codex indexes at most 8000`);
 });
 
 test("specialists share evidence, safe-fix, verification, and completion owners", async () => {
@@ -113,6 +142,7 @@ test("required progressive references are reachable from every generated platfor
   // Each host reaches them through its adapter, which must name the canonical playbook.
   for (const root of [
     ".agents/skills",
+    "skills",
     ".claude/skills",
     ".cursor/skills",
     ".gemini/skills",
@@ -131,7 +161,7 @@ test("public docs distinguish host skill forms from the executable CLI", async (
   const platforms = await readFile(join(projectRoot, "docs", "PLATFORM_SUPPORT.md"), "utf8");
   assert.match(readme, /\$forge audit cache/u);
   assert.match(readme, /\/forge audit cache/u);
-  assert.match(readme, /npx forge audit cache/u);
+  assert.match(readme, /npx --no-install forge audit cache/u);
   for (const host of [
     "Codex",
     "Antigravity",
@@ -144,3 +174,9 @@ test("public docs distinguish host skill forms from the executable CLI", async (
     assert.match(platforms, new RegExp(host, "u"));
   assert.match(platforms, /live host UI[\s\S]*NOT_VERIFIED/iu);
 });
+
+function frontmatterDescription(text) {
+  const match = /^---\r?\nname:\s*[^\r\n]+\r?\ndescription:\s*(.+)\r?\n---/u.exec(text);
+  assert.ok(match?.[1] !== undefined, "skill has no single-line description");
+  return JSON.parse(match[1]);
+}

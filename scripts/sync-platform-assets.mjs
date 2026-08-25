@@ -30,18 +30,14 @@ import {
 } from "./project.mjs";
 
 const canonicalFiles = await collectCanonicalFiles();
-await synchronize(
-  { id: "canonical", path: CANONICAL_ROOT_POSIX },
-  canonicalFiles,
-  isManagedCanonicalPath
-);
+await synchronize({ id: "canonical", path: CANONICAL_ROOT_POSIX }, canonicalFiles);
 
 const skills = skillNames(canonicalFiles.keys());
 let adapterCount = 0;
 for (const platform of platformTargets) {
   const files = buildHostFiles(platform, canonicalFiles, skills);
   adapterCount += skills.length;
-  await synchronize(platform, files, isManagedCanonicalPath);
+  await synchronize(platform, files);
 }
 
 console.log(
@@ -99,7 +95,7 @@ async function collectCanonicalFiles() {
   return files;
 }
 
-async function synchronize(platform, sourceFiles, isManaged) {
+async function synchronize(platform, sourceFiles) {
   const root = join(projectRoot, ...platform.path.split("/"));
   const manifestPath = join(root, manifestName);
   await assertNoSymlinkPath(projectRoot, root);
@@ -115,7 +111,7 @@ async function synchronize(platform, sourceFiles, isManaged) {
   } catch (error) {
     if (error?.code !== "ENOENT") throw error;
   }
-  validateManifest(previous, platform.id, isManaged);
+  validateManifest(previous, platform.id, sourceFiles);
 
   await guardOwnedDestinations(root, previous, sourceFiles);
   await mkdir(root, { recursive: true });
@@ -173,12 +169,7 @@ async function synchronize(platform, sourceFiles, isManaged) {
   return retired;
 }
 
-function isManagedCanonicalPath(rel) {
-  const first = rel.split("/")[0] ?? "";
-  return first === "fullstack-forge" || first === "forge" || first.startsWith("forge-");
-}
-
-function validateManifest(value, platform, isManaged) {
+function validateManifest(value, platform, sourceFiles) {
   if (
     typeof value !== "object" ||
     value === null ||
@@ -192,7 +183,18 @@ function validateManifest(value, platform, isManaged) {
     throw new Error(`Unsafe generated ownership manifest for ${platform}`);
   for (const [rel, hash] of Object.entries(value.files)) {
     assertSafeRelativePath(rel, "generated manifest path");
-    if (!isManaged(rel) || typeof hash !== "string" || !/^[a-f0-9]{64}$/u.test(hash))
+    // Ownership is an exact inventory, not a top-level prefix. A forged record under a plausible
+    // `forge-*` name could otherwise authorize deletion of an unrelated file during synchronization.
+    // If a generated path was intentionally removed, leave it for an explicit migration instead of
+    // guessing that every similarly named path is safe to retire.
+    const source = sourceFiles.get(rel);
+    const expectedHash = source === undefined ? undefined : sha256(source);
+    if (
+      expectedHash === undefined ||
+      typeof hash !== "string" ||
+      !/^[a-f0-9]{64}$/u.test(hash) ||
+      hash !== expectedHash
+    )
       throw new Error(`Unsafe generated ownership record: ${rel}`);
   }
 }

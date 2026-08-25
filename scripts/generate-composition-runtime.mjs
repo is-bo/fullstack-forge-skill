@@ -8,6 +8,7 @@ import { readFile, mkdir, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import ts from "typescript";
 import { assertNoSymlinkPath } from "./lib/fs-safety.mjs";
+import { writeGeneratedOwnership } from "./lib/generated-ownership.mjs";
 import { projectRoot } from "./project.mjs";
 
 const sourceRoot = join(projectRoot, "cli", "src");
@@ -76,6 +77,7 @@ await writeFile(
   ].join("\n"),
   "utf8"
 );
+await writeGeneratedOwnership(runtimeRoot, "runtime");
 
 console.log(
   `Generated standalone composition runtime from ${sources.size} TypeScript source files.`

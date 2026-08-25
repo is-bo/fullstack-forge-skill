@@ -1,8 +1,30 @@
 # License matrix
 
-This matrix records what was used and why the repository's Apache-2.0 distribution remains clean.
-“Concept only” means ideas and interoperability facts were learned, while implementation and prose
-were independently authored.
+This matrix has two deliberately separate scopes. The current release's copied upstream material is
+the allowlisted, checksummed set in `config/upstream-providers.json`, with one `SOURCE.md` and one
+notice entry per provider. The conceptual rows below describe research that was not vendored unless
+the current-import table says otherwise. “Concept only” means ideas and interoperability facts were
+learned, while implementation and prose were independently authored.
+
+## Current allowlisted upstream imports
+
+These are the only external repositories whose selected files are distributed in the candidate
+package. The exact path allowlist, exclusions, transforms, and review status live in the registry
+and the linked `third_party/agent-skills/*/SOURCE.md` records; this table is a human-readable index.
+
+| Provider                                                                           | Pinned revision                                                     | License evidence                                                          | Shipped scope                                                                                                                                      |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Impeccable — `third_party/agent-skills/impeccable/SOURCE.md`                       | `pbakaus/impeccable@fc2e694afca1ac0cc384b4fe56bab3335fea7912`       | Apache-2.0 `LICENSE`                                                      | Selected `.claude/skills/impeccable` guidance and notice files; executable detector/live tooling excluded                                          |
+| Addy Osmani Agent Skills — `third_party/agent-skills/addy-agent-skills/SOURCE.md`  | `addyosmani/agent-skills@ff2df4c07e7836a092ed28e1e9b42f4d6009280c`  | MIT `LICENSE`                                                             | Reviewed skill/reference directories; scripts and global routing excluded                                                                          |
+| Vercel Agent Skills — `third_party/agent-skills/vercel-agent-skills/SOURCE.md`     | `vercel-labs/agent-skills@7c180d9044c9ae2b442b567aad4e42a28dd5ed62` | MIT in `README.md#license` and selected skill metadata; no root `LICENSE` | Selected React, React Native, view-transition, and web-guideline files; deployment/writing/tooling paths excluded; manual evidence review required |
+| Supabase Agent Skills — `third_party/agent-skills/supabase-agent-skills/SOURCE.md` | `supabase/agent-skills@1ad9aaeb49caafd9e95c0a91116f71890eebbc53`    | MIT `LICENSE`                                                             | Selected Supabase and Postgres guidance                                                                                                            |
+| Google Skills — `third_party/agent-skills/google-skills/SOURCE.md`                 | `google/skills@d1c9be2009ba0b9243f4ace63533684cabe0dc05`            | Apache-2.0 `LICENSE`                                                      | Selected cloud and analytics guidance; Python, shell, and script paths excluded                                                                    |
+| Cloudflare Skills — `third_party/agent-skills/cloudflare-skills/SOURCE.md`         | `cloudflare/skills@30553f89ae1ef1e3c2917cd09d72dac992bb4e9a`        | Apache-2.0 `LICENSE`                                                      | Selected Cloudflare/Wrangler/Agents SDK guidance and two command references; executables excluded                                                  |
+| Sentry Agent Skills — `third_party/agent-skills/sentry-agent-skills/SOURCE.md`     | `getsentry/sentry-for-ai@3f7d285efc6f6ff5c5cfc5690857a9474c6642f8`  | MIT `LICENSE`                                                             | Selected framework SDK, AI-monitoring, and OTel guidance; session-replay reference excluded                                                        |
+| wshobson Agents — `third_party/agent-skills/wshobson-agents/SOURCE.md`             | `wshobson/agents@c4b82b0ad771190355eb8e204b1329732a18449a`          | MIT `LICENSE`                                                             | Approved plugin skill subset only; marketplace agents, commands, and scripts excluded                                                              |
+
+The generated `THIRD_PARTY_NOTICES.md` is the distribution-facing attribution surface. A provider
+must appear in both that notice and the registry before its files may enter a package.
 
 | Source class                                                 | License / terms                        | Included material                                       | Handling decision                                                                     |
 | ------------------------------------------------------------ | -------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------- |
@@ -35,12 +57,14 @@ No dependency code is bundled into the CLI runtime. Development dependencies are
 and governed by their own licenses; `npm pack` includes compiled project output, not `node_modules`.
 The package lock provides the exact development dependency graph for downstream license review.
 
-## Measured text-overlap verification
+## Historical text-overlap measurement (not current release evidence)
 
-The "no copied prose" claim above is measured, not merely asserted. On 2026-07-19 every authored
-Markdown file (`src/fullstack-forge/**`, `docs/**`, `README.md` — 70 files, 61,341 words) was
-compared against the complete Markdown corpus of all eleven researched repositories at the exact
-commits recorded in `SOURCES.md`, read from the retained clone object stores.
+The following measurement is retained as historical research only. It is not evidence about the
+current vendored provider set, and it must not be used as a release claim until rerun against the
+current source corpus. On 2026-07-19 every then-authored Markdown file (`src/fullstack-forge/**`,
+`docs/**`, `README.md` — 70 files, 61,341 words) was compared against the complete Markdown corpus
+of eleven then-researched repositories at the exact commits recorded in `SOURCES.md`, read from
+retained clone object stores.
 
 Method: case-folded, punctuation-stripped, fenced-code-stripped word streams compared as 8-word
 shingles (an 8-word verbatim run is well below the length of any original sentence, so this is a
@@ -62,12 +86,10 @@ extended greedily to report the longest verbatim shared run.
 | agentskills-spec             |              6 |           1,650 |           0 |                  0 |
 | **Total**                    |      **1,967** |     **766,216** |       **0** |              **0** |
 
-Result: zero shared 8-word sequences across all 766,216 upstream shingles. No sentence, checklist
-line, or paragraph in the distribution is shared with any researched repository. This is
-particularly load-bearing for Trail of Bits (CC BY-SA 4.0), where any adapted prose would impose
-share-alike terms incompatible with the Apache-2.0 core, and for UI UX Pro Max (MIT), whose data
-files and prose are likewise absent.
+Result: zero shared 8-word sequences across all 766,216 upstream shingles in that historical input.
+It says nothing about the selected files now intentionally distributed under the current import
+table. The separate registry, per-provider records, transforms, and notices are the authority for
+those files.
 
-This historical measurement predates the 2026-07-26 frontend/UI/UX rewrite and must not be read as a
-measurement of the new files. The new sources were inspected conceptually and no wording or code was
-copied; a fresh corpus comparison is required before making a new quantified overlap claim.
+This measurement also predates the 2026-07-26 frontend/UI/UX rewrite and the later upstream imports.
+A fresh corpus comparison is required before making any new quantified overlap claim.

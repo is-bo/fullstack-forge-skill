@@ -12,6 +12,9 @@
  */
 import type { Confidence, ProjectProfile } from "./types.js";
 export type CompositionMode = "forge-native" | "hybrid" | "upstream-powered";
+/** Intent controls which progressive procedure and provider sources are admissible. */
+export declare const COMPOSITION_WORKFLOWS: readonly ["build", "audit", "fix", "verify", "ship"];
+export type CompositionWorkflow = (typeof COMPOSITION_WORKFLOWS)[number];
 export type OutputClassification = "finding" | "finding-or-advisory" | "advisory" | "profile" | "specification" | "report" | "gate";
 /**
  * Activation evidence. Every key except `always` names a dimension of the discovered project
@@ -58,6 +61,8 @@ export type CompositionSource = {
     commands?: string[];
     /** Higher values win only after sequence and activation strength are equal. */
     priority?: number;
+    /** Workflows in which this source may be selected; omission keeps the legacy tier policy. */
+    workflows?: CompositionWorkflow[];
     when: ActivationCondition;
 };
 export type ContextBudget = {
@@ -70,6 +75,8 @@ export type ModuleComposition = {
     mode: CompositionMode;
     designation: string;
     forgeContract: string;
+    /** Optional per-workflow Forge contract paths; build falls back to `forgeContract`. */
+    forgeContracts?: Partial<Record<CompositionWorkflow, string>>;
     primary: CompositionSource[];
     overlays: CompositionSource[];
     supplemental?: CompositionSource[];
@@ -85,8 +92,41 @@ export type ModuleComposition = {
 export type CompositionManifest = {
     schemaVersion: number;
     defaultContextBudget: ContextBudget;
+    /** Generic workflow references used when a module has no per-workflow override. */
+    workflowContracts?: Partial<Record<CompositionWorkflow, string>>;
     modules: ModuleComposition[];
 };
+/** One canonical dependency declaration retained for selection provenance. */
+export type ModuleDependencyEdge = {
+    /** Module whose declaration introduced this dependency. */
+    parent: string;
+    /** Module the parent requires. */
+    dependency: string;
+    /** Stable human-readable explanation suitable for module-decision evidence. */
+    reason: string;
+};
+/**
+ * Deterministic dependency closure for one or more explicitly selected roots.
+ *
+ * `modules` is breadth-first: de-duplicated roots first, then dependencies in each parent's
+ * canonical declaration order. `edges` retains every reachable parent/dependency relationship,
+ * including diamond joins and the edge that closes a cycle, so callers can explain why a module
+ * was considered without attempting graph traversal themselves.
+ */
+export type ModuleDependencyClosure = {
+    roots: string[];
+    modules: string[];
+    edges: ModuleDependencyEdge[];
+};
+/**
+ * Validates and resolves the Forge-module dependency graph.
+ *
+ * Validation covers the complete manifest, not only the requested subgraph. A damaged registry
+ * must fail closed even when the bad declaration is not reachable from this particular request.
+ * Traversal is queue-based and marks a module when it is enqueued, so cycles terminate and diamond
+ * dependencies appear only once in `modules` while all distinct explanatory edges remain visible.
+ */
+export declare function resolveModuleDependencyClosure(manifest: CompositionManifest, requestedModules: readonly string[]): ModuleDependencyClosure;
 export type SelectionTier = "forge-contract" | "primary" | "overlay" | "supplemental";
 export type SelectedSource = {
     tier: SelectionTier;
@@ -103,10 +143,15 @@ export type SuppressedSource = {
 };
 export type CompositionResult = {
     module: string;
+    workflow?: CompositionWorkflow;
     mode: CompositionMode;
     outputClassification: OutputClassification;
     /** Ordered load list. Index 0 is always the Forge contract. */
     selected: SelectedSource[];
+    /** Sources to read when entering the module: Forge contract plus primary procedure. */
+    eager?: SelectedSource[];
+    /** Selected sources available on demand after the task reaches their concern. */
+    deferred?: SelectedSource[];
     suppressed: SuppressedSource[];
     budget: ContextBudget;
     conflicts: {
@@ -120,6 +165,8 @@ export type CompositionResult = {
 /** Evidence the engine matches conditions against. Built from discovery plus the request. */
 export type CompositionEvidence = {
     profile?: ProjectProfile;
+    /** Explicit task intent. Undefined preserves the historical build composition. */
+    workflow?: CompositionWorkflow;
     /** Providers or technologies the user asked for by name. */
     requested?: string[];
     /** Risk surfaces Forge proved for this task, e.g. `frontend`, `api`, `payments`. */
@@ -131,14 +178,17 @@ export declare const COMPOSITION_TASK_FLAGS: readonly ["ci", "retrieval", "migra
 export type CompositionTaskFlag = (typeof COMPOSITION_TASK_FLAGS)[number];
 /**
  * Evaluates one activation condition. Returns the reason it matched, or `undefined` when the
- * condition is not satisfied. A source with no satisfiable key never activates: absence of
- * evidence suppresses provider guidance rather than defaulting it on.
+ * condition is not satisfied. A source with no positive satisfiable key never activates: absence
+ * of evidence suppresses provider guidance rather than defaulting it on. `not` is an exclusion
+ * filter only; it cannot establish applicability by itself.
  */
 export declare function evaluateActivation(when: ActivationCondition, evidence: CompositionEvidence): string | undefined;
 export type ResolveOptions = {
     manifest: CompositionManifest;
     module: string;
     evidence: CompositionEvidence;
+    /** Overrides `evidence.workflow`; omitted means the legacy build composition. */
+    workflow?: CompositionWorkflow;
     /** Runtime paths the installation actually contains, for damaged-installation detection. */
     availableRuntimePaths?: ReadonlySet<string>;
     /** Resolves a manifest source to its compiled runtime path. */

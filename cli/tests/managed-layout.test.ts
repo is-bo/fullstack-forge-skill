@@ -75,6 +75,8 @@ test("installer and generator render byte-identical adapters for every host root
     assert.ok(isAdapter(rendered));
     assert.ok(generator.isAdapter(rendered));
     assert.deepEqual(readAdapterMarker(rendered), generator.readAdapterMarker(rendered));
+    assert.match(rendered, /canonical playbook owns any deterministic composition step/u);
+    assert.doesNotMatch(rendered, /composition-entry\.js/u);
   }
 });
 

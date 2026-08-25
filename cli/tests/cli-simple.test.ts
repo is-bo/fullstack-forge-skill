@@ -144,7 +144,10 @@ test("frontend, UI, and UX scoped commands route without false execution claims"
         [cli, area, mode, "--json", "--root", root],
         root
       );
-      assert.equal(reviewed.exitCode, 0, reviewed.stderr);
+      // A scoped review on an empty fixture may be incomplete when a required dependency has no
+      // evidence, while a purely advisory UX scope can be cleanly NOT_APPLICABLE. Both outcomes
+      // remain machine-readable and must not be mistaken for a successful execution claim.
+      assert.ok([0, 2].includes(reviewed.exitCode), reviewed.stderr);
       const parsed = JSON.parse(reviewed.stdout) as { report: { scope: string } };
       assert.equal(parsed.report.scope, area);
     }
@@ -216,7 +219,7 @@ test("continue refuses to guess when several features are unfinished", async () 
 test("simple audit, verify, ship, and status use concise output while JSON stays machine-readable", async () => {
   await withTemporaryProject("simple-audit", async (root) => {
     const audit = await runFile(process.execPath, [cli, "audit", "security", "--root", root], root);
-    assert.equal(audit.exitCode, 0, audit.stderr);
+    assert.equal(audit.exitCode, 2, audit.stderr);
     assert.match(audit.stdout, /Audit finished/u);
     assert.match(audit.stdout, /Evidence gaps:/u);
     assert.doesNotMatch(audit.stdout, /## Tool inventory/u);
@@ -226,7 +229,7 @@ test("simple audit, verify, ship, and status use concise output while JSON stays
       [cli, "audit", "security", "--details", "--root", root],
       root
     );
-    assert.equal(detailed.exitCode, 0, detailed.stderr);
+    assert.equal(detailed.exitCode, 2, detailed.stderr);
     assert.match(detailed.stdout, /## Tool inventory/u);
 
     const json = await runFile(
@@ -234,7 +237,7 @@ test("simple audit, verify, ship, and status use concise output while JSON stays
       [cli, "audit", "security", "--json", "--root", root],
       root
     );
-    assert.equal(json.exitCode, 0, json.stderr);
+    assert.equal(json.exitCode, 2, json.stderr);
     const parsed = JSON.parse(json.stdout) as { report: { schema_version: number; scope: string } };
     assert.equal(parsed.report.schema_version, 3);
     assert.equal(parsed.report.scope, "security");
@@ -256,7 +259,7 @@ test("simple audit, verify, ship, and status use concise output while JSON stays
 test("default audit falls back explicitly to full scope without a reliable Git base", async () => {
   await withTemporaryProject("simple-audit-default", async (root) => {
     const result = await runFile(process.execPath, [cli, "audit", "--root", root], root);
-    assert.equal(result.exitCode, 0, result.stderr);
+    assert.equal(result.exitCode, 2, result.stderr);
     assert.match(result.stdout, /Scope selection: full applicable project/u);
     assert.match(result.stdout, /Scope: full/u);
   });
@@ -294,7 +297,7 @@ test("a transparent composite audit request runs each named discipline", async (
     assert.equal(parsed.report.scope, "areas:uploads,storage");
     assert.deepEqual(
       parsed.report.module_decisions.map((decision) => decision.module),
-      ["uploads", "storage"]
+      ["uploads", "storage", "authorization", "tenancy", "privacy", "security", "recovery"]
     );
   });
 });
@@ -344,10 +347,11 @@ test("install success and doctor distinguish incomplete, ready, and modified sta
     assert.equal(installed.exitCode, 0, installed.stderr);
     assert.match(installed.stdout, /Fullstack Forge .* is ready/u);
     assert.match(installed.stdout, /Skills: 46/u);
-    assert.match(installed.stdout, /Check the installation:\s+forge doctor/u);
+    assert.match(installed.stdout, /Check the installation:\s+npx --no-install forge doctor/u);
     assert.match(installed.stdout, /Forge activates automatically/u);
     assert.match(installed.stdout, /Optional explicit workflows/u);
-    assert.match(installed.stdout, /\/forge help/u);
+    assert.match(installed.stdout, /npx --no-install forge help/u);
+    assert.doesNotMatch(installed.stdout, /^\s*\/forge\b/mu);
 
     const ready = await runFile(
       process.execPath,

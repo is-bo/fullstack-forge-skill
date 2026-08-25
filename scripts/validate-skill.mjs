@@ -191,7 +191,7 @@ if (errors.length > 0) {
   process.exitCode = 1;
 } else {
   console.log(
-    `Validated 46 canonical skills, 6 generated platform roots, schemas, and interface metadata.`
+    `Validated 46 canonical skills, ${platformTargets.length} generated platform roots, schemas, and interface metadata.`
   );
 }
 

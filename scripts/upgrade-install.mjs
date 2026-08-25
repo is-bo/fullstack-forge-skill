@@ -1,18 +1,12 @@
-import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { lstat, mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { assertNoSymlinkPath, assertRegularFile } from "./lib/fs-safety.mjs";
 import { publicReleaseArchive } from "./lib/upgrade-source.mjs";
 import { projectRoot } from "./project.mjs";
 
-const previousTag = process.argv[2] ?? "fixture";
-const useDevelopmentPreviewFixture = previousTag === "fixture";
-if (
-  !useDevelopmentPreviewFixture &&
-  !/^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(previousTag)
-)
-  throw new Error(`Previous release tag must be a stable semantic version: ${previousTag}`);
 const platformRoots = [".agents", ".claude", ".cursor", ".gemini", ".github", ".windsurf"];
 const projectInstructionPaths = [
   "AGENTS.md",
@@ -23,180 +17,264 @@ const projectInstructionPaths = [
   ".github/instructions/fullstack-forge.instructions.md"
 ];
 
-const temporary = await mkdtemp(join(tmpdir(), "fullstack-forge-upgrade-"));
-validateTemporary(temporary);
-try {
-  const packageRoot = join(temporary, "package");
-  const consumerRoot = join(temporary, "consumer");
-  await mkdir(packageRoot);
-  await mkdir(consumerRoot);
-  const npmCli = await resolveNpmCli();
-
-  const pack = await run(
-    process.execPath,
-    [npmCli, "pack", "--json", "--ignore-scripts", "--pack-destination", packageRoot],
-    projectRoot,
-    10 * 60_000
-  );
-  if (pack.code !== 0) throw new Error(`npm pack failed:\n${pack.stderr}\n${pack.stdout}`);
-  const filename = JSON.parse(pack.stdout)?.[0]?.filename;
-  if (typeof filename !== "string") throw new Error("npm pack did not report an archive filename");
-  const archive = join(packageRoot, filename);
-  await stat(archive);
+export async function main(args = process.argv.slice(2)) {
+  const { previousTag, packageInput } = parseArguments(args);
+  const useDevelopmentPreviewFixture = previousTag === "fixture";
   const expectedVersion = JSON.parse(
     await readFile(join(projectRoot, "package.json"), "utf8")
   ).version;
-  const previousPackage = useDevelopmentPreviewFixture
-    ? archive
-    : publicReleaseArchive(previousTag);
-
-  await writeFile(
-    join(consumerRoot, "package.json"),
-    '{"name":"forge-upgrade-consumer","private":true}\n',
-    "utf8"
-  );
-  const previousInstall = await run(
-    process.execPath,
-    [npmCli, "install", "--ignore-scripts", "--no-audit", "--no-fund", previousPackage],
-    consumerRoot,
-    10 * 60_000
-  );
-  if (previousInstall.code !== 0)
-    throw new Error(
-      `previous release installation failed:\n${previousInstall.stderr}\n${previousInstall.stdout}`
-    );
-
-  const cli = join(
-    consumerRoot,
-    "node_modules",
-    "fullstack-forge-skill",
-    "build",
-    "cli",
-    "src",
-    "index.js"
-  );
-  const previousVersion = await run(process.execPath, [cli, "--version"], consumerRoot);
-  if (
-    previousVersion.code !== 0 ||
-    (!useDevelopmentPreviewFixture && `v${previousVersion.stdout.trim()}` !== previousTag) ||
-    (useDevelopmentPreviewFixture && previousVersion.stdout.trim() !== expectedVersion)
-  )
-    throw new Error(
-      `previous CLI version mismatch: expected ${previousTag}, got ${previousVersion.stdout} ${previousVersion.stderr}`
-    );
-
-  const init = await run(
-    process.execPath,
-    [cli, "init", "all", "--root", consumerRoot, "--json"],
-    consumerRoot,
-    5 * 60_000
-  );
-  if (init.code !== 0) throw new Error(`previous release init failed:\n${init.stderr}`);
-  await assertInstalledRoots(consumerRoot, false);
-  if (useDevelopmentPreviewFixture) await convertToDevelopmentPreviewFixture(consumerRoot);
-
-  const candidateInstall = await run(
-    process.execPath,
-    [npmCli, "install", "--ignore-scripts", "--no-audit", "--no-fund", archive],
-    consumerRoot,
-    10 * 60_000
-  );
-  if (candidateInstall.code !== 0)
-    throw new Error(
-      `candidate installation failed:\n${candidateInstall.stderr}\n${candidateInstall.stdout}`
-    );
-
-  const candidateVersion = await run(process.execPath, [cli, "--version"], consumerRoot);
-  if (candidateVersion.code !== 0 || candidateVersion.stdout.trim() !== expectedVersion)
-    throw new Error(
-      `candidate CLI version mismatch: expected ${expectedVersion}, got ${candidateVersion.stdout} ${candidateVersion.stderr}`
-    );
-
-  const codexUpdate = await run(
-    process.execPath,
-    [cli, "update", "codex", "--root", consumerRoot, "--json"],
-    consumerRoot,
-    5 * 60_000
-  );
-  if (codexUpdate.code !== 0)
-    throw new Error(`candidate Codex update failed:\n${codexUpdate.stderr}\n${codexUpdate.stdout}`);
-
-  const update = await run(
-    process.execPath,
-    [cli, "update", "all", "--root", consumerRoot, "--json"],
-    consumerRoot,
-    5 * 60_000
-  );
-  if (update.code !== 0)
-    throw new Error(`candidate update failed:\n${update.stderr}\n${update.stdout}`);
-  await assertInstalledRoots(consumerRoot, true);
-
-  const doctor = await run(
-    process.execPath,
-    [cli, "doctor", "--offline", "--root", consumerRoot, "--json"],
-    consumerRoot,
-    5 * 60_000
-  );
-  const doctorResult = parseJson(doctor.stdout, "doctor");
-  if (doctor.code !== 0 || doctorResult.ready !== true)
-    throw new Error(`candidate doctor failed:\n${doctor.stderr}\n${doctor.stdout}`);
-
-  const uninstall = await run(
-    process.execPath,
-    [cli, "uninstall", "all", "--root", consumerRoot, "--json"],
-    consumerRoot,
-    5 * 60_000
-  );
-  if (uninstall.code !== 0)
-    throw new Error(`candidate uninstall failed:\n${uninstall.stderr}\n${uninstall.stdout}`);
-  for (const root of platformRoots) {
-    try {
-      await stat(join(consumerRoot, root, "skills", "forge", "SKILL.md"));
-      throw new Error(`uninstall left an owned Forge skill behind in ${root}`);
-    } catch (error) {
-      if (error?.code !== "ENOENT") throw error;
-    }
-  }
-  for (const relativePath of projectInstructionPaths) {
-    try {
-      await stat(join(consumerRoot, ...relativePath.split("/")));
-      throw new Error(`uninstall left owned project instructions behind: ${relativePath}`);
-    } catch (error) {
-      if (error?.code !== "ENOENT") throw error;
-    }
-  }
-
-  const scoped = useDevelopmentPreviewFixture
-    ? undefined
-    : await runScopedUpgradeScenario({
-        temporary,
-        archive,
-        npmCli,
-        previousPackage,
-        expectedVersion
-      });
-  console.log(
-    JSON.stringify(
-      {
-        ok: true,
-        previous_tag: useDevelopmentPreviewFixture ? "development-preview-fixture" : previousTag,
-        previous_version: previousVersion.stdout.trim(),
-        candidate_version: candidateVersion.stdout.trim(),
-        codex_update: true,
-        installed_skills_per_root: 46,
-        automatic_activation_added: true,
-        doctor_ready: true,
-        symlinks: 0,
-        uninstall_clean: true,
-        ...(scoped ?? {})
-      },
-      null,
-      2
-    )
-  );
-} finally {
+  const temporary = await mkdtemp(join(tmpdir(), "fullstack-forge-upgrade-"));
   validateTemporary(temporary);
-  await rm(temporary, { recursive: true });
+  try {
+    const packageRoot = join(temporary, "package");
+    const consumerRoot = join(temporary, "consumer");
+    await mkdir(packageRoot);
+    await mkdir(consumerRoot);
+    const npmCli = await resolveNpmCli();
+
+    let archive;
+    let candidateBytes;
+    let candidatePackage;
+    let candidateSource;
+    if (packageInput === undefined) {
+      console.error(
+        "LOCAL COMPATIBILITY MODE ONLY: --package was not supplied; creating a fresh npm pack instead of verifying a prebuilt release candidate."
+      );
+      const pack = await run(
+        process.execPath,
+        [npmCli, "pack", "--json", "--ignore-scripts", "--pack-destination", packageRoot],
+        projectRoot,
+        10 * 60_000
+      );
+      if (pack.code !== 0) throw new Error(`npm pack failed:\n${pack.stderr}\n${pack.stdout}`);
+      const filename = JSON.parse(pack.stdout)?.[0]?.filename;
+      if (typeof filename !== "string")
+        throw new Error("npm pack did not report an archive filename");
+      archive = join(packageRoot, filename);
+      await assertRegularFile(archive, "locally packed candidate package");
+      candidateBytes = await readFile(archive);
+      candidatePackage = "fresh-local-npm-pack";
+      candidateSource = "local-compatibility-npm-pack";
+    } else {
+      const suppliedArchive = await resolveCandidateArchive(
+        projectRoot,
+        packageInput,
+        expectedVersion
+      );
+      candidateBytes = await readFile(suppliedArchive);
+      candidatePackage = relative(projectRoot, suppliedArchive).replaceAll("\\", "/");
+      archive = join(packageRoot, basename(suppliedArchive));
+      await writeFile(archive, candidateBytes, { flag: "wx" });
+      await assertRegularFile(archive, "private candidate package snapshot");
+      candidateSource = "explicit-release-package";
+    }
+    const candidateSha256 = createHash("sha256").update(candidateBytes).digest("hex");
+    const previousPackage = useDevelopmentPreviewFixture
+      ? archive
+      : publicReleaseArchive(previousTag);
+
+    await writeFile(
+      join(consumerRoot, "package.json"),
+      '{"name":"forge-upgrade-consumer","private":true}\n',
+      "utf8"
+    );
+    const previousInstall = await run(
+      process.execPath,
+      [npmCli, "install", "--ignore-scripts", "--no-audit", "--no-fund", previousPackage],
+      consumerRoot,
+      10 * 60_000
+    );
+    if (previousInstall.code !== 0)
+      throw new Error(
+        `previous release installation failed:\n${previousInstall.stderr}\n${previousInstall.stdout}`
+      );
+
+    const cli = join(
+      consumerRoot,
+      "node_modules",
+      "fullstack-forge-skill",
+      "build",
+      "cli",
+      "src",
+      "index.js"
+    );
+    const previousVersion = await run(process.execPath, [cli, "--version"], consumerRoot);
+    if (
+      previousVersion.code !== 0 ||
+      (!useDevelopmentPreviewFixture && `v${previousVersion.stdout.trim()}` !== previousTag) ||
+      (useDevelopmentPreviewFixture && previousVersion.stdout.trim() !== expectedVersion)
+    )
+      throw new Error(
+        `previous CLI version mismatch: expected ${previousTag}, got ${previousVersion.stdout} ${previousVersion.stderr}`
+      );
+
+    const init = await run(
+      process.execPath,
+      [cli, "init", "all", "--root", consumerRoot, "--json"],
+      consumerRoot,
+      5 * 60_000
+    );
+    if (init.code !== 0) throw new Error(`previous release init failed:\n${init.stderr}`);
+    await assertInstalledRoots(consumerRoot, false);
+    if (useDevelopmentPreviewFixture) await convertToDevelopmentPreviewFixture(consumerRoot);
+
+    const candidateInstall = await run(
+      process.execPath,
+      [npmCli, "install", "--ignore-scripts", "--no-audit", "--no-fund", archive],
+      consumerRoot,
+      10 * 60_000
+    );
+    if (candidateInstall.code !== 0)
+      throw new Error(
+        `candidate installation failed:\n${candidateInstall.stderr}\n${candidateInstall.stdout}`
+      );
+
+    const candidateVersion = await run(process.execPath, [cli, "--version"], consumerRoot);
+    if (candidateVersion.code !== 0 || candidateVersion.stdout.trim() !== expectedVersion)
+      throw new Error(
+        `candidate CLI version mismatch: expected ${expectedVersion}, got ${candidateVersion.stdout} ${candidateVersion.stderr}`
+      );
+
+    const codexUpdate = await run(
+      process.execPath,
+      [cli, "update", "codex", "--root", consumerRoot, "--json"],
+      consumerRoot,
+      5 * 60_000
+    );
+    if (codexUpdate.code !== 0)
+      throw new Error(
+        `candidate Codex update failed:\n${codexUpdate.stderr}\n${codexUpdate.stdout}`
+      );
+
+    const update = await run(
+      process.execPath,
+      [cli, "update", "all", "--root", consumerRoot, "--json"],
+      consumerRoot,
+      5 * 60_000
+    );
+    if (update.code !== 0)
+      throw new Error(`candidate update failed:\n${update.stderr}\n${update.stdout}`);
+    await assertInstalledRoots(consumerRoot, true);
+
+    const doctor = await run(
+      process.execPath,
+      [cli, "doctor", "--offline", "--root", consumerRoot, "--json"],
+      consumerRoot,
+      5 * 60_000
+    );
+    const doctorResult = parseJson(doctor.stdout, "doctor");
+    if (doctor.code !== 0 || doctorResult.ready !== true)
+      throw new Error(`candidate doctor failed:\n${doctor.stderr}\n${doctor.stdout}`);
+
+    const uninstall = await run(
+      process.execPath,
+      [cli, "uninstall", "all", "--root", consumerRoot, "--json"],
+      consumerRoot,
+      5 * 60_000
+    );
+    if (uninstall.code !== 0)
+      throw new Error(`candidate uninstall failed:\n${uninstall.stderr}\n${uninstall.stdout}`);
+    for (const root of platformRoots) {
+      try {
+        await stat(join(consumerRoot, root, "skills", "forge", "SKILL.md"));
+        throw new Error(`uninstall left an owned Forge skill behind in ${root}`);
+      } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+      }
+    }
+    for (const relativePath of projectInstructionPaths) {
+      try {
+        await stat(join(consumerRoot, ...relativePath.split("/")));
+        throw new Error(`uninstall left owned project instructions behind: ${relativePath}`);
+      } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+      }
+    }
+
+    const scoped = useDevelopmentPreviewFixture
+      ? undefined
+      : await runScopedUpgradeScenario({
+          temporary,
+          archive,
+          npmCli,
+          previousPackage,
+          previousTag,
+          expectedVersion
+        });
+    console.log(
+      JSON.stringify(
+        {
+          ok: true,
+          previous_tag: useDevelopmentPreviewFixture ? "development-preview-fixture" : previousTag,
+          previous_version: previousVersion.stdout.trim(),
+          candidate_version: candidateVersion.stdout.trim(),
+          candidate_source: candidateSource,
+          candidate_package: candidatePackage,
+          candidate_sha256: candidateSha256,
+          codex_update: true,
+          installed_skills_per_root: 46,
+          automatic_activation_added: true,
+          doctor_ready: true,
+          symlinks: 0,
+          uninstall_clean: true,
+          ...(scoped ?? {})
+        },
+        null,
+        2
+      )
+    );
+  } finally {
+    validateTemporary(temporary);
+    await rm(temporary, { recursive: true });
+  }
+}
+
+export function parseArguments(args) {
+  let previousTag = "fixture";
+  let previousTagSeen = false;
+  let packageInput;
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (argument === "--package" && packageInput === undefined) {
+      packageInput = args[index + 1];
+      if (packageInput === undefined || packageInput.length === 0 || packageInput.startsWith("--"))
+        throw new Error("--package requires one path");
+      index += 1;
+      continue;
+    }
+    if (argument.startsWith("--") || previousTagSeen)
+      throw new Error(`Unknown or repeated upgrade-install argument: ${argument}`);
+    previousTag = argument;
+    previousTagSeen = true;
+  }
+  if (
+    previousTag !== "fixture" &&
+    !/^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(previousTag)
+  )
+    throw new Error(`Previous release tag must be a stable semantic version: ${previousTag}`);
+  if (previousTag !== "fixture" && packageInput === undefined)
+    throw new Error(
+      "A genuine legacy upgrade requires --package with the exact prebuilt release candidate"
+    );
+  return { previousTag, packageInput };
+}
+
+export async function resolveCandidateArchive(root, packageInput, expectedVersion) {
+  const candidate = resolve(root, packageInput);
+  const expected = resolve(root, "dist", `fullstack-forge-skill-v${expectedVersion}.tgz`);
+  if (candidate !== expected)
+    throw new Error(`--package must identify the exact in-root release artifact ${expected}`);
+  await assertNoSymlinkPath(root, candidate);
+  await assertRegularFile(candidate, "candidate package");
+  return candidate;
+}
+
+export function scopedUpgradeIdentity(previousTag) {
+  return {
+    real_legacy_scoped_upgrade: true,
+    scoped_previous_tag: previousTag,
+    ...(previousTag === "v0.1.0" ? { real_v010_scoped_upgrade: true } : {})
+  };
 }
 
 async function runScopedUpgradeScenario({
@@ -204,6 +282,7 @@ async function runScopedUpgradeScenario({
   archive,
   npmCli,
   previousPackage,
+  previousTag,
   expectedVersion
 }) {
   const root = join(temporary, "scoped-consumer");
@@ -237,39 +316,14 @@ async function runScopedUpgradeScenario({
     5 * 60_000
   );
   if (init.code !== 0)
-    throw new Error(`scoped v0.1.0 init failed:\n${init.stderr}\n${init.stdout}`);
+    throw new Error(`scoped ${previousTag} init failed:\n${init.stderr}\n${init.stdout}`);
   if (!(await exists(join(root, ".agents", "skills", "forge", "SKILL.md"))))
-    throw new Error("scoped v0.1.0 install did not create the requested Codex host");
+    throw new Error(`scoped ${previousTag} install did not create the requested Codex host`);
   for (const host of [".claude", ".cursor", ".gemini", ".github", ".windsurf"])
     if (await exists(join(root, host, "skills", "forge", "SKILL.md")))
-      throw new Error(`scoped v0.1.0 install unexpectedly created ${host}`);
+      throw new Error(`scoped ${previousTag} install unexpectedly created ${host}`);
 
-  const unchangedModule = ".agents/skills/forge-retired-module/SKILL.md";
-  const unchangedProvider =
-    ".fullstack-forge/upstream/removed-provider/unchanged-managed-reference.md";
-  const modifiedProvider =
-    ".fullstack-forge/upstream/removed-provider/modified-managed-reference.md";
-  const unchangedBytes = Buffer.from("retired managed content\n", "utf8");
-  const providerBytes = Buffer.from("removed provider content\n", "utf8");
-  const modifiedBytes = Buffer.from("removed provider content\nuser modification\n", "utf8");
   const manifestPath = join(root, ".fullstack-forge", "install-manifest.json");
-  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
-  for (const [relativePath, bytes] of [
-    [unchangedModule, unchangedBytes],
-    [unchangedProvider, providerBytes],
-    [modifiedProvider, providerBytes]
-  ]) {
-    const target = join(root, ...relativePath.split("/"));
-    await mkdir(dirname(target), { recursive: true });
-    await writeFile(target, bytes);
-    manifest.files[relativePath] = {
-      platform: "agents",
-      hash: createHash("sha256").update(bytes).digest("hex"),
-      owned: true
-    };
-  }
-  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-  await writeFile(join(root, ...modifiedProvider.split("/")), modifiedBytes);
 
   const userSkill = join(root, ".agents", "skills", "user-created", "SKILL.md");
   const foreignHostSkill = join(root, ".claude", "skills", "user-claude", "SKILL.md");
@@ -301,24 +355,7 @@ async function runScopedUpgradeScenario({
   );
   if (update.code !== 0)
     throw new Error(`scoped bare update failed:\n${update.stderr}\n${update.stdout}`);
-  const updateResult = parseJson(update.stdout, "scoped update");
-  if (
-    !updateResult.actions?.some(
-      (action) => action.path === unchangedModule && action.action === "remove"
-    ) ||
-    !updateResult.actions?.some(
-      (action) => action.path === unchangedProvider && action.action === "remove"
-    ) ||
-    !updateResult.actions?.some(
-      (action) => action.path === modifiedProvider && action.action === "preserve-modified"
-    )
-  )
-    throw new Error(`scoped update did not report every stale-file disposition:\n${update.stdout}`);
-  if ((await readFile(join(root, ...modifiedProvider.split("/")))).compare(modifiedBytes) !== 0)
-    throw new Error("scoped update changed the modified stale provider file");
-  for (const removed of [unchangedModule, unchangedProvider])
-    if (await exists(join(root, ...removed.split("/"))))
-      throw new Error(`scoped update retained unchanged stale managed file ${removed}`);
+  parseJson(update.stdout, "scoped update");
   for (const preserved of [userSkill, foreignHostSkill, userNotes])
     if (!(await exists(preserved)))
       throw new Error(`scoped update removed user content ${preserved}`);
@@ -330,9 +367,8 @@ async function runScopedUpgradeScenario({
   )
     throw new Error("scoped update omitted the composition runtime");
   const updatedManifest = JSON.parse(await readFile(manifestPath, "utf8"));
-  for (const retired of [unchangedModule, unchangedProvider, modifiedProvider])
-    if (updatedManifest.files?.[retired] !== undefined)
-      throw new Error(`scoped update retained obsolete ownership record ${retired}`);
+  if (updatedManifest.schemaVersion !== 2)
+    throw new Error("scoped update did not migrate the ownership manifest to schema 2");
 
   const doctor = await run(
     process.execPath,
@@ -352,24 +388,16 @@ async function runScopedUpgradeScenario({
   );
   if (![0, 1].includes(uninstall.code))
     throw new Error(`scoped bare uninstall failed:\n${uninstall.stderr}\n${uninstall.stdout}`);
-  const uninstallResult = parseJson(uninstall.stdout, "scoped uninstall");
-  if (uninstallResult.actions?.some((action) => action.path === modifiedProvider))
-    throw new Error("scoped uninstall acted on a disowned stale provider file");
-  if ((await readFile(join(root, ...modifiedProvider.split("/")))).compare(modifiedBytes) !== 0)
-    throw new Error("scoped uninstall changed the disowned stale provider file");
+  parseJson(uninstall.stdout, "scoped uninstall");
   for (const preserved of [userSkill, foreignHostSkill, userNotes])
     if (!(await exists(preserved)))
       throw new Error(`scoped uninstall removed user-created content ${preserved}`);
   if (await exists(join(root, ".agents", "skills", "forge", "SKILL.md")))
     throw new Error("scoped uninstall left an unchanged owned Forge skill");
   return {
-    real_v010_scoped_upgrade: true,
-    unchanged_stale_removed: true,
-    modified_stale_preserved: true,
-    obsolete_ownership_records_removed: true,
+    ...scopedUpgradeIdentity(previousTag),
+    ownership_schema_migrated: true,
     scoped_doctor_ready: true,
-    renamed_module_retired: true,
-    removed_provider_retired: true,
     bare_update_installed_hosts_only: true,
     bare_uninstall_installed_hosts_only: true,
     user_content_preserved: true
@@ -528,3 +556,9 @@ async function run(executable, args, cwd, timeout = 120_000) {
     );
   });
 }
+
+if (
+  process.argv[1] !== undefined &&
+  resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))
+)
+  await main();

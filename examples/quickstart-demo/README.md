@@ -7,11 +7,11 @@ verifies the result without network access.
 From this directory, using a repository checkout or installed v0.4 package:
 
 ```bash
-npx forge audit frontend
-npx forge fix frontend
-npx forge fix frontend --safe
-npx forge verify frontend
-npx forge ship
+npx --no-install forge audit frontend
+npx --no-install forge fix frontend
+npx --no-install forge fix frontend --safe
+npx --no-install forge verify frontend
+npx --no-install forge ship
 ```
 
 Expected milestones:

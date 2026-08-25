@@ -51,8 +51,8 @@ if (findings.length > 0) {
  * client_secret` and `token = secrets.token_urlsafe(32)`, which the loose `assigned-secret`
  * heuristic reads as credentials. Every high-signal pattern above — private keys, GitHub, AWS,
  * OpenAI, and Slack tokens — still applies to vendored content, so a real credential is still
- * caught; only the name-based heuristic is scoped out. `npm run upstream:verify` additionally
- * screens this content on every import and on every run of `npm run check`.
+ * caught; only the name-based heuristic is scoped out. `node scripts/upstream-verify.mjs`
+ * additionally screens this content on every import and on every run of `npm run check`.
  */
 function isVendoredUpstream(relative) {
   return relative.startsWith("third_party/") || relative.startsWith(".fullstack-forge/upstream/");

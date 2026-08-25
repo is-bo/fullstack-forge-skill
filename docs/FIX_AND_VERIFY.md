@@ -3,14 +3,14 @@
 Start with a preview. This command does not edit files:
 
 ```bash
-npx forge fix
+npx --no-install forge fix
 ```
 
 Forge shows only fixes in its bounded safe registry, including the files and intended effects. Apply
 the reviewed safe plan explicitly:
 
 ```bash
-npx forge fix --safe
+npx --no-install forge fix --safe
 ```
 
 Identity, authorization, tenant policy, payments, data, migrations, secrets, legal behavior,
@@ -20,7 +20,7 @@ risky findings remain approval-bound.
 Inspect the diff, then re-run finding-specific proof:
 
 ```bash
-npx forge verify
+npx --no-install forge verify
 ```
 
 Verification preserves the original evidence and identifies resolved, failing, blocked, stale, and

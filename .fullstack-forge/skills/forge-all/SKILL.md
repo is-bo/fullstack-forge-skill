@@ -1,6 +1,6 @@
 ---
 name: forge-all
-description: Discover the project, select applicable modules, run safe independent checks, merge evidence, and prioritize remediation. Activate automatically for repository-wide audits when that concern is relevant to a software-engineering request.
+description: "Discover the project, select applicable modules, run safe independent checks, merge evidence, and prioritize remediation."
 ---
 
 # forge-all: Orchestrated audit
@@ -13,9 +13,10 @@ Discover the project, select applicable modules, run safe independent checks, me
 
 
 
-Read `fullstack-forge/references/shared/module-contract.md` (applicability, execution, mutation,
-verification, completion) and `fullstack-forge/references/shared/evidence-rules.md` (statuses,
-standards, tools, findings via `fullstack-forge/references/PROTOCOL.md`) before reporting.
+Resolve and read `../fullstack-forge/references/shared/module-contract.md` (applicability,
+execution, mutation, verification, completion) and
+`../fullstack-forge/references/shared/evidence-rules.md` (statuses, standards, tools, findings via
+`../fullstack-forge/references/PROTOCOL.md`) relative to this module `SKILL.md` before reporting.
 
 Never hide failed checks or claim that an operation ran when it did not.
 

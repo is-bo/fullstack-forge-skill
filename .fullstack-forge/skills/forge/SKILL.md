@@ -1,6 +1,6 @@
 ---
 name: forge
-description: Use Fullstack Forge automatically for software-engineering work in an installed repository: build, create, implement, add or change a feature, fix, debug, refactor, optimise, migrate, review, audit, test, verify, deploy, release, or ship. Apply production engineering proportionately; explicit Forge commands are optional overrides. Do not activate for unrelated writing or general conversation.
+description: "Use automatically for installed software engineering: build, change, fix, review, audit, test, verify, deploy, release, or ship. Apply production discipline proportionately; explicit commands are optional. Not for unrelated conversation."
 ---
 
 # forge: Simple product workflow

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "generator": "fullstack-forge",
+  "platform": "manifests",
+  "files": {
+    "module-composition.json": "91383ff4f384dae355ad810a1514dc16d216c3c9054659f017c6f9bdecacc31e",
+    "upstream-registry.json": "e1f22fc98f1196e62771603cd794df95585dd63b5daa6cf7647e194552a083ed",
+    "upstream-transforms.json": "0002d014e353d69152129aa48c6827071d655f06906c99dbcf4d062cdbc7a258"
+  }
+}

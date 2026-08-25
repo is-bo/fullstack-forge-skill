@@ -81,7 +81,8 @@ lets a state file register its own producer or gate.
 
 - Add a deliberately flawed fixture or evaluation prompt with expected signals.
 - Add positive and negative automated tests for registry exactness and the new behavior.
-- Regenerate all six platform roots and run `npm run check`.
+- Regenerate the six project-host adapter roots plus the package-local Codex plugin `skills/` root,
+  and run `npm run check`.
 - Run packaging and the clean installer smoke test.
 - Update README tables, command docs, changelog, research/standards records, and compatibility
   notes.

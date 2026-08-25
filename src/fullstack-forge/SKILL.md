@@ -1,22 +1,15 @@
 ---
 name: fullstack-forge
-description:
-  "Use Fullstack Forge automatically whenever working on a full-stack application or making a
-  software-engineering change in a repository where it is installed. It guides the agent through
-  production-ready architecture, security, data, APIs, UI, testing, reliability, performance, and
-  release practices. The user does not need to invoke Forge explicitly. Trigger for build, create,
-  implement, add a feature, change behaviour, fix, debug, refactor, optimise, migrate, review,
-  audit, test, verify, deploy, release, or ship requests. Use explicit Forge commands only when the
-  user requests a specific workflow or audit area; do not activate for unrelated writing or general
-  conversation."
+description: "Explicit compatibility entry; use when requested. Work uses the concise router."
 ---
 
 # Fullstack Forge — agent-first engineering workflow
 
-Fullstack Forge guides the AI agent through a production-readiness process. Use it automatically for
-ordinary application-code work: understand the intended behavior, inspect the actual project, select
-only relevant playbooks, implement through existing patterns, verify proportionately, and report
-evidence and uncertainty. Explicit Forge commands are optional shortcuts and overrides.
+This is the complete operating contract behind the concise automatic `forge` router. Load it when
+the user explicitly invokes `fullstack-forge` or the router delegates a task that needs the complete
+contract. Do not load both root skills independently for the same request. Understand the intended
+behavior, inspect the actual project, select only relevant playbooks, implement through existing
+patterns, verify proportionately, and report evidence and uncertainty.
 
 ## Responsibility split
 
@@ -80,13 +73,14 @@ Module families are foundation; frontend experience; API and trust boundaries; d
 specialized capabilities such as notifications, AI, payments, realtime, and offline behavior. Do not
 load modules merely to increase check counts.
 
-After selecting a module, read its canonical playbook at
-`.fullstack-forge/skills/forge-<module>/SKILL.md`. Its deterministic-runtime section is the only
-route to upstream specialist guidance: run the stated
-`.fullstack-forge/runtime/cli/src/composition-entry.js` command, then load only the ordered
-`selected` paths from `.forge/composition.json`. Never browse or choose files directly from
-`.fullstack-forge/upstream/`, and stop with `NOT_VERIFIED` if the composition reports missing
-content.
+After selecting a module, resolve its sibling canonical playbook at `../forge-<module>/SKILL.md`
+relative to this `SKILL.md`. Its deterministic-runtime section is the only route to upstream
+specialist guidance: resolve the stated runner relative to that module playbook, run it from the
+audited repository, then resolve only the ordered `selected` paths against the absolute
+`runtime_root` in its JSON response. This works whether Forge is project-installed, global, or
+loaded from a plugin cache. Never assume the runtime is inside the audited repository, never browse
+or choose files directly from `.fullstack-forge/upstream/`, and stop with `NOT_VERIFIED` if the
+composition reports missing content or a selected path escapes `runtime_root`.
 
 For interface work, `forge-frontend` orchestrates `forge-ui`, `forge-ux`, and `forge-accessibility`.
 It adds i18n, SEO, performance, offline, data, authorization, security, or recovery only when
@@ -116,16 +110,19 @@ activated.
 
 ## Optional explicit workflows
 
-| Intent                         | Agent skill where supported                  | Terminal                                           |
-| ------------------------------ | -------------------------------------------- | -------------------------------------------------- |
-| Build or continue a feature    | `$forge build <request>` / `$forge continue` | `npx forge build <request>` / `npx forge continue` |
-| Audit an area                  | `$forge audit <area>`                        | `npx forge audit <area>`                           |
-| Preview or apply bounded fixes | `$forge fix [area]`                          | `npx forge fix [area] [--safe]`                    |
-| Verify findings                | `$forge verify [area]`                       | `npx forge verify [area]`                          |
-| Gate a release                 | `$forge ship`                                | `npx forge ship`                                   |
+| Intent                         | Agent skill where supported                  | Terminal                                                                     |
+| ------------------------------ | -------------------------------------------- | ---------------------------------------------------------------------------- |
+| Build or continue a feature    | `$forge build <request>` / `$forge continue` | `npx --no-install forge build <request>` / `npx --no-install forge continue` |
+| Audit an area                  | `$forge audit <area>`                        | `npx --no-install forge audit <area>`                                        |
+| Preview or apply bounded fixes | `$forge fix [area]`                          | `npx --no-install forge fix [area] [--safe]`                                 |
+| Verify findings                | `$forge verify [area]`                       | `npx --no-install forge verify [area]`                                       |
+| Gate a release                 | `$forge ship`                                | `npx --no-install forge ship`                                                |
 
 Host invocation syntax differs; use the installed `forge` skill name or the host's documented
-skill-selection syntax. The CLI supports the agent; it is not the primary intelligence.
+skill-selection syntax. These terminal forms require the exact Fullstack Forge package to be
+installed in the project; a plugin-only Codex installation does not provide the executable. Never
+fall back to unpinned `npx forge`, which may resolve an unrelated package. The CLI supports the
+agent; it is not the primary intelligence.
 
 ## Completion contract
 

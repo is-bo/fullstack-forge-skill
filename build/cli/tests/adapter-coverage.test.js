@@ -11,7 +11,7 @@ async function auditCoverage(root, section, files, dependencies = {}) {
     for (const [name, content] of Object.entries(files))
         await writeFile(join(root, name), content, "utf8");
     const audit = await runFile(process.execPath, [cli, section, "audit", "--root", root, "--json"], root);
-    assert.ok([0, 1].includes(audit.exitCode), audit.stderr);
+    assert.ok([0, 1, 2].includes(audit.exitCode), audit.stderr);
     const parsed = JSON.parse(audit.stdout);
     const report = await runFile(process.execPath, [cli, section, "report", "--root", root], root);
     return { coverage: parsed.report.analyzer_coverage, markdown: report.stdout };
@@ -89,9 +89,13 @@ test("JavaScript/TypeScript authorization coverage is explicitly partial", async
         const result = await auditCoverage(root, "authorization", { "app.ts": "export const app = express();\n" }, { express: "0.0.0-fixture" });
         const javascript = result.coverage.find((entry) => entry.language === "JavaScript/TypeScript");
         assert.ok(javascript);
-        assert.equal(javascript.framework, "Express");
+        // A dependency name alone does not prove that this file is an Express boundary. Framework
+        // attribution is reserved for concrete source imports/route shapes; this fixture therefore
+        // remains the generic JavaScript/TypeScript adapter path.
+        assert.equal(javascript.framework, "any");
         assert.equal(javascript.coverage, "partial");
         assert.equal(javascript.status, "NOT_VERIFIED");
+        assert.equal(javascript.required_adapter, "js-ts-framework-authorization-boundaries");
         assert.ok(javascript.unsupported_shapes.length > 0);
     });
 });

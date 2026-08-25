@@ -1,9 +1,11 @@
 # Research sources
 
-Research performed 2026-07-18 and refreshed for the frontend/UI/UX system on 2026-07-26.
-Repositories were cloned shallowly into an ignored temporary directory and inspected as untrusted
-data; no scripts were executed and no source code or substantial prose was copied. Commit IDs make
-the observations reproducible.
+Research performed 2026-08-10 (ecosystem and harness refresh; prior frontend/UI/UX refresh on
+2026-07-26). Repositories were cloned shallowly into an ignored temporary directory and inspected as
+untrusted data; no scripts were executed. Conceptual observations were independently authored. The
+separate pinned imports listed below are the reviewed exception: only their explicit allowlisted
+files are copied, and each import has a checksum, license record, and attribution notice. Commit IDs
+make both kinds of observations reproducible.
 
 ## Interoperability specifications and platform documentation
 
@@ -11,18 +13,24 @@ Vendor documentation is not version-addressable the way a Git commit is, so each
 retrieval date. Re-verify a row before changing any generator or installer target that depends on
 it.
 
-| Source                              | URL                                                                              | Retrieved (UTC) | Use                                                                                                                              |
-| ----------------------------------- | -------------------------------------------------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Agent Skills Specification          | <https://agentskills.io/specification>                                           | 2026-07-18      | Required `SKILL.md`, frontmatter, naming, description, progressive disclosure, and validation constraints                        |
-| OpenAI Codex skills manual          | <https://learn.chatgpt.com/docs/build-skills.md>                                 | 2026-07-18      | Current `.agents/skills` repository path, discovery, explicit/implicit invocation, and optional `agents/openai.yaml`             |
-| Claude Code slash commands / skills | <https://code.claude.com/docs/en/slash-commands>                                 | 2026-07-18      | `.claude/skills`, slash invocation, and legacy command distinction                                                               |
-| Gemini CLI Agent Skills             | <https://geminicli.com/docs/cli/using-agent-skills/>                             | 2026-07-18      | Project `.gemini/skills` or `.agents/skills`; user `~/.gemini/skills` or `~/.agents/skills`                                      |
-| Antigravity getting started         | <https://codelabs.developers.google.com/getting-started-google-antigravity>      | 2026-07-18      | Project `<project>/.agents/skills` and user `~/.gemini/config/skills` distinction                                                |
-| Antigravity skill authoring         | <https://codelabs.developers.google.com/getting-started-with-antigravity-skills> | 2026-07-18      | Confirms installation-section paths; also records a later contradictory aside with older `.agent`/`antigravity-cli` names        |
-| Cursor 2.4 skills changelog         | <https://cursor.com/changelog/2-4>                                               | 2026-07-18      | Agent Skills support in editor/CLI and slash invocation                                                                          |
-| Cursor skills paths confirmation    | <https://forum.cursor.com/t/support-for-agent-folder-compatibility/154167>       | 2026-07-18      | Product team confirmation that `.agents/skills` is supported; `.cursor/skills` is the product-specific path documented by Cursor |
-| Windsurf / Devin Cascade skills     | <https://docs.devin.ai/desktop/cascade/skills>                                   | 2026-07-18      | `.windsurf/skills`, global Cascade path, `.agents/skills`, and `@skill-name` invocation                                          |
-| GitHub Copilot Agent Skills         | <https://docs.github.com/en/copilot/concepts/agents/about-agent-skills>          | 2026-07-18      | `.github/skills`, compatible repository paths, personal paths, and selection behavior                                            |
+| Source                          | URL                                                                              | Retrieved (UTC) | Use                                                                                                                       |
+| ------------------------------- | -------------------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Agent Skills Specification      | <https://agentskills.io/specification>                                           | 2026-08-10      | Required `SKILL.md`, frontmatter, naming, description, progressive disclosure, and validation constraints                 |
+| OpenAI Codex skills manual      | <https://learn.chatgpt.com/docs/build-skills>                                    | 2026-08-10      | Current `.agents/skills` discovery, explicit/implicit invocation, `agents/openai.yaml`, and user/admin skill scopes       |
+| OpenAI Codex plugin packaging   | <https://developers.openai.com/plugins/build/plugins>                            | 2026-08-10      | `.codex-plugin/plugin.json`, plugin `skills/` contract, npm marketplace sources, and package publication boundaries       |
+| OpenAI Codex npm marketplace    | <https://github.com/openai/codex/pull/29375>                                     | 2026-08-10      | Merged support for `{source: "npm", package, version}` marketplace entries and hardened npm materialization               |
+| Claude Code skills              | <https://code.claude.com/docs/en/skills>                                         | 2026-08-10      | `.claude/skills`, user/project scopes, invocation control, and dynamic context extensions                                 |
+| Gemini CLI Agent Skills         | <https://geminicli.com/docs/cli/creating-skills/>                                | 2026-08-10      | Project `.gemini/skills` and `.agents/skills` alias, user scope, extensions, and `/skills` selection                      |
+| Antigravity getting started     | <https://codelabs.developers.google.com/getting-started-google-antigravity>      | 2026-07-18      | Project `<project>/.agents/skills` and user `~/.gemini/config/skills` distinction                                         |
+| Antigravity skill authoring     | <https://codelabs.developers.google.com/getting-started-with-antigravity-skills> | 2026-07-18      | Confirms installation-section paths; also records a later contradictory aside with older `.agent`/`antigravity-cli` names |
+| Cursor Agent Skills             | <https://cursor.com/docs/skills>                                                 | 2026-08-10      | `.cursor/skills`, compatible `.agents`/`.claude`/`.codex` paths, nested discovery, and slash invocation                   |
+| Cursor 2.4 skills changelog     | <https://cursor.com/changelog/2-4>                                               | 2026-07-18      | Agent Skills support in editor/CLI; retained as historical release evidence                                               |
+| Windsurf / Devin Cascade skills | <https://docs.windsurf.com/windsurf/cascade/skills>                              | 2026-08-10      | `.windsurf/skills`, global Cascade path, `.agents` aliases, and `@skill-name`; URL currently redirects to Devin docs      |
+| GitHub Copilot Agent Skills     | <https://docs.github.com/en/copilot/concepts/agents/about-agent-skills>          | 2026-08-10      | `.github/skills`, `.claude/skills`, `.agents/skills`, user scopes, and selection behavior                                 |
+| GitHub / VS Code Agent Skills   | <https://code.visualstudio.com/docs/agent-customization/agent-skills>            | 2026-08-10      | VS Code/Copilot discovery precedence and supported project/user skill roots                                               |
+| OpenCode skills                 | <https://opencode.ai/docs/skills>                                                | 2026-08-10      | Native `.opencode/skills` plus compatible `.claude/skills` and `.agents/skills`; permission rules and `skill` tool        |
+| Cline skills (experimental)     | <https://docs.cline.bot/customization/skills>                                    | 2026-08-10      | Experimental `.cline/skills`, `.clinerules/skills`, and `.claude/skills`; no official `.agents` alias observed            |
+| Roo Code skills                 | <https://docs.roocode.com/features/skills>                                       | 2026-08-10      | `.roo/skills` and compatible `.agents/skills`; mode-specific roots and file watching                                      |
 
 Vendor documentation overrides older conventions found in reference repositories. In particular,
 Fullstack Forge uses `.agents/skills` for current Codex repository installations rather than the
@@ -31,6 +39,56 @@ Antigravity uses `<project>/.agents/skills` and `~/.gemini/config/skills`, while
 the project and user aliases in the table. The Antigravity authoring codelab contains an internally
 inconsistent later aside; the installer follows its explicit installation section and records the
 ambiguity instead of treating Antigravity global scope as a generic-agent alias.
+
+OpenCode and Roo Code are recorded as generic `.agents/skills` compatibility only; Forge does not
+generate `.opencode/` or `.roo/` roots. Cline is a best-effort `.claude/skills` path while its
+Skills feature is experimental, and the official Cline documentation does not establish an `.agents`
+alias. These are documentation decisions, not claims that a live host UI accepted a command.
+
+## Current pinned vendored imports (candidate v0.3)
+
+The following table closes the boundary between ecosystem research and shipped material. It is an
+index only; `config/upstream-providers.json` is the machine-readable allowlist and each linked
+`SOURCE.md` records the selected paths, exclusions, checksum, instruction review, and attribution.
+
+| Provider                 | Repository and pinned commit                                        | License evidence                                                | Import record                                              |
+| ------------------------ | ------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------- |
+| Impeccable               | `pbakaus/impeccable@fc2e694afca1ac0cc384b4fe56bab3335fea7912`       | Apache-2.0 `LICENSE`                                            | `third_party/agent-skills/impeccable/SOURCE.md`            |
+| Addy Osmani Agent Skills | `addyosmani/agent-skills@ff2df4c07e7836a092ed28e1e9b42f4d6009280c`  | MIT `LICENSE`                                                   | `third_party/agent-skills/addy-agent-skills/SOURCE.md`     |
+| Vercel Agent Skills      | `vercel-labs/agent-skills@7c180d9044c9ae2b442b567aad4e42a28dd5ed62` | README `#license` plus selected skill metadata; no root license | `third_party/agent-skills/vercel-agent-skills/SOURCE.md`   |
+| Supabase Agent Skills    | `supabase/agent-skills@1ad9aaeb49caafd9e95c0a91116f71890eebbc53`    | MIT `LICENSE`                                                   | `third_party/agent-skills/supabase-agent-skills/SOURCE.md` |
+| Google Skills            | `google/skills@d1c9be2009ba0b9243f4ace63533684cabe0dc05`            | Apache-2.0 `LICENSE`                                            | `third_party/agent-skills/google-skills/SOURCE.md`         |
+| Cloudflare Skills        | `cloudflare/skills@30553f89ae1ef1e3c2917cd09d72dac992bb4e9a`        | Apache-2.0 `LICENSE`                                            | `third_party/agent-skills/cloudflare-skills/SOURCE.md`     |
+| Sentry Agent Skills      | `getsentry/sentry-for-ai@3f7d285efc6f6ff5c5cfc5690857a9474c6642f8`  | MIT `LICENSE`                                                   | `third_party/agent-skills/sentry-agent-skills/SOURCE.md`   |
+| wshobson Agents          | `wshobson/agents@c4b82b0ad771190355eb8e204b1329732a18449a`          | MIT `LICENSE`                                                   | `third_party/agent-skills/wshobson-agents/SOURCE.md`       |
+
+Only these eight providers are currently vendored. All other rows in the ecosystem and conceptual
+reference sections are research links or historical comparisons, not package inputs.
+
+### Current harness compatibility matrix (snapshot 2026-08-10)
+
+The class column describes the repository integration decision, not vendor product quality: Class A
+is a first-class generated target with an official project convention; Class B is an officially
+documented generic-path compatibility decision; Class C is experimental or otherwise not verified
+enough to generate a new root.
+
+| Harness        | Official convention observed                                                         | Forge decision                                                                                        | Class | Gap / uncertainty                                                                            |
+| -------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------- |
+| OpenAI Codex   | Project `.agents/skills`; plugins require `skills/` plus `.codex-plugin/plugin.json` | Generate `.agents/skills` for projects and thin package `skills/` adapters for the first-class plugin | A     | npm publication and live plugin activation remain release checks, not repository-only proof. |
+| Claude Code    | Project `.claude/skills` and user skill scopes                                       | Keep `.claude/skills` generated target                                                                | A     | Live Claude UI invocation is not exercised by CI.                                            |
+| GitHub Copilot | Repository `.github/skills` and compatible Agent Skills paths                        | Keep `.github/skills` generated target                                                                | A     | VS Code/Copilot precedence can change; recheck first-party docs on upgrades.                 |
+| Cursor         | `.cursor/skills`, with `.agents`/`.claude` compatibility                             | Keep `.cursor/skills` generated target                                                                | A     | Product-specific slash UI is not a stable executable contract.                               |
+| Gemini CLI     | `.gemini/skills` and `.agents/skills` project aliases                                | Keep `.gemini/skills`; retain generic fallback                                                        | A     | Antigravity global path remains a separately documented ambiguity.                           |
+| Windsurf       | `.windsurf/skills`, `.agents` aliases, and `@skill-name`                             | Keep `.windsurf/skills` generated target                                                              | A     | The Windsurf URL currently redirects to Devin/Cascade documentation.                         |
+| OpenCode       | Native `.opencode/skills` plus compatible `.claude/skills` and `.agents/skills`      | Use generic `.agents/skills`; do not invent an `.opencode` installer root                             | B     | Native root and precedence are not needed for the current generic package.                   |
+| Roo Code       | Native `.roo/skills` plus compatible `.agents/skills`                                | Use generic `.agents/skills`; do not invent a `.roo` installer root                                   | B     | Mode-specific roots and precedence are not needed for the current generic package.           |
+| Cline          | Experimental `.cline/skills`, `.clinerules/skills`, and `.claude/skills`             | Best-effort `.claude/skills`; no `.cline` target                                                      | C     | Experimental behavior and no official `.agents` alias make live support `NOT_VERIFIED`.      |
+
+Highest-priority follow-up is to publish and clean-room install the pinned npm package, then run the
+supplied Codex plugin validator against the generated `skills/` adapters. The next gaps are live
+host UI tests (all currently `NOT_VERIFIED`), a future decision on native Roo/OpenCode roots if
+their generic aliases regress, and file-level license review before importing any Class B/C
+ecosystem source.
 
 ## Engineering standards and primary guidance
 
@@ -70,7 +128,45 @@ ambiguity instead of treating Antigravity global scope as a generic-agent alias.
 Standards are used as criteria and vocabulary, not copied checklists or claims of certification.
 Time-sensitive facts must be re-verified when a future release changes guidance.
 
-## Open-source conceptual references
+## Reviewed ecosystem opportunities (snapshot 2026-08-10)
+
+Class A means an active, clearly licensed source that is legally suitable for selective vendoring
+after pinning and attribution. Class B means useful but overlapping, vendor-specific, experimental,
+or otherwise requiring a narrower integration. Class C means no clear reuse grant, copyleft or mixed
+licensing concerns, or insufficient maintenance evidence; keep it as a link or concept reference.
+Stars are GitHub API or page snapshots, not quality or security evidence.
+
+| Class | Source (stars on 2026-08-10)                                                            | License evidence                                      | Decision for Fullstack Forge                                                                                                            | Uncertainty / follow-up                                                                                                                                                    |
+| ----- | --------------------------------------------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A     | [Impeccable](https://github.com/pbakaus/impeccable) (57,054)                            | Apache-2.0                                            | Keep the pinned, attributed UI/UX concepts already used by Forge.                                                                       | Recheck upstream commit and attribution at every update.                                                                                                                   |
+| A     | [Addy Osmani Agent Skills](https://github.com/addyosmani/agent-skills) (84,694)         | MIT                                                   | Keep selective lifecycle, testing, debugging, performance, and delivery guidance; pin revisions.                                        | Large, fast-moving repo; avoid unreviewed bulk imports.                                                                                                                    |
+| A     | [Superpowers](https://github.com/obra/superpowers) (269,648)                            | MIT                                                   | Offer as an optional workflow comparison; do not vendor its overlapping orchestration wholesale.                                        | Strong overlap with Forge workflow and high change velocity.                                                                                                               |
+| A     | [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) (114,957)      | MIT                                                   | Keep as a concept-only comparator where Forge already has UI/UX coverage.                                                               | Large taxonomy may conflict with Forge routing; review generated/data assets.                                                                                              |
+| B     | [Taste (Leonxlnx)](https://github.com/Leonxlnx/taste-skill) (~74,600)                   | MIT                                                   | Keep as an explicit, user-managed advisory comparator only; do not vendor or auto-compose it.                                           | V2 is an 87,253-byte experimental monolith with no tags, releases, CI, or eval harness; it substantially overlaps and sometimes conflicts with pinned Impeccable guidance. |
+| B     | [Everything Claude Code / ECC](https://github.com/affaan-m/ECC) (238,911)               | MIT                                                   | Audit selectively for specialist gaps; do not bulk-copy hooks, agents, or memory systems.                                               | Broad surface and one primary maintainer increase collision and supply-chain risk.                                                                                         |
+| B     | [Vercel Agent Skills](https://github.com/vercel-labs/agent-skills) (~29,900)            | README says MIT; root grant absent at pinned revision | Selectively vendor only the reviewed paths recorded in the pinned-import table; require manual license-evidence review on every update. | “MIT” is corroborated by the selected skill metadata, but it is not a substitute for a root license; excluded deployment/writing/tooling paths remain out of scope.        |
+| C     | [Anthropic Skills](https://github.com/anthropics/skills) (~167,200)                     | Mixed/per-skill; some source-available docs           | Use architecture ideas and per-skill links; no bulk vendoring.                                                                          | License differs by skill; inspect each file before reuse.                                                                                                                  |
+| C     | [Trail of Bits Skills](https://github.com/trailofbits/skills) (~6,500)                  | CC BY-SA 4.0                                          | Keep as a security taxonomy/link; do not import into Apache-2.0 runtime assets.                                                         | Share-alike obligations and file-level provenance need legal review.                                                                                                       |
+| C     | [Taste (senlindesign)](https://github.com/senlindesign/taste-skill) (stars unavailable) | No license observed                                   | Link only; no code, prose, or assets may be copied.                                                                                     | Public repository status and license remain unverified.                                                                                                                    |
+
+The counts above were captured from GitHub metadata on the snapshot date and can drift daily. A
+missing or ambiguous license is treated as no permission to redistribute; attribution does not cure
+that gap. Forge's canonical imports remain governed by
+`.fullstack-forge/manifests/upstream-registry.json` and `THIRD_PARTY_NOTICES.md`, not by star
+counts.
+
+Taste received a preservation review because of its adoption signal. The reviewed v2 head was
+`e988add20dab0fa97d7a76781c48961c8184288e` and its `SKILL.md` SHA-256 was
+`aa194351b246b8b4799099d4ed7b033d29eab6e6e3d58d8d2172978be7b3ec89`. Its distinctive anti-pattern
+catalogue can be useful as an isolated, read-only comparison for an explicitly requested marketing
+surface, but its roughly 22,000-token context cost, opinionated framework and motion rules,
+executable/network suggestions, and overlap with Impeccable make default inclusion a net loss.
+Impeccable remains the authoritative progressive UI/UX source; accessibility, repository evidence,
+and Forge verification retain precedence. Any optional Taste use must pin and verify the immutable
+file, preserve its MIT notice, prohibit implicit activation and mutation authority, and avoid
+copying its scripts or repository-wide instructions.
+
+## Open-source conceptual references (historical research; not additional package inputs)
 
 ### Frontend, UI, and UX refresh (2026-07-26)
 
@@ -89,9 +185,13 @@ Time-sensitive facts must be re-verified when a future release changes guidance.
 | shadcn skill                     | <https://github.com/shadcn-ui/ui/tree/7774cd7dcee1e98d0815aa6e829f33a7fc952fdf>                         | `skills/shadcn/`                                                            | MIT                          | Project-context inspection, primitive reuse, source ownership       | None                                    | Link and revision retained |
 
 All repositories were inspected at the exact revisions above without running their scripts. The
-Vercel web-design router’s unpinned network fetch was explicitly not adopted. The refresh informed
-the original architecture documented in `research/FRONTEND_UI_UX_SYSTEM.md`; it contributed no
-third-party prose, code, datasets, templates, or assets.
+Vercel web-design router’s unpinned network fetch was explicitly not adopted. This section records
+the conceptual research that informed the original architecture documented in
+`research/FRONTEND_UI_UX_SYSTEM.md`; it is not an additional source of package files. Current
+vendoring is limited to the pinned-import table above.
+
+The compact repository table below is an older conceptual-research baseline retained for historical
+traceability; its revisions do not override the current pinned-import table.
 
 | Repository                                                | Inspected commit                           | Observed license                                        | Concepts studied                                                                             |
 | --------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------- | -------------------------------------------------------------------------------------------- |

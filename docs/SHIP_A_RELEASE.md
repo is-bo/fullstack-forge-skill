@@ -3,7 +3,7 @@
 Run the independent release gate only after building, auditing, fixing, and verifying:
 
 ```bash
-npx forge ship
+npx --no-install forge ship
 ```
 
 Forge re-discovers the current project and revision. Saved Audit reports are diagnostics; Build
@@ -11,7 +11,7 @@ state satisfies no Ship gate. Project commands remain blocked until you review t
 allow execution:
 
 ```bash
-npx forge ship --allow-run
+npx --no-install forge ship --allow-run
 ```
 
 Ship performs fresh bounded inventory discovery. `--exclude <path>` is repeatable and

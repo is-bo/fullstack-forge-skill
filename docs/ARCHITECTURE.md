@@ -15,10 +15,18 @@ Fullstack Forge is an agent-first engineering system, not a universal scanner.
 
 ## Canonical and generated assets
 
-`src/fullstack-forge/` is the only canonical skill source. `npm run generate` renders 42 specialist
-playbooks, three product/Build skills, 42 Build briefs, and independent copies under `.agents/`,
-`.claude/`, `.cursor/`, `.gemini/`, `.github/skills/`, and `.windsurf/`. Generated ownership
-manifests prevent clobbering local edits.
+`src/fullstack-forge/` is the only authored skill source. `npm run generate` renders 42 specialist
+playbooks, three product/Build skills, 42 Build briefs, and the installed canonical tree under
+`.fullstack-forge/skills/`. Host discovery roots under `.agents/`, `.claude/`, `.cursor/`,
+`.gemini/`, `.github/skills/`, and `.windsurf/`, plus the package-local Codex plugin `skills/` root,
+contain generated thin adapters rather than duplicate playbooks. Each adapter resolves its canonical
+file relative to its own directory, and package/archive checks exercise those pointers in a clean
+target. Generated ownership manifests prevent clobbering local edits.
+
+Reviewed upstream expertise is compiled separately under `.fullstack-forge/upstream/` as inert
+`PLAYBOOK.md` content. It is outside every host discovery root and is reachable only through the
+composition registry. This keeps provider activation, context budgets, precedence, and evidence
+authority in Forge rather than allowing vendored frontmatter to self-activate.
 
 ## Default feature flow
 

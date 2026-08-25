@@ -4,6 +4,23 @@ All notable supported changes are documented here.
 
 ## [Unreleased]
 
+## [0.3.0] - Candidate
+
+- Tightened automatic discovery and changed-scope selection so only affirmative, path-relevant
+  evidence activates specialist modules; generated content, examples, comments, and unresolved
+  capabilities no longer create positive proof.
+- Unified installed and standalone composition behind bounded, evidence-gated direct dependency
+  coordination, keeping output compact while involving the related production owners.
+- Made audit, fix, Verify, and offline project-command handling fail closed with terminal command
+  ledgers and preserved `BLOCKED` or `NOT_VERIFIED` outcomes.
+- Added a first-class Codex plugin manifest, npm-backed repository marketplace, and generated thin
+  adapters that resolve the one canonical managed playbook tree.
+- Added immutable GitHub Release discovery, exact deterministic npm-pack and SPDX SBOM artifacts,
+  checksum-bound clean-room installation, and exact-commit CI and CodeQL release gates.
+
+Local candidate validation and all remote publication evidence remain pending. v0.2.2 remains the
+current immutable public release, and the npm package remains unpublished.
+
 ## [0.2.2] - 2026-07-29
 
 - Corrected release preflight to treat GitHub's exact attestation-digest 404 as absence only after
@@ -11,8 +28,8 @@ All notable supported changes are documented here.
 - Preserved the immutable `v0.2.1` tag after its release workflow stopped before draft creation. No
   GitHub Release or npm publication exists for that partial tag.
 
-Remote publication, exact-head CI, CodeQL, attestations, immutable assets, and the final release
-record remain pending for this candidate.
+v0.2.2 was subsequently published as an immutable GitHub Release on 2026-07-29. Its final attached
+evidence records the remote result; npm publication was not performed.
 
 ## [0.2.1] - 2026-07-28
 
@@ -124,7 +141,8 @@ pending and must not be inferred from this candidate source.
 - Earlier numbered snapshots were rapid development previews. They remain visible in Git history but
   are not supported public releases of the agent-first product.
 
-[Unreleased]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.2.0...v0.2.1
 [0.1.0]: https://github.com/is-bo/fullstack-forge-skill/releases/tag/v0.1.0

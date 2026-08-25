@@ -442,6 +442,25 @@ function assertCompositionResults(results: CompositionResult[]): void {
       typeof budget !== "object"
     )
       throw new Error("Invalid composition provenance");
+    if (
+      result.workflow !== undefined &&
+      !["build", "audit", "fix", "verify", "ship"].includes(result.workflow)
+    )
+      throw new Error(`Invalid composition workflow for ${result.module}`);
+    if (result.eager !== undefined || result.deferred !== undefined) {
+      if (!Array.isArray(result.eager) || !Array.isArray(result.deferred))
+        throw new Error(`Invalid composition load stages for ${result.module}`);
+      const selectedKeys = new Set(
+        result.selected.map(
+          (source) => `${source.tier}\u0000${source.provider}\u0000${source.skill}`
+        )
+      );
+      for (const source of [...result.eager, ...result.deferred]) {
+        const key = `${source.tier}\u0000${source.provider}\u0000${source.skill}`;
+        if (!selectedKeys.has(key))
+          throw new Error(`Composition load stage is not selected for ${result.module}`);
+      }
+    }
     for (const source of [...result.selected, ...result.suppressed]) {
       if (
         !tiers.has(source.tier) ||
@@ -838,9 +857,19 @@ function renderComposition(result: CompositionResult): string {
     .map((source) => `  - **${source.tier}** ${source.provider}/${source.skill}: ${source.reason}`)
     .join("\n");
   const missing = result.missing.map((path) => `  - \`${path}\``).join("\n");
+  const eager = (result.eager ?? result.selected)
+    .map((source) => `  - \`${source.runtimePath}\``)
+    .join("\n");
+  const deferred = (result.deferred ?? [])
+    .map((source) => `  - \`${source.runtimePath}\``)
+    .join("\n");
   return [
-    `- **${result.module}** (${result.mode}; ${result.outputClassification})`,
+    `- **${result.module}** (${result.mode}; ${result.outputClassification}; workflow ${result.workflow ?? "legacy/build"})`,
     `  - Budget: primary ${result.budget.maxPrimarySkills}, overlays ${result.budget.maxOverlays}, supplemental ${result.budget.maxSupplemental}`,
+    "  - Eager load:",
+    eager || "  - None.",
+    "  - Deferred load (on demand):",
+    deferred || "  - None.",
     "  - Selected:",
     selected || "  - None beyond the Forge contract.",
     "  - Suppressed:",

@@ -801,8 +801,10 @@ test("host acceptance 15: the packed npm tarball carries the canonical tree ever
   };
   for (const command of ["upstream:check", "upstream:diff", "upstream:status", "upstream:update"])
     assert.equal(manifest.scripts?.[command], undefined, `public package exposes ${command}`);
-  assert.equal(manifest.scripts?.["upstream:verify"], "node scripts/upstream-verify.mjs");
-  assert.ok(paths.has("scripts/upstream-verify.mjs"));
+  // Maintainer-only source scripts are deliberately absent from the consumer package. The public
+  // package must not advertise a command whose implementation is excluded from the tarball.
+  assert.equal(manifest.scripts?.["upstream:verify"], undefined);
+  assert.ok(!paths.has("scripts/upstream-verify.mjs"));
 });
 
 /** Locates the npm CLI without shelling out through a shell. Mirrors the installation scripts. */

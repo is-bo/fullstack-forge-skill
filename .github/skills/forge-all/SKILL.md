@@ -1,6 +1,6 @@
 ---
 name: forge-all
-description: Discover the project, select applicable modules, run safe independent checks, merge evidence, and prioritize remediation. Activate automatically for repository-wide audits when that concern is relevant to a software-engineering request.
+description: "Discover the project, select applicable modules, run safe independent checks, merge evidence, and prioritize remediation."
 ---
 
 <!-- fullstack-forge:managed-adapter v1 skill=forge-all canonical=../../../.fullstack-forge/skills/forge-all/SKILL.md -->
@@ -20,6 +20,10 @@ That path is relative to this file. From the installation root it is
 (`fullstack-forge/references/...`, `fullstack-forge/schemas/...`,
 `fullstack-forge/templates/...`, `fullstack-forge/profiles/...`) resolves relative to
 `.fullstack-forge/skills/`.
+The canonical playbook owns any deterministic composition step; perform that step exactly
+once. This adapter never adds a second workflow or composition command.
 
 Do not edit this adapter; edit the canonical playbook instead. If the canonical file is
-missing or unreadable the installation is damaged: run `forge doctor`, then `forge update all`.
+missing or unreadable the installation is damaged. Report it and repair through the same
+project-package, archive, or plugin mechanism that installed this adapter. Never fall back to
+an unpinned `npx forge`, which may resolve an unrelated public package.

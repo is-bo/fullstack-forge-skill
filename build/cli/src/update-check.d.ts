@@ -1,15 +1,33 @@
-import { runFile } from "./utils.js";
-export declare const UPSTREAM_GIT_URL = "https://github.com/is-bo/fullstack-forge-skill.git";
+export declare const RELEASES_API_URL = "https://api.github.com/repos/is-bo/fullstack-forge-skill/releases/latest";
 export type UpdateAvailability = {
     status: "PASS" | "WARNING";
     evidence: string;
     latestVersion?: string;
     unavailable?: boolean;
 };
-type CommandRunner = typeof runFile;
-/** Parses only stable, canonical vMAJOR.MINOR.PATCH refs from untrusted `git ls-remote` output. */
-export declare function parseReleaseTags(output: string): string[];
-/** Returns the public, immutable source archive for a stable released version. */
-export declare function publicReleaseArchive(version: string): string;
-export declare function checkUpdateAvailability(root: string, offline: boolean, currentVersion?: string, runner?: CommandRunner): Promise<UpdateAvailability>;
-export {};
+export type ReleaseChannelRequest = {
+    url: string;
+    root: string;
+    timeoutMs: number;
+    maxBytes: number;
+};
+export type ReleaseChannelResponse = {
+    statusCode: number;
+    body: string;
+};
+export type ReleaseChannelReader = (request: ReleaseChannelRequest) => Promise<ReleaseChannelResponse>;
+export type ReleaseChannel = {
+    version: string;
+    tag: string;
+    assetNames: string[];
+    packageArtifact?: string;
+    sbomArtifact?: string;
+};
+/**
+ * Parses the public GitHub Releases channel. The response is an untrusted network boundary: only
+ * immutable, stable releases with the complete expected asset set can become update candidates.
+ */
+export declare function parseReleaseChannel(payload: string): ReleaseChannel;
+/** Returns the credential-free installation artifact for one immutable published release. */
+export declare function publicReleaseArchive(versionText: string): string;
+export declare function checkUpdateAvailability(root: string, offline: boolean, currentVersion?: string, reader?: ReleaseChannelReader): Promise<UpdateAvailability>;

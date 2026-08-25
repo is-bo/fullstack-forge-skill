@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     permissions:
+      actions: read
       contents: write
       id-token: write
       attestations: write
@@ -35,31 +36,60 @@ jobs:
           tag_commit="$(git rev-parse "${GITHUB_REF_NAME}^{commit}")"
           test "$(git rev-parse HEAD)" = "$tag_commit"
           echo "TAG_COMMIT=$tag_commit" >> "$GITHUB_ENV"
+      - name: Require completed CI and CodeQL for the exact release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          node scripts/verify-required-workflows.mjs --repository "$GITHUB_REPOSITORY" --sha
+          "$TAG_COMMIT" --required CI --required-path CI=.github/workflows/ci.yml --required CodeQL
+          --required-path CodeQL=.github/workflows/codeql.yml
       - name: Refuse an existing release or mismatched tag
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/release-preflight.mjs --tag "$GITHUB_REF_NAME" --sha "$TAG_COMMIT"
+      - name: Require immutable releases before creating a draft
+        env:
+          # The immutable-releases settings endpoint requires repository Administration (read).
+          # GITHUB_TOKEN cannot receive that permission, so this is an intentionally provisioned,
+          # read-only maintainer secret. A missing or under-scoped token fails before any draft is
+          # created; never silently fall back to a weaker token.
+          GH_TOKEN: ${{ secrets.RELEASE_ADMIN_TOKEN }}
+        run: |
+          test -n "$GH_TOKEN" || {
+            echo "RELEASE_ADMIN_TOKEN is required to prove immutable-release settings before drafting" >&2
+            exit 1
+          }
+          immutable="$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            "repos/${GITHUB_REPOSITORY}/immutable-releases" \
+            --jq '.enabled')"
+          test "$immutable" = true
       - name: Install locked development dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify tagged source and honest release evidence
         run: |
           npm run check
           npm run test:coverage
-          git diff --exit-code -- build/ .fullstack-forge/ THIRD_PARTY_NOTICES.md .agents/ .claude/ .cursor/ .gemini/ .github/skills/ .windsurf/
+          git diff --exit-code -- build/ .fullstack-forge/ THIRD_PARTY_NOTICES.md .agents/ .claude/ .cursor/ .gemini/ .github/skills/ .windsurf/ skills/
           npm audit --ignore-scripts
           npm run check:release-docs
       - name: Package and clean-room install
         run: |
-          npm run package:platforms
-          npm run smoke:install
-          node scripts/upgrade-install.mjs v0.1.0
+          npm run build
+          node scripts/package-platforms.mjs --require-clean-inputs
+          node scripts/validate-dist.mjs
+          candidate="dist/fullstack-forge-skill-${GITHUB_REF_NAME}.tgz"
+          node scripts/smoke-install.mjs --package "$candidate"
+          node scripts/upgrade-install.mjs v0.1.0 --package "$candidate"
+          node scripts/upgrade-install.mjs v0.2.2 --package "$candidate"
           npm run offline:install
       - name: Refuse duplicate candidate asset names
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           args=()
-          for asset in dist/*.zip dist/SHA256SUMS.txt dist/manifest.json; do
+          for asset in dist/*; do
             args+=(--asset "$asset")
           done
           node scripts/release-preflight.mjs --tag "$GITHUB_REF_NAME" --sha "$TAG_COMMIT" "${args[@]}"
@@ -67,13 +97,25 @@ jobs:
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           subject-path: dist/*
+      - name: Verify candidate provenance before creating a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          signer_workflow="${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}/.github/workflows/release.yml"
+          for asset in dist/*; do
+            gh attestation verify "$asset" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$signer_workflow" \
+              --source-ref "$GITHUB_REF" \
+              --source-digest "$TAG_COMMIT"
+          done
       - name: Create a new draft release without replacement
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes="docs/RELEASE_NOTES_${GITHUB_REF_NAME}.md"
           gh release create "$GITHUB_REF_NAME" \
-            dist/*.zip dist/SHA256SUMS.txt dist/manifest.json \
+            dist/* \
             --draft \
             --verify-tag \
             --notes-file "$notes" \
@@ -112,10 +154,73 @@ jobs:
         uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           subject-path: release-evidence/*
+      - name: Verify final evidence provenance before publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          signer_workflow="${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}/.github/workflows/release.yml"
+          for asset in release-evidence/*; do
+            gh attestation verify "$asset" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$signer_workflow" \
+              --source-ref "$GITHUB_REF" \
+              --source-digest "$TAG_COMMIT"
+          done
       - name: Attach final evidence without clobbering
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$GITHUB_REF_NAME" release-evidence/*
+      - name: Download and byte-verify the complete draft before publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          verification_root="$(mktemp -d "${RUNNER_TEMP}/fullstack-forge-draft.XXXXXX")"
+          expected="${verification_root}/expected"
+          downloaded="${verification_root}/downloaded"
+          mkdir "$expected" "$downloaded"
+
+          for asset in dist/* release-evidence/*; do
+            test -f "$asset"
+            test ! -L "$asset"
+            name="${asset##*/}"
+            if test -e "${expected}/${name}"; then
+              echo "Duplicate expected draft asset name: ${name}" >&2
+              exit 1
+            fi
+            cp -- "$asset" "${expected}/${name}"
+          done
+
+          gh release download "$GITHUB_REF_NAME" --dir "$downloaded"
+          find "$expected" -mindepth 1 -maxdepth 1 -printf '%f\0' \
+            | LC_ALL=C sort -z > "${verification_root}/expected.inventory"
+          find "$downloaded" -mindepth 1 -maxdepth 1 -printf '%f\0' \
+            | LC_ALL=C sort -z > "${verification_root}/downloaded.inventory"
+          if ! cmp --silent \
+            "${verification_root}/expected.inventory" \
+            "${verification_root}/downloaded.inventory"; then
+            echo "Complete draft asset inventory differs from validated local assets" >&2
+            exit 1
+          fi
+
+          while IFS= read -r -d '' expected_asset; do
+            name="${expected_asset##*/}"
+            downloaded_asset="${downloaded}/${name}"
+            test -f "$downloaded_asset"
+            test ! -L "$downloaded_asset"
+            if ! cmp --silent "$expected_asset" "$downloaded_asset"; then
+              echo "Complete draft bytes differ from validated local asset: ${name}" >&2
+              exit 1
+            fi
+          done < <(find "$expected" -mindepth 1 -maxdepth 1 -type f -print0)
+      - name: Recheck the exact immutable draft before the one-way publish transition
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          state="$(gh release view "$GITHUB_REF_NAME" --json isDraft,isImmutable --jq '[.isDraft,.isImmutable] | @tsv')"
+          test "$state" = $'true\tfalse'
+          remote_commit="$(git ls-remote origin "refs/tags/${GITHUB_REF_NAME}^{}" | cut -f1)"
+          test "$remote_commit" = "$TAG_COMMIT"
       - name: Publish once and verify immutable release attestation
         env:
           GH_TOKEN: ${{ github.token }}
@@ -130,10 +235,8 @@ jobs:
             sleep 5
           done
           test "$verified" = true
-          for asset in dist/*.zip dist/SHA256SUMS.txt dist/manifest.json release-evidence/*; do
+          for asset in dist/* release-evidence/*; do
             gh release verify-asset "$GITHUB_REF_NAME" "$asset"
           done
           state="$(gh release view "$GITHUB_REF_NAME" --json isDraft,isImmutable --jq '[.isDraft,.isImmutable] | @tsv')"
           test "$state" = $'false\ttrue'
-          remote_commit="$(git ls-remote origin "refs/tags/${GITHUB_REF_NAME}^{}" | cut -f1)"
-          test "$remote_commit" = "$TAG_COMMIT"

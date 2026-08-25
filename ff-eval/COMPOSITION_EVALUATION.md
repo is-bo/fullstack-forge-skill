@@ -58,10 +58,10 @@ exact requested source, stayed at their declared limit, and reported a context-b
 | Activation and suppression correct | 40     |
 | Sources correctly suppressed       | 134    |
 | Cases loading no provider content  | 2      |
-| Median eager context increase      | +102%  |
-| Maximum eager context increase     | +476%  |
-| Median available context increase  | +282%  |
-| Maximum available context increase | +1035% |
+| Median eager context increase      | +94%   |
+| Maximum eager context increase     | +433%  |
+| Median available context increase  | +257%  |
+| Maximum available context increase | +933%  |
 
 These figures are asserted against the live harness by `scripts/tests/composition-corpus.test.mjs`,
 so the table cannot drift away from what `npm run eval:composition` actually reports.
@@ -77,7 +77,7 @@ loaded; and Stripe and PayPal each activated only for their own provider.
 The stated target was no more than a 15% increase in loaded instruction tokens for a normal focused
 task. **This build does not meet that target**, by a wide margin: the median focused task loads
 roughly 2.0× the instruction text of the Forge-only baseline before any reference is opened, and
-about 3.8× once every reference the manifest makes available is counted.
+about 3.6× once every reference the manifest makes available is counted.
 
 This is inherent to the architecture, not an implementation defect that was overlooked. A module
 whose engine is an upstream workflow has to read that workflow; upstream specialist skills are

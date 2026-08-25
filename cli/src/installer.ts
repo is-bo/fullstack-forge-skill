@@ -16,6 +16,7 @@ import {
   removeManagedSection,
   upsertManagedSection
 } from "./automatic-activation.js";
+import { legacyHashMatches } from "./legacy-install-hashes.js";
 import {
   CANONICAL_ROOT_POSIX,
   CANONICAL_ROOT_SEGMENTS,
@@ -63,6 +64,18 @@ const MANAGED_SUPPORT_ROOTS = Object.freeze([
  * itself. Every other host consumes only `SKILL.md` and therefore receives adapters alone.
  */
 const VERBATIM_PLATFORMS = new Set<Platform>(["agents", "antigravity"]);
+
+type ManagedPathInventory = {
+  /** Exact paths installed below `.fullstack-forge/`; directory prefixes are never trusted. */
+  canonicalPaths: ReadonlySet<string>;
+  supportPaths: ReadonlySet<string>;
+  /** Exact paths from the legacy full-copy layout, keyed by the manifest platform. */
+  legacyHostPaths: ReadonlyMap<Platform, ReadonlySet<string>>;
+  /** Exact paths retained in the current host adapter layout. */
+  adapterPaths: ReadonlyMap<Platform, ReadonlySet<string>>;
+  /** Hashes the bundled package is allowed to claim for each exact path. */
+  expectedHashes: ReadonlyMap<string, ReadonlySet<string>>;
+};
 
 export type InstallAction = {
   action: "create" | "update" | "preserve-identical" | "remove" | "preserve-modified";
@@ -120,7 +133,8 @@ async function readCanonicalSource(): Promise<Map<string, Buffer>> {
   const files = await walkFiles(CANONICAL_SOURCE_ROOT, {
     maxFiles: 5_000,
     maxTotalBytes: 256 * 1024 * 1024,
-    maxDepth: 64
+    maxDepth: 64,
+    rejectSymlinks: true
   });
   const map = new Map<string, Buffer>();
   for (const path of files) {
@@ -143,11 +157,16 @@ async function readManagedSupportSource(sourceRoot: string): Promise<Map<string,
   const files = await walkFiles(sourceRoot, {
     maxFiles: 20_000,
     maxTotalBytes: 256 * 1024 * 1024,
-    maxDepth: 64
+    maxDepth: 64,
+    rejectSymlinks: true
   });
   const map = new Map<string, Buffer>();
   for (const path of files) {
     const rel = toPosix(relative(sourceRoot, path));
+    // Generator ownership markers describe the package workspace, not consumer-managed content.
+    // Never copy or record them in an install manifest: doing so makes a later package regeneration
+    // look like an unexpected consumer file and weakens the exact inventory boundary.
+    if (rel.endsWith(".fullstack-forge-generated.json")) continue;
     assertSafeRelative(rel);
     // Refuse to install anything a host could discover as a skill.
     if (rel.split("/").pop() === "SKILL.md")
@@ -158,7 +177,158 @@ async function readManagedSupportSource(sourceRoot: string): Promise<Map<string,
   return new Map([...map.entries()].sort(([a], [b]) => a.localeCompare(b)));
 }
 
-function skillNamesOf(canonical: Map<string, Buffer>): string[] {
+/**
+ * Builds the ownership boundary from the files that this package actually ships. Keeping this as
+ * an exact set is intentional: a manifest may authorize one known file, never an arbitrary child
+ * of a managed-looking directory. `canonical` and `support` accept either maps (during install)
+ * or path sets (when a manifest is read on its own).
+ */
+function buildManagedPathInventory(input: {
+  canonical: ReadonlyMap<string, Buffer>;
+  support: ReadonlyMap<string, ReadonlyMap<string, Buffer>>;
+}): ManagedPathInventory {
+  const canonicalRelativePaths = [...input.canonical.keys()];
+  const canonicalPaths = new Set<string>();
+  const expectedHashes = new Map<string, Set<string>>();
+  for (const rel of canonicalRelativePaths) {
+    assertSafeRelative(rel);
+    const path = `${CANONICAL_ROOT_POSIX}/${rel}`;
+    canonicalPaths.add(path);
+    addExpectedHash(expectedHashes, path, sha256(input.canonical.get(rel) as Buffer));
+  }
+
+  const supportPaths = new Set<string>();
+  for (const support of MANAGED_SUPPORT_ROOTS) {
+    const files = input.support.get(support.source);
+    if (files === undefined)
+      throw new Error(`Bundled managed content inventory is missing: ${support.source}`);
+    const root = support.segments.join("/");
+    for (const [rel, bytes] of files) {
+      assertSafeRelative(rel);
+      if (rel.split("/").pop() === "SKILL.md")
+        throw new Error(`Managed support inventory contains a host-discoverable skill: ${rel}`);
+      const path = `${root}/${rel}`;
+      supportPaths.add(path);
+      addExpectedHash(expectedHashes, path, sha256(bytes));
+    }
+  }
+
+  const legacyHostPaths = new Map<Platform, Set<string>>();
+  const adapterPaths = new Map<Platform, Set<string>>();
+  const skillNames = skillNamesOf(input.canonical);
+  for (const platform of PLATFORMS) {
+    const legacy = new Set<string>();
+    const adapters = new Set<string>();
+    const config = PLATFORM_CONFIG[platform];
+    const hostRoots = new Set([config.projectPath.join("/"), config.globalPath.join("/")]);
+    for (const hostRoot of hostRoots) {
+      for (const [rel, bytes] of input.canonical) {
+        const legacyPath = `${hostRoot}/${rel}`;
+        legacy.add(legacyPath);
+        addExpectedHash(expectedHashes, legacyPath, sha256(bytes));
+      }
+      for (const skill of skillNames) {
+        const canonical = input.canonical.get(`${skill}/SKILL.md`);
+        if (canonical === undefined)
+          throw new Error(`Bundled canonical skill is missing: ${skill}`);
+        const adapterPath = `${hostRoot}/${skill}/SKILL.md`;
+        adapters.add(adapterPath);
+        // A schema-1 manifest records the full-copy bytes at this same path; accepting the
+        // canonical hash permits safe migration while still rejecting arbitrary forged bytes.
+        addExpectedHash(expectedHashes, adapterPath, sha256(canonical));
+        const frontmatter = extractFrontmatter(canonical.toString("utf8"), `${skill}/SKILL.md`);
+        const pointer = adapterPointer(hostRoot, skill);
+        addExpectedHash(
+          expectedHashes,
+          adapterPath,
+          sha256(Buffer.from(renderAdapter({ skill, pointer, frontmatter })))
+        );
+      }
+      if (VERBATIM_PLATFORMS.has(platform)) {
+        for (const [rel, bytes] of input.canonical)
+          if (isVerbatimHostFile(rel)) {
+            const path = `${hostRoot}/${rel}`;
+            adapters.add(path);
+            addExpectedHash(expectedHashes, path, sha256(bytes));
+          }
+      }
+    }
+    legacyHostPaths.set(platform, legacy);
+    adapterPaths.set(platform, adapters);
+  }
+  for (const instruction of Object.values(PROJECT_INSTRUCTIONS)) {
+    const path = instruction.path.join("/");
+    if (instruction.management === "section") {
+      const section = extractManagedSection(instruction.content);
+      if (section !== undefined) addExpectedHash(expectedHashes, path, sha256(section));
+    } else addExpectedHash(expectedHashes, path, sha256(Buffer.from(instruction.content)));
+  }
+  return { canonicalPaths, supportPaths, legacyHostPaths, adapterPaths, expectedHashes };
+}
+
+function addExpectedHash(
+  expectedHashes: Map<string, Set<string>>,
+  path: string,
+  hash: string
+): void {
+  const values = expectedHashes.get(path) ?? new Set<string>();
+  values.add(hash);
+  expectedHashes.set(path, values);
+}
+
+/** Lists bundled paths without reading their bytes, for `readInstallManifest`/`uninstall`. */
+let managedPathInventoryCache: ManagedPathInventory | undefined;
+
+async function readManagedPathInventory(): Promise<ManagedPathInventory> {
+  if (managedPathInventoryCache !== undefined) return managedPathInventoryCache;
+  const inventory = await loadManagedPathInventory();
+  managedPathInventoryCache = inventory;
+  return inventory;
+}
+
+async function loadManagedPathInventory(): Promise<ManagedPathInventory> {
+  const canonicalFiles = await walkFiles(CANONICAL_SOURCE_ROOT, {
+    maxFiles: 5_000,
+    maxTotalBytes: 256 * 1024 * 1024,
+    maxDepth: 64,
+    rejectSymlinks: true
+  });
+  const canonical = new Map<string, Buffer>();
+  for (const path of canonicalFiles) {
+    const rel = toPosix(relative(CANONICAL_SOURCE_ROOT, path));
+    if (rel.endsWith(".fullstack-forge-generated.json")) continue;
+    assertSafeRelative(rel);
+    canonical.set(rel, await readFile(path));
+  }
+  if (canonical.size === 0)
+    throw new Error(`Bundled canonical managed content is missing at ${CANONICAL_SOURCE_ROOT}`);
+
+  const support = new Map<string, Map<string, Buffer>>();
+  for (const managed of MANAGED_SUPPORT_ROOTS) {
+    const sourceRoot = join(PACKAGE_ROOT, ".fullstack-forge", managed.source);
+    const files = await walkFiles(sourceRoot, {
+      maxFiles: 20_000,
+      maxTotalBytes: 256 * 1024 * 1024,
+      maxDepth: 64,
+      rejectSymlinks: true
+    });
+    const relativePaths = new Map<string, Buffer>();
+    for (const path of files) {
+      const rel = toPosix(relative(sourceRoot, path));
+      if (rel.endsWith(".fullstack-forge-generated.json")) continue;
+      assertSafeRelative(rel);
+      if (rel.split("/").pop() === "SKILL.md")
+        throw new Error(`Refusing to install a host-discoverable upstream skill file: ${rel}`);
+      relativePaths.set(rel, await readFile(path));
+    }
+    if (relativePaths.size === 0)
+      throw new Error(`Bundled managed content is missing at ${sourceRoot}`);
+    support.set(managed.source, relativePaths);
+  }
+  return buildManagedPathInventory({ canonical, support });
+}
+
+function skillNamesOf(canonical: ReadonlyMap<string, Buffer>): string[] {
   const names = new Set<string>();
   for (const rel of canonical.keys()) {
     const parts = rel.split("/");
@@ -187,8 +357,14 @@ export async function install(
     ? await canonicalDirectory(options.home ?? homedir())
     : await canonicalDirectory(rootInput);
   const platforms = normalizePlatformsForScope(selector, options.global);
-  const previous = await readManifest(root);
   const canonical = await readCanonicalSource();
+  const supportSources = new Map<string, Map<string, Buffer>>();
+  for (const support of MANAGED_SUPPORT_ROOTS) {
+    const sourceRoot = join(PACKAGE_ROOT, ".fullstack-forge", support.source);
+    supportSources.set(support.source, await readManagedSupportSource(sourceRoot));
+  }
+  const inventory = buildManagedPathInventory({ canonical, support: supportSources });
+  const previous = await readManifest(root, false, inventory);
   const skills = skillNamesOf(canonical);
   const planned: PlannedWrite[] = [];
   const plannedPaths = new Set<string>();
@@ -220,8 +396,9 @@ export async function install(
   // 1b. Compiled upstream expertise and composition manifests. Installed once, never duplicated
   //     per host, and never inside a host skills root.
   for (const support of MANAGED_SUPPORT_ROOTS) {
-    const sourceRoot = join(PACKAGE_ROOT, ".fullstack-forge", support.source);
-    const files = await readManagedSupportSource(sourceRoot);
+    const files = supportSources.get(support.source);
+    if (files === undefined)
+      throw new Error(`Bundled managed content is missing at ${support.source}`);
     const destinationRoot = resolve(root, ...support.segments);
     if (!isInside(root, destinationRoot))
       throw new Error(`Managed destination escapes install root: ${destinationRoot}`);
@@ -403,11 +580,28 @@ export async function install(
   //    unmodified files are removed; anything the user changed is preserved and reported.
   const selected = new Set(platforms);
   const retirable: Array<{ action: InstallAction; target: string; expectedHash: string }> = [];
+  const retainedCanonical = new Map<string, InstallFile>();
   for (const [rel, record] of Object.entries(previous.files).sort(([a], [b]) =>
     a.localeCompare(b)
   )) {
     if (plannedPaths.has(rel)) continue;
-    if (record.kind !== "canonical" && !selected.has(record.platform as Platform)) continue;
+    if (record.kind === "canonical") {
+      const owners = record.platforms ?? [record.platform];
+      const selectedOwners = owners.filter((platform) => selected.has(platform as Platform));
+      if (selectedOwners.length === 0) continue;
+      const retainedOwners = owners.filter((platform) => !selected.has(platform as Platform));
+      if (retainedOwners.length > 0) {
+        // A canonical file is shared. Updating one host must not retire content still owned by a
+        // host that was deliberately left out of this invocation.
+        retainedCanonical.set(rel, {
+          ...record,
+          kind: "canonical",
+          platforms: retainedOwners,
+          platform: retainedOwners[0] as string
+        });
+        continue;
+      }
+    } else if (!selected.has(record.platform as Platform)) continue;
     assertSafeRelative(rel);
     const target = resolveInside(root, rel);
     await assertNoSymlinkPath(root, target);
@@ -461,7 +655,7 @@ export async function install(
     installedAt: utcNow(),
     agent_first: true,
     automatic_activation: !options.global,
-    files: { ...previous.files }
+    files: { ...previous.files, ...Object.fromEntries(retainedCanonical) }
   };
 
   // Claim every path that was absent during the complete preflight before creating any managed
@@ -507,10 +701,9 @@ export async function install(
     const prunable = new Set<string>();
     for (const item of retirable) {
       if (item.action.action === "remove") {
-        await unlink(item.target).catch((error: NodeJS.ErrnoException) => {
-          if (error.code !== "ENOENT") throw error;
-        });
-        prunable.add(dirname(item.target));
+        const removal = await unlinkIfUnchanged(root, item.target, item.expectedHash);
+        if (removal === "modified") item.action.action = "preserve-modified";
+        else if (removal === "removed") prunable.add(dirname(item.target));
       }
       // A user-modified stale file is preserved as user content, not retained as Forge-owned
       // state. Leaving the obsolete record behind makes doctor treat the preserved bytes as a
@@ -645,18 +838,25 @@ export async function uninstall(
         });
         continue;
       }
+      if (options.dryRun) {
+        actions.push({
+          action: "remove",
+          path: rel,
+          platform: record.platform as Platform,
+          ...(record.kind === undefined ? {} : { kind: record.kind })
+        });
+        continue;
+      }
+      const removal = await removeSectionIfUnchanged(root, target, record.hash);
       actions.push({
-        action: "remove",
+        action: removal.status === "modified" ? "preserve-modified" : "remove",
         path: rel,
         platform: record.platform as Platform,
         ...(record.kind === undefined ? {} : { kind: record.kind })
       });
-      if (!options.dryRun) {
-        const next = removeManagedSection(current);
-        if (next.length === 0) await unlink(target);
-        else await atomicWrite(root, target, Buffer.from(next, "utf8"));
-        delete remaining[rel];
-      }
+      if (removal.status === "modified") continue;
+      delete remaining[rel];
+      if (removal.prunable) prunable.add(dirname(target));
       continue;
     }
     if (currentHash !== record.hash) {
@@ -668,17 +868,25 @@ export async function uninstall(
       });
       continue;
     }
+    if (options.dryRun) {
+      actions.push({
+        action: "remove",
+        path: rel,
+        platform: record.platform as Platform,
+        ...(record.kind === undefined ? {} : { kind: record.kind })
+      });
+      continue;
+    }
+    const removal = await unlinkIfUnchanged(root, target, record.hash);
     actions.push({
-      action: "remove",
+      action: removal === "modified" ? "preserve-modified" : "remove",
       path: rel,
       platform: record.platform as Platform,
       ...(record.kind === undefined ? {} : { kind: record.kind })
     });
-    if (!options.dryRun) {
-      await unlink(target);
-      delete remaining[rel];
-      prunable.add(dirname(target));
-    }
+    if (removal === "modified") continue;
+    delete remaining[rel];
+    if (removal === "removed") prunable.add(dirname(target));
   }
 
   if (!options.dryRun) {
@@ -749,8 +957,15 @@ export function canonicalManagedRoot(): string {
   return CANONICAL_ROOT_POSIX;
 }
 
-async function readManifest(root: string, required = false): Promise<InstallManifest> {
+async function readManifest(
+  root: string,
+  required = false,
+  providedInventory?: ManagedPathInventory
+): Promise<InstallManifest> {
   const path = resolveInside(root, MANIFEST_RELATIVE);
+  // The manifest is authority to overwrite and delete. Never follow a user-controlled link while
+  // acquiring that authority, including a link at the manifest filename itself.
+  await assertNoSymlinkPath(root, path);
   const text = await readTextIfPresent(path);
   if (text === undefined) {
     if (required) throw new Error(`No Fullstack Forge ownership manifest at ${path}`);
@@ -782,6 +997,7 @@ async function readManifest(root: string, required = false): Promise<InstallMani
   ) {
     throw new Error(`Unsafe or unsupported ownership manifest at ${path}`);
   }
+  const inventory = providedInventory ?? (await readManagedPathInventory());
   const files: Record<string, InstallFile> = {};
   for (const [rel, record] of Object.entries(parsed.files)) {
     assertSafeRelative(rel);
@@ -796,7 +1012,8 @@ async function readManifest(root: string, required = false): Promise<InstallMani
       ("kind" in record &&
         record.kind !== "canonical" &&
         record.kind !== "adapter" &&
-        record.kind !== "instructions") ||
+        record.kind !== "instructions" &&
+        record.kind !== "retired") ||
       ("platforms" in record &&
         (!Array.isArray(record.platforms) ||
           record.platforms.length === 0 ||
@@ -804,18 +1021,27 @@ async function readManifest(root: string, required = false): Promise<InstallMani
     ) {
       throw new Error(`Invalid ownership record for ${rel}`);
     }
-    files[rel] = {
+    const management = record.management === "section" ? "section" : "file";
+    const inferredKind = classifyManagedManifestPath(
+      rel,
+      record.platform as Platform,
+      management,
+      inventory
+    );
+    const kind =
+      typeof record.kind === "string" ? (record.kind as InstallFile["kind"]) : inferredKind;
+    const normalizedRecord: InstallFile = {
       platform: record.platform,
       hash: record.hash,
       owned: record.owned,
-      management: record.management === "section" ? "section" : "file",
-      // A schema-1 manifest predates the canonical layout: every record it holds is a
-      // previous-layout host file, which is exactly what migration retires.
-      ...(typeof record.kind === "string" ? { kind: record.kind as InstallFile["kind"] } : {}),
+      management,
+      ...(kind === undefined ? {} : { kind }),
       ...(Array.isArray(record.platforms)
         ? { platforms: [...new Set(record.platforms as string[])].sort() }
         : {})
     };
+    assertManagedManifestPath(rel, normalizedRecord, inventory, parsed.packageVersion);
+    files[rel] = normalizedRecord;
   }
   return {
     schemaVersion: parsed.schemaVersion,
@@ -826,6 +1052,68 @@ async function readManifest(root: string, required = false): Promise<InstallMani
     automatic_activation: parsed.automatic_activation === true,
     files
   };
+}
+
+function assertManagedManifestPath(
+  rel: string,
+  record: InstallFile,
+  inventory: ManagedPathInventory,
+  packageVersion: string
+): void {
+  if (rel.includes("\\"))
+    throw new Error(`Ownership record must use a canonical forward-slash path: ${rel}`);
+  const accepted =
+    record.kind === "canonical" &&
+    record.management !== "section" &&
+    (inventory.canonicalPaths.has(rel) || inventory.supportPaths.has(rel))
+      ? true
+      : record.kind === "instructions" &&
+          isInstructionPath(rel, record.platform as Platform, record.management)
+        ? true
+        : record.kind === "adapter" &&
+            record.management !== "section" &&
+            inventory.adapterPaths.get(record.platform as Platform)?.has(rel) === true
+          ? true
+          : record.kind === "retired" &&
+            record.management !== "section" &&
+            inventory.legacyHostPaths.get(record.platform as Platform)?.has(rel) === true &&
+            inventory.adapterPaths.get(record.platform as Platform)?.has(rel) !== true;
+  if (!accepted)
+    throw new Error(`Ownership record path is outside Fullstack Forge managed paths: ${rel}`);
+  if (
+    inventory.expectedHashes.get(rel)?.has(record.hash) !== true &&
+    !legacyHashMatches(packageVersion, rel, record.hash, VERSION)
+  )
+    throw new Error(`Ownership record hash does not match bundled managed content: ${rel}`);
+}
+
+function classifyManagedManifestPath(
+  path: string,
+  platform: Platform,
+  management: InstallFile["management"],
+  inventory: ManagedPathInventory
+): InstallFile["kind"] | undefined {
+  if (isInstructionPath(path, platform, management)) return "instructions";
+  if (management === "section") return undefined;
+  if (inventory.canonicalPaths.has(path) || inventory.supportPaths.has(path)) return "canonical";
+  // Adapter paths are a strict subset of the legacy full-copy inventory and must win. This lets a
+  // schema-1 global bare update infer its installed host from the surviving SKILL.md records.
+  if (inventory.adapterPaths.get(platform)?.has(path) === true) return "adapter";
+  if (inventory.legacyHostPaths.get(platform)?.has(path) === true) return "retired";
+  return undefined;
+}
+
+function isInstructionPath(
+  path: string,
+  platform: Platform,
+  management: InstallFile["management"]
+): boolean {
+  const instruction = PROJECT_INSTRUCTIONS[platform];
+  return (
+    instruction !== undefined &&
+    path === instruction.path.join("/") &&
+    management === instruction.management
+  );
 }
 
 export function hashInstalledRecord(content: Buffer, record: InstallFile): string | undefined {
@@ -863,6 +1151,66 @@ async function hashIfPresent(path: string): Promise<string | undefined> {
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw error;
+  }
+}
+
+/**
+ * Revalidates both link topology and bytes immediately before deletion. The first read is the
+ * normal ownership check; the second closes the much larger preflight-to-commit race window.
+ */
+async function unlinkIfUnchanged(
+  root: string,
+  target: string,
+  expectedHash: string
+): Promise<"removed" | "missing" | "modified"> {
+  await assertNoSymlinkPath(root, target);
+  const observed = await hashIfPresent(target);
+  if (observed === undefined) return "missing";
+  if (observed !== expectedHash) return "modified";
+  await assertNoSymlinkPath(root, target);
+  const finalHash = await hashIfPresent(target);
+  if (finalHash === undefined) return "missing";
+  if (finalHash !== expectedHash) return "modified";
+  await unlink(target);
+  return "removed";
+}
+
+async function removeSectionIfUnchanged(
+  root: string,
+  target: string,
+  expectedSectionHash: string
+): Promise<{ status: "removed" | "missing" | "modified"; prunable: boolean }> {
+  await assertNoSymlinkPath(root, target);
+  const observed = await readTextIfPresent(target);
+  if (observed === undefined) return { status: "missing", prunable: false };
+  const observedSection = safeManagedSection(observed);
+  if (observedSection === undefined || sha256(observedSection) !== expectedSectionHash)
+    return { status: "modified", prunable: false };
+
+  await assertNoSymlinkPath(root, target);
+  const latest = await readTextIfPresent(target);
+  if (latest === undefined) return { status: "missing", prunable: false };
+  // Preserve edits outside the managed section too; rewriting a stale snapshot would otherwise
+  // discard concurrent user content even though the section itself still matched.
+  if (sha256(latest) !== sha256(observed)) return { status: "modified", prunable: false };
+  const latestSection = safeManagedSection(latest);
+  if (latestSection === undefined || sha256(latestSection) !== expectedSectionHash)
+    return { status: "modified", prunable: false };
+
+  const next = removeManagedSection(latest);
+  if (next.length === 0) {
+    await unlink(target);
+    return { status: "removed", prunable: true };
+  }
+  await atomicWrite(root, target, Buffer.from(next, "utf8"));
+  return { status: "removed", prunable: false };
+}
+
+function safeManagedSection(content: string): string | undefined {
+  try {
+    return extractManagedSection(content);
+  } catch {
+    return undefined;
   }
 }
 

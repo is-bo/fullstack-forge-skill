@@ -14,6 +14,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, posix } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { assertNoSymlinkPath } from "./lib/fs-safety.mjs";
+import { writeGeneratedOwnership } from "./lib/generated-ownership.mjs";
 import { projectRoot } from "./project.mjs";
 import {
   CONTENT_DIRNAME,
@@ -235,11 +236,15 @@ await writeJson(join(MANIFEST_ROOT, "module-composition.json"), {
   schemaVersion: composition.schemaVersion,
   generatedBy: "scripts/generate-upstream-runtime.mjs",
   defaultContextBudget: composition.defaultContextBudget,
+  ...(composition.workflowContracts === undefined
+    ? {}
+    : { workflowContracts: composition.workflowContracts }),
   modes: composition.modes,
   precedence: "fullstack-forge/references/shared/composition-precedence.md",
   modules: composition.modules.map((module) => ({
     ...module,
     contextBudget: module.contextBudget ?? composition.defaultContextBudget,
+    ...(module.forgeContracts === undefined ? {} : { forgeContracts: module.forgeContracts }),
     resolvedSources: [...module.primary, ...module.overlays, ...(module.supplemental ?? [])].map(
       (entry) => ({
         provider: entry.provider,
@@ -263,6 +268,12 @@ await writeJson(join(MANIFEST_ROOT, "upstream-transforms.json"), {
     (a, b) => a.provider.localeCompare(b.provider) || a.source.localeCompare(b.source)
   )
 });
+await writeGeneratedOwnership(UPSTREAM_ROOT, "upstream");
+await writeGeneratedOwnership(MANIFEST_ROOT, "manifests", [
+  "module-composition.json",
+  "upstream-registry.json",
+  "upstream-transforms.json"
+]);
 
 console.log(
   `Compiled ${compiledFiles} upstream files across ${registry.length} providers; ` +

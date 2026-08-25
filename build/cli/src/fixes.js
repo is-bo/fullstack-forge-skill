@@ -4,8 +4,9 @@ import { extname, join } from "node:path";
 import ts from "typescript";
 import { runNamedAnalyzer } from "./analyzers.js";
 import { detectProjectCommands } from "./discovery.js";
+import { executeProjectCommand } from "./project-command-execution.js";
 import { readReport, writeReport } from "./report.js";
-import { assertNoSymlinkPath, assertSafeRelative, canonicalDirectory, resolveInside, runFile, sha256, utcNow, workingTreeRevision } from "./utils.js";
+import { assertNoSymlinkPath, assertSafeRelative, canonicalDirectory, resolveInside, sha256, utcNow, workingTreeRevision } from "./utils.js";
 const SAFE_DEFINITIONS = [
     {
         fix_id: "FF-FIX-ENV-PLACEHOLDER-001",
@@ -222,8 +223,30 @@ export async function executeFixes(rootInput, section, options) {
             changed_files: [],
             blocked_findings: blocked,
             execution: [],
+            command_ledger: [],
             report_paths: []
         };
+    }
+    const regressionCommand = (await detectProjectCommands(root)).find((command) => command.name === "test");
+    if (regressionCommand !== undefined && options.allowRun && options.offline) {
+        const preflight = await executeProjectCommand(root, regressionCommand, {
+            allowRun: true,
+            dryRun: true,
+            offline: true,
+            forgeOwned: options.forgeOwned ?? false
+        });
+        if (preflight.status === "BLOCKED") {
+            return {
+                status: "BLOCKED",
+                dry_run: false,
+                operations: planned.map(publicOperation),
+                changed_files: [],
+                blocked_findings: blocked,
+                execution: [],
+                command_ledger: [preflight.ledger],
+                report_paths: []
+            };
+        }
     }
     const written = [];
     try {
@@ -237,7 +260,29 @@ export async function executeFixes(rootInput, section, options) {
         await rollbackWrites(root, written);
         throw error;
     }
-    const execution = options.allowRun ? await runAuthorizedRegression(root) : [];
+    const regression = regressionCommand === undefined
+        ? undefined
+        : await executeProjectCommand(root, regressionCommand, {
+            allowRun: options.allowRun === true,
+            dryRun: false,
+            offline: options.offline === true,
+            forgeOwned: options.forgeOwned ?? false
+        });
+    const execution = regression?.execution === undefined ? [] : [regression.execution];
+    const commandLedger = regression === undefined ? [] : [regression.ledger];
+    if (regression?.status === "BLOCKED") {
+        await rollbackWrites(root, written);
+        return {
+            status: "BLOCKED",
+            dry_run: false,
+            operations: [],
+            changed_files: [],
+            blocked_findings: blocked,
+            execution: [],
+            command_ledger: commandLedger,
+            report_paths: []
+        };
+    }
     const regressionFailure = execution.find((record) => record.exitCode !== 0);
     if (regressionFailure !== undefined) {
         await rollbackWrites(root, written);
@@ -267,6 +312,7 @@ export async function executeFixes(rootInput, section, options) {
             changed_files: [],
             blocked_findings: blocked,
             execution,
+            command_ledger: commandLedger,
             report_paths: reportPaths
         };
     }
@@ -282,25 +328,9 @@ export async function executeFixes(rootInput, section, options) {
         changed_files: [...new Set(written.map((operation) => operation.path))].sort(),
         blocked_findings: blocked,
         execution,
+        command_ledger: commandLedger,
         report_paths: reportPaths
     };
-}
-async function runAuthorizedRegression(root) {
-    const test = (await detectProjectCommands(root)).find((command) => command.name === "test");
-    if (test === undefined)
-        return [];
-    const started = Date.now();
-    const startedAt = utcNow();
-    const result = await runFile(test.executable, test.args, root, 10 * 60_000);
-    return [
-        {
-            command: [test.executable, ...test.args],
-            exitCode: result.exitCode,
-            output: `${result.stdout}\n${result.stderr}`.trim(),
-            started_at: startedAt,
-            duration_ms: Date.now() - started
-        }
-    ];
 }
 function hasPreviouslyResolvedSafeFix(report, section) {
     return report.findings.some((finding) => (section === "all" || finding.section === section) &&

@@ -1,3 +1,4 @@
+import type { CommandLedgerRecord } from "./offline-policy.js";
 import { type ExecutionRecord } from "./report.js";
 export type FixRisk = "safe" | "risky";
 export type BlockedFix = {
@@ -39,6 +40,7 @@ export type FixResult = {
     changed_files: string[];
     blocked_findings: BlockedFix[];
     execution: ExecutionRecord[];
+    command_ledger: CommandLedgerRecord[];
     report_paths: string[];
 };
 export declare const FIX_REGISTRY: readonly FixRegistryEntry[];
@@ -55,4 +57,6 @@ export declare function executeFixes(rootInput: string, section: string, options
     safe?: boolean;
     severity?: string;
     allowRun?: boolean;
+    offline?: boolean;
+    forgeOwned?: boolean;
 }): Promise<FixResult>;

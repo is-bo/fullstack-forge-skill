@@ -26,16 +26,16 @@ test("agent-first evals cover automatic proportional and explicit workflows", as
   );
 });
 
-test("canonical skills encode automatic use, proportional execution, and agent findings", async () => {
+test("the concise router owns automatic use while the complete contract stays delegated", async () => {
   const main = await readFile(join(projectRoot, "src", "fullstack-forge", "SKILL.md"), "utf8");
   const router = await readFile(
     join(projectRoot, "src", "fullstack-forge", "commands", "forge", "SKILL.md"),
     "utf8"
   );
-  for (const content of [main, router]) {
-    assert.match(content, /automatically/iu);
-    assert.match(content, /does not need to invoke Forge|does not need to name Forge/iu);
-  }
+  assert.match(router, /automatically/iu);
+  assert.match(router, /does not need to invoke Forge|does not need to name Forge/iu);
+  assert.match(main, /complete operating contract behind the concise automatic `forge` router/iu);
+  assert.match(main, /Do not load both root skills independently/iu);
   assert.match(
     main,
     /UNDERSTAND[\s\S]*DISCOVER[\s\S]*SELECT[\s\S]*PLAN[\s\S]*IMPLEMENT[\s\S]*INSPECT[\s\S]*VERIFY[\s\S]*REPORT/u

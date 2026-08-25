@@ -6,17 +6,22 @@ import {
   assertRegularFile,
   assertSafeRelativePath
 } from "./lib/fs-safety.mjs";
+import { assertDistributionInventory } from "./lib/dist-safety.mjs";
 import { createDeterministicZip } from "./lib/zip.mjs";
 import { assertPublishableArchivePath, packageCommonPaths } from "./lib/package-policy.mjs";
+import { loadPackageOwnership } from "./lib/package-ownership.mjs";
+import { createReleaseBundle } from "./lib/release-bundle.mjs";
 import { platformTargets, projectRoot, sha256 } from "./project.mjs";
 
 const dryRun = process.argv.includes("--dry-run");
+const requireCleanInputs = process.argv.includes("--require-clean-inputs");
 const version = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8")).version;
 const distRoot = join(projectRoot, "dist");
 const ownershipPath = join(distRoot, ".fullstack-forge-dist-manifest.json");
 await assertNoSymlinkPath(projectRoot, distRoot);
 await assertNoSymlinkPath(projectRoot, ownershipPath);
 const common = packageCommonPaths(version);
+const packageOwnership = await loadPackageOwnership(projectRoot);
 const byId = new Map(platformTargets.map((target) => [target.id, target]));
 const archives = [
   {
@@ -42,9 +47,8 @@ const managedEntries = [];
     const managedRoot = join(projectRoot, ".fullstack-forge", relativeRoot);
     await assertNoSymlinkPath(projectRoot, managedRoot);
     for (const file of await walk(managedRoot)) {
-      if (basename(file) === ".fullstack-forge-generated.json") continue;
       const entryPath = relative(projectRoot, file).split(sep).join("/");
-      assertPublishableArchivePath(entryPath, version);
+      assertPublishableArchivePath(entryPath, version, packageOwnership.paths);
       managedEntries.push({ path: entryPath, data: await readFile(file) });
     }
   }
@@ -63,7 +67,7 @@ const outputs = new Map();
 for (const archive of archives) {
   const entries = [];
   for (const path of common) {
-    assertPublishableArchivePath(path, version);
+    assertPublishableArchivePath(path, version, packageOwnership.paths);
     entries.push({ path, data: await readRequired(join(projectRoot, ...path.split("/"))) });
   }
   entries.push(...managedEntries);
@@ -73,34 +77,67 @@ for (const archive of archives) {
     const platformRoot = join(projectRoot, ...platform.path.split("/"));
     await assertNoSymlinkPath(projectRoot, platformRoot);
     for (const file of await walk(platformRoot)) {
-      if (basename(file) === ".fullstack-forge-generated.json") continue;
       const entryPath = relative(projectRoot, file).split(sep).join("/");
-      assertPublishableArchivePath(entryPath, version);
+      assertPublishableArchivePath(entryPath, version, packageOwnership.paths);
       entries.push({ path: entryPath, data: await readFile(file) });
     }
   }
   outputs.set(archive.name, createDeterministicZip(entries));
 }
 
+const archiveOutputs = [...outputs.entries()];
+const releaseBundle = await createReleaseBundle({ projectRoot, version, requireCleanInputs });
+outputs.set(releaseBundle.names.package, releaseBundle.packageBytes);
+outputs.set(releaseBundle.names.sbom, releaseBundle.sbomBytes);
+
 const checksumLines = [...outputs.entries()]
   .sort(([a], [b]) => a.localeCompare(b))
   .map(([name, bytes]) => `${sha256(bytes)}  ${name}`);
 const packageManifest = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   version,
   deterministic: true,
-  timestampPolicy: "ZIP entries use 1980-01-01 00:00:00",
-  archives: Object.fromEntries(
+  source: releaseBundle.sourceIdentity,
+  timestampPolicy:
+    "ZIP entries use 1980-01-01 00:00:00; npm package and SPDX bytes must match two independent deterministic generations",
+  artifacts: Object.fromEntries(
     [...outputs.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, bytes]) => [
+        name,
+        {
+          kind:
+            name === releaseBundle.names.package
+              ? "npm-package"
+              : name === releaseBundle.names.sbom
+                ? "spdx-sbom"
+                : "platform-archive",
+          mediaType:
+            name === releaseBundle.names.package
+              ? "application/gzip"
+              : name === releaseBundle.names.sbom
+                ? "application/spdx+json"
+                : "application/zip",
+          sha256: sha256(bytes),
+          bytes: bytes.length
+        }
+      ])
+  ),
+  archives: Object.fromEntries(
+    archiveOutputs
+      .sort(([a], [b]) => a.localeCompare(b))
       .map(([name, bytes]) => [name, { sha256: sha256(bytes), bytes: bytes.length }])
-  )
+  ),
+  npmPackage: { name: releaseBundle.names.package, ...releaseBundle.packageReport },
+  sbom: { name: releaseBundle.names.sbom, format: "SPDX-2.3" }
 };
 outputs.set("SHA256SUMS.txt", Buffer.from(`${checksumLines.join("\n")}\n`, "utf8"));
 outputs.set("manifest.json", Buffer.from(`${JSON.stringify(packageManifest, null, 2)}\n`, "utf8"));
+await assertExistingDistInventory(previous, outputs);
 
 for (const [name, bytes] of outputs) {
   const path = join(distRoot, name);
+  await assertNoSymlinkPath(projectRoot, path);
   let current;
   try {
     current = await readFile(path);
@@ -149,7 +186,12 @@ const ownership = {
 if (!dryRun) {
   await mkdir(distRoot, { recursive: true });
   for (const item of staleOwned) await unlink(item.path);
-  for (const [name, bytes] of outputs) await writeFile(join(distRoot, name), bytes);
+  for (const [name, bytes] of outputs) {
+    const path = join(distRoot, name);
+    await assertNoSymlinkPath(projectRoot, path);
+    await writeFile(path, bytes);
+  }
+  await assertNoSymlinkPath(projectRoot, ownershipPath);
   await writeFile(ownershipPath, `${JSON.stringify(ownership, null, 2)}\n`, "utf8");
 }
 console.log(
@@ -198,6 +240,15 @@ async function readRequired(path) {
       cause: error
     });
   }
+}
+
+async function assertExistingDistInventory(previous, outputs) {
+  const allowed = new Set([
+    basename(ownershipPath),
+    ...outputs.keys(),
+    ...Object.keys(previous.files ?? {})
+  ]);
+  await assertDistributionInventory(projectRoot, distRoot, allowed);
 }
 
 async function walk(root) {
