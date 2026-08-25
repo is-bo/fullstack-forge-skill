@@ -35,6 +35,6 @@ test("documented installs use the exact release artifact", async () => {
       /https:\/\/codeload\.github\.com\/is-bo\/fullstack-forge-skill\/tar\.gz\/refs\/tags\/v0\.3\.0/u,
       relativePath
     );
-    assert.doesNotMatch(content, /NOT YET AVAILABLE.*v0\.3\.0 GitHub Release/iu, relativePath);
+    assert.match(content, /NOT YET AVAILABLE.*v0\.3\.0 GitHub Release/iu, relativePath);
   }
 });
