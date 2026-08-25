@@ -305,6 +305,9 @@ The current downloadable release is `v0.3.0`. `v0.2.0` and `v0.2.1` remain fetch
 without GitHub Releases; none of those tags will be moved or rewritten. The npm package remains
 unpublished.
 
+This source tree is the `v0.3.0` candidate, and `v0.2.2` remains the current supported immutable
+public release for fallback compatibility.
+
 See [the v0.3.0 migration notes](docs/MIGRATION_v0.3.0.md) when upgrading an existing installation.
 
 ## License
