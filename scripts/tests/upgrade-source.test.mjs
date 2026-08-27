@@ -21,7 +21,7 @@ test("historical upgrade fixtures reject mutable or malformed release references
     assert.throws(() => publicReleaseArchive(tag), /stable semantic version/u);
 });
 
-test("documented candidate installs use the exact future release artifact", async () => {
+test("documented installs use the exact release artifact", async () => {
   const documented = ["README.md", "docs/GETTING_STARTED.md", "docs/MIGRATION_v0.3.0.md"];
   for (const relativePath of documented) {
     const content = await readFile(join(projectRoot, relativePath), "utf8");

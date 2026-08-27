@@ -23,21 +23,35 @@ projects, but you never install, invoke, update, or need to understand any of th
 Requires Node.js 20.19+, 22.13+, or 24+.
 
 Use the newest immutable release shown on the
-[GitHub Releases page](https://github.com/is-bo/fullstack-forge-skill/releases). v0.2.2 is the
-current supported public release:
+[GitHub Releases page](https://github.com/is-bo/fullstack-forge-skill/releases). The direct package
+link for the current `v0.3.0` release is:
+
+<https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz>
 
 ```bash
-npm install --save-dev "https://codeload.github.com/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v0.2.2"
+npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz"
+# NOT YET AVAILABLE until the v0.3.0 GitHub Release is published.
 npx --no-install forge init
 npx --no-install forge doctor
 ```
 
-This source tree is the v0.3.0 candidate. Only after its immutable GitHub Release exists, install
-the exact release package with:
+If your AI agent is doing the setup, send it this one message and the agent can perform the
+download, install, and health check from the exact release URL:
 
 ```bash
-# NOT YET AVAILABLE — use only after the v0.3.0 GitHub Release is observed
+Install Fullstack Forge in this project from this exact verified release:
+https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz
+# NOT YET AVAILABLE until the v0.3.0 GitHub Release is published.
+Use only that URL (do not use a different npm package or an unpinned npx command), install it as a
+development dependency, run `npx --no-install forge init`, then run `npx --no-install forge doctor`.
+Report the installed version and any verification failure.
+```
+
+For an existing installation, update from the same immutable package:
+
+```bash
 npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz"
+# NOT YET AVAILABLE until the v0.3.0 GitHub Release is published.
 npx --no-install forge update all
 npx --no-install forge doctor
 ```
@@ -290,13 +304,14 @@ See [development](docs/DEVELOPMENT.md), [contributing](CONTRIBUTING.md), and
 
 ## Version policy
 
-This source tree is the `v0.3.0` release candidate. `v0.2.2` remains the current supported immutable
-public release until v0.3.0 is published and directly verified. `v0.2.0` and `v0.2.1` remain
-fetchable historical tags without GitHub Releases; none of those tags will be moved or rewritten.
-The npm package remains unpublished.
+The current downloadable release is `v0.3.0`. `v0.2.0` and `v0.2.1` remain fetchable historical tags
+without GitHub Releases; none of those tags will be moved or rewritten. The npm package remains
+unpublished.
 
-Preparing to test the candidate after publication? See
-[the v0.3.0 migration notes](docs/MIGRATION_v0.3.0.md).
+This source tree is the `v0.3.0` candidate, and `v0.2.2` remains the current supported immutable
+public release for fallback compatibility.
+
+See [the v0.3.0 migration notes](docs/MIGRATION_v0.3.0.md) when upgrading an existing installation.
 
 ## License
 

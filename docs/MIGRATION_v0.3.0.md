@@ -1,14 +1,13 @@
 # Migrating to Fullstack Forge v0.3.0
 
 v0.3.0 strengthens automatic, evidence-gated orchestration and adds portable release and Codex
-plugin packaging. v0.2.2 remains the current immutable public release until v0.3.0 is published and
-directly verified.
+plugin packaging. The exact GitHub release package is the supported upgrade path.
 
-After the v0.3.0 GitHub Release is published, upgrade from the exact release package:
+Upgrade from the exact release package:
 
 ```bash
-# NOT YET AVAILABLE — use only after the v0.3.0 GitHub Release is observed
 npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz"
+# NOT YET AVAILABLE until the v0.3.0 GitHub Release is published.
 npx --no-install forge update all
 npx --no-install forge doctor
 ```
