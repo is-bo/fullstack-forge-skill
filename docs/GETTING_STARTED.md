@@ -8,7 +8,9 @@
 
 ## Install in a project
 
-Install the current downloadable `v0.3.0` release from its immutable GitHub asset:
+The `v0.3.0` source candidate is not currently downloadable as a GitHub Release. The commands below
+remain the pinned installation prompt for when that release is available; `v0.2.2` is the current
+supported immutable public release.
 
 ```bash
 npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz"
@@ -23,6 +25,16 @@ You can also ask your AI agent to do this by sending:
 Install Fullstack Forge from this exact release URL:
 https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz
 # NOT YET AVAILABLE until the v0.3.0 GitHub Release is published.
+Install it as a development dependency, run `npx --no-install forge init`, then run
+`npx --no-install forge doctor`. Do not substitute another package or an unpinned npx command.
+Report the installed version and any verification failure.
+```
+
+For a working public release while the v0.3.0 candidate remains unavailable, send this instead:
+
+```text
+Install Fullstack Forge v0.2.2 from this exact public release archive:
+https://codeload.github.com/is-bo/fullstack-forge-skill/tar.gz/refs/tags/v0.2.2
 Install it as a development dependency, run `npx --no-install forge init`, then run
 `npx --no-install forge doctor`. Do not substitute another package or an unpinned npx command.
 Report the installed version and any verification failure.

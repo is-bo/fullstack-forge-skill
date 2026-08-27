@@ -304,12 +304,10 @@ See [development](docs/DEVELOPMENT.md), [contributing](CONTRIBUTING.md), and
 
 ## Version policy
 
-The current downloadable release is `v0.3.0`. `v0.2.0` and `v0.2.1` remain fetchable historical tags
-without GitHub Releases; none of those tags will be moved or rewritten. The npm package remains
-unpublished.
-
-This source tree is the `v0.3.0` candidate, and `v0.2.2` remains the current supported immutable
-public release for fallback compatibility.
+The `v0.3.0` source candidate is not currently downloadable as a GitHub Release. `v0.2.2` remains
+the current supported immutable public release for fallback compatibility. `v0.2.0` and `v0.2.1`
+remain fetchable historical tags without GitHub Releases; none of those tags will be moved or
+rewritten. The npm package remains unpublished.
 
 See [the v0.3.0 migration notes](docs/MIGRATION_v0.3.0.md) when upgrading an existing installation.
 
