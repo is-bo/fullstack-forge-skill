@@ -8,7 +8,7 @@ import {
   packageCommonPaths
 } from "../lib/package-policy.mjs";
 
-const VERSION = "0.3.0";
+const VERSION = "0.3.1";
 const OWNED_PATHS = new Set([
   ".agents/skills/fullstack-forge/SKILL.md",
   "skills/fullstack-forge/SKILL.md",

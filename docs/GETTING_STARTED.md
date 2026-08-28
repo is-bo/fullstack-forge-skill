@@ -8,13 +8,13 @@
 
 ## Install in a project
 
-The `v0.3.0` source candidate is not currently downloadable as a GitHub Release. The commands below
+The `v0.3.1` source candidate is not currently downloadable as a GitHub Release. The commands below
 remain the pinned installation prompt for when that release is available; `v0.2.2` is the current
 supported immutable public release.
 
 ```bash
-npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz"
-# NOT YET AVAILABLE until the v0.3.0 GitHub Release is published.
+npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.1/fullstack-forge-skill-v0.3.1.tgz"
+# NOT YET AVAILABLE until the v0.3.1 GitHub Release is published.
 npx --no-install forge init
 npx --no-install forge doctor
 ```
@@ -23,14 +23,14 @@ You can also ask your AI agent to do this by sending:
 
 ```bash
 Install Fullstack Forge from this exact release URL:
-https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz
-# NOT YET AVAILABLE until the v0.3.0 GitHub Release is published.
+https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.1/fullstack-forge-skill-v0.3.1.tgz
+# NOT YET AVAILABLE until the v0.3.1 GitHub Release is published.
 Install it as a development dependency, run `npx --no-install forge init`, then run
 `npx --no-install forge doctor`. Do not substitute another package or an unpinned npx command.
 Report the installed version and any verification failure.
 ```
 
-For a working public release while the v0.3.0 candidate remains unavailable, send this instead:
+For a working public release while the v0.3.1 candidate remains unavailable, send this instead:
 
 ```text
 Install Fullstack Forge v0.2.2 from this exact public release archive:
@@ -43,8 +43,8 @@ Report the installed version and any verification failure.
 For an existing installation, update using the same exact release package:
 
 ```bash
-npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz"
-# NOT YET AVAILABLE until the v0.3.0 GitHub Release is published.
+npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.1/fullstack-forge-skill-v0.3.1.tgz"
+# NOT YET AVAILABLE until the v0.3.1 GitHub Release is published.
 npx --no-install forge update all
 npx --no-install forge doctor
 ```
@@ -66,7 +66,7 @@ detected hosts are installed together without copying unrelated platform bundles
 
 ## Codex plugin distribution
 
-The repository marketplace entry is version-pinned to `fullstack-forge-skill@0.3.0` and its install
+The repository marketplace entry is version-pinned to `fullstack-forge-skill@0.3.1` and its install
 policy is `NOT_AVAILABLE` because that npm package is not published. Publishing the GitHub Release
 does not publish it. Only after npm publication is independently observed, its artifact is verified,
 and the marketplace policy becomes `AVAILABLE` should you register the marketplace and install the
@@ -97,7 +97,7 @@ codex plugin marketplace remove fullstack-forge
 The plugin manifest points at the package's generated `skills/` thin adapters. Those adapters and
 the generic `.agents/skills/` host adapters both point at the one canonical
 `.fullstack-forge/skills/` playbook tree; no full playbook copy is added. Check
-`npm view fullstack-forge-skill@0.3.0 version` before installing. Until npm publication and catalog
+`npm view fullstack-forge-skill@0.3.1 version` before installing. Until npm publication and catalog
 activation are verified, use the project installation above.
 
 ## Optional external experts
@@ -148,7 +148,7 @@ npx --no-install forge doctor
 npx --no-install forge uninstall all
 ```
 
-After v0.3.0 is published, replace the first command with the exact v0.3.0 release-package command
+After v0.3.1 is published, replace the first command with the exact v0.3.1 release-package command
 shown above.
 
 Updates refuse changed Forge-owned sections and unowned conflicts. Uninstall removes only unchanged

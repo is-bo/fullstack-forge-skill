@@ -8,7 +8,7 @@
       "implementation": ["package.json", "scripts/release-preflight.mjs"],
       "tests": ["scripts/tests/release-safety.test.mjs"],
       "documentation": ["docs/RELEASING.md", "CONTRIBUTING.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -18,7 +18,7 @@
       "implementation": ["package.json", "skill.json"],
       "tests": ["cli/tests/catalog.test.ts"],
       "documentation": ["README.md", "docs/BRAND.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -28,7 +28,7 @@
       "implementation": ["cli/src/cli.ts", "cli/src/inspectors.ts", "cli/src/analyzers.ts"],
       "tests": ["cli/tests/cli.test.ts", "cli/tests/analyzers.test.ts", "cli/tests/evals.test.ts"],
       "documentation": ["docs/ANALYZER_SUPPORT.md", "docs/COVERAGE.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Several audit modules provide a documented inspection procedure with only partial executable analyzer coverage; the executable/partial/none split is published in docs/ANALYZER_SUPPORT.md rather than being claimed as complete automation."
@@ -44,7 +44,7 @@
       ],
       "tests": ["cli/tests/redaction.test.ts", "cli/tests/net-policy.test.ts"],
       "documentation": ["docs/SECURITY_MODEL.md", "SECURITY.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -71,7 +71,7 @@
       ],
       "tests": [],
       "documentation": ["SECURITY.md", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "NOT_VERIFIED",
       "verification_scope": "external",
       "limitations": [
@@ -84,7 +84,7 @@
       "implementation": ["scripts/sync-platform-assets.mjs", "scripts/check-platform-assets.mjs"],
       "tests": ["cli/tests/catalog.test.ts"],
       "documentation": ["research/SOURCES.md", "docs/PLATFORM_SUPPORT.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -109,7 +109,7 @@
         "THIRD_PARTY_NOTICES.md",
         "NOTICE"
       ],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -123,7 +123,7 @@
       ],
       "tests": ["cli/tests/catalog.test.ts", "scripts/tests/zip.test.mjs"],
       "documentation": ["docs/ARCHITECTURE.md", "docs/ADDING_A_PLATFORM.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -145,7 +145,7 @@
         "cli/tests/cli-report-mode.test.ts"
       ],
       "documentation": ["docs/COMMANDS.md", "docs/CLI_REFERENCE.md", "docs/REPORT_SCHEMA.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -159,7 +159,7 @@
       ],
       "tests": ["cli/tests/catalog.test.ts", "cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md", "docs/ADDING_A_MODULE.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -173,7 +173,7 @@
       ],
       "tests": ["cli/tests/discovery.test.ts", "cli/tests/discovery-evidence.test.ts"],
       "documentation": ["docs/ARCHITECTURE.md", "docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": [
         "Runtime topology and middleware-inherited route visibility remain unproven by static discovery and are reported as unknown rather than assumed."
@@ -185,7 +185,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-requirements"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Requirement conformance is a guided manual procedure; no executable analyzer proves domain correctness."
@@ -197,7 +197,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-architecture"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/ARCHITECTURE.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Architecture judgements are procedure-driven; the architecture map records candidate boundaries, not proven runtime calls."
@@ -209,7 +209,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-code", "cli/src/analyzers.ts"],
       "tests": ["cli/tests/analyzers.test.ts"],
       "documentation": ["docs/ANALYZER_SUPPORT.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Analyzer coverage is language- and framework-bounded; unsupported shapes are reported as NOT_VERIFIED instead of PASS."
@@ -238,7 +238,7 @@
         "docs/CLI_REFERENCE.md",
         "research/FRONTEND_UI_UX_SYSTEM.md"
       ],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Rendered inspection requires an application the operator has already started and an explicitly authorised trusted browser driver. Forge never launches an application and never installs browser tooling, so where no driver is available the rendered criteria remain NOT_VERIFIED and the audit exits 2 rather than reporting a pass."
@@ -255,7 +255,7 @@
       ],
       "tests": ["cli/tests/semantics.test.ts", "cli/tests/frontend-routing.test.ts"],
       "documentation": ["docs/COMMANDS.md", "research/FRONTEND_UI_UX_SYSTEM.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Journey evaluation is a guided manual procedure with no executable analyzer."
@@ -267,7 +267,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-accessibility"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Assistive-technology behaviour requires human confirmation and is reported as NOT_VERIFIED when unavailable."
@@ -279,7 +279,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-i18n"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Translation completeness depends on project-specific catalogues and is not proven automatically."
@@ -291,7 +291,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-seo", "cli/src/gates.ts"],
       "tests": ["cli/tests/gate-applicability.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -315,7 +315,7 @@
         "research/FRONTEND_UI_UX_SYSTEM.md",
         "research/SOURCES.md"
       ],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Bundle and runtime measurements require a project build and are otherwise NOT_VERIFIED."
@@ -327,7 +327,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-api", "cli/src/inspectors.ts"],
       "tests": ["cli/tests/route-adapters.test.ts", "cli/tests/adapter-coverage.test.ts"],
       "documentation": ["docs/ANALYZER_SUPPORT.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Route adapters cover a bounded set of frameworks; unsupported registration shapes are declared rather than silently skipped."
@@ -339,7 +339,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-jobs"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Runtime queue behaviour cannot be proven statically and is reported as NOT_VERIFIED."
@@ -351,7 +351,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-integrations", "cli/src/analyzers.ts"],
       "tests": ["cli/tests/analyzers.test.ts"],
       "documentation": ["docs/ANALYZER_SUPPORT.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": ["Provider-side controls are outside the repository and remain NOT_VERIFIED."]
     },
@@ -361,7 +361,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-auth", "cli/src/analyzers.ts"],
       "tests": ["cli/tests/analyzers.test.ts", "cli/tests/evals.test.ts"],
       "documentation": ["docs/ANALYZER_SUPPORT.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Provider-hosted authentication configuration cannot be proven from source and stays NOT_VERIFIED."
@@ -376,7 +376,7 @@
       ],
       "tests": ["cli/tests/analyzers.test.ts", "cli/tests/gates.test.ts"],
       "documentation": ["docs/ANALYZER_SUPPORT.md", "docs/FINDING_SCHEMA.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Middleware-inherited guards are not resolved statically; affected routes stay unknown rather than passing."
@@ -397,7 +397,7 @@
         "cli/tests/security-proof.test.ts"
       ],
       "documentation": ["docs/SECURITY_MODEL.md", "docs/ANALYZER_SUPPORT.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Static analysis covers a declared rule set with declared unsupported shapes, published in docs/ANALYZER_SUPPORT.md. Protection is credited only from analysed structure: a constant-returning address guard, and a guard imported from another module, are recorded as unverified rather than credited, which under-credits genuine mitigations by design."
@@ -409,7 +409,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-uploads", "cli/src/analyzers.ts"],
       "tests": ["cli/tests/analyzers.test.ts", "cli/tests/evals.test.ts"],
       "documentation": ["docs/ANALYZER_SUPPORT.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Scanner and storage-provider behaviour is external and reported as NOT_VERIFIED unless directly evidenced."
@@ -421,7 +421,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-privacy"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Purpose and lawful basis are organizational facts that cannot be derived from source."
@@ -433,7 +433,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-tenancy", "cli/src/analyzers.ts"],
       "tests": ["cli/tests/analyzers.test.ts", "cli/tests/evals.test.ts"],
       "documentation": ["docs/ANALYZER_SUPPORT.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Runtime tenant propagation is not proven statically; isolation stays NOT_VERIFIED without executed tests."
@@ -445,7 +445,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-database", "cli/src/inspectors.ts"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/ANALYZER_SUPPORT.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Applied production schema state is not readable from the repository and stays NOT_VERIFIED."
@@ -457,7 +457,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-queries", "cli/src/analyzers.ts"],
       "tests": ["cli/tests/analyzers.test.ts", "cli/tests/evals.test.ts"],
       "documentation": ["docs/ANALYZER_SUPPORT.md", "docs/SECURITY_MODEL.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Plan analysis requires an operator-provided non-production database and is otherwise NOT_VERIFIED."
@@ -469,7 +469,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-cache", "cli/src/analyzers.ts"],
       "tests": ["cli/tests/analyzers.test.ts", "cli/tests/evals.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -479,7 +479,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-storage"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Bucket-side policy is provider state and stays NOT_VERIFIED without operator evidence."
@@ -491,7 +491,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-testing", "scripts/run-coverage.mjs"],
       "tests": ["scripts/tests/coverage.test.mjs"],
       "documentation": ["docs/COVERAGE.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -501,7 +501,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-performance"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Field measurements require a running application; unmeasured claims are reported as NOT_VERIFIED."
@@ -513,7 +513,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-scale"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Demand assumptions are operator inputs and cannot be derived from the repository."
@@ -525,7 +525,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-observability"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Dashboard and alert configuration lives in external systems and stays NOT_VERIFIED."
@@ -537,7 +537,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-reliability"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": ["Failure behaviour under real outages cannot be proven statically."]
     },
@@ -547,7 +547,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-recovery", "cli/src/gates.ts"],
       "tests": ["cli/tests/gates.test.ts", "cli/tests/evals.test.ts"],
       "documentation": ["docs/FINDING_SCHEMA.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -557,7 +557,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-deployment", "cli/src/inspectors.ts"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": ["Production deployment configuration is external and stays NOT_VERIFIED."]
     },
@@ -567,7 +567,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-infrastructure"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Live cloud state is not readable from the repository; drift stays NOT_VERIFIED."
@@ -583,7 +583,7 @@
       ],
       "tests": ["scripts/tests/workflow-policy.test.mjs"],
       "documentation": ["docs/SECURITY_MODEL.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -593,7 +593,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-cost"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": ["Billing data is external and cannot be proven from the repository."]
     },
@@ -607,7 +607,7 @@
       ],
       "tests": ["scripts/tests/git-files.test.mjs"],
       "documentation": ["docs/DEVELOPMENT.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -617,7 +617,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-analytics"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": ["Delivered event streams live in external systems and stay NOT_VERIFIED."]
     },
@@ -627,7 +627,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-notifications"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": ["Provider delivery outcomes are external and stay NOT_VERIFIED."]
     },
@@ -637,7 +637,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-ai", "cli/src/analyzers.ts"],
       "tests": ["cli/tests/analyzers.test.ts", "cli/tests/evals.test.ts"],
       "documentation": ["docs/SECURITY_MODEL.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Model-side behaviour and evaluation results are external and stay NOT_VERIFIED."
@@ -649,7 +649,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-payments", "cli/src/analyzers.ts"],
       "tests": ["cli/tests/analyzers.test.ts", "cli/tests/evals.test.ts"],
       "documentation": ["docs/ANALYZER_SUPPORT.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Provider dashboard configuration and settlement data are external and stay NOT_VERIFIED."
@@ -661,7 +661,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-realtime"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": ["Connection-time authorization is not provable from static source alone."]
     },
@@ -671,7 +671,7 @@
       "implementation": ["src/fullstack-forge/commands/forge-offline"],
       "tests": ["cli/tests/semantics.test.ts"],
       "documentation": ["docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": ["Device-side synchronization behaviour requires runtime evidence."]
     },
@@ -685,7 +685,7 @@
       ],
       "tests": ["cli/tests/finding.test.ts", "cli/tests/report.test.ts"],
       "documentation": ["docs/FINDING_SCHEMA.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -698,7 +698,7 @@
       ],
       "tests": ["cli/tests/catalog.test.ts", "cli/tests/semantics.test.ts"],
       "documentation": ["docs/FINDING_SCHEMA.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -708,7 +708,7 @@
       "implementation": ["cli/src/fixes.ts", "src/fullstack-forge/references/SAFE_FIX_POLICY.md"],
       "tests": ["cli/tests/fixes.test.ts"],
       "documentation": ["docs/SECURITY_MODEL.md", "docs/COMMANDS.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -732,7 +732,7 @@
         "cli/tests/cross-feature-v017-v019.test.ts"
       ],
       "documentation": ["docs/COMMANDS.md", "docs/ARCHITECTURE.md", "docs/REPORT_SCHEMA.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -750,7 +750,7 @@
         "cli/tests/support.test.ts"
       ],
       "documentation": ["docs/COMMANDS.md", "docs/RELEASE.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -764,7 +764,7 @@
         "scripts/tests/fs-safety.test.mjs"
       ],
       "documentation": ["docs/CLI_REFERENCE.md", "docs/SECURITY_MODEL.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -774,7 +774,7 @@
       "implementation": ["cli/src/installer.ts", "cli/src/cli.ts", "cli/src/constants.ts"],
       "tests": ["cli/tests/installer.test.ts", "cli/tests/cli.test.ts"],
       "documentation": ["docs/CLI_REFERENCE.md", "README.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -788,7 +788,7 @@
       ],
       "tests": ["cli/tests/catalog.test.ts"],
       "documentation": ["docs/PLATFORM_SUPPORT.md", "docs/ADDING_A_PLATFORM.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -811,7 +811,7 @@
         "scripts/tests/release-bundle.test.mjs"
       ],
       "documentation": ["docs/RELEASING.md", "docs/PLATFORM_SUPPORT.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -826,7 +826,7 @@
       ],
       "tests": ["scripts/tests/codex-plugin.test.mjs"],
       "documentation": ["README.md", "docs/GETTING_STARTED.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "The local plugin package is validated, but its npm-backed marketplace entry is unavailable until a separate npm publication is authorized and directly observed."
@@ -842,7 +842,7 @@
       ],
       "tests": ["cli/tests/catalog.test.ts"],
       "documentation": ["docs/BRAND.md", "docs/IMAGE_GENERATION_BRIEF.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -855,7 +855,7 @@
       ],
       "tests": [],
       "documentation": ["docs/RELEASING.md", "docs/BRAND.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "NOT_VERIFIED",
       "verification_scope": "external",
       "limitations": [
@@ -868,7 +868,7 @@
       "implementation": ["scripts/check-branding.mjs", "scripts/check-links.mjs"],
       "tests": ["scripts/tests/git-files.test.mjs"],
       "documentation": ["docs/BRAND.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "PARTIALLY_COMPLIANT",
       "limitations": [
         "Paths, alternative text, and byte budgets are enforced automatically; how GitHub finally renders the images is observed manually and not asserted in CI."
@@ -880,7 +880,7 @@
       "implementation": ["README.md"],
       "tests": ["scripts/tests/git-files.test.mjs"],
       "documentation": ["docs/COMMANDS.md", "docs/CLI_REFERENCE.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -911,7 +911,7 @@
         "docs/IMAGE_GENERATION_BRIEF.md",
         "CHANGELOG.md"
       ],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -925,7 +925,7 @@
       ],
       "tests": ["cli/tests/simple-cli.test.ts", "cli/tests/cli-simple.test.ts"],
       "documentation": ["README.md", "docs/ARCHITECTURE.md", "docs/ADVANCED_CLI.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": [
         "Host applications choose their own named-skill invocation syntax; the generated skill and CLI mappings are verified, while host UI rendering remains platform-dependent."
@@ -937,7 +937,7 @@
       "implementation": ["cli/src/simple-cli.ts", "cli/src/cli.ts", "cli/src/build.ts"],
       "tests": ["cli/tests/simple-cli.test.ts", "cli/tests/cli-simple.test.ts"],
       "documentation": ["docs/BUILD_YOUR_FIRST_FEATURE.md", "docs/BUILD_MODE.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": [
         "Product questions still require user or agent judgement; framing records intent but is not evidence that the resulting feature is correct."
@@ -949,7 +949,7 @@
       "implementation": ["cli/src/simple-cli.ts", "cli/src/cli.ts", "cli/src/verification.ts"],
       "tests": ["cli/tests/simple-cli.test.ts", "cli/tests/cli-simple.test.ts"],
       "documentation": ["docs/AUDIT_YOUR_APPLICATION.md", "docs/NONTECHNICAL_GUIDE.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": [
         "Ambiguous phrases remain errors rather than guesses; unavailable runtime, provider, production, and host evidence remains NOT_VERIFIED or BLOCKED."
@@ -961,7 +961,7 @@
       "implementation": ["cli/src/simple-cli.ts", "cli/src/cli.ts"],
       "tests": ["cli/tests/simple-cli.test.ts", "cli/tests/cli-simple.test.ts"],
       "documentation": ["README.md", "docs/GETTING_STARTED.md", "docs/NONTECHNICAL_GUIDE.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": [
         "Terminal interactivity is optional and disabled automatically when standard input or output is not a TTY."
@@ -988,7 +988,7 @@
         "docs/PLATFORM_SUPPORT.md",
         "docs/RELEASE_CHANNEL.md"
       ],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": [
         "Configuration and executable-name hints are recommendations, not proof that a vendor host is installed or running; remote update lookup is a non-passing warning when offline or unavailable."
@@ -1000,7 +1000,7 @@
       "implementation": ["examples/quickstart-demo"],
       "tests": ["cli/tests/cli-simple.test.ts"],
       "documentation": ["examples/quickstart-demo/README.md", "docs/GETTING_STARTED.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": [
         "The demo intentionally cannot supply remote CI, deployment, provider, or production evidence, so Ship is expected to remain incomplete."
@@ -1017,7 +1017,7 @@
       ],
       "tests": ["cli/tests/build.test.ts", "cli/tests/build-state.test.ts"],
       "documentation": ["docs/BUILD_MODE.md", "docs/CLI_REFERENCE.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": [
         "Frame and plan record user or agent inputs; the CLI validates structure and later evidence but cannot grade the quality of product reasoning."
@@ -1037,7 +1037,7 @@
         "cli/tests/build-state.test.ts"
       ],
       "documentation": ["docs/BUILD_MODE.md", "docs/SECURITY_MODEL.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": [
         "The envelope is a local integrity and freshness record rather than an externally signed attestation."
@@ -1057,7 +1057,7 @@
         "cli/tests/build.test.ts"
       ],
       "documentation": ["docs/BUILD_MODE.md", "docs/ARCHITECTURE.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": [
         "Unknown capabilities stay unresolved; static applicability cannot infer provider or production state."
@@ -1069,7 +1069,7 @@
       "implementation": ["cli/src/build-runtime.ts", "cli/src/build-gates.ts", "cli/src/build.ts"],
       "tests": ["cli/tests/build-runtime.test.ts", "cli/tests/build.test.ts"],
       "documentation": ["docs/BUILD_MODE.md", "docs/SECURITY_MODEL.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": [
         "Real browser, assistive-technology, provider, and human design evidence still requires the corresponding environment or reviewer."
@@ -1080,8 +1080,8 @@
       "summary": "Legacy v0.2 Build state is upgraded only by an explicit prevalidated, hash-bound, journaled, atomic, resumable, and rollback-capable schema migration that never promotes legacy positive claims.",
       "implementation": ["cli/src/build-migration.ts", "cli/src/build-state.ts"],
       "tests": ["cli/tests/build-migration.test.ts"],
-      "documentation": ["docs/BUILD_MODE.md", "docs/RELEASE_NOTES_v0.3.0.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "documentation": ["docs/BUILD_MODE.md", "docs/RELEASE_NOTES_v0.3.1.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": [
         "Migration is intentionally operator-triggered and refuses mixed, malformed, changed, or unsafe state instead of guessing."
@@ -1093,7 +1093,7 @@
       "implementation": ["cli/src/gates.ts", "cli/src/evidence-envelope.ts"],
       "tests": ["cli/tests/gates.test.ts", "cli/tests/ship-rederivation.test.ts"],
       "documentation": ["docs/COMMANDS.md", "docs/SECURITY_MODEL.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": [
         "Remote CI, registry, hosting, provider, production, provenance, and immutable-release state require separate direct evidence."
@@ -1118,7 +1118,7 @@
         "scripts/tests/fixture-manifests.test.mjs"
       ],
       "documentation": ["fixtures/README.md", "evals/README.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -1137,7 +1137,7 @@
         "scripts/tests/zip.test.mjs"
       ],
       "documentation": ["docs/COVERAGE.md", "docs/DEVELOPMENT.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -1152,7 +1152,7 @@
       ],
       "tests": ["scripts/tests/workflow-policy.test.mjs"],
       "documentation": ["docs/DEVELOPMENT.md", "docs/RELEASING.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -1173,7 +1173,7 @@
         "scripts/tests/fs-safety.test.mjs"
       ],
       "documentation": ["docs/SECURITY_MODEL.md", "SECURITY.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -1196,7 +1196,7 @@
         "scripts/tests/smoke-install.test.mjs"
       ],
       "documentation": ["docs/RELEASING.md", "docs/RELEASE.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "COMPLIANT",
       "limitations": []
     },
@@ -1213,12 +1213,12 @@
         "scripts/tests/release-safety.test.mjs",
         "scripts/tests/required-workflows.test.mjs"
       ],
-      "documentation": ["docs/RELEASING.md", "docs/RELEASE_NOTES_v0.3.0.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "documentation": ["docs/RELEASING.md", "docs/RELEASE_NOTES_v0.3.1.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "NOT_VERIFIED",
       "verification_scope": "external",
       "limitations": [
-        "v0.3.0 remote CI, publication, immutable assets, and downloaded-byte evidence are pending; npm publication is separate, unconfigured, and unavailable."
+        "v0.3.1 remote CI, publication, immutable assets, and downloaded-byte evidence are pending; npm publication is separate, unconfigured, and unavailable."
       ]
     },
     {
@@ -1227,11 +1227,11 @@
       "implementation": ["scripts/smoke-install.mjs", "scripts/offline-install.mjs"],
       "tests": ["scripts/tests/smoke-install.test.mjs"],
       "documentation": ["docs/RELEASING.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "NOT_VERIFIED",
       "verification_scope": "external",
       "limitations": [
-        "The v0.3.0 release is not published, so installation from its remote immutable artifacts cannot yet be exercised or recorded."
+        "The v0.3.1 release is not published, so installation from its remote immutable artifacts cannot yet be exercised or recorded."
       ]
     },
     {
@@ -1242,12 +1242,12 @@
         "scripts/validate-release-docs.mjs"
       ],
       "tests": ["scripts/tests/release-safety.test.mjs"],
-      "documentation": ["docs/RELEASE.md", "docs/RELEASE_NOTES_v0.3.0.md"],
-      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.0.md"],
+      "documentation": ["docs/RELEASE.md", "docs/RELEASE_NOTES_v0.3.1.md"],
+      "release_verification": ["docs/RELEASE_VERIFICATION_v0.3.1.md"],
       "status": "NOT_VERIFIED",
       "verification_scope": "external",
       "limitations": [
-        "The final v0.3.0 closing record depends on remote workflow, release, asset, and attestation evidence that does not yet exist."
+        "The final v0.3.1 closing record depends on remote workflow, release, asset, and attestation evidence that does not yet exist."
       ]
     }
   ]

@@ -24,7 +24,7 @@ Codex plugin packaging is separate from project installation. `.codex-plugin/plu
 the package-local `skills/` root generated for the plugin; those are thin adapters only. The
 canonical playbooks remain once under `.fullstack-forge/skills/`, while `.agents/skills/` remains
 the generic project-host adapter root. `forge init` does not install the package-local plugin root
-into an application. The v0.3.0 repo marketplace remains `NOT_AVAILABLE` until its pinned npm
+into an application. The v0.3.1 repo marketplace remains `NOT_AVAILABLE` until its pinned npm
 artifact is published and independently verified; the project-install path above is available in the
 meantime.
 

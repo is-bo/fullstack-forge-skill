@@ -2,12 +2,13 @@
 
 The public update channel is GitHub Releases, not Git tags. `v0.2.0` and `v0.2.1` are tagged but
 unpublished historical states and must never be moved, deleted, or republished. `v0.2.2` is the
-current immutable public release and must not be moved, replaced, or republished. `v0.3.0` is the
+current immutable public release and must not be moved, replaced, or republished. `v0.3.1` is the
 current candidate and is not public until its GitHub Release and downloaded evidence are directly
 observed. Keep every historical version-stamped note and verification record intact; new evidence
-belongs in new v0.3.0 files. npm registry publication remains unconfigured.
+belongs in new v0.3.1 files. The `v0.3.0` tag remains historical and must not be moved or reused.
+npm registry publication remains unconfigured.
 
-`fullstack-forge-skill@0.3.0` is unpublished; any future registry publication remains `NOT_VERIFIED`
+`fullstack-forge-skill@0.3.1` is unpublished; any future registry publication remains `NOT_VERIFIED`
 until independently observed.
 
 ## Candidate gate

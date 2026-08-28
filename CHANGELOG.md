@@ -4,6 +4,16 @@ All notable supported changes are documented here.
 
 ## [Unreleased]
 
+## [0.3.1] - Candidate
+
+- Carries the validated v0.3.0 functionality forward under a fresh immutable release identity so
+  GitHub can publish a new downloadable release without moving or reusing the historical v0.3.0 tag.
+- Updates the exact package URL, plugin metadata, migration guidance, release evidence, and package
+  version consistently to v0.3.1.
+
+Remote publication evidence remains pending until the v0.3.1 release workflow succeeds. v0.2.2
+remains the current immutable public release, and the npm package remains unpublished.
+
 ## [0.3.0] - Candidate
 
 - Tightened automatic discovery and changed-scope selection so only affirmative, path-relevant
@@ -141,7 +151,8 @@ pending and must not be inferred from this candidate source.
 - Earlier numbered snapshots were rapid development previews. They remain visible in Git history but
   are not supported public releases of the agent-first product.
 
-[Unreleased]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/is-bo/fullstack-forge-skill/compare/v0.2.0...v0.2.1

@@ -9,7 +9,7 @@
       "source": {
         "source": "npm",
         "package": "fullstack-forge-skill",
-        "version": "0.3.0"
+        "version": "0.3.1"
       },
       "policy": {
         "installation": "NOT_AVAILABLE",

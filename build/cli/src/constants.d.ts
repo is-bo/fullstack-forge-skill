@@ -1,4 +1,4 @@
-export declare const VERSION = "0.3.0";
+export declare const VERSION = "0.3.1";
 export declare const PACKAGE_ROOT: string;
 export declare const MODULE_SLUGS: readonly ["discover", "requirements", "architecture", "code", "ui", "ux", "accessibility", "i18n", "seo", "frontend", "api", "jobs", "integrations", "auth", "authorization", "security", "privacy", "tenancy", "uploads", "database", "queries", "cache", "storage", "testing", "performance", "scale", "observability", "reliability", "recovery", "deployment", "infrastructure", "supply-chain", "cost", "docs", "analytics", "notifications", "ai", "payments", "realtime", "offline", "all", "ship"];
 export type ModuleSlug = (typeof MODULE_SLUGS)[number];

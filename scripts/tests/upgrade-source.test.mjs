@@ -22,19 +22,19 @@ test("historical upgrade fixtures reject mutable or malformed release references
 });
 
 test("documented installs use the exact release artifact", async () => {
-  const documented = ["README.md", "docs/GETTING_STARTED.md", "docs/MIGRATION_v0.3.0.md"];
+  const documented = ["README.md", "docs/GETTING_STARTED.md", "docs/MIGRATION_v0.3.1.md"];
   for (const relativePath of documented) {
     const content = await readFile(join(projectRoot, relativePath), "utf8");
     assert.match(
       content,
-      /https:\/\/github\.com\/is-bo\/fullstack-forge-skill\/releases\/download\/v0\.3\.0\/fullstack-forge-skill-v0\.3\.0\.tgz/u,
+      /https:\/\/github\.com\/is-bo\/fullstack-forge-skill\/releases\/download\/v0\.3\.1\/fullstack-forge-skill-v0\.3\.1\.tgz/u,
       relativePath
     );
     assert.doesNotMatch(
       content,
-      /https:\/\/codeload\.github\.com\/is-bo\/fullstack-forge-skill\/tar\.gz\/refs\/tags\/v0\.3\.0/u,
+      /https:\/\/codeload\.github\.com\/is-bo\/fullstack-forge-skill\/tar\.gz\/refs\/tags\/v0\.3\.1/u,
       relativePath
     );
-    assert.match(content, /NOT YET AVAILABLE.*v0\.3\.0 GitHub Release/iu, relativePath);
+    assert.match(content, /NOT YET AVAILABLE.*v0\.3\.1 GitHub Release/iu, relativePath);
   }
 });
