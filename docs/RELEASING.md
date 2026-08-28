@@ -1,9 +1,9 @@
 # Maintainer release guide
 
-See [RELEASE.md](RELEASE.md) for the authoritative `v0.3.0` candidate and publication sequence.
+See [RELEASE.md](RELEASE.md) for the authoritative `v0.3.1` candidate and publication sequence.
 
 The short rule is: focused tests first, complete local validation once near the end, clean Ship
-gate, remote CI, explicit release/tag/attestation inventory, an annotated v0.3.0 tag, immutable
+gate, remote CI, explicit release/tag/attestation inventory, an annotated v0.3.1 tag, immutable
 release assets, then downloaded-byte verification. The former v0.2.0 draft is already absent, the
 v0.2.1 workflow failed before creating a draft, and v0.2.2 is already an immutable public release.
 Do not create or recreate releases for v0.2.0 or v0.2.1, and never replace v0.2.2. Never move or

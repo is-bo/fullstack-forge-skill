@@ -24,13 +24,13 @@ Requires Node.js 20.19+, 22.13+, or 24+.
 
 Use the newest immutable release shown on the
 [GitHub Releases page](https://github.com/is-bo/fullstack-forge-skill/releases). The direct package
-link for the current `v0.3.0` release is:
+link for the `v0.3.1` candidate release is:
 
-<https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz>
+<https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.1/fullstack-forge-skill-v0.3.1.tgz>
 
 ```bash
-npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz"
-# NOT YET AVAILABLE until the v0.3.0 GitHub Release is published.
+npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.1/fullstack-forge-skill-v0.3.1.tgz"
+# NOT YET AVAILABLE until the v0.3.1 GitHub Release is published.
 npx --no-install forge init
 npx --no-install forge doctor
 ```
@@ -40,8 +40,8 @@ download, install, and health check from the exact release URL:
 
 ```bash
 Install Fullstack Forge in this project from this exact verified release:
-https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz
-# NOT YET AVAILABLE until the v0.3.0 GitHub Release is published.
+https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.1/fullstack-forge-skill-v0.3.1.tgz
+# NOT YET AVAILABLE until the v0.3.1 GitHub Release is published.
 Use only that URL (do not use a different npm package or an unpinned npx command), install it as a
 development dependency, run `npx --no-install forge init`, then run `npx --no-install forge doctor`.
 Report the installed version and any verification failure.
@@ -50,8 +50,8 @@ Report the installed version and any verification failure.
 For an existing installation, update from the same immutable package:
 
 ```bash
-npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.0/fullstack-forge-skill-v0.3.0.tgz"
-# NOT YET AVAILABLE until the v0.3.0 GitHub Release is published.
+npm install --save-dev "https://github.com/is-bo/fullstack-forge-skill/releases/download/v0.3.1/fullstack-forge-skill-v0.3.1.tgz"
+# NOT YET AVAILABLE until the v0.3.1 GitHub Release is published.
 npx --no-install forge update all
 npx --no-install forge doctor
 ```
@@ -96,9 +96,9 @@ To uninstall the plugin, run `codex plugin remove fullstack-forge@fullstack-forg
 marketplace separately with `codex plugin marketplace remove fullstack-forge` only when you no
 longer want that catalog configured.
 
-The checked-in v0.3.0 marketplace entry is intentionally version-pinned and disabled because the npm
+The checked-in v0.3.1 marketplace entry is intentionally version-pinned and disabled because the npm
 package is not published. A GitHub Release does not publish it to npm. Verify
-`npm view fullstack-forge-skill@0.3.0 version` before attempting plugin installation; until that
+`npm view fullstack-forge-skill@0.3.1 version` before attempting plugin installation; until that
 separate publication and the `AVAILABLE` policy are both observed, use the project installation
 above.
 
@@ -304,12 +304,12 @@ See [development](docs/DEVELOPMENT.md), [contributing](CONTRIBUTING.md), and
 
 ## Version policy
 
-The `v0.3.0` source candidate is not currently downloadable as a GitHub Release. `v0.2.2` remains
+The `v0.3.1` source candidate is not currently downloadable as a GitHub Release. `v0.2.2` remains
 the current supported immutable public release for fallback compatibility. `v0.2.0` and `v0.2.1`
 remain fetchable historical tags without GitHub Releases; none of those tags will be moved or
 rewritten. The npm package remains unpublished.
 
-See [the v0.3.0 migration notes](docs/MIGRATION_v0.3.0.md) when upgrading an existing installation.
+See [the v0.3.1 migration notes](docs/MIGRATION_v0.3.1.md) when upgrading an existing installation.
 
 ## License
 

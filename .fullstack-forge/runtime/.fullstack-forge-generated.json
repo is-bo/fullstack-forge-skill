@@ -10,7 +10,7 @@
     "cli/src/composition-entry.js": "11d22eedf1b7877d363a8ddbf2e5c6a8fce6289337232afacf5c93e1822f2b25",
     "cli/src/composition-runtime.js": "868f40e651ee80cff56665ff7259f7a7104682ba6563c818d574fbccd907291a",
     "cli/src/composition.js": "c928da040ddc8d14f08c7089cd0e913718f30d2f18cb12a8f868fb0a3a9d5079",
-    "cli/src/constants.js": "ecce0f65418ac22370994dde223da21c3a20a2a799569c129c429380ec04cdfa",
+    "cli/src/constants.js": "de078a4e852efb91273037e525f3175b3f4cc36a33278fe09514421d00fcc715",
     "cli/src/dependency-expansion.js": "be0deb09475394a50c7e1c922c9b7c1e8a07d78d6369f396e68723cfa3c86b10",
     "cli/src/discovery-evidence.js": "4aaf2db4877176133790ccf62eb5d7d247d03c60b417e9844192b0e365fa93b1",
     "cli/src/discovery.js": "146f33ac071284f9ebccd2423ad97f8fa0b4729eb3f65c3cb7e6b260e4608cf8",

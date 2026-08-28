@@ -9,7 +9,7 @@ import {
   scopedUpgradeIdentity
 } from "../upgrade-install.mjs";
 
-const version = "0.3.0";
+const version = "0.3.1";
 const packageInput = `dist/fullstack-forge-skill-v${version}.tgz`;
 
 test("upgrade smoke accepts the same explicit candidate for v0.1.0 and v0.2.2", () => {
@@ -70,7 +70,7 @@ test("upgrade smoke resolves only the exact in-root regular release package", as
 
     assert.equal(await resolveCandidateArchive(root, packageInput, version), expected);
     await assert.rejects(
-      resolveCandidateArchive(root, "../fullstack-forge-skill-v0.3.0.tgz", version),
+      resolveCandidateArchive(root, "../fullstack-forge-skill-v0.3.1.tgz", version),
       /exact in-root release artifact/u
     );
     await assert.rejects(
